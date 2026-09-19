@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { CheckCircle, MapPin, School, AlertCircle, Calendar, ChevronDown, BookOpen, Lock } from 'lucide-react'
+import { CheckCircle, MapPin, School, AlertCircle, Calendar, ChevronDown, BookOpen } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 
@@ -23,17 +23,6 @@ interface JurnalStatusGridProps {
 
 export function JurnalStatusGrid({ blocks, currentWeekNumber, onBlockClick, isAdminPreview }: JurnalStatusGridProps) {
   const [expandedWeek, setExpandedWeek] = useState<number | null>(currentWeekNumber)
-
-  // Identify unlocked blocks - a block is unlocked if it's the first one, if previous block completed, or in preview/admin
-  const unlockedBlocks = new Set<string>()
-  if (blocks.length > 0) {
-    unlockedBlocks.add(blocks[0].block_code)
-    for (let i = 1; i < blocks.length; i++) {
-      if (blocks[i - 1].is_completed || isAdminPreview || (blocks[i].week_number > 10 && currentWeekNumber >= 11)) {
-        unlockedBlocks.add(blocks[i].block_code)
-      }
-    }
-  }
 
   // Group blocks by week_number
   const blocksByWeek = new Map<number, JurnalBlock[]>()
@@ -131,20 +120,15 @@ export function JurnalStatusGrid({ blocks, currentWeekNumber, onBlockClick, isAd
               {isExpanded && (
                 <div className="grid grid-cols-4 gap-2 px-1 animate-fadeInDown">
                   {weekBlocks.map(block => {
-                    const isUnlocked = unlockedBlocks.has(block.block_code) || isAdminPreview
-                    
                     return (
                       <button
                         key={block.block_code}
-                        disabled={!isUnlocked}
                         onClick={() => onBlockClick(block.block_code, weekNum)}
                         className={cn(
-                          "flex flex-col items-center justify-center p-2 rounded-xl border-2 transition-all duration-300 min-h-[58px] relative",
+                          "flex flex-col items-center justify-center p-2 rounded-xl border-2 transition-all duration-300 min-h-[58px] relative active:scale-95",
                           block.is_completed
                             ? "bg-green-50 border-green-200 text-green-700"
-                            : !isUnlocked
-                              ? "bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed opacity-60"
-                              : "bg-white border-green-100 text-gray-700 hover:border-green-500 hover:bg-green-50 shadow-sm"
+                            : "bg-white border-green-100 text-gray-700 hover:border-green-500 hover:bg-green-50 shadow-sm"
                         )}
                       >
                         <span className="text-[10px] font-black tracking-tight leading-tight">{weekNum > 10 ? (block as any).part : block.block_code}</span>
@@ -157,8 +141,6 @@ export function JurnalStatusGrid({ blocks, currentWeekNumber, onBlockClick, isAd
                         
                         {block.is_completed ? (
                           <CheckCircle className="w-3 h-3 mt-1 text-green-600" />
-                        ) : !isUnlocked ? (
-                          <Lock className="w-3 h-3 mt-1 text-gray-300" />
                         ) : (
                           <div className="w-3 h-3 mt-1 border-2 border-green-200 rounded-full" />
                         )}
@@ -175,8 +157,7 @@ export function JurnalStatusGrid({ blocks, currentWeekNumber, onBlockClick, isAd
       {/* Simple Legend */}
       <div className="flex justify-center gap-4 pt-4 text-[8px] font-black text-gray-600 uppercase tracking-tighter">
          <div className="flex items-center gap-1"><div className="w-2 h-2 rounded bg-green-500" /><span>Selesai</span></div>
-         <div className="flex items-center gap-1"><div className="w-2 h-2 rounded bg-green-100 border border-green-200" /><span>Sedang Jalan</span></div>
-         <div className="flex items-center gap-1"><div className="w-[10px] h-[10px] flex items-center justify-center"><Lock className="w-2 h-2" /></div><span>Terkunci</span></div>
+         <div className="flex items-center gap-1"><div className="w-2 h-2 rounded bg-white border-2 border-green-200" /><span>Belum Diisi</span></div>
       </div>
     </div>
   )
