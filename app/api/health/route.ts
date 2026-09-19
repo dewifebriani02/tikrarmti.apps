@@ -1,5 +1,4 @@
 import { ApiResponses, HTTP_STATUS } from '@/lib/api-responses'
-import { createSupabaseAdmin } from '@/lib/supabase'
 
 /**
  * Health Check Endpoint
@@ -10,19 +9,10 @@ import { createSupabaseAdmin } from '@/lib/supabase'
 export async function GET() {
   try {
     const startTime = Date.now()
-    const supabase = createSupabaseAdmin()
-
-    // Check Supabase connection
-    const { error } = await supabase
-      .from('users')
-      .select('count')
-      .limit(1)
+    const { queryOne } = await import('@/lib/db')
+    await queryOne('SELECT 1 as health')
 
     const responseTime = Date.now() - startTime
-
-    if (error) {
-      return ApiResponses.serverError('Database connection failed')
-    }
 
     return ApiResponses.success({
       status: 'ok',
