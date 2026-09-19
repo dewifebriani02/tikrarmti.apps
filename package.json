@@ -14,6 +14,7 @@
     "debug:jurnal": "npx tsx scripts/quick-check-jurnal.ts",
     "test:block-mapping": "npx tsx scripts/test-block-mapping.ts",
     "backup": "npx tsx scripts/backup-full-database.ts",
+    "deploy": "bash scripts/deploy-vps.sh",
     "deploy:vps": "bash scripts/deploy-vps.sh",
     "gen-types": "npx supabase gen types typescript --project-id nmbvklixthlqtkkgqnjl > types/supabase.ts"
   },
