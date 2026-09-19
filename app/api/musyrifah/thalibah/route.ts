@@ -34,7 +34,7 @@ export async function GET() {
         ) as tikrar_registrations
       FROM daftar_ulang_submissions dus
       JOIN users u ON u.id = dus.user_id
-      LEFT JOIN halaqah_students hs ON hs.user_id = u.id
+      LEFT JOIN halaqah_students hs ON hs.thalibah_id = u.id
       LEFT JOIN halaqah h ON h.id = hs.halaqah_id
       WHERE dus.status IN ('approved', 'submitted')
       ORDER BY dus.created_at DESC
