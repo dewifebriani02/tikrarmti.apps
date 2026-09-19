@@ -13,46 +13,47 @@ export function useAuth() {
     try {
       console.log('Starting logout process...')
 
-      // Call server API to properly clear cookies
-      // Server-side signOut is required to clear HttpOnly cookies
-      const response = await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
-
-      if (!response.ok) {
-        console.error('Logout API failed:', response.status)
+      // 1. Immediately clean up client storage & cookies
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.clear();
+          sessionStorage.clear();
+          document.cookie.split(";").forEach((c) => {
+            const cleanC = c.replace(/^ +/, "");
+            document.cookie = cleanC.replace(/=.*/, "=;expires=" + new Date(0).toUTCString() + ";path=/");
+            document.cookie = cleanC.replace(/=.*/, "=;expires=" + new Date(0).toUTCString() + ";domain=.markaztikrar.id;path=/");
+            document.cookie = cleanC.replace(/=.*/, "=;expires=" + new Date(0).toUTCString() + ";domain=markaztikrar.id;path=/");
+          });
+        } catch (e) {
+          console.warn('Storage cleanup warning:', e);
+        }
       }
 
-      const result = await response.json()
-      console.log('Logout API response:', result)
+      // 2. Call server API to properly clear HttpOnly cookies
+      try {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+      } catch (err) {
+        console.warn('Logout fetch warning:', err);
+      }
 
-      // Force full page reload to /login with cache busting
-      // This ensures:
-      // 1. All client-side state is cleared
-      // 2. Browser fetches fresh JavaScript (not cached)
-      // 3. Middleware sees cleared cookies
+      // 3. Force full page reload to /login with cache busting
       if (typeof window !== 'undefined') {
-        // Add timestamp to prevent caching
-        const loginUrl = result.redirect || '/login'
-        const cacheBuster = loginUrl.includes('?')
-          ? `&t=${Date.now()}`
-          : `?t=${Date.now()}`
-
-        // Hard redirect to clear all client state and fetch fresh code
-        window.location.href = loginUrl + cacheBuster
+        window.location.replace('/login?t=' + Date.now());
       }
     } catch (error) {
-      console.error('Logout failed:', error)
-      // Still try to redirect even if logout fails
+      console.error('Logout failed:', error);
       if (typeof window !== 'undefined') {
-        window.location.href = '/login?t=' + Date.now()
+        window.location.replace('/login?t=' + Date.now());
       }
     }
   }, [])
+
 
   // Check if user is authenticated (has server data)
   const isAuthenticated = Boolean(serverUserData)

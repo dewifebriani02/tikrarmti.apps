@@ -26,7 +26,7 @@ export function LogoutConfirmModal({
   isLoggingOut
 }: LogoutConfirmModalProps) {
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="sm:max-w-md border-none shadow-2xl rounded-[2rem] overflow-hidden p-0">
         <div className="bg-gradient-to-br from-red-600 to-rose-700 p-5 text-white text-center relative overflow-hidden">
           <div className="absolute top-0 right-0 -mt-8 -mr-8 w-32 h-32 bg-white/10 rounded-full blur-2xl" />

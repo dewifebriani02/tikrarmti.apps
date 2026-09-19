@@ -65,3 +65,16 @@ export async function loginAction(formData: {
     };
   }
 }
+
+export async function logoutAction() {
+  try {
+    const { clearSessionCookie } = await import('@/lib/auth');
+    await clearSessionCookie();
+    revalidatePath('/', 'layout');
+    return { success: true };
+  } catch (error) {
+    console.error('[logoutAction] Error during logout:', error);
+    return { success: false };
+  }
+}
+
