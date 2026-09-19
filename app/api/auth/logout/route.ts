@@ -16,21 +16,19 @@ export async function POST() {
       redirect: '/login'
     });
 
-    // Delete mti_session on response
+    // Delete mti_session on response across all domain scopes
     response.cookies.delete(SESSION_COOKIE_NAME);
-    if (domain) {
-      response.cookies.set(SESSION_COOKIE_NAME, '', { domain, maxAge: 0, path: '/' });
-    }
+    response.cookies.set(SESSION_COOKIE_NAME, '', { maxAge: 0, path: '/' });
+    response.cookies.set(SESSION_COOKIE_NAME, '', { domain: '.markaztikrar.id', maxAge: 0, path: '/' });
+    response.cookies.set(SESSION_COOKIE_NAME, '', { domain: 'markaztikrar.id', maxAge: 0, path: '/' });
 
-    // Also clear any legacy Supabase cookies to keep browser state pristine
+    // Also clear any legacy cookies to keep browser state pristine
     for (const cookie of allCookies) {
       const name = cookie.name;
-      if (name.startsWith('sb-') || name.includes('supabase') || name === SESSION_COOKIE_NAME) {
-        response.cookies.delete(name);
-        if (domain) {
-          response.cookies.set(name, '', { domain, maxAge: 0, path: '/' });
-        }
-      }
+      response.cookies.delete(name);
+      response.cookies.set(name, '', { maxAge: 0, path: '/' });
+      response.cookies.set(name, '', { domain: '.markaztikrar.id', maxAge: 0, path: '/' });
+      response.cookies.set(name, '', { domain: 'markaztikrar.id', maxAge: 0, path: '/' });
     }
 
     return response;

@@ -85,12 +85,57 @@ export function getCookieDomain(): string | undefined {
 }
 
 /**
+ * Clear the session cookie on logout (clears host-only, .markaztikrar.id, and markaztikrar.id variations)
+ */
+export async function clearSessionCookie() {
+  const cookieStore = cookies();
+
+  // 1. Host-only
+  cookieStore.set(SESSION_COOKIE_NAME, '', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 0,
+  });
+
+  // 2. Wildcard domain
+  cookieStore.set(SESSION_COOKIE_NAME, '', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 0,
+    domain: '.markaztikrar.id',
+  });
+
+  // 3. Exact domain
+  cookieStore.set(SESSION_COOKIE_NAME, '', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 0,
+    domain: 'markaztikrar.id',
+  });
+
+  try {
+    cookieStore.delete(SESSION_COOKIE_NAME);
+  } catch (e) {
+    // Ignore in contexts where delete is not supported
+  }
+}
+
+/**
  * Set the authentication session cookie
  */
 export async function setSessionCookie(token: string, rememberMe: boolean = true) {
   const cookieStore = cookies();
   const maxAge = rememberMe ? 60 * 60 * 24 * 365 : 60 * 60 * 24 * 7; // 1 year or 7 days
   const domain = getCookieDomain();
+
+  // Pre-clear all variations to avoid duplicate/stale cookie collision
+  await clearSessionCookie();
 
   cookieStore.set(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
@@ -103,39 +148,37 @@ export async function setSessionCookie(token: string, rememberMe: boolean = true
 }
 
 /**
- * Clear the session cookie on logout
- */
-export async function clearSessionCookie() {
-  const cookieStore = cookies();
-  const domain = getCookieDomain();
-
-  cookieStore.set(SESSION_COOKIE_NAME, '', {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 0,
-    ...(domain ? { domain } : {}),
-  });
-}
-
-/**
  * Get current authenticated user from PostgreSQL database
  */
 export async function getCurrentUser() {
   const cookieStore = cookies();
-  const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
-  if (!token) return null;
+  const allCookies = cookieStore.getAll(SESSION_COOKIE_NAME);
+  if (!allCookies || allCookies.length === 0) return null;
 
-  const payload = await verifySessionToken(token);
-  if (!payload || !payload.sub) return null;
+  // Pick the newest valid token (highest iat) in case browser holds duplicate cookies
+  let latestPayload: UserSessionPayload | null = null;
+  let latestIat = -1;
+
+  for (const c of allCookies) {
+    if (!c.value) continue;
+    const payload = await verifySessionToken(c.value);
+    if (payload && payload.sub) {
+      const iat = Number(payload.iat) || 0;
+      if (iat >= latestIat) {
+        latestIat = iat;
+        latestPayload = payload;
+      }
+    }
+  }
+
+  if (!latestPayload || !latestPayload.sub) return null;
 
   const user = await queryOne(
     `SELECT id, email, full_name, role, roles, avatar_url, is_active, is_blacklisted,
             whatsapp, telegram, negara, provinsi, kota, alamat, zona_waktu,
             tanggal_lahir, tempat_lahir, jenis_kelamin, pekerjaan, alasan_daftar, created_at
      FROM users WHERE id = $1`,
-    [payload.sub]
+    [latestPayload.sub]
   );
 
   if (!user || user.is_active === false || user.is_blacklisted === true) {

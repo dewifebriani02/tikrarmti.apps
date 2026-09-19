@@ -83,17 +83,34 @@ export async function updateSession(request: NextRequest) {
     const host = request.headers.get('host') || '';
     const domain = (host.includes('markaztikrar.id') && !host.includes('localhost')) ? '.markaztikrar.id' : undefined;
 
-    const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
+    const allCookies = request.cookies.getAll(SESSION_COOKIE_NAME);
     const response = NextResponse.next({ request: { headers: request.headers } });
 
-    if (token) {
-      try {
-        const { payload } = await jwtVerify(token, JWT_SECRET);
-        const exp = payload.exp;
+    if (allCookies && allCookies.length > 0) {
+      let latestPayload: any = null;
+      let latestToken = '';
+      let latestIat = -1;
 
+      for (const c of allCookies) {
+        if (!c.value) continue;
+        try {
+          const { payload } = await jwtVerify(c.value, JWT_SECRET);
+          const iat = Number(payload.iat) || 0;
+          if (iat >= latestIat) {
+            latestIat = iat;
+            latestPayload = payload;
+            latestToken = c.value;
+          }
+        } catch (jwtErr) {
+          // Ignore invalid/expired token
+        }
+      }
+
+      if (latestPayload) {
+        const exp = latestPayload.exp;
         // Auto-refresh token if within 3 days of expiration
         if (exp && exp - Math.floor(Date.now() / 1000) < 60 * 60 * 24 * 3) {
-          const freshToken = await new SignJWT(payload)
+          const freshToken = await new SignJWT(latestPayload)
             .setProtectedHeader({ alg: 'HS256' })
             .setIssuedAt()
             .setExpirationTime('365d')
@@ -108,8 +125,6 @@ export async function updateSession(request: NextRequest) {
             ...(domain ? { domain } : {}),
           });
         }
-      } catch (jwtErr) {
-        // Invalid or expired token
       }
     }
 
