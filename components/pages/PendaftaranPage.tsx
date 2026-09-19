@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Pendaftaran, Program, Batch, PendaftaranStatus, User } from '@/types/database';
+import { useAuth } from '@/hooks/useAuth';
 
 interface PendaftaranWithDetails extends Pendaftaran {
   thalibah: User;
@@ -9,6 +10,7 @@ interface PendaftaranWithDetails extends Pendaftaran {
 }
 
 export default function PendaftaranPage() {
+  const { user: authUser } = useAuth();
   const [pendaftaran, setPendaftaran] = useState<PendaftaranWithDetails[]>([]);
   const [programs, setPrograms] = useState<Program[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
@@ -91,10 +93,7 @@ export default function PendaftaranPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      // Get current user ID (you might need to get this from auth context)
-      const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-
-      if (!currentUser.id) {
+      if (!authUser?.id) {
         throw new Error('User not authenticated');
       }
 
@@ -109,7 +108,7 @@ export default function PendaftaranPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          thalibah_id: currentUser.id,
+          thalibah_id: authUser.id,
           program_id: formData.program_id,
           batch_id: selectedProgramData.batch_id,
           notes: formData.notes
@@ -134,7 +133,7 @@ export default function PendaftaranPage() {
 
   const handleApprove = async (id: string) => {
     try {
-      const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+      if (!authUser?.id) throw new Error('User not authenticated');
 
       const response = await fetch(`/api/pendaftaran/${id}/approve`, {
         method: 'POST',
@@ -142,7 +141,7 @@ export default function PendaftaranPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          approved_by: currentUser.id
+          approved_by: authUser.id
         }),
       });
 
@@ -159,7 +158,7 @@ export default function PendaftaranPage() {
 
   const handleReject = async (id: string) => {
     try {
-      const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+      if (!authUser?.id) throw new Error('User not authenticated');
 
       const response = await fetch(`/api/pendaftaran/${id}/reject`, {
         method: 'POST',
@@ -167,7 +166,7 @@ export default function PendaftaranPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          approved_by: currentUser.id
+          approved_by: authUser.id
         }),
       });
 

@@ -42,16 +42,23 @@ export async function hashPassword(plain: string): Promise<string> {
 }
 
 /**
- * Create a signed JWT session token
+ * Create a signed JWT session token with millisecond precision
  */
 export async function createSessionToken(
   payload: UserSessionPayload,
   rememberMe: boolean = true
 ): Promise<string> {
   const maxAge = rememberMe ? '365d' : '7d';
-  return await new SignJWT(payload)
+  const nowMs = Date.now();
+  const tokenPayload = {
+    ...payload,
+    session_id: payload.session_id || crypto.randomUUID(),
+    iat_ms: payload.iat_ms || nowMs,
+  };
+
+  return await new SignJWT(tokenPayload)
     .setProtectedHeader({ alg: 'HS256' })
-    .setIssuedAt()
+    .setIssuedAt(Math.floor(nowMs / 1000))
     .setExpirationTime(maxAge)
     .sign(JWT_SECRET);
 }
@@ -69,60 +76,32 @@ export async function verifySessionToken(token: string): Promise<UserSessionPayl
 }
 
 /**
- * Determine cookie domain (e.g. .markaztikrar.id for production subdomains)
+ * Determine cookie domain.
+ * On single-domain deployments, host-only cookies (undefined domain) are safest and prevent cross-domain collisions.
  */
 export function getCookieDomain(): string | undefined {
-  try {
-    const headersList = headers();
-    const host = headersList.get('host') || '';
-    if (host.includes('markaztikrar.id') && !host.includes('localhost')) {
-      return '.markaztikrar.id';
-    }
-  } catch (e) {
-    // headers() might not be available in all contexts
-  }
   return undefined;
 }
 
 /**
- * Clear the session cookie on logout (clears host-only, .markaztikrar.id, and markaztikrar.id variations)
+ * Clear the session cookie on logout
  */
 export async function clearSessionCookie() {
   const cookieStore = cookies();
 
-  // 1. Host-only
+  // Host-only cookie clearance
   cookieStore.set(SESSION_COOKIE_NAME, '', {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/',
     maxAge: 0,
-  });
-
-  // 2. Wildcard domain
-  cookieStore.set(SESSION_COOKIE_NAME, '', {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 0,
-    domain: '.markaztikrar.id',
-  });
-
-  // 3. Exact domain
-  cookieStore.set(SESSION_COOKIE_NAME, '', {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 0,
-    domain: 'markaztikrar.id',
   });
 
   try {
     cookieStore.delete(SESSION_COOKIE_NAME);
   } catch (e) {
-    // Ignore in contexts where delete is not supported
+    // Ignore
   }
 }
 
@@ -132,10 +111,6 @@ export async function clearSessionCookie() {
 export async function setSessionCookie(token: string, rememberMe: boolean = true) {
   const cookieStore = cookies();
   const maxAge = rememberMe ? 60 * 60 * 24 * 365 : 60 * 60 * 24 * 7; // 1 year or 7 days
-  const domain = getCookieDomain();
-
-  // Pre-clear all variations to avoid duplicate/stale cookie collision
-  await clearSessionCookie();
 
   cookieStore.set(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
@@ -143,7 +118,6 @@ export async function setSessionCookie(token: string, rememberMe: boolean = true
     sameSite: 'lax',
     path: '/',
     maxAge,
-    ...(domain ? { domain } : {}),
   });
 }
 
@@ -155,17 +129,17 @@ export async function getCurrentUser() {
   const allCookies = cookieStore.getAll(SESSION_COOKIE_NAME);
   if (!allCookies || allCookies.length === 0) return null;
 
-  // Pick the newest valid token (highest iat) in case browser holds duplicate cookies
+  // Pick the newest valid token based on iat_ms / iat
   let latestPayload: UserSessionPayload | null = null;
-  let latestIat = -1;
+  let latestTimestamp = -1;
 
   for (const c of allCookies) {
     if (!c.value) continue;
     const payload = await verifySessionToken(c.value);
     if (payload && payload.sub) {
-      const iat = Number(payload.iat) || 0;
-      if (iat >= latestIat) {
-        latestIat = iat;
+      const ts = Number(payload.iat_ms) || (Number(payload.iat) * 1000) || 0;
+      if (ts > latestTimestamp) {
+        latestTimestamp = ts;
         latestPayload = payload;
       }
     }

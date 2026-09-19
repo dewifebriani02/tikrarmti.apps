@@ -80,24 +80,21 @@ export async function updateSession(request: NextRequest) {
       return applySecurityHeaders(res);
     }
 
-    const host = request.headers.get('host') || '';
-    const domain = (host.includes('markaztikrar.id') && !host.includes('localhost')) ? '.markaztikrar.id' : undefined;
-
     const allCookies = request.cookies.getAll(SESSION_COOKIE_NAME);
     const response = NextResponse.next({ request: { headers: request.headers } });
 
     if (allCookies && allCookies.length > 0) {
       let latestPayload: any = null;
       let latestToken = '';
-      let latestIat = -1;
+      let latestTimestamp = -1;
 
       for (const c of allCookies) {
         if (!c.value) continue;
         try {
           const { payload } = await jwtVerify(c.value, JWT_SECRET);
-          const iat = Number(payload.iat) || 0;
-          if (iat >= latestIat) {
-            latestIat = iat;
+          const ts = Number(payload.iat_ms) || (Number(payload.iat) * 1000) || 0;
+          if (ts > latestTimestamp) {
+            latestTimestamp = ts;
             latestPayload = payload;
             latestToken = c.value;
           }
@@ -107,22 +104,16 @@ export async function updateSession(request: NextRequest) {
       }
 
       if (latestPayload) {
-        const exp = latestPayload.exp;
-        // Auto-refresh token if within 3 days of expiration
-        if (exp && exp - Math.floor(Date.now() / 1000) < 60 * 60 * 24 * 3) {
-          const freshToken = await new SignJWT(latestPayload)
-            .setProtectedHeader({ alg: 'HS256' })
-            .setIssuedAt()
-            .setExpirationTime('365d')
-            .sign(JWT_SECRET);
-
-          response.cookies.set(SESSION_COOKIE_NAME, freshToken, {
+        // If the browser sent multiple duplicate cookies, purge the legacy domain versions
+        if (allCookies.length > 1) {
+          response.cookies.set(SESSION_COOKIE_NAME, '', { maxAge: 0, path: '/', domain: '.markaztikrar.id' });
+          response.cookies.set(SESSION_COOKIE_NAME, '', { maxAge: 0, path: '/', domain: 'markaztikrar.id' });
+          response.cookies.set(SESSION_COOKIE_NAME, latestToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',
             path: '/',
             maxAge: 60 * 60 * 24 * 365,
-            ...(domain ? { domain } : {}),
           });
         }
       }

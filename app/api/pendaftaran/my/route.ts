@@ -1,13 +1,12 @@
-import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
-import { createSupabaseAdmin } from '@/lib/supabase';
 import { getAuthorizationContext } from '@/lib/rbac';
 import { ApiResponses } from '@/lib/api-responses';
+import { query } from '@/lib/db';
 
 /**
  * GET /api/pendaftaran/my
  * 
- * Secure substitute for the user's own pendaftaran records with fallback matching.
+ * Direct PostgreSQL query for the user's registration records with fallback matching.
  */
 export async function GET(request: Request) {
   try {
@@ -15,90 +14,75 @@ export async function GET(request: Request) {
     const context = await getAuthorizationContext({ response });
     if (!context) return ApiResponses.unauthorized();
 
-    const { searchParams } = new URL(request.url)
-    const targetUserId = searchParams.get('user_id')
-    const isAdmin = context.roles.includes('admin')
-    const impersonatedUserId = (isAdmin && targetUserId) ? targetUserId : context.userId
+    const { searchParams } = new URL(request.url);
+    const targetUserId = searchParams.get('user_id');
+    const isAdmin = context.roles.includes('admin');
+    const impersonatedUserId = (isAdmin && targetUserId) ? targetUserId : context.userId;
 
-    const supabase = createClient({ response });
-    const supabaseAdmin = createSupabaseAdmin();
+    // 1. Fetch registrations for this user
+    let { rows: tikrarRegistrations } = await query(
+      `SELECT 
+         p.*,
+         row_to_json(b.*) as batch,
+         row_to_json(pr.*) as program
+       FROM pendaftaran_tikrar_tahfidz p
+       LEFT JOIN batches b ON p.batch_id = b.id
+       LEFT JOIN programs pr ON p.program_id = pr.id
+       WHERE p.user_id = $1
+       ORDER BY p.created_at DESC`,
+      [impersonatedUserId]
+    );
 
-    // 1. Try fetching by user_id first
-    const { data: tikrarById, error: errorById } = await supabase
-      .from('pendaftaran_tikrar_tahfidz')
-      .select(`
-        *,
-        program:programs(*),
-        batch:batches(*)
-      `)
-      .eq('user_id', impersonatedUserId)
-      .order('created_at', { ascending: false });
-
-    if (errorById) {
-      console.error('[Pendaftaran My] Error fetching by ID:', errorById);
-    }
-
-    let tikrarRegistrations = tikrarById || [];
-
-    // 2. Fallback matching if no records found by user_id
-    // This is critical for users who registered via older systems or as guests
+    // 2. Fallback matching by email if no registrations found by user_id
     if (tikrarRegistrations.length === 0 && !targetUserId && context.email) {
-      console.log(`[Pendaftaran My] No records for user_id ${impersonatedUserId}. Searching by email fallback: ${context.email}`);
-      
-      // Search by email (case-insensitive) using admin client to bypass RLS
-      const { data: tikrarByEmail, error: fallbackError } = await supabaseAdmin
-        .from('pendaftaran_tikrar_tahfidz')
-        .select(`
-          *,
-          program:programs(*),
-          batch:batches(*)
-        `)
-        .ilike('email', context.email)
-        .order('created_at', { ascending: false });
+      const { rows: fallbackRows } = await query(
+        `SELECT 
+           p.*,
+           row_to_json(b.*) as batch,
+           row_to_json(pr.*) as program
+         FROM pendaftaran_tikrar_tahfidz p
+         LEFT JOIN batches b ON p.batch_id = b.id
+         LEFT JOIN programs pr ON p.program_id = pr.id
+         WHERE LOWER(p.email) = LOWER($1)
+         ORDER BY p.created_at DESC`,
+        [context.email]
+      );
 
-      if (fallbackError) {
-        console.error('[Pendaftaran My] Fallback fetch error:', fallbackError);
-      }
-
-      if (tikrarByEmail && tikrarByEmail.length > 0) {
-        console.log(`[Pendaftaran My] Found ${tikrarByEmail.length} records by email. Auto-healing user_id link...`);
-        tikrarRegistrations = tikrarByEmail;
-        
-        // Auto-heal: Link these registrations to the correct user_id
-        for (const reg of tikrarByEmail) {
+      if (fallbackRows.length > 0) {
+        tikrarRegistrations = fallbackRows;
+        // Auto-heal: update user_id link
+        for (const reg of fallbackRows) {
           if (!reg.user_id || reg.user_id !== context.userId) {
-            await supabaseAdmin
-              .from('pendaftaran_tikrar_tahfidz')
-              .update({ user_id: context.userId })
-              .eq('id', reg.id);
+            await query(
+              `UPDATE pendaftaran_tikrar_tahfidz SET user_id = $1 WHERE id = $2`,
+              [context.userId, reg.id]
+            );
           }
         }
       }
     }
 
-    // 3. Fetch daftar ulang submissions for these registrations
-    const { data: daftarUlangSubmissions, error: daftarUlangError } = await supabase
-      .from('daftar_ulang_submissions')
-      .select(`
-        *,
-        batch:batches(*),
-        ujian_halaqah:halaqah!daftar_ulang_submissions_ujian_halaqah_id_fkey(*),
-        tashih_halaqah:halaqah!daftar_ulang_submissions_tashih_halaqah_id_fkey(*)
-      `)
-      .eq('user_id', impersonatedUserId)
-      .order('created_at', { ascending: false });
-
-    if (daftarUlangError) {
-      console.error('[Pendaftaran My API] Database error (daftar_ulang):', daftarUlangError);
-    }
+    // 3. Fetch daftar ulang submissions for this user
+    const { rows: daftarUlangSubmissions } = await query(
+      `SELECT 
+         du.*,
+         row_to_json(b.*) as batch,
+         row_to_json(th.*) as tashih_halaqah,
+         row_to_json(uh.*) as ujian_halaqah
+       FROM daftar_ulang_submissions du
+       LEFT JOIN batches b ON du.batch_id = b.id
+       LEFT JOIN halaqah th ON du.tashih_halaqah_id = th.id
+       LEFT JOIN halaqah uh ON du.ujian_halaqah_id = uh.id
+       WHERE du.user_id = $1
+       ORDER BY du.created_at DESC`,
+      [impersonatedUserId]
+    );
 
     // 4. Structure final response
-    // We include registrations from both OPEN and CLOSED batches.
-    // 'closed' usually means registration is over but the batch is ACTIVE for ongoing students.
     const allRegistrations = tikrarRegistrations
       .map((reg: any) => {
-        const batch = Array.isArray(reg.batch) ? reg.batch[0] : reg.batch;
-        const daftarUlang = daftarUlangSubmissions?.find(dus => dus.registration_id === reg.id);
+        const batch = reg.batch;
+        const daftarUlang = daftarUlangSubmissions.find((dus: any) => dus.registration_id === reg.id || dus.batch_id === reg.batch_id);
 
         return {
           ...reg,
@@ -111,12 +95,9 @@ export async function GET(request: Request) {
         };
       })
       .filter((reg: any) => {
-        // Only show registrations from active/meaningful batches to the dashboard
-        // We include 'open' (recruiting) and 'closed' (ongoing)
-        return reg.batch?.status === 'open' || reg.batch?.status === 'closed';
+        return !reg.batch || reg.batch.status === 'open' || reg.batch.status === 'closed';
       });
 
-    // 5. Sort by recency
     allRegistrations.sort((a: any, b: any) => {
       const dateA = new Date(a.created_at || a.submission_date || 0);
       const dateB = new Date(b.created_at || b.submission_date || 0);

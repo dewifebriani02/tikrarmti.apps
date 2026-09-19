@@ -140,6 +140,15 @@ function LoginPageContent() {
       setNotificationType('success');
       setShowNotification(true);
 
+      // Cleanse client-side storage from any previous session
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.removeItem('mti_selected_batch_id');
+          localStorage.removeItem('user');
+          sessionStorage.clear();
+        } catch (e) {}
+      }
+
       // Check if there's a redirect URL from middleware
       const redirectUrl = searchParams.get('redirect');
       const targetUrl = redirectUrl && redirectUrl !== '/login' ? redirectUrl : '/dashboard';
