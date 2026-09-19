@@ -189,10 +189,17 @@ export function KurikulumTab({ currentWeek }: KurikulumTabProps = {}) {
            rabthString = '(belum ada)';
         } else if (absoluteIndex === 2) {
            murojaahString = getFormat(1);
-           rabthString = getFormat(1);
+           rabthString = '(belum ada)';
         } else {
            murojaahString = getFormat(absoluteIndex - 1);
-           rabthString = `H1a-${getPartOnly(absoluteIndex - 1, 0)}/H11a-${getPartOnly(absoluteIndex - 1, 10)}`;
+           const rabthEnd = absoluteIndex - 2;
+           const rabthStart = Math.max(1, rabthEnd - 10 + 1);
+
+           if (rabthStart === rabthEnd) {
+             rabthString = getFormat(rabthStart);
+           } else {
+             rabthString = `${getPartOnly(rabthStart, 0)}-${getPartOnly(rabthEnd, 0)}/${getPartOnly(rabthStart, 10)}-${getPartOnly(rabthEnd, 10)}`;
+           }
         }
       } else {
         blockString = '[MURAJAAH/RABTH PEKANAN]';
