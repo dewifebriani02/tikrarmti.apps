@@ -37,12 +37,31 @@ export async function GET(request: Request) {
     const page = Math.max(parseInt(searchParams.get('page') || '1'), 1);
     const limit = Math.max(Math.min(parseInt(searchParams.get('limit') || '1000'), 1000), 1);
     const offset = (page - 1) * limit;
+    const batchId = searchParams.get('batch_id');
+    const status = searchParams.get('status');
+    const selectionStatus = searchParams.get('selection_status');
 
     // 3. Fetch base registrations
     let query = supabaseAdmin
       .from('pendaftaran_tikrar_tahfidz')
-      .select('*, batch:batches(name, min_exam_score)', { count: skipCount ? undefined : 'exact' })
+      .select(`
+        *,
+        user:users!pendaftaran_tikrar_tahfidz_user_id_fkey(*),
+        batch:batches(*),
+        program:programs(*),
+        daftar_ulang_submissions(status)
+      `, { count: skipCount ? undefined : 'exact' })
       .order('submission_date', { ascending: false });
+
+    if (batchId && batchId !== 'all' && batchId !== 'null' && batchId !== 'undefined') {
+      query = query.eq('batch_id', batchId);
+    }
+    if (status && status !== 'all') {
+      query = query.eq('status', status);
+    }
+    if (selectionStatus && selectionStatus !== 'all') {
+      query = query.eq('selection_status', selectionStatus);
+    }
 
     if (!skipCount) {
       query = query.range(offset, offset + limit - 1);
@@ -157,6 +176,28 @@ export async function GET(request: Request) {
           return { ...item, is_duplicate: false };
         });
       }
+    }
+
+    // 7. Detect alumni status
+    const userIds = Array.from(new Set(enrichedData.map((d: any) => d.user_id).filter(Boolean)));
+    if (userIds.length > 0) {
+      let prevQuery = supabaseAdmin
+        .from('pendaftaran_tikrar_tahfidz')
+        .select('user_id')
+        .in('user_id', userIds)
+        .eq('status', 'approved')
+        .eq('selection_status', 'selected');
+
+      if (batchId && batchId !== 'all') {
+        prevQuery = prevQuery.neq('batch_id', batchId);
+      }
+
+      const { data: prevRegs } = await prevQuery;
+      const alumniUserIds = new Set(prevRegs?.map((r: any) => r.user_id) || []);
+      enrichedData = enrichedData.map((item: any) => ({
+        ...item,
+        isAlumni: alumniUserIds.has(item.user_id)
+      }));
     }
 
     return ApiResponses.success({

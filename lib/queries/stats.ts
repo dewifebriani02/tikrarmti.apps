@@ -25,7 +25,7 @@ export interface AdminStats {
  * Cached for 30 seconds since stats change frequently.
  */
 export async function getCachedAdminStats(
-  supabase: unknown
+  supabase: any
 ): Promise<AdminStats> {
   const cached = unstable_cache(
     async () => {
@@ -102,7 +102,7 @@ export async function getCachedAdminStats(
  * Includes data relevant to the specific user (e.g., their registrations).
  */
 export async function getCachedUserStats(
-  supabase: unknown,
+  supabase: any,
   userId: string
 ): Promise<{
   totalRegistrations: number
@@ -145,7 +145,7 @@ export async function getCachedUserStats(
  * Get dashboard statistics for thalibah (cached).
  */
 export async function getCachedThalibahDashboardStats(
-  supabase: unknown,
+  supabase: any,
   userId: string
 ): Promise<{
   activePendaftaran: number

@@ -2,6 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 
+// Helper to parse a JSON-string field to array
+const parseJsonField = (value: any): any[] => {
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+};
+
 // Helper to check admin
 async function isAdmin() {
   const supabase = createServerClient();
@@ -24,13 +38,18 @@ export async function GET() {
     
     if (error) {
       if (error.code === '42P01') {
-        // relation does not exist
         return NextResponse.json({ data: [] });
       }
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
     
-    return NextResponse.json({ data });
+    // `questions` column is stored as text (JSON string) in the DB — parse it
+    const parsed = (data || []).map((row: any) => ({
+      ...row,
+      questions: parseJsonField(row.questions),
+    }));
+    
+    return NextResponse.json({ data: parsed });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -48,12 +67,13 @@ export async function POST(req: NextRequest) {
       category: body.category || 'Kategori Baru',
       icon: body.icon || 'HelpCircle',
       color: body.color || 'gray',
-      questions: body.questions || [],
+      questions: JSON.stringify(body.questions || []),
       sort_order: body.sort_order || 0
     }).select().single();
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ data });
+    
+    return NextResponse.json({ data: { ...data, questions: parseJsonField(data?.questions) } });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -75,7 +95,7 @@ export async function PUT(req: NextRequest) {
           category: item.category,
           icon: item.icon,
           color: item.color,
-          questions: item.questions,
+          questions: typeof item.questions === 'string' ? item.questions : JSON.stringify(item.questions || []),
           sort_order: item.sort_order,
           updated_at: new Date().toISOString()
         };
@@ -88,7 +108,12 @@ export async function PUT(req: NextRequest) {
 
       const { data, error } = await supabaseAdmin.from('faqs').upsert(itemsToUpsert).select();
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-      return NextResponse.json({ success: true, data });
+      
+      const parsedData = (data || []).map((row: any) => ({
+        ...row,
+        questions: parseJsonField(row.questions),
+      }));
+      return NextResponse.json({ success: true, data: parsedData });
     }
 
     const { id, category, icon, color, questions, sort_order } = body;
@@ -96,13 +121,14 @@ export async function PUT(req: NextRequest) {
       category,
       icon,
       color,
-      questions,
+      questions: typeof questions === 'string' ? questions : JSON.stringify(questions || []),
       sort_order,
       updated_at: new Date().toISOString()
     }).eq('id', id).select().single();
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ data });
+    
+    return NextResponse.json({ data: { ...data, questions: parseJsonField(data?.questions) } });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

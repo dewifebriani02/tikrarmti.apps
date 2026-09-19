@@ -74,8 +74,8 @@ export async function GET(request: NextRequest) {
       .eq('status', 'approved')
 
     // Create muallimah map for quick lookup
-    const muallimahMap = new Map(
-      (muallimahRegs || []).map(reg => [reg.user_id, reg])
+    const muallimahMap = new Map<string, any>(
+      (muallimahRegs || []).map((reg: any) => [reg.user_id, reg])
     )
 
     // Fetch all submissions for this batch (only submitted and approved count towards quota)

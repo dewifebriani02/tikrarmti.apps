@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+import { cn, parseAkadFiles } from '@/lib/utils';
 import {
   FileText,
   Download,
@@ -1742,24 +1742,27 @@ export function DaftarUlangTab({ batchId: initialBatchId }: DaftarUlangTabProps)
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      {submission.akad_files && submission.akad_files.length > 0 ? (
-                        <div className="flex flex-col gap-1">
-                          {submission.akad_files.map((file, idx) => (
-                            <a
-                              key={idx}
-                              href={file.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
-                            >
-                              <FileText className="w-3 h-3" />
-                              {file.name}
-                            </a>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-xs text-gray-400">No files</span>
-                      )}
+                      {(() => {
+                        const files = parseAkadFiles(submission.akad_files);
+                        return files.length > 0 ? (
+                          <div className="flex flex-col gap-1">
+                            {files.map((file, idx) => (
+                              <a
+                                key={idx}
+                                href={file.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                              >
+                                <FileText className="w-3 h-3" />
+                                {file.name || `File ${idx + 1}`}
+                              </a>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-400">No files</span>
+                        );
+                      })()}
                     </td>
                     <td className="px-6 py-4">
                       {getStatusBadge(submission.status)}
@@ -1979,28 +1982,31 @@ export function DaftarUlangTab({ batchId: initialBatchId }: DaftarUlangTabProps)
               <div>
                 <h4 className="text-sm font-medium text-gray-500 mb-2">Akad Files</h4>
                 <div className="bg-gray-50 rounded-lg p-4">
-                  {selectedSubmission.akad_files && selectedSubmission.akad_files.length > 0 ? (
-                    <div className="space-y-2">
-                      {selectedSubmission.akad_files.map((file, idx) => (
-                        <a
-                          key={idx}
-                          href={file.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-2 p-2 bg-white rounded border hover:border-blue-300 transition-colors"
-                        >
-                          <FileText className="w-4 h-4 text-blue-600" />
-                          <span className="text-sm flex-1">{file.name}</span>
-                          <Download className="w-4 h-4 text-gray-400" />
-                        </a>
-                      ))}
-                      <p className="text-xs text-gray-500 mt-2">
-                        Submitted: {formatDate(selectedSubmission.akad_submitted_at || '')}
-                      </p>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-gray-400">No files uploaded</p>
-                  )}
+                  {(() => {
+                    const files = parseAkadFiles(selectedSubmission.akad_files);
+                    return files.length > 0 ? (
+                      <div className="space-y-2">
+                        {files.map((file, idx) => (
+                          <a
+                            key={idx}
+                            href={file.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 p-2 bg-white rounded border hover:border-blue-300 transition-colors"
+                          >
+                            <FileText className="w-4 h-4 text-blue-600" />
+                            <span className="text-sm flex-1">{file.name || `File ${idx + 1}`}</span>
+                            <Download className="w-4 h-4 text-gray-400" />
+                          </a>
+                        ))}
+                        <p className="text-xs text-gray-500 mt-2">
+                          Submitted: {formatDate(selectedSubmission.akad_submitted_at || '')}
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-400">No files uploaded</p>
+                    );
+                  })()}
                 </div>
               </div>
 

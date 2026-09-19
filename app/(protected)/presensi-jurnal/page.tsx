@@ -1558,7 +1558,7 @@ function JurnalTabSimple({ entries, currentWeek, onRefresh, onShowRecords, onIss
 
       const toProperCase = (str: string) => {
         if (!str) return '';
-        return str.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
+        return str.toLowerCase().replace(/(^\w|\s\w|-\w|\.\w|,\s*\w)/g, (letter) => letter.toUpperCase());
       };
 
       const namesList = incompleteThalibah.length > 0
@@ -1689,7 +1689,7 @@ Barakallahufiikunna..
 
       const toProperCase = (str: string) => {
         if (!str) return '';
-        return str.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
+        return str.toLowerCase().replace(/(^\w|\s\w|-\w|\.\w|,\s*\w)/g, (letter) => letter.toUpperCase());
       };
 
       const namesList = completeThalibah.length > 0

@@ -41,6 +41,8 @@ interface UpdateHalaqahData {
   program_id?: string
   muallimah_id?: string
   libur_date?: string | null
+  zoom_link?: string | null
+  zoom_link_id?: string | null
 }
 
 interface AssignThalibahParams {
@@ -705,7 +707,7 @@ export async function autoCreateSimpleHalaqah(params: AutoCreateSimpleParams) {
       .eq('batch_id', batch_id)
 
     const programsMap: Record<string, any> = {}
-    programsList?.forEach(p => {
+    programsList?.forEach((p: any) => {
       const pName = p.name.toLowerCase()
       if (pName.includes('tahfidz tikrar')) programsMap['tikrar_tahfidz'] = p
       else if (pName.includes('pra-tikrar') || pName.includes('pra tikrar') || pName.includes('pra_tahfidz')) programsMap['pra_tahfidz'] = p

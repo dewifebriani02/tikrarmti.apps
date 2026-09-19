@@ -73,8 +73,8 @@ export async function POST(request: Request) {
     }
 
     // Filter out already paired users
-    const availableSubmissions = submissions.filter(s => !pairedUserIds.has(s.user_id))
-    const availableUserIds = availableSubmissions.map(s => s.user_id)
+    const availableSubmissions = submissions.filter((s: any) => !pairedUserIds.has(s.user_id))
+    const availableUserIds: string[] = availableSubmissions.map((s: any) => s.user_id)
 
     console.log('[BULK PAIR] Available users:', availableUserIds.length)
 
@@ -98,8 +98,8 @@ export async function POST(request: Request) {
       .in('user_id', availableUserIds)
 
     // Create maps
-    const usersMap = new Map((usersData || []).map(u => [u.id, u]))
-    const registrationsMap = new Map((registrationsData || []).map(r => [r.user_id, r]))
+    const usersMap = new Map<string, any>((usersData || []).map((u: any) => [u.id, u]))
+    const registrationsMap = new Map<string, any>((registrationsData || []).map((r: any) => [r.user_id, r]))
 
     // 6. Group matches by strict priority:
     // Waktu Utama > Waktu Cadangan > Juz > Zona Waktu.

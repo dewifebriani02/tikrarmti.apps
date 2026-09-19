@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
       .from('donations')
       .select(`
         *,
-        user:users (
+        user:users!donations_user_id_fkey (
           id,
           full_name,
           email

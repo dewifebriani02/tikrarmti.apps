@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger-secure';
 
+/**
+ * Auth Confirm route — previously used Supabase OTP verification.
+ * Now returns a legacy-compatible response since email confirmation
+ * is handled natively (no Supabase auth dependency).
+ */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -15,74 +19,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Create Supabase client
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-
-    // Handle password recovery
-    if (type === 'recovery') {
-      logger.info('Password recovery token verification', {
-        tokenStart: token.substring(0, 8) + '...'
-      });
-
-      // Verify OTP for recovery
-      const { data, error } = await supabase.auth.verifyOtp({
-        token_hash: token,
-        type: 'recovery'
-      });
-
-      if (error) {
-        logger.error('Recovery token verification failed', {
-          error: error.message,
-          tokenStart: token.substring(0, 8) + '...'
-        });
-
-        return NextResponse.json(
-          { error: 'Link reset password tidak valid atau sudah kadaluarsa' },
-          { status: 400 }
-        );
-      }
-
-      logger.auth('Recovery token verified successfully', data.user?.id);
-
-      return NextResponse.json({
-        success: true,
-        message: 'Token recovery valid'
-      });
-    }
-
-    // Verify the token and confirm the email (signup)
-    const { data, error } = await supabase.auth.verifyOtp({
-      token_hash: token,
-      type: 'signup'
-    });
-
-    if (error) {
-      logger.error('Email confirmation failed', {
-        error: error.message,
-        tokenStart: token.substring(0, 8) + '...'
-      });
-
-      return NextResponse.json(
-        { error: 'Token konfirmasi tidak valid atau telah kadaluarsa' },
-        { status: 400 }
-      );
-    }
-
-    logger.auth('Email confirmed successfully', data.user?.id);
+    // Native auth does not use Supabase OTP tokens — redirect to login
+    logger.info('Auth confirm called (legacy Supabase route)', { type });
 
     return NextResponse.json({
       success: true,
-      message: 'Email berhasil dikonfirmasi'
+      message: 'Silakan login dengan akun Ukhti untuk melanjutkan.'
     });
 
   } catch (error) {
-    logger.error('Error in confirmation', {
-      error: error as Error
-    });
-
+    logger.error('Error in confirmation', { error: error as Error });
     return NextResponse.json(
       { error: 'Terjadi kesalahan saat konfirmasi' },
       { status: 500 }

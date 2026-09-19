@@ -66,7 +66,8 @@ export function ScheduleOverlapAnalysis({ isOpen, onClose, halaqahs, zoomLinks =
     try {
       setUpdatingId(halaqahId);
       const zoom = zoomLinks.find(z => z.id === zoomId);
-      await updateHalaqah(halaqahId, {
+      await updateHalaqah({
+        id: halaqahId,
         zoom_link_id: zoom ? zoom.id : null,
         zoom_link: zoom ? zoom.url : null,
       });

@@ -32,7 +32,7 @@ import {
   BookOpen,
   Info
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, parseAkadFiles } from '@/lib/utils';
 import { SafeAudioPlayer } from '@/components/SafeAudioPlayer';
 
 interface ReviewSubmissionModalProps {
@@ -291,7 +291,7 @@ export function ReviewSubmissionModal({
   const renderAkadReview = () => {
     const reg = registrationStatus.registration;
     const daftarUlang = reg?.daftar_ulang;
-    const akadFiles = daftarUlang?.akad_files || [];
+    const akadFiles = parseAkadFiles(daftarUlang?.akad_files);
     
     return (
       <div className="space-y-8">

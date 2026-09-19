@@ -375,10 +375,8 @@ export default function RekamSuaraPage() {
     setError(null);
 
     try {
-      // Delete from storage
-      if (existingSubmission.fileName) {
-        await supabase.storage.from('selection-audios').remove([existingSubmission.fileName]);
-      }
+        // Note: Local file cleanup is handled server-side.
+        // File stored at /uploads/audio/<filename> will be cleaned up by admin if needed.
 
       // Reset database
       const response = await fetch(`/api/pendaftaran/tikrar/${existingSubmission.registrationId}`, {

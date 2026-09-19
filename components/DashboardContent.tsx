@@ -32,6 +32,7 @@ import {
   Lock,
   Snowflake,
   Trophy,
+  Layers,
   ChevronDown,
   ChevronUp
 } from 'lucide-react'
@@ -67,13 +68,65 @@ export default function DashboardContent() {
   const [isRankingModalOpen, setIsRankingModalOpen] = useState(false);
   const [isThalibahRankModalOpen, setIsThalibahRankModalOpen] = useState(false);
 
+  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('mti_selected_batch_id');
+      if (saved) {
+        setSelectedBatchId(saved);
+      }
+    }
+  }, []);
+
+  const handleSelectBatch = (batchId: string) => {
+    setSelectedBatchId(batchId);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('mti_selected_batch_id', batchId);
+    }
+  };
+
   // SWR hooks for data fetching
   const { activeBatch, isLoading: batchLoading, error: batchError } = useActiveBatch()
   const { stats, isLoading: statsLoading, error: statsError } = useDashboardStats(canSeeAdminStats)
   const { registrations, isLoading: registrationsLoading } = useMyRegistrations(targetUserId || undefined)
-  const { tashihStatus, isLoading: tashihLoading, error: tashihError, mutate: tashihMutate } = useTashihStatus(targetUserId || undefined, activeBatch?.id)
-  const { jurnalStatus, isLoading: jurnalLoading, error: jurnalError, mutate: jurnalMutate } = useJurnalStatus(targetUserId || undefined, activeBatch?.id)
-  const { halaqahOfTheWeek, allHalaqahs, userRank, isLoading: halaqahLoading } = useHalaqahOfTheWeek(activeBatch?.id)
+
+  // Available batches derived from active batch and user registrations
+  const availableBatches = useMemo(() => {
+    const batchesMap = new Map<string, { id: string; name: string; first_week_start_date?: string; start_date?: string; status?: string }>();
+    if (activeBatch) {
+      batchesMap.set(activeBatch.id, {
+        id: activeBatch.id,
+        name: activeBatch.name,
+        first_week_start_date: activeBatch.first_week_start_date,
+        start_date: activeBatch.start_date,
+        status: activeBatch.status
+      });
+    }
+    if (registrations && registrations.length > 0) {
+      registrations.forEach(reg => {
+        if (reg.batch_id && !batchesMap.has(reg.batch_id)) {
+          const b = reg.batch as any;
+          batchesMap.set(reg.batch_id, {
+            id: reg.batch_id,
+            name: (reg as any).batch_name || b?.name || `Batch (Dari Pendaftaran)`,
+            first_week_start_date: b?.first_week_start_date,
+            start_date: b?.start_date,
+            status: b?.status
+          });
+        }
+      });
+    }
+    return Array.from(batchesMap.values());
+  }, [activeBatch, registrations]);
+
+  // Priority: User Selected Batch -> Active Batch -> First Registration Batch
+  const effectiveBatchId = selectedBatchId || activeBatch?.id || (registrations?.[0]?.batch_id ?? null);
+  const selectedBatch = availableBatches.find(b => b.id === effectiveBatchId) || activeBatch;
+
+  const { tashihStatus, isLoading: tashihLoading, error: tashihError, mutate: tashihMutate } = useTashihStatus(targetUserId || undefined, effectiveBatchId || undefined)
+  const { jurnalStatus, isLoading: jurnalLoading, error: jurnalError, mutate: jurnalMutate } = useJurnalStatus(targetUserId || undefined, effectiveBatchId || undefined)
+  const { halaqahOfTheWeek, allHalaqahs, userRank, isLoading: halaqahLoading } = useHalaqahOfTheWeek(effectiveBatchId || undefined)
   
   const isMurajaahCompleted = useMemo(() => {
     if (!jurnalStatus || !jurnalStatus.blocks) return false;
@@ -130,55 +183,63 @@ export default function DashboardContent() {
 
   useEffect(() => {
     async function checkMuallimah() {
-      if (!user?.id || !activeBatch?.id) return;
+      if (!user?.id || !effectiveBatchId) return;
       try {
         const supabase = createClient()
         const { data, error } = await supabase
           .from('muallimah_registrations')
           .select('id')
           .eq('user_id', user.id)
-          .eq('batch_id', activeBatch.id)
+          .eq('batch_id', effectiveBatchId)
           .maybeSingle()
         if (data) {
           setHasMuallimahReg(true)
+        } else {
+          setHasMuallimahReg(false)
         }
       } catch (err) {
         console.error('Error checking muallimah registration:', err)
       }
     }
     checkMuallimah()
-  }, [user?.id, activeBatch?.id])
+  }, [user?.id, effectiveBatchId])
 
   const [pairingData, setPairingData] = useState<any | null>(null);
   useEffect(() => {
     async function fetchPairingData() {
-      if (!user?.id || !activeBatch?.id) return;
+      if (!user?.id || !effectiveBatchId) return;
       try {
-        const response = await fetch(`/api/user/pairing?batch_id=${activeBatch.id}`, { cache: 'no-store' });
+        const response = await fetch(`/api/user/pairing?batch_id=${effectiveBatchId}`, { cache: 'no-store' });
         const result = await response.json();
         if (result.success) setPairingData(result.data);
+        else setPairingData(null);
       } catch (error) {
         console.error('Error fetching pairing data:', error);
       }
     }
     fetchPairingData();
-  }, [user?.id, activeBatch?.id]);
+  }, [user?.id, effectiveBatchId]);
 
   const hasRegisteredTikrar = useMemo(() => {
-    return activeBatch && registrations.some(reg => reg.batch_id === activeBatch.id);
-  }, [activeBatch, registrations])
+    return effectiveBatchId && registrations.some(reg => reg.batch_id === effectiveBatchId);
+  }, [effectiveBatchId, registrations])
 
   // Combined loading state
   // Note: Stats loading only matters if we are trying to fetch them
   const isPageLoading = isLoading || batchLoading || (canSeeAdminStats && statsLoading) || registrationsLoading
 
-  // Calculate registration status from SWR data
-  const hasRegistered = registrations.length > 0
+  // Calculate registration status from SWR data matching selected batch
+  const matchingRegistration = useMemo(() => {
+    if (!registrations || registrations.length === 0) return null;
+    return (effectiveBatchId ? registrations.find(r => r.batch_id === effectiveBatchId) : null) || registrations[0];
+  }, [registrations, effectiveBatchId]);
+
+  const hasRegistered = !!matchingRegistration;
   const registrationStatus = hasRegistered ? {
     registered: true,
-    batchId: registrations[0]?.batch_id,
-    status: registrations[0]?.status,
-    daftarUlang: registrations[0]?.daftar_ulang
+    batchId: matchingRegistration.batch_id,
+    status: matchingRegistration.status,
+    daftarUlang: matchingRegistration.daftar_ulang
   } : { registered: false }
 
   // Debug logging for tashih status
@@ -188,9 +249,10 @@ export default function DashboardContent() {
       hasTashihStatus: !!tashihStatus,
       isLoading: tashihLoading,
       error: tashihError,
-      registrationsCount: registrations.length
+      registrationsCount: registrations.length,
+      effectiveBatchId
     })
-  }, [hasRegistered, tashihStatus, tashihLoading, tashihError, registrations.length])
+  }, [hasRegistered, tashihStatus, tashihLoading, tashihError, registrations.length, effectiveBatchId])
 
   // Helper function to convert day number to Indonesian day name
   const getDayNameFromNumber = (dayNum: number | string | undefined) => {
@@ -202,21 +264,21 @@ export default function DashboardContent() {
 
   const totalHariTarget = (jurnalStatus?.summary.total_blocks || (canSeeAdminStats ? stats?.totalHariTarget : 0) || 0)
 
-  // If thalibah info exists, we prioritize it for the main stats display
-  // Calculate current week based on batch timeline
+  // Calculate current week based on selected batch timeline
   const computeCurrentWeek = () => {
-    if (!activeBatch?.first_week_start_date) return 0;
+    const targetStartDate = selectedBatch?.first_week_start_date || selectedBatch?.start_date;
+    if (!targetStartDate) return 1;
     const today = new Date();
-    const week1Start = new Date(activeBatch.first_week_start_date);
-    if (today < week1Start) return 0;
+    const week1Start = new Date(targetStartDate);
+    if (today < week1Start) return 1;
     const daysDiff = Math.floor((today.getTime() - week1Start.getTime()) / (1000 * 60 * 60 * 24));
-    return Math.floor(daysDiff / 7) + 1;
+    return Math.min(11, Math.max(1, Math.floor(daysDiff / 7) + 1));
   };
   const [currentWeek, setCurrentWeek] = useState<number>(computeCurrentWeek());
   // Update current week when batch changes
   useEffect(() => {
     setCurrentWeek(computeCurrentWeek());
-  }, [activeBatch]);
+  }, [selectedBatch]);
 
   const displayStats = {
     totalHariTarget: totalHariTarget,
@@ -527,6 +589,33 @@ export default function DashboardContent() {
             </div>
             
             <div className="flex items-center gap-3 w-full md:w-auto overflow-x-auto pb-1 sm:pb-0 scrollbar-hide snap-x shrink-0">
+              {/* Batch Selector Card */}
+              {availableBatches.length > 0 && (
+                <div className="shrink-0 snap-center h-16 lg:h-24 px-4 rounded-2xl lg:rounded-[2rem] bg-white/10 backdrop-blur-xl border border-white/20 flex flex-col items-center justify-center shadow-2xl transition-all hover:bg-white/15">
+                  <p className="text-[9px] lg:text-[10px] uppercase font-black text-amber-200 tracking-widest flex items-center gap-1">
+                    <Layers className="w-3 h-3 text-amber-300" />
+                    Angkatan
+                  </p>
+                  {availableBatches.length > 1 ? (
+                    <select
+                      value={effectiveBatchId || ''}
+                      onChange={(e) => handleSelectBatch(e.target.value)}
+                      className="bg-transparent text-white font-black text-xs lg:text-sm cursor-pointer focus:outline-none mt-0.5 lg:mt-1 max-w-[140px] truncate text-center"
+                    >
+                      {availableBatches.map(b => (
+                        <option key={b.id} value={b.id} className="text-gray-900 bg-white font-bold">
+                          {b.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <p className="text-xs lg:text-sm font-black text-white/90 mt-0.5 lg:mt-1 truncate max-w-[130px]">
+                      {selectedBatch?.name || 'Batch Aktif'}
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Thalibah Rank Card */}
               {userRank && (
                 <div 
@@ -565,7 +654,84 @@ export default function DashboardContent() {
         <div className="absolute bottom-0 left-0 -mb-10 -ml-10 w-60 h-60 bg-black/10 rounded-full blur-3xl" />
       </div>
 
+      {/* Prominent Batch Switcher Bar if multiple batches available */}
+      {availableBatches.length > 1 && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-white/90 backdrop-blur-xl rounded-[1.75rem] border border-emerald-100 shadow-sm">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-black">
+              <Layers className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="text-xs font-black text-gray-900">Pilih Angkatan / Batch</p>
+              <p className="text-[10px] text-gray-500 font-medium">Beralih angkatan untuk melihat data & capaian tiap batch</p>
+            </div>
+          </div>
 
+          <div className="flex flex-wrap items-center gap-2">
+            {availableBatches.map(b => {
+              const isSelected = b.id === effectiveBatchId;
+              const isActiveBatch = b.id === activeBatch?.id;
+              return (
+                <button
+                  key={b.id}
+                  type="button"
+                  onClick={() => handleSelectBatch(b.id)}
+                  className={cn(
+                    "px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 border cursor-pointer",
+                    isSelected
+                      ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-transparent shadow-lg shadow-emerald-600/20 scale-[1.02]"
+                      : "bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-200"
+                  )}
+                >
+                  <span>{b.name}</span>
+                  {isActiveBatch && (
+                    <span className={cn(
+                      "text-[9px] px-1.5 py-0.5 rounded-full font-black uppercase tracking-wider",
+                      isSelected ? "bg-white/20 text-white" : "bg-emerald-100 text-emerald-800"
+                    )}>
+                      Sedang Aktif
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Notice if current batch has 0 progress but user has another batch */}
+      {tashihStatus?.summary?.completed_blocks === 0 && jurnalStatus?.summary?.completed_blocks === 0 && availableBatches.length > 1 && (
+        <div className="bg-gradient-to-r from-sky-50 via-blue-50 to-indigo-50 border border-sky-200/80 rounded-[1.75rem] p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm animate-fadeIn">
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-2xl bg-sky-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-sky-500/20">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded-md bg-sky-100 text-sky-800 font-black text-[10px] uppercase">
+                  {selectedBatch?.name || 'Batch'}
+                </span>
+                <span className="text-xs font-black text-gray-900">
+                  Hafalan: Juz {tashihStatus?.juz_info?.name || 'Target'}
+                </span>
+              </div>
+              <p className="text-xs text-sky-800/80 font-medium mt-1 leading-relaxed">
+                Belum ada catatan setoran di angkatan ini. Ukhti dapat berpindah ke angkatan sebelumnya untuk melihat riwayat setoran Tashih & Jurnal yang sudah tersimpan.
+              </p>
+            </div>
+          </div>
+          {availableBatches.filter(b => b.id !== effectiveBatchId).map(otherBatch => (
+            <Button
+              key={otherBatch.id}
+              size="sm"
+              onClick={() => handleSelectBatch(otherBatch.id)}
+              className="bg-sky-600 hover:bg-sky-700 text-white font-black text-xs rounded-xl px-4 py-2.5 shadow-md shadow-sky-600/20 shrink-0 self-stretch sm:self-auto"
+            >
+              Lihat {otherBatch.name} →
+            </Button>
+          ))}
+        </div>
+      )}
 
       {/* SP Warning Banner */}
       {!canSeeAdminStats && jurnalStatus?.summary?.sp_summary && (
@@ -619,16 +785,8 @@ export default function DashboardContent() {
         </div>
       )}
 
-      {/* 2. Progress Jurnal & Tashih - Hanya muncul ketika user terdaftar di batch aktif */}
-      {(() => {
-        const hasWeek1Started = activeBatch?.first_week_start_date &&
-          new Date(activeBatch.first_week_start_date) <= new Date();
-        const userRegisteredInActiveBatch = activeBatch && registrations.some(reg =>
-          reg.batch_id === activeBatch.id &&
-          (reg.status === 'approved')
-        );
-        return hasWeek1Started && userRegisteredInActiveBatch;
-      })() && (
+      {/* 2. Progress Jurnal & Tashih */}
+      {(tashihStatus || jurnalStatus || canSeeAdminStats) && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
           {tashihStatus && (
             <Dialog>
@@ -744,14 +902,7 @@ export default function DashboardContent() {
             </Dialog>
           )}
 
-        {hasRegistered && jurnalStatus && (() => {
-          const hasWeek2Started = activeBatch?.first_week_start_date && (() => {
-            const date = new Date(activeBatch.first_week_start_date);
-            date.setDate(date.getDate() + 7);
-            return date <= new Date();
-          })();
-          return hasWeek2Started;
-        })() && (
+        {jurnalStatus && (
             <Dialog>
               <DialogTrigger asChild>
                 <div className="block group cursor-pointer">
@@ -1195,14 +1346,14 @@ export default function DashboardContent() {
 
       {/* Jadwal Harian Section - only for active batch members & admin */}
       {(hasRegisteredTikrar || hasMuallimahReg || canSeeAdminStats) && (
-        <UserJadwalHarian user={user} activeBatch={activeBatch} daftarUlangData={daftarUlangData} />
+        <UserJadwalHarian user={user} activeBatch={selectedBatch || activeBatch} daftarUlangData={daftarUlangData} />
       )}
 
       {/* Group Links Section */}
       {hasPhase3 && (
         <GroupLinks 
           daftarUlangData={daftarUlangData}
-          batchData={activeBatch}
+          batchData={selectedBatch || activeBatch}
           partnerName={partnerName}
         />
       )}

@@ -109,8 +109,8 @@ export async function GET(
       .in('id', userIds)
 
     // Create a map for quick lookup
-    const userMap = new Map(
-      (usersData || []).map(u => [u.id, u])
+    const userMap = new Map<string, any>(
+      (usersData || []).map((u: any) => [u.id, u])
     )
 
     // Combine student data with user data

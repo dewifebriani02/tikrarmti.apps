@@ -5,6 +5,19 @@ import { getAuthorizationContext } from '@/lib/rbac';
 
 const supabaseAdmin = createSupabaseAdmin();
 
+const parseJsonField = (value: any): any[] => {
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+};
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = createServerClient();
@@ -35,19 +48,24 @@ export async function GET(request: NextRequest) {
 
     const context = await getAuthorizationContext();
     const isAdmin = context?.roles.includes('admin') === true;
+
+    // `options` column is stored as text (JSON string) — parse it first
+    const parsedQuestions = (questions || []).map((question: any) => ({
+      ...question,
+      options: parseJsonField(question.options),
+    }));
+
     const responseQuestions = isAdmin
-      ? (questions || [])
-      : (questions || []).map((question: any) => {
+      ? parsedQuestions
+      : parsedQuestions.map((question: any) => {
           const sanitized = { ...question };
           delete sanitized.correct_answer;
-          sanitized.options = Array.isArray(question.options)
-            ? question.options.map((option: any) => {
-                const cleanOption = { ...option };
-                delete cleanOption.isCorrect;
-                delete cleanOption.is_correct;
-                return cleanOption;
-              })
-            : question.options;
+          sanitized.options = sanitized.options.map((option: any) => {
+            const cleanOption = { ...option };
+            delete cleanOption.isCorrect;
+            delete cleanOption.is_correct;
+            return cleanOption;
+          });
           return sanitized;
         });
 

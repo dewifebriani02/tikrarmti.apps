@@ -1,96 +1,154 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { queryOne } from '@/lib/db';
+import { createSessionToken, setSessionCookie } from '@/lib/auth';
+
+function getAppOrigin(request: NextRequest): string {
+  if (process.env.NEXT_PUBLIC_APP_URL && !process.env.NEXT_PUBLIC_APP_URL.includes('localhost')) {
+    return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '');
+  }
+  const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || '';
+  if (host.includes('localhost') || host.includes('127.0.0.1')) {
+    return `http://${host || 'localhost:3000'}`;
+  }
+  return 'https://markaztikrar.id';
+}
 
 export async function GET(request: NextRequest) {
-  // GET SEARCH PARAMS
-  const { searchParams, origin } = new URL(request.url);
-  
-  // PARAMS DEBUG LOGGING - Using console.error to ensure visibility in production/local terminal
-  const params: Record<string, string> = {};
-  searchParams.forEach((value, key) => { params[key] = value; });
-  console.error('[auth/callback] PHASE 4 INCOMING URL:', request.url);
-  console.error('[auth/callback] PHASE 4 PARAMS:', params);
+  const { searchParams } = new URL(request.url);
+  const origin = getAppOrigin(request);
 
   const code = searchParams.get('code');
-  // Also check for error parameters from Google OAuth
+  const state = searchParams.get('state');
   const errorMsg = searchParams.get('error');
-  const errorDescription = searchParams.get('error_description');
-  
+
   if (errorMsg) {
-    console.error('[auth/callback] Redirected from Auth server with error:', { errorMsg, errorDescription });
-    return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(errorDescription || errorMsg)}`);
+    console.error('[auth/callback] Google OAuth Error:', errorMsg);
+    return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent('Login Google dibatalkan atau gagal')}`);
   }
 
-  if (code) {
-    // 1. Determine the target path first
-    const nextPathFromUrl = searchParams.get('next');
-    const authTypeFromUrl = searchParams.get('type');
-    const nextPath = nextPathFromUrl || '/dashboard';
-    const authType = authTypeFromUrl;
+  if (!code) {
+    return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent('Kode otentikasi Google tidak ditemukan')}`);
+  }
 
-    const isRecoveryFlow = 
-      authType === 'recovery' || 
-      nextPath === '/reset-password' || 
-      nextPath.includes('reset-password') ||
-      request.url.includes('type=recovery');
-
-    const targetUrl = isRecoveryFlow ? `${origin}/reset-password` : `${origin}${nextPath}`;
-    
-    // 2. Create the redirect response EARLY
-    let response = NextResponse.redirect(targetUrl);
-    
-    // 3. Pass the redirect response to createClient so cookies are attached to it!
-    const supabase = createClient({ response });
-    
-    // 4. Server-side exchange of the OAuth / Recovery code for a session.
-    console.log('[auth/callback] Exchanging code for session with target:', targetUrl);
-    const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-
-    if (exchangeError) {
-      console.error('[auth/callback] Exchange code failed:', exchangeError.message);
-      const errorMsg = encodeURIComponent('Authentication failed');
-      return NextResponse.redirect(`${origin}/login?error=${errorMsg}&reason=${encodeURIComponent(exchangeError.message)}`);
-    }
-
-    if (data.user) {
-      // Automatic Profile Creation for Google OAuth Users
+  try {
+    let nextPath = '/dashboard';
+    if (state) {
       try {
-        const { error: userError } = await supabase
-          .from('users')
-          .select('id')
-          .eq('id', data.user.id)
-          .single();
-
-        if (userError && userError.code === 'PGRST116') {
-          console.warn('[auth/callback] User not registered in public.users. Rejecting Google login for:', data.user.email);
-          
-          try {
-            // Import admin client to delete the auto-created auth user
-            const { createSupabaseAdmin } = await import('@/lib/supabase');
-            const supabaseAdmin = createSupabaseAdmin();
-            await (supabaseAdmin as any).auth.admin.deleteUser(data.user.id);
-            console.log('[auth/callback] Deleted unwanted auth user:', data.user.id);
-          } catch (delError) {
-            console.error('[auth/callback] Failed to delete auth user:', delError);
-          }
-          
-          // Sign out the session that was just created
-          await supabase.auth.signOut();
-          
-          // Redirect to login with error message
-          return NextResponse.redirect(`${origin}/login?message=not_registered&email=${encodeURIComponent(data.user.email || '')}`);
+        const parsedState = JSON.parse(Buffer.from(state, 'base64url').toString('utf-8'));
+        if (parsedState?.next) {
+          nextPath = parsedState.next;
         }
-      } catch (profileErr) {
-        console.warn('[auth/callback] Error checking profile:', profileErr);
+      } catch (e) {
+        // Fallback to default dashboard
       }
-
-      console.error('[auth/callback] SUCCESS -> Redirecting to:', targetUrl);
-      return response;
     }
-  }
 
-  // If no code is present or no user data
-  console.warn('[auth/callback] Auth failed: No code present or data.user missing');
-  const errorReason = !code ? 'missing_code' : 'no_user_session';
-  return NextResponse.redirect(`${origin}/login?error=Authentication+failed&reason=${errorReason}`);
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    const redirectUri = `${origin}/auth/callback`;
+
+    if (!clientId || !clientSecret) {
+      console.error('[auth/callback] Missing Google OAuth credentials');
+      return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent('Konfigurasi Google Auth belum lengkap')}`);
+    }
+
+    // 1. Exchange authorization code for access token
+    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri,
+        grant_type: 'authorization_code',
+      }),
+    });
+
+    const tokenData = await tokenResponse.json();
+
+    if (!tokenResponse.ok || !tokenData.access_token) {
+      console.error('[auth/callback] Token exchange failed:', tokenData);
+      return NextResponse.redirect(
+        `${origin}/login?error=${encodeURIComponent('Gagal menukar token dengan Google: ' + (tokenData.error_description || tokenData.error || 'Unknown'))}`
+      );
+    }
+
+    // 2. Fetch user profile from Google API
+    const userinfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: {
+        Authorization: `Bearer ${tokenData.access_token}`,
+      },
+    });
+
+    const googleUser = await userinfoResponse.json();
+
+    if (!userinfoResponse.ok || !googleUser.email) {
+      console.error('[auth/callback] Failed to get user profile from Google:', googleUser);
+      return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent('Gagal mengambil data profil dari Google')}`);
+    }
+
+    const email = googleUser.email.toLowerCase().trim();
+
+    // 3. Match user in PostgreSQL database (mti_db)
+    const dbUser = await queryOne(
+      `SELECT id, email, full_name, role, roles, avatar_url, is_active, is_blacklisted
+       FROM users WHERE LOWER(email) = $1`,
+      [email]
+    );
+
+    if (!dbUser) {
+      console.warn('[auth/callback] Email not found in users table:', email);
+      return NextResponse.redirect(
+        `${origin}/login?message=not_registered&email=${encodeURIComponent(email)}`
+      );
+    }
+
+    if (dbUser.is_blacklisted) {
+      return NextResponse.redirect(
+        `${origin}/login?error=${encodeURIComponent('Akun Ukhti telah di-blacklist. Silakan hubungi admin.')}`
+      );
+    }
+
+    if (dbUser.is_active === false) {
+      return NextResponse.redirect(
+        `${origin}/login?error=${encodeURIComponent('Akun Ukhti dinonaktifkan. Silakan hubungi admin.')}`
+      );
+    }
+
+    // If avatar is missing, update avatar from Google
+    if (!dbUser.avatar_url && googleUser.picture) {
+      try {
+        await queryOne('UPDATE users SET avatar_url = $1 WHERE id = $2', [googleUser.picture, dbUser.id]);
+      } catch (err) {
+        // Non-critical, ignore
+      }
+    }
+
+    // 4. Create signed session token and set session cookie
+    const token = await createSessionToken(
+      {
+        sub: dbUser.id,
+        email: dbUser.email,
+        full_name: dbUser.full_name || googleUser.name,
+        role: dbUser.role,
+        roles: dbUser.roles || (dbUser.role ? [dbUser.role] : ['thalibah']),
+      },
+      true // Remember me true for Google login
+    );
+
+    await setSessionCookie(token, true);
+
+    const redirectTarget = nextPath.startsWith('/') ? `${origin}${nextPath}` : `${origin}/dashboard`;
+    console.log(`[auth/callback] Success Google login for ${email} -> Redirecting to ${redirectTarget}`);
+
+    return NextResponse.redirect(redirectTarget);
+  } catch (error: any) {
+    console.error('[auth/callback] Exception during Google OAuth callback:', error);
+    return NextResponse.redirect(
+      `${origin}/login?error=${encodeURIComponent('Terjadi kesalahan saat memproses login Google')}`
+    );
+  }
 }

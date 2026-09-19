@@ -219,8 +219,8 @@ export async function GET(request: Request) {
       .in('id', relatedUserIds)
 
     // Create a map of user_id -> full_name for paired users
-    const pairedUserNamesMap = new Map((pairedUsersData || []).map(u => [u.id, u.full_name]))
-    const userDetailsMap = new Map((pairedUsersData || []).map(u => [u.id, u]))
+    const pairedUserNamesMap = new Map<string, any>((pairedUsersData || []).map((u: any) => [u.id, u.full_name]))
+    const userDetailsMap = new Map<string, any>((pairedUsersData || []).map((u: any) => [u.id, u]))
 
     // Fetch registration data for paired users (to get time slots and juz)
     const { data: pairedUsersRegistrations } = await supabase
@@ -229,7 +229,7 @@ export async function GET(request: Request) {
       .eq('batch_id', batchId || '')
       .in('user_id', relatedUserIds)
 
-    const pairedUsersRegMap = new Map((pairedUsersRegistrations || []).map(r => [r.user_id, r]))
+    const pairedUsersRegMap = new Map<string, any>((pairedUsersRegistrations || []).map((r: any) => [r.user_id, r]))
 
     // Build list of pairings with available slots for UI
     const pairingsWithSlots = (existingPairings || [])

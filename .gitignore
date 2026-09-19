@@ -95,3 +95,11 @@ build/
 # Local tool configs
 .codex/
 
+# Database dumps & backups
+backups/
+*.dump
+*.sql
+*.tar.gz
+scripts/users_with_passwords.json
+test_proper.js
+

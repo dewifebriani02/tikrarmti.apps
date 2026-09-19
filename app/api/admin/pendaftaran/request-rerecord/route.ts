@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { getAuthorizationContext } from '@/lib/rbac';
 import { ApiResponses } from '@/lib/api-responses';
-import { createClient } from '@supabase/supabase-js';
+
 
 export async function POST(request: Request) {
   try {

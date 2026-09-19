@@ -216,7 +216,7 @@ async function processJurnalStatus(supabase: any, user: any, activeRegistration:
     const { data: spRecords } = await supabase
       .from('surat_peringatan')
       .select('sp_level, week_number, issued_at, reason, is_blacklisted, sp_type')
-      .eq('user_id', user.id)
+      .eq('thalibah_id', user.id)
       .eq('status', 'active')
       .order('sp_level', { ascending: false })
       .limit(1)

@@ -38,7 +38,18 @@ export async function GET(request: NextRequest) {
 
     // Get batch_id from query parameter
     const { searchParams } = new URL(request.url);
-    const batchId = searchParams.get('batch_id');
+    let batchId = searchParams.get('batch_id');
+
+    if (!batchId || batchId === 'null' || batchId === 'undefined') {
+      const { data: activeBatch } = await supabaseAdmin
+        .from('batches')
+        .select('id')
+        .in('status', ['open', 'ongoing'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      batchId = activeBatch?.id || null;
+    }
 
     if (!batchId) {
       return NextResponse.json(

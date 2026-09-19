@@ -202,8 +202,8 @@ export function OralAssessment({
           }
 
           if (path) {
-            await supabase.storage.from('selection-audios').remove([path]);
-            console.log('OralAssessment: File deleted from storage:', path);
+            // Local file cleanup: file at /uploads/audio/<path> is managed server-side
+            console.log('OralAssessment: File would be deleted from local storage:', path);
           }
         } catch (storageErr) {
           console.error('OralAssessment: Failed to delete file from storage:', storageErr);
@@ -225,8 +225,8 @@ export function OralAssessment({
           }
 
           if (path) {
-            await supabase.storage.from('selection-audios').remove([path]);
-            console.log('OralAssessment: Feedback file deleted from storage:', path);
+            // Local file cleanup: file at /uploads/audio/<path> is managed server-side
+            console.log('OralAssessment: Feedback file would be deleted from local storage:', path);
           }
         } catch (storageErr) {
           console.error('OralAssessment: Failed to delete feedback file from storage:', storageErr);

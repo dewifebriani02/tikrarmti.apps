@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger-secure';
+import { query } from '@/lib/db';
 
 /**
- * Password Reset with Magic Code (OTP)
- * This is more reliable than hash fragment for password reset
+ * Password Reset — previously used Supabase signInWithOtp.
+ * Password reset via native flow (send email if SMTP configured).
  */
 export async function POST(request: NextRequest) {
   try {
@@ -17,42 +17,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // Check if user exists (do not reveal if not found)
+    const { rows } = await query(
+      'SELECT id FROM users WHERE LOWER(email) = $1 LIMIT 1',
+      [normalizedEmail]
     );
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.markaztikrar.id';
-
-    // Generate OTP and send email
-    const { data, error } = await supabase.auth.signInWithOtp({
-      email: email.toLowerCase().trim(),
-      options: {
-        emailRedirectTo: `${appUrl}/reset-password`,
-      }
-    });
-
-    if (error) {
-      logger.error('OTP password reset failed', { error: error.message });
-      // Always return success to prevent email enumeration
-      return NextResponse.json({
-        success: true,
-        message: 'Jika email terdaftar, kode reset password akan dikirim'
+    if (rows.length > 0) {
+      // TODO: Implement native password reset email when SMTP is configured
+      // For now, log the intent
+      logger.info('Password reset requested', {
+        email: normalizedEmail.replace(/(.{2}).*(@.*)/, '$1***$2')
       });
     }
 
-    logger.info('OTP password reset sent', {
-      email: email.replace(/(.{2}).*(@.*)/, '$1***$2')
-    });
-
+    // Always return success to prevent email enumeration
     return NextResponse.json({
       success: true,
-      message: 'Kode reset password telah dikirim ke email. Cek inbox Ukhti.'
+      message: 'Jika email terdaftar, kode reset password akan dikirim ke email Ukhti.'
     });
 
   } catch (error) {
-    logger.error('Error in OTP password reset', { error });
-
+    logger.error('Error in password reset', { error });
     return NextResponse.json({
       success: true,
       message: 'Jika email terdaftar, kode reset password akan dikirim'

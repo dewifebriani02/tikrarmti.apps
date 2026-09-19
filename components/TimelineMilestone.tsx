@@ -11,7 +11,7 @@ import {
   Ban, 
   FileText 
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, parseAkadFiles } from '@/lib/utils';
 import { formatDateIndo } from '@/lib/utils/date-helpers';
 
 export interface TimelineItem {
@@ -425,16 +425,19 @@ function renderItemDescription(
             
             {/* Detailed Info for completeness */}
             <div className="space-y-2 pt-2">
-              {daftarUlang.akad_files && daftarUlang.akad_files.length > 0 && (
-                <div className="space-y-1">
-                  <p className="text-[10px] uppercase font-bold text-gray-400">Berkas Akad:</p>
-                  {daftarUlang.akad_files.map((file: any, i: number) => (
-                    <a key={i} href={file.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-blue-600 hover:underline">
-                      <FileText className="w-3 h-3" /> {file.name}
-                    </a>
-                  ))}
-                </div>
-              )}
+              {(() => {
+                const files = parseAkadFiles(daftarUlang.akad_files);
+                return files.length > 0 ? (
+                  <div className="space-y-1">
+                    <p className="text-[10px] uppercase font-bold text-gray-400">Berkas Akad:</p>
+                    {files.map((file: any, i: number) => (
+                      <a key={i} href={file.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-blue-600 hover:underline">
+                        <FileText className="w-3 h-3" /> {file.name || `Berkas ${i + 1}`}
+                      </a>
+                    ))}
+                  </div>
+                ) : null;
+              })()}
               
               {/* Halaqah Assignments */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">

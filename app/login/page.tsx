@@ -8,12 +8,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff, AlertCircle, CheckCircle2 } from "lucide-react";
-import { createClient } from '@/lib/supabase/client';
+import { loginAction } from '@/app/login/actions';
 
 function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const supabase = createClient();
 
   const [formData, setFormData] = useState({
     email: '',
@@ -102,36 +101,11 @@ function LoginPageContent() {
     }
   };
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleLogin = () => {
     setIsLoading(true);
     setErrors({});
-    try {
-      // DYNAMIC REDIRECT: Use window.location.origin to match current environment (localhost or prod)
-      const redirectUrl = `${window.location.origin}/auth/callback`;
-      
-      console.log('[Login] Initiated Google login with dynamic redirect:', redirectUrl);
-
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: redirectUrl,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          },
-        },
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      // OAuth will redirect to Google, so we don't need to do anything here
-    } catch (error: any) {
-      console.error('Google login error:', error);
-      setErrors({ general: error.message || 'Gagal login dengan Google' });
-      setIsLoading(false);
-    }
+    const redirectUrl = searchParams.get('redirect') || '/dashboard';
+    window.location.href = `/api/auth/google?next=${encodeURIComponent(redirectUrl)}`;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -151,57 +125,35 @@ function LoginPageContent() {
     }
 
     try {
-      // Use Supabase Auth directly
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const result = await loginAction({
         email: formData.email.toLowerCase().trim(),
         password: formData.password,
+        rememberMe,
       });
 
-      if (error) {
-        console.error('Supabase auth error:', error);
-
-        let errorMessage = error.message;
-
-        // Provide more specific error messages for common issues
-        if (error.message === 'Invalid login credentials') {
-          errorMessage = 'Email atau password salah. Silakan periksa kembali.';
-        } else if (error.message.includes('Email not confirmed')) {
-          errorMessage = 'Email belum dikonfirmasi. Silakan cek inbox Ukhti.';
-        } else if (
-          error.message.toLowerCase().includes('rate limit') ||
-          error.message.toLowerCase().includes('too many requests') ||
-          error.message.toLowerCase().includes('request rate limit reached') ||
-          error.status === 429
-        ) {
-          errorMessage = 'Terlalu banyak percobaan login. Silakan tunggu 1-2 menit sebelum mencoba kembali. Jika masih bermasalah, coba gunakan login Google.';
-        }
-
-        throw new Error(errorMessage);
+      if (!result.success) {
+        throw new Error(result.error || 'Login gagal');
       }
 
-      if (data.user && data.session) {
-        // Show success notification
-        setNotificationMessage('Login berhasil! Mengarahkan ke dashboard...');
-        setNotificationType('success');
-        setShowNotification(true);
+      // Show success notification
+      setNotificationMessage('Login berhasil! Mengarahkan ke dashboard...');
+      setNotificationType('success');
+      setShowNotification(true);
 
-        // Check if there's a redirect URL from middleware
-        const redirectUrl = searchParams.get('redirect');
-        const targetUrl = redirectUrl && redirectUrl !== '/login' ? redirectUrl : '/dashboard';
+      // Check if there's a redirect URL from middleware
+      const redirectUrl = searchParams.get('redirect');
+      const targetUrl = redirectUrl && redirectUrl !== '/login' ? redirectUrl : '/dashboard';
 
-        console.log('[Login] Redirecting to:', targetUrl);
+      console.log('[Login] Redirecting to:', targetUrl);
 
-        // Small delay to ensure cookies are propagated
-        // Using window.location.replace for a clean redirection that clears history state
-        setTimeout(() => {
-          window.location.replace(targetUrl);
-        }, 300);
-        
-        return; // Prevent further execution
-      }
+      setTimeout(() => {
+        window.location.replace(targetUrl);
+      }, 300);
+
+      return;
     } catch (error: any) {
       console.error('Login error:', error);
-      const errorMsg = error.message || 'Login gagal. Silakan coba lagi.';
+      const errorMsg = error.message || 'Login gagal. Silakan periksa email dan password.';
       setErrors({ general: errorMsg });
       setNotificationMessage(errorMsg);
       setNotificationType('error');

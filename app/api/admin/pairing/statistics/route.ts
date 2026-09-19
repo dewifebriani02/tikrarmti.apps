@@ -34,16 +34,38 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const batchId = searchParams.get('batch_id')
+    let targetBatchId = (batchId && batchId !== 'null' && batchId !== 'undefined') ? batchId : null
+    if (!targetBatchId) {
+      const { data: activeBatch } = await supabase
+        .from('batches')
+        .select('id')
+        .in('status', ['open', 'ongoing'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      targetBatchId = activeBatch?.id
+    }
 
-    if (!batchId) {
-      return NextResponse.json({ error: 'batch_id is required' }, { status: 400 })
+    if (!targetBatchId) {
+      return NextResponse.json({
+        total: 0,
+        totalApproved: 0,
+        selfMatch: { submitted: 0, approved: 0 },
+        systemMatch: { submitted: 0, approved: 0 },
+        tarteel: { submitted: 0, approved: 0 },
+        family: { submitted: 0, approved: 0 },
+        mandiri: { submitted: 0, approved: 0 },
+        tidak_bersedia: { submitted: 0, approved: 0 },
+        waiting: 0,
+        paired: 0
+      })
     }
 
     // Get all submissions so we can keep only the latest choice per thalibah.
     const { data: allSubmissions, error: allError } = await supabase
       .from('daftar_ulang_submissions')
       .select('id, user_id, partner_type, partner_user_id, partner_status, pairing_status, status')
-      .eq('batch_id', batchId)
+      .eq('batch_id', targetBatchId)
       .order('created_at', { ascending: false }) // Order by created_at DESC to get latest submission first
 
     if (allError) throw allError
@@ -106,11 +128,10 @@ export async function GET(request: Request) {
       }
     })
 
-    // study_partners is the source of truth for completed pairings.
     const { data: activePairings, error: pairingsError } = await supabase
       .from('study_partners')
       .select('pairing_type, user_1_id, user_2_id, user_3_id')
-      .eq('batch_id', batchId)
+      .eq('batch_id', targetBatchId)
       .eq('pairing_status', 'active')
 
     if (pairingsError) throw pairingsError

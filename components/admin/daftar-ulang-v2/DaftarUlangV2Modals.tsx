@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { X, FileText, Download, AlertTriangle } from 'lucide-react';
 import { DaftarUlangSubmission } from './types';
-import { cn } from '@/lib/utils';
+import { cn, parseAkadFiles } from '@/lib/utils';
 import { useJuzOptions } from '@/hooks/useJuzOptions';
 
 export function DetailModal({
@@ -190,30 +190,33 @@ export function DetailModal({
           <section>
             <h4 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-3">File Akad</h4>
             <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
-              {submission.akad_files && submission.akad_files.length > 0 ? (
-                <div className="space-y-3">
-                  <div className="flex flex-col gap-2">
-                    {submission.akad_files.map((file, idx) => (
-                      <a
-                        key={idx}
-                        href={file.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100 hover:border-blue-300 hover:bg-blue-50 transition-colors group"
-                      >
-                        <FileText className="w-5 h-5 text-blue-600" />
-                        <span className="text-sm font-medium text-gray-700 group-hover:text-blue-700 flex-1">{file.name}</span>
-                        <Download className="w-4 h-4 text-gray-400 group-hover:text-blue-600" />
-                      </a>
-                    ))}
+              {(() => {
+                const files = parseAkadFiles(submission.akad_files);
+                return files.length > 0 ? (
+                  <div className="space-y-3">
+                    <div className="flex flex-col gap-2">
+                      {files.map((file, idx) => (
+                        <a
+                          key={idx}
+                          href={file.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100 hover:border-blue-300 hover:bg-blue-50 transition-colors group"
+                        >
+                          <FileText className="w-5 h-5 text-blue-600" />
+                          <span className="text-sm font-medium text-gray-700 group-hover:text-blue-700 flex-1">{file.name}</span>
+                          <Download className="w-4 h-4 text-gray-400 group-hover:text-blue-600" />
+                        </a>
+                      ))}
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Diunggah pada: {formatDate(submission.akad_submitted_at || '')}
+                    </p>
                   </div>
-                  <p className="text-xs text-gray-500">
-                    Diunggah pada: {formatDate(submission.akad_submitted_at || '')}
-                  </p>
-                </div>
-              ) : (
-                <p className="text-sm font-medium text-gray-400">Belum ada file yang diunggah</p>
-              )}
+                ) : (
+                  <p className="text-sm font-medium text-gray-400">Belum ada file yang diunggah</p>
+                );
+              })()}
             </div>
           </section>
 

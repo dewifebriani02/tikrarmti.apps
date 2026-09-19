@@ -1,8 +1,4 @@
 {
-  "env": {
-    "ANTHROPIC_BASE_URL": "https://api.z.ai/api/anthropic",
-    "ANTHROPIC_AUTH_TOKEN": "81ae18573b224cb39aca5365363621be.zTlDaSgWOtFn9GW8"
-  },
   "permissions": {
     "allow": [
       "Bash(git fsck:*)",

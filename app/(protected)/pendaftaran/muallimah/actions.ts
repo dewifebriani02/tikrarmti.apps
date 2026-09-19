@@ -68,7 +68,7 @@ export async function submitMuallimahRegistration(formData: any, userData: any, 
       }
     }
 
-    const classTypesSelected = []
+    const classTypesSelected: string[] = []
     if (formData.class_tikrar) classTypesSelected.push('tikrar_tahfidz')
     if (formData.class_pratikrar) classTypesSelected.push('pra_tahfidz')
     if (formData.class_paid) classTypesSelected.push('tikrar_berbayar')
@@ -77,7 +77,7 @@ export async function submitMuallimahRegistration(formData: any, userData: any, 
     // We treat this table as the permanent profile. 
     const profileData: any = {
       user_id: authUser.id,
-      full_name: userData?.full_name || authUser.user_metadata?.full_name || authUser.user_metadata?.name || '',
+      full_name: userData?.full_name || authUser.user_metadata?.full_name || (authUser.user_metadata as any)?.name || '',
       email: authUser.email || '',
       whatsapp: userData?.whatsapp || '',
       occupation: userData?.pekerjaan || '',

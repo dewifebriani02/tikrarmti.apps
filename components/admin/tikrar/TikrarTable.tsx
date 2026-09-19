@@ -182,12 +182,12 @@ export function TikrarTable({
                     <td className="px-6 py-4">
                       <div className="flex flex-col">
                         <span className="text-[9px] font-black text-gray-400 uppercase tracking-tighter">Oral VN</span>
-                        {t.oral_total_score !== null && t.oral_total_score !== undefined ? (
+                        {t.oral_total_score !== null && t.oral_total_score !== undefined && !isNaN(Number(t.oral_total_score)) ? (
                           <span className={cn(
                             "text-sm font-black",
-                            t.oral_total_score >= 80 ? "text-emerald-600" : "text-red-600"
+                            Number(t.oral_total_score) >= 80 ? "text-emerald-600" : "text-red-600"
                           )}>
-                            {t.oral_total_score.toFixed(0)}
+                            {Number(t.oral_total_score).toFixed(0)}
                           </span>
                         ) : t.oral_submission_url || t.oral_submitted_at ? (
                           <span className="inline-flex items-center gap-1 text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-md px-1.5 py-0.5 mt-0.5 w-fit" title="Sudah mengirim rekaman (VN) - Menunggu penilaian">

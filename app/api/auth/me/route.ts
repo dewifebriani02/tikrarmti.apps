@@ -1,43 +1,11 @@
-import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { cookies } from 'next/headers'
+import { NextResponse } from 'next/server';
+import { getCurrentUser } from '@/lib/auth';
 
-/**
- * @deprecated This endpoint is deprecated.
- *
- * MIGRATION GUIDE:
- * Instead of fetching user data via API from client:
- * ❌ const { user } = useAuth() // fetches /api/auth/me
- *
- * Use server-side data fetching:
- * ✅ const { data: { user } } = await supabase.auth.getUser() // in server component
- * ✅ const user = useServerUserData() // from server layout via props
- *
- * USER DATA SHOULD COME FROM:
- * 1. Server layout (app/(protected)/layout.tsx) - fetches and passes to client
- * 2. Server components - fetch directly from Supabase
- * 3. NOT from client-side API calls
- *
- * This endpoint is kept for backward compatibility only.
- * It will be removed in a future version.
- */
-export async function GET(request: Request) {
-  const startTime = Date.now()
-
-  // Log deprecation warning
-  console.warn('[DEPRECATED] /api/auth/me endpoint called. Migration to server-side data fetching recommended.')
-
+export async function GET() {
   try {
-    const cookieStore = cookies()
-    const allCookies = cookieStore.getAll()
+    const user = await getCurrentUser();
 
-    // Use the centralized server client
-    const supabase = createClient()
-
-    // Get the current user
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-    if (authError || !user) {
+    if (!user) {
       return NextResponse.json({
         success: false,
         error: {
@@ -45,42 +13,31 @@ export async function GET(request: Request) {
           message: 'Not authenticated'
         },
         authenticated: false
-      }, { status: 401 })
+      }, { status: 401 });
     }
 
-    // Fetch user data from database (RLS filtered)
-    const { data: userData, error: dbError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', user.id)
-      .single()
-
-    if (dbError && dbError.code !== 'PGRST116') {
-      console.error('Database error:', dbError)
-    }
-
-    // Return user info in standardized format
     const userResponse = {
       id: user.id,
       email: user.email,
-      full_name: userData?.full_name || user.user_metadata?.full_name || user.email?.split('@')[0],
-      nama_kunyah: userData?.nama_kunyah || user.user_metadata?.nama_kunyah,
-      roles: userData?.roles || user.user_metadata?.roles || ['thalibah'],
-      avatar_url: userData?.avatar_url,
-      created_at: userData?.created_at || user.created_at,
-      whatsapp: userData?.whatsapp,
-      telegram: userData?.telegram,
-      negara: userData?.negara,
-      provinsi: userData?.provinsi,
-      kota: userData?.kota,
-      alamat: userData?.alamat,
-      zona_waktu: userData?.zona_waktu,
-      tanggal_lahir: userData?.tanggal_lahir,
-      tempat_lahir: userData?.tempat_lahir,
-      jenis_kelamin: userData?.jenis_kelamin,
-      pekerjaan: userData?.pekerjaan,
-      alasan_daftar: userData?.alasan_daftar,
-    }
+      full_name: user.full_name || user.email?.split('@')[0],
+      nama_kunyah: user.nama_kunyah,
+      roles: user.roles || (user.role ? [user.role] : ['thalibah']),
+      role: user.role,
+      avatar_url: user.avatar_url,
+      created_at: user.created_at,
+      whatsapp: user.whatsapp,
+      telegram: user.telegram,
+      negara: user.negara,
+      provinsi: user.provinsi,
+      kota: user.kota,
+      alamat: user.alamat,
+      zona_waktu: user.zona_waktu,
+      tanggal_lahir: user.tanggal_lahir,
+      tempat_lahir: user.tempat_lahir,
+      jenis_kelamin: user.jenis_kelamin,
+      pekerjaan: user.pekerjaan,
+      alasan_daftar: user.alasan_daftar,
+    };
 
     return NextResponse.json({
       success: true,
@@ -93,20 +50,17 @@ export async function GET(request: Request) {
         'Pragma': 'no-cache',
         'Expires': '0'
       }
-    })
+    });
 
-  } catch (error) {
-    console.error('API error in /api/auth/me, elapsed:', Date.now() - startTime + 'ms', error)
+  } catch (error: any) {
+    console.error('API error in /api/auth/me:', error);
     return NextResponse.json({
       success: false,
       error: {
         code: 'INTERNAL_ERROR',
         message: 'Internal server error',
-        ...(process.env.NODE_ENV === 'development' && {
-          details: error instanceof Error ? error.message : 'Unknown error'
-        })
       },
       timestamp: new Date().toISOString()
-    }, { status: 500 })
+    }, { status: 500 });
   }
 }

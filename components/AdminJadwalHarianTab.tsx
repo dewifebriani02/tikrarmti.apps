@@ -68,11 +68,10 @@ export default function AdminJadwalHarianTab() {
     setIsLoading(true);
     try {
       // 1. Get active batch
-      const { data: batch } = await supabase
-        .from('batches')
-        .select('id, name')
-        .eq('status', 'open')
-        .single();
+      const batchRes = await fetch('/api/batches');
+      const batchJson = await batchRes.json();
+      const loadedBatches = batchJson.data || [];
+      const batch = loadedBatches.find((b: any) => b.status === 'open' || b.status === 'ongoing') || loadedBatches[0];
 
       if (!batch) {
         setIsLoading(false);

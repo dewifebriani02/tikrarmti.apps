@@ -51,14 +51,53 @@ export default function JurnalHarianPage() {
   }, [user]);
 
   const { registrations, isLoading: registrationsLoading } = useAllRegistrations()
+  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null)
 
-  // Get active registration
-  const activeRegistration = registrations.find((reg: any) =>
-    ['open', 'closed', 'ongoing'].includes(reg.batch?.status) &&
-    (reg.status === 'approved' || reg.selection_status === 'selected')
-  ) || registrations[0]
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('mti_selected_batch_id');
+      if (saved) {
+        setSelectedBatchId(saved);
+      }
+    }
+  }, []);
 
-  const { jurnalStatus, isLoading: jurnalStatusLoading, mutate: mutateJurnalStatus } = useJurnalStatus(undefined, activeRegistration?.batch?.id)
+  const handleSelectBatch = (id: string) => {
+    setSelectedBatchId(id);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('mti_selected_batch_id', id);
+    }
+  };
+
+  const availableBatches = React.useMemo(() => {
+    const batchesMap = new Map<string, { id: string; name: string }>()
+    if (registrations && registrations.length > 0) {
+      registrations.forEach((reg: any) => {
+        if (reg.batch_id && !batchesMap.has(reg.batch_id)) {
+          batchesMap.set(reg.batch_id, {
+            id: reg.batch_id,
+            name: reg.batch_name || reg.batch?.name || `Batch`
+          })
+        }
+      })
+    }
+    return Array.from(batchesMap.values())
+  }, [registrations])
+
+  // Get active registration matching selected batch
+  const activeRegistration = React.useMemo(() => {
+    if (selectedBatchId && registrations) {
+      const match = registrations.find((r: any) => r.batch_id === selectedBatchId)
+      if (match) return match
+    }
+    return registrations.find((reg: any) =>
+      ['open', 'closed', 'ongoing'].includes(reg.batch?.status) &&
+      (reg.status === 'approved' || reg.selection_status === 'selected')
+    ) || registrations[0]
+  }, [registrations, selectedBatchId])
+
+  const targetBatchId = activeRegistration?.batch_id || activeRegistration?.batch?.id
+  const { jurnalStatus, isLoading: jurnalStatusLoading, mutate: mutateJurnalStatus } = useJurnalStatus(undefined, targetBatchId)
 
   const [jurnalData, setJurnalData] = useState<JurnalData>({
     tanggal_setor: new Date().toISOString().slice(0, 10),
@@ -225,6 +264,23 @@ export default function JurnalHarianPage() {
               Mendaftar Sekarang
             </a>
           </div>
+        </div>
+      )}
+
+      {availableBatches.length > 1 && (
+        <div className="flex items-center justify-between bg-white/80 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-gray-100 shadow-sm">
+          <span className="text-xs font-bold text-gray-500">Pilih Angkatan:</span>
+          <select
+            value={activeRegistration?.batch_id || ''}
+            onChange={(e) => handleSelectBatch(e.target.value)}
+            className="bg-transparent text-gray-800 font-bold text-xs cursor-pointer focus:outline-none"
+          >
+            {availableBatches.map(b => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
+            ))}
+          </select>
         </div>
       )}
 

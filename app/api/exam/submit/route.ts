@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create a map for quick lookup
-    const questionMap = new Map(questions.map(q => [q.id, q]));
+    const questionMap = new Map<string, any>((questions as any[]).map((q: any) => [q.id, q]));
 
     // Grade each answer
     const gradedAnswers: ExamAnswer[] = answers.map(answer => {

@@ -1,32 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createServerClient } from '@/lib/supabase/server';
+import { createSupabaseAdmin } from '@/lib/supabase';
+import { writeFile, mkdir } from 'fs/promises';
+import { join } from 'path';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const AUDIO_DIR = process.env.AUDIO_UPLOAD_DIR || '/home/markaztikrar/htdocs/markaztikrar.id/public/uploads/audio';
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.markaztikrar.id';
 
 export async function POST(request: NextRequest) {
   try {
-    // Create Supabase client
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-    // Get auth token from header
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.error('❌ Base64 API: No Bearer token found');
-      return NextResponse.json(
-        { error: 'Unauthorized - No token provided' },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.replace('Bearer ', '');
-    // Verify token and get user
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    // Auth via native JWT session
+    const supabase = createServerClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
       console.error('❌ Base64 API: Auth error:', authError);
       return NextResponse.json(
-        { error: 'Unauthorized - Invalid token' },
+        { error: 'Unauthorized - Invalid session. Please login again.', needsLogin: true },
         { status: 401 }
       );
     }
@@ -36,56 +26,30 @@ export async function POST(request: NextRequest) {
     const { audioBase64, fileName, mimeType } = body;
 
     if (!audioBase64 || !fileName) {
-      console.error('❌ Base64 API: Missing required data');
       return NextResponse.json(
         { error: 'Missing audio data or filename' },
         { status: 400 }
       );
     }
 
-    // Convert base64 back to buffer
-    const byteCharacters = atob(audioBase64);
-    const byteNumbers = new Array(byteCharacters.length);
-    for (let i = 0; i < byteCharacters.length; i++) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i);
-    }
-    const byteArray = new Uint8Array(byteNumbers);
-    const audioBuffer = Buffer.from(byteArray);
-
-    // Validate buffer
+    // Convert base64 to buffer
+    const audioBuffer = Buffer.from(audioBase64, 'base64');
     if (audioBuffer.length === 0) {
-      console.error('❌ Base64 API: Converted buffer is empty');
-      return NextResponse.json(
-        { error: 'Audio data is empty' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Audio data is empty' }, { status: 400 });
     }
 
-    // Upload to Supabase Storage
-    const supabaseFileName = `selection-${user.id}-${Date.now()}-${fileName}`;
-    const { error: uploadError } = await supabase.storage
-      .from('selection-audios')
-      .upload(supabaseFileName, audioBuffer, {
-        contentType: mimeType || 'audio/webm',
-        duplex: 'half',
-        cacheControl: '3600'
-      } as any);
+    // Save file locally
+    const safeFileName = `selection-${user.id}-${Date.now()}-${fileName.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+    const uploadPath = join(AUDIO_DIR, safeFileName);
+    await mkdir(AUDIO_DIR, { recursive: true });
+    await writeFile(uploadPath, audioBuffer);
 
-    if (uploadError) {
-      console.error('❌ Base64 API: Upload error:', uploadError);
-      return NextResponse.json(
-        { error: 'Failed to upload audio', details: uploadError.message },
-        { status: 500 }
-      );
-    }
+    const publicUrl = `${BASE_URL}/uploads/audio/${safeFileName}`;
 
-    // Get public URL
-    const { data: { publicUrl } } = supabase.storage
-      .from('selection-audios')
-      .getPublicUrl(supabaseFileName);
+    // Use pg-backed client for DB operations
+    const db = createSupabaseAdmin();
 
-    // Check if user already exists in pendaftaran_tikrar_tahfidz
-    const { data: existingRegistration, error: checkError } = await supabase
+    const { data: existingRegistration, error: checkError } = await db
       .from('pendaftaran_tikrar_tahfidz')
       .select('*')
       .eq('user_id', user.id)
@@ -100,14 +64,9 @@ export async function POST(request: NextRequest) {
     }
 
     if (!existingRegistration) {
-      console.error('❌ Base64 API: Registration not found for user:', user.id);
-      return NextResponse.json(
-        { error: 'Pendaftaran tidak ditemukan' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Pendaftaran tidak ditemukan' }, { status: 404 });
     }
 
-    // Check if already submitted oral
     if (existingRegistration.oral_submission_url) {
       return NextResponse.json(
         { error: 'Ukhti sudah menyerahkan rekaman suara' },
@@ -115,18 +74,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update registration
-    const updateData = {
-      oral_submission_url: publicUrl,
-      oral_submission_file_name: supabaseFileName,
-      oral_submitted_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      needs_revision: false
-    };
-
-    const { data: submission, error: updateError } = await supabase
+    const { data: submission, error: updateError } = await db
       .from('pendaftaran_tikrar_tahfidz')
-      .update(updateData)
+      .update({
+        oral_submission_url: publicUrl,
+        oral_submission_file_name: safeFileName,
+        oral_submitted_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        needs_revision: false
+      })
       .eq('id', existingRegistration.id)
       .select()
       .single();
@@ -141,8 +97,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      submission: submission,
-      message: 'Seleksi berhasil dikirim (Base64)'
+      submission,
+      message: 'Seleksi berhasil dikirim'
     });
 
   } catch (error: any) {

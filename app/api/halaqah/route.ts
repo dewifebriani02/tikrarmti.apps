@@ -83,7 +83,7 @@ export async function GET(request: Request) {
           .eq('status', 'active');
         
         const activeCount = activeStudents?.length || 0;
-        const activeUserIds = new Set(activeStudents?.map(s => s.thalibah_id) || []);
+        const activeUserIds = new Set<string>((activeStudents || []).map((s: any) => s.thalibah_id));
 
         // Count waitlist students
         const { count: waitlistCount } = await supabaseAdmin

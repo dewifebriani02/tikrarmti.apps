@@ -191,7 +191,7 @@ export async function GET(request: Request) {
       .select('id, full_name, email, zona_waktu, whatsapp, tanggal_lahir')
       .in('id', userIds)
 
-    const usersMap = new Map((usersData || []).map(u => [u.id, u]))
+    const usersMap = new Map<string, any>((usersData || []).map((u: any) => [u.id, u]))
 
     // 7. Get registration data for all users
     const { data: registrations } = await supabaseAdmin
@@ -200,7 +200,7 @@ export async function GET(request: Request) {
       .eq('batch_id', batchId)
       .in('user_id', userIds)
 
-    const regMap = new Map((registrations || []).map(r => [r.user_id, r]))
+    const regMap = new Map<string, any>((registrations || []).map((r: any) => [r.user_id, r]))
 
     // 8. Build user data objects
     const buildUserData = (userId: string) => {

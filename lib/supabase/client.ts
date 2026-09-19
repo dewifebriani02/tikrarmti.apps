@@ -1,53 +1,87 @@
-import { createBrowserClient as createSupabaseBrowserClient } from '@supabase/ssr'
+'use client';
 
-// Load environment variables
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+/**
+ * lib/supabase/client.ts — Browser-side shim (NO Supabase dependency)
+ *
+ * Previously used @supabase/ssr createBrowserClient.
+ * Now returns a no-op stub since all data fetching goes through
+ * Next.js API routes (which use the server-side pg client).
+ *
+ * Auth state in the browser is managed by our native JWT cookie —
+ * no client-side Supabase auth needed.
+ */
 
-// Client-side only client - singleton pattern to prevent multiple instances
-// Uses createBrowserClient from @supabase/ssr for proper cookie handling
-let supabaseClient: any = null
+// Singleton stub — browser code that calls createClient() gets a harmless object
+let _client: any = null;
 
 export function createClient() {
-  if (typeof window === 'undefined') {
-    return createSupabaseBrowserClient(supabaseUrl, supabaseAnonKey)
-  }
+  if (_client) return _client;
 
-  if (supabaseClient) {
-    return supabaseClient
-  }
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    const errorMessage = '[ERROR] Supabase credentials missing:\n' +
-      `NEXT_PUBLIC_SUPABASE_URL: ${supabaseUrl ? 'SET' : 'MISSING'}\n` +
-      `NEXT_PUBLIC_SUPABASE_ANON_KEY: ${supabaseAnonKey ? 'SET' : 'MISSING'}`;
-    console.error(errorMessage);
-    throw new Error(errorMessage);
-  }
-
-  // Determine shared domain for cookies
-  const isProd = typeof window !== 'undefined' && window.location.hostname.includes('markaztikrar.id');
-  const domain = isProd ? '.markaztikrar.id' : undefined;
-
-  // Use createBrowserClient from @supabase/ssr for proper cookie handling
-  // This ensures the client-side auth uses cookies that the server can read
-  supabaseClient = createSupabaseBrowserClient(
-    supabaseUrl,
-    supabaseAnonKey,
-    {
-      cookieOptions: {
-        path: '/',
-        maxAge: 31536000, // 1 year
-        ...(domain ? { domain } : {}),
-      },
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-        flowType: 'pkce',
+  // Clean up any legacy Supabase tokens that were previously cached
+  if (typeof window !== 'undefined') {
+    try {
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('sb-')) localStorage.removeItem(k);
       }
-    }
-  )
+      for (let i = sessionStorage.length - 1; i >= 0; i--) {
+        const k = sessionStorage.key(i);
+        if (k && k.startsWith('sb-')) sessionStorage.removeItem(k);
+      }
+      document.cookie.split(';').forEach(c => {
+        const name = c.split('=')[0].trim();
+        if (name.startsWith('sb-')) {
+          document.cookie = `${name}=; path=/; max-age=0;`;
+          document.cookie = `${name}=; path=/; domain=.markaztikrar.id; max-age=0;`;
+        }
+      });
+    } catch {}
+  }
 
-  return supabaseClient
+  _client = {
+    from: () => {
+      console.warn('[pg-client] from() called on browser client — use API routes instead');
+      return { select: () => Promise.resolve({ data: [], error: null }) };
+    },
+    rpc: () => {
+      console.warn('[pg-client] rpc() called on browser client — use API routes instead');
+      return Promise.resolve({ data: null, error: null });
+    },
+    auth: {
+      getUser: async () => ({ data: { user: null }, error: null }),
+      getSession: async () => ({ data: { session: null }, error: null }),
+      signOut: async () => {
+        // Delegate to server-side logout API
+        await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+        return { error: null };
+      },
+      onAuthStateChange: () => ({
+        data: { subscription: { unsubscribe: () => {} } }
+      }),
+      updateUser: async (_attrs: any) => ({ data: { user: null }, error: null }),
+      resetPasswordForEmail: async (_email: string) => ({ data: {}, error: null }),
+      signInWithPassword: async () => ({ data: { user: null, session: null }, error: null }),
+      signUp: async () => ({ data: { user: null, session: null }, error: null }),
+      setSession: async (_tokens: any) => ({ data: { user: null, session: null }, error: null }),
+      exchangeCodeForSession: async (_code: string) => ({ data: { session: null, user: null }, error: null }),
+      refreshSession: async () => ({ data: { session: null, user: null }, error: null }),
+      verifyOtp: async (_params: any) => ({ data: { session: null, user: null }, error: null }),
+      resend: async (_params: any) => ({ data: {}, error: null }),
+    },
+    // Storage stub — Supabase Storage removed. Use API routes for file uploads.
+    storage: {
+      from: (_bucket: string) => ({
+        upload: async (_path: string, _file: any, _opts?: any) => {
+          console.warn('[storage stub] upload() — use /api routes for file upload');
+          return { data: null, error: { message: 'Storage not available. Use API route.' } };
+        },
+        remove: async (_paths: string[]) => ({ data: null, error: null }),
+        getPublicUrl: (_path: string) => ({ data: { publicUrl: '' } }),
+        download: async (_path: string) => ({ data: null, error: { message: 'Not available' } }),
+        list: async (_prefix?: string) => ({ data: [], error: null }),
+      }),
+    },
+  };
+
+  return _client;
 }

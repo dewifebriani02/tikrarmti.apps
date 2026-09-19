@@ -138,6 +138,22 @@ export default function PerjalananSaya() {
   const [finalExams, setFinalExams] = useState<any[]>([]);
   const [isAlumnus, setIsAlumnus] = useState(false);
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('mti_selected_batch_id');
+      if (saved) {
+        setSelectedBatchId(saved);
+      }
+    }
+  }, []);
+
+  const handleSelectBatch = (id: string) => {
+    setSelectedBatchId(id);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('mti_selected_batch_id', id);
+    }
+  };
   
   useEffect(() => {
     fetch('/api/alumni/testimonial/my')
@@ -171,35 +187,6 @@ export default function PerjalananSaya() {
   const { progress } = useUserProgress();
   const { journey } = useLearningJourney();
   
-  const userRole = (user as any)?.primaryRole || 'thalibah';
-  const canSeeAdminStats = isStaff(userRole);
-  const { stats, isLoading: statsLoading } = useDashboardStats(canSeeAdminStats);
-  const { jurnalStatus, isLoading: jurnalLoading } = useJurnalStatus();
-
-  // Unified Statistics Logic (Same as Dashboard)
-  const statsOverview = useMemo(() => {
-    const totalHariTarget = canSeeAdminStats ? (stats?.totalHariTarget || 0) : (jurnalStatus?.summary.total_blocks || 0);
-    const hariAktual = canSeeAdminStats ? (stats?.hariAktual || 0) : (jurnalStatus?.summary.completed_blocks || 0);
-    const percentage = totalHariTarget > 0 ? Math.round((hariAktual / totalHariTarget) * 100) : 0;
-    
-    return {
-      totalHariTarget,
-      hariAktual,
-      percentage
-    };
-  }, [canSeeAdminStats, stats, jurnalStatus]);
-
-  const percentage = statsOverview.percentage;
-  const completedCount = statsOverview.hariAktual;
-  const totalCount = statsOverview.totalHariTarget;
-
-  const isMurajaahCompleted = useMemo(() => {
-    if (!jurnalStatus || !jurnalStatus.blocks) return false;
-    const murajaahBlocks = jurnalStatus.blocks.filter((b: any) => b.week_number === 11 || b.block_code?.startsWith('M'));
-    if (murajaahBlocks.length === 0) return false;
-    return murajaahBlocks.every((b: any) => b.is_completed);
-  }, [jurnalStatus]);
-
   // Compute list of all available batches for this user (Active + any registered)
   const availableBatches = useMemo(() => {
     const batchesMap = new Map<string, { id: string, name: string }>();
@@ -242,6 +229,35 @@ export default function PerjalananSaya() {
     }
     return null;
   }, [selectedBatchId, registrations, activeBatch]);
+
+  const userRole = (user as any)?.primaryRole || 'thalibah';
+  const canSeeAdminStats = isStaff(userRole);
+  const { stats, isLoading: statsLoading } = useDashboardStats(canSeeAdminStats);
+  const { jurnalStatus, isLoading: jurnalLoading } = useJurnalStatus(undefined, batchId || undefined);
+
+  // Unified Statistics Logic (Same as Dashboard)
+  const statsOverview = useMemo(() => {
+    const totalHariTarget = canSeeAdminStats ? (stats?.totalHariTarget || 0) : (jurnalStatus?.summary.total_blocks || 0);
+    const hariAktual = canSeeAdminStats ? (stats?.hariAktual || 0) : (jurnalStatus?.summary.completed_blocks || 0);
+    const percentage = totalHariTarget > 0 ? Math.round((hariAktual / totalHariTarget) * 100) : 0;
+    
+    return {
+      totalHariTarget,
+      hariAktual,
+      percentage
+    };
+  }, [canSeeAdminStats, stats, jurnalStatus]);
+
+  const percentage = statsOverview.percentage;
+  const completedCount = statsOverview.hariAktual;
+  const totalCount = statsOverview.totalHariTarget;
+
+  const isMurajaahCompleted = useMemo(() => {
+    if (!jurnalStatus || !jurnalStatus.blocks) return false;
+    const murajaahBlocks = jurnalStatus.blocks.filter((b: any) => b.week_number === 11 || b.block_code?.startsWith('M'));
+    if (murajaahBlocks.length === 0) return false;
+    return murajaahBlocks.every((b: any) => b.is_completed);
+  }, [jurnalStatus]);
 
   // Fetch batch timeline data - safely handle undefined registrations
   const { batch, timeline: batchTimeline, isLoading: batchLoading } = useBatchTimeline(batchId, {
@@ -902,7 +918,7 @@ export default function PerjalananSaya() {
                   id="batch-selector"
                   className="bg-emerald-800/80 border border-emerald-700 text-emerald-100 text-sm font-bold rounded-full px-5 py-2.5 outline-none appearance-none cursor-pointer pr-10 hover:bg-emerald-700/80 transition-colors"
                   value={batchId || ''}
-                  onChange={(e) => setSelectedBatchId(e.target.value)}
+                  onChange={(e) => handleSelectBatch(e.target.value)}
                 >
                   {availableBatches.map(b => (
                     <option key={b.id} value={b.id} className="bg-emerald-900 text-white font-medium">

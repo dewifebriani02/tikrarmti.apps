@@ -35,11 +35,7 @@ export function LandingTestimonialsCarousel({ testimonials }: { testimonials: Te
   // Helper to format proper case
   const toProperCase = (str: string | null) => {
     if (!str) return '';
-    return str
-      .toLowerCase()
-      .split(' ')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
+    return str.toLowerCase().replace(/(^\w|\s\w|-\w|\.\w|,\s*\w)/g, (letter) => letter.toUpperCase());
   };
 
   // Helper to calculate age

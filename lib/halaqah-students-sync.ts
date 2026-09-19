@@ -1,4 +1,8 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+// Local interface replacing the SupabaseClient type from @supabase/supabase-js
+interface SupabaseClient {
+  from: (table: string) => any;
+  auth: { getUser: () => Promise<any>; getSession: () => Promise<any>; signOut: () => Promise<any> };
+}
 
 type HalaqahSubmission = {
   user_id: string

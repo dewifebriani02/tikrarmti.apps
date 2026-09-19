@@ -12,7 +12,7 @@ import type { Batch } from '@/types/database'
  * Batches don't change frequently, so we cache for 5 minutes.
  */
 export async function getCachedBatch(
-  supabase: unknown,
+  supabase: any,
   batchId: string
 ): Promise<Batch | null> {
   const cached = unstable_cache(
@@ -43,7 +43,7 @@ export async function getCachedBatch(
  * Active batches list is relatively stable.
  */
 export async function getCachedActiveBatches(
-  supabase: unknown
+  supabase: any
 ): Promise<Batch[]> {
   const cached = unstable_cache(
     async () => {
@@ -73,7 +73,7 @@ export async function getCachedActiveBatches(
  * Includes related programs data.
  */
 export async function getCachedBatchWithPrograms(
-  supabase: unknown,
+  supabase: any,
   batchId: string
 ): Promise<(Batch & { programs: unknown[] }) | null> {
   const cached = unstable_cache(

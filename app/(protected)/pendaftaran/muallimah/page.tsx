@@ -766,7 +766,7 @@ function MuallimahRegistrationContent() {
     const metaPaid = getQuestionMeta('class_paid');
     const metaPaidScheme = getQuestionMeta('paid_class_scheme');
 
-    const activeRequiredClasses = [];
+    const activeRequiredClasses: string[] = [];
     if (metaTikrar.is_active) activeRequiredClasses.push('tikrar');
     if (metaPratikrar.is_active) activeRequiredClasses.push('pratikrar');
 

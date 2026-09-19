@@ -40,9 +40,20 @@ export async function GET(request: NextRequest) {
 
     // Get batch_id and mode from query parameter
     const { searchParams } = new URL(request.url);
-    const batchId = searchParams.get('batch_id');
+    let batchId = searchParams.get('batch_id');
     const mode = searchParams.get('mode') || 'daftar_ulang';
     const programTab = searchParams.get('program_tab') || 'semua';
+
+    if (!batchId || batchId === 'null' || batchId === 'undefined') {
+      const { data: activeBatch } = await supabaseAdmin
+        .from('batches')
+        .select('id')
+        .in('status', ['open', 'ongoing'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      batchId = activeBatch?.id || null;
+    }
 
     if (!batchId) {
       return NextResponse.json(
@@ -83,7 +94,7 @@ export async function GET(request: NextRequest) {
       .select('user_id, memorized_juz')
       .eq('batch_id', batchId);
       
-    const profileMap = new Map((muallimahProfiles || []).map(p => [p.user_id, p]));
+    const profileMap = new Map<string, any>((muallimahProfiles || []).map((p: any) => [p.user_id, p]));
 
     const muallimahRegs = (muallimahRegsRaw || []).map(reg => ({
       ...reg,

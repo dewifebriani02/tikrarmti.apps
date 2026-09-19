@@ -1,4 +1,3 @@
-import { createClient } from '@supabase/supabase-js';
 import { PendaftaranData } from '@/lib/pendaftaran';
 import { logger } from '@/lib/logger-secure';
 import { ApiResponses } from '@/lib/api-responses';
@@ -6,11 +5,8 @@ import { pendaftaranSchemas } from '@/lib/schemas';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { getAuthorizationContext } from '@/lib/rbac';
 
-// Supabase admin client (service role) for high-privilege operations
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// PostgreSQL-backed admin client (replaces Supabase service role)
+const supabaseAdmin = createSupabaseAdmin();
 
 export async function POST(request: Request) {
   // Get client IP for logging

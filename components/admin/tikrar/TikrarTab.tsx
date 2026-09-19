@@ -49,8 +49,9 @@ export function TikrarTab({ user }: { user: any }) {
   // Fetch Batches
   const fetchBatches = async () => {
     try {
-      const { data } = await supabase.from('batches').select('*').order('name', { ascending: false });
-      const loadedBatches = data || [];
+      const res = await fetch('/api/batches');
+      const json = await res.json();
+      const loadedBatches = json.data || [];
       setBatches(loadedBatches);
 
       // Find the currently active batch and set it as default in filters
@@ -67,6 +68,8 @@ export function TikrarTab({ user }: { user: any }) {
           batchId: active.id
         }));
       }
+    } catch (e) {
+      console.error('Failed to load batches:', e);
     } finally {
       setBatchesLoaded(true);
     }
@@ -76,79 +79,20 @@ export function TikrarTab({ user }: { user: any }) {
   const fetchTikrarData = useCallback(async () => {
     setIsLoading(true);
     try {
-      let query = supabase
-        .from('pendaftaran_tikrar_tahfidz')
-        .select(`
-          *,
-          user:users!pendaftaran_tikrar_tahfidz_user_id_fkey(*),
-          batch:batches(*),
-          program:programs(*),
-          daftar_ulang_submissions(status)
-        `)
-        .order('submission_date', { ascending: false });
+      const params = new URLSearchParams();
+      if (filters.batchId !== 'all') params.append('batch_id', filters.batchId);
+      if (filters.status !== 'all') params.append('status', filters.status);
+      if (filters.selectionStatus !== 'all') params.append('selection_status', filters.selectionStatus);
+      params.append('limit', '1000');
 
-      if (filters.batchId !== 'all') {
-        query = query.eq('batch_id', filters.batchId);
-      }
-      if (filters.status !== 'all') {
-        query = query.eq('status', filters.status);
-      }
-      if (filters.selectionStatus !== 'all') {
-        query = query.eq('selection_status', filters.selectionStatus);
+      const res = await fetch(`/api/admin/tikrar?${params.toString()}`);
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error?.message || errJson.message || 'Gagal memuat data pendaftaran');
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
-
-      let filteredData = data as TikrarTahfidz[];
-
-      // Detect duplicates
-      const userBatchCounts = new Map<string, number>();
-      for (const item of filteredData) {
-        if (!item.user_id || !item.batch_id) continue;
-        const key = `${item.user_id}_${item.batch_id}`;
-        userBatchCounts.set(key, (userBatchCounts.get(key) || 0) + 1);
-      }
-      
-      filteredData = filteredData.map(item => {
-        if (!item.user_id || !item.batch_id) return item;
-        const key = `${item.user_id}_${item.batch_id}`;
-        return {
-          ...item,
-          isDuplicate: (item as any).is_duplicate || (userBatchCounts.get(key) || 0) > 1
-        };
-      });
-
-      // Fetch previous registrations to determine alumni status
-      const userIds = filteredData.map(t => t.user_id);
-      const alumniUserIds = new Set<string>();
-
-      if (userIds.length > 0) {
-        let prevQuery = supabase
-          .from('pendaftaran_tikrar_tahfidz')
-          .select('user_id')
-          .in('user_id', userIds)
-          .eq('status', 'approved')
-          .eq('selection_status', 'selected');
-
-        if (filters.batchId !== 'all') {
-          prevQuery = prevQuery.neq('batch_id', filters.batchId);
-        }
-
-        const { data: prevRegs } = await prevQuery;
-
-        if (prevRegs) {
-          prevRegs.forEach((reg: any) => {
-            alumniUserIds.add(reg.user_id);
-          });
-        }
-      }
-
-      // Enrich data with isAlumni flag
-      filteredData = filteredData.map(t => ({
-        ...t,
-        isAlumni: alumniUserIds.has(t.user_id)
-      }));
+      const json = await res.json();
+      let filteredData: TikrarTahfidz[] = (json.data?.data || json.data || []) as TikrarTahfidz[];
 
       // Apply Search & Additional Filters (Local)
       if (filters.search || filters.daftarUlangStatus !== 'all') {

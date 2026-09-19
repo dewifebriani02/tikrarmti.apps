@@ -1,7 +1,6 @@
-import { createClient as createSupabaseClient } from '@supabase/supabase-js'
-import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/rbac'
+import { createSupabaseAdmin } from '@/lib/supabase'
 
 export async function POST(request: Request) {
   const authError = await requireAdmin()
@@ -15,15 +14,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Missing parameters' }, { status: 400 })
   }
   
-  const supabaseAdmin = createSupabaseClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+  // PostgreSQL-backed admin client (replaces Supabase service role)
+  const db = createSupabaseAdmin()
   
   console.log(`[RepairRoute] Attempting to sync ID for ${email} to ${newId}`)
   
   // 1. Update public.users
-  const { error: userError } = await supabaseAdmin
+  const { error: userError } = await db
     .from('users')
     .update({ id: newId })
     .eq('email', email)
@@ -34,13 +31,12 @@ export async function POST(request: Request) {
   }
   
   // 2. Update pendaftaran_tikrar_tahfidz (if exists and needed)
-  await supabaseAdmin
+  await db
     .from('pendaftaran_tikrar_tahfidz')
     .update({ user_id: newId })
     .eq('email', email)
     
   console.log(`[RepairRoute] Successfully synced ID for ${email}`)
   
-  // Redirect back to debug with success
   return NextResponse.redirect(new URL('/debug?success=true', request.url))
 }

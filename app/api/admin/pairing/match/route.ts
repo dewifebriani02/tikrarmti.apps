@@ -135,10 +135,10 @@ export async function GET(request: Request) {
     if (submissionsError) throw submissionsError
 
     // Filter out already paired users
-    const availableUserIds = Array.from(new Set(
+    const availableUserIds: string[] = Array.from(new Set(
       (submissions || [])
-        .filter(s => !pairedUserIds.has(s.user_id))
-        .map(s => s.user_id)
+        .filter((s: any) => !pairedUserIds.has(s.user_id))
+        .map((s: any) => s.user_id)
     ))
 
     console.log('[MATCH API] Submissions found:', submissions?.length || 0, 'After filtering paired:', availableUserIds.length)
@@ -169,11 +169,11 @@ export async function GET(request: Request) {
     console.log('[MATCH API] Registrations data fetched:', registrationsData?.length || 0)
 
     // Create maps for quick lookup
-    const usersMap = new Map((usersData || []).map(u => [u.id, u]))
-    const registrationsMap = new Map((registrationsData || []).map(r => [r.user_id, r]))
+    const usersMap = new Map<string, any>((usersData || []).map((u: any) => [u.id, u]))
+    const registrationsMap = new Map<string, any>((registrationsData || []).map((r: any) => [r.user_id, r]))
 
     // 6. Calculate matches with scoring
-    const matches = []
+    const matches: any[] = []
 
     for (const candidateUserId of availableUserIds) {
       const user = usersMap.get(candidateUserId)

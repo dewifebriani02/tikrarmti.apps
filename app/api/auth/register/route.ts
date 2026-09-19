@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase/server';
-import { createSupabaseAdmin } from '@/lib/supabase';
+import { queryOne, query } from '@/lib/db';
+import { hashPassword } from '@/lib/auth';
 import { authRateLimit, getClientIP } from '@/lib/rate-limiter';
 import {
   sanitizeEmail,
@@ -10,32 +10,27 @@ import {
   sanitizeCity,
   sanitizeGeneric
 } from '@/lib/utils/sanitize';
-import { logUser } from '@/lib/logger';
 import { logger } from '@/lib/logger-secure';
-import { z } from 'zod';
 import { ApiResponses } from '@/lib/api-responses';
 import { authSchemas } from '@/lib/schemas';
+import crypto from 'crypto';
 
 export async function POST(request: NextRequest) {
-  // Get client IP once for the entire function
   const ip = getClientIP(request);
-
   let body: any;
 
   try {
-    // Parse request body early so it's available in catch block
     body = await request.json();
 
-    // Validate request body with Zod schema
+    // 1. Validate request body with Zod schema
     const validation = authSchemas.register.safeParse(body);
     if (!validation.success) {
       return ApiResponses.validationError(validation.error.issues);
     }
 
-    // Update body with validated data
     body = validation.data;
 
-    // reCAPTCHA validation - Only required if RECAPTCHA_SECRET_KEY is configured
+    // 2. reCAPTCHA validation (if configured in production)
     if (process.env.NODE_ENV === 'production' && process.env.RECAPTCHA_SECRET_KEY) {
       const recaptchaToken = body.recaptchaToken;
       if (!recaptchaToken) {
@@ -66,148 +61,52 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Apply rate limiting
+    // 3. Apply rate limiting
     if (authRateLimit) {
       const { success } = await authRateLimit.limit(ip);
-
       if (!success) {
-        // Log rate limit exceeded
-        logger.warn('Rate limit exceeded', {
-          ip,
-          endpoint: '/api/auth/register'
-        });
-
-        return ApiResponses.rateLimit('Too many registration attempts. Please try again later.');
+        logger.warn('Rate limit exceeded', { ip, endpoint: '/api/auth/register' });
+        return ApiResponses.rateLimit('Terlalu banyak percobaan pendaftaran. Silakan tunggu beberapa saat.');
       }
     }
 
-    const {
-      nama_kunyah,
-      email,
-      password,
-      full_name,
-      negara,
-      provinsi,
-      kota,
-      alamat,
-      whatsapp,
-      telegram,
-      zona_waktu,
-      tanggal_lahir,
-      tempat_lahir,
-      jenis_kelamin,
-      pekerjaan,
-      alasan_daftar,
-      honeypot, // Bot protection
-    } = body;
-
-    // Honeypot check - if field is filled, it's likely a bot
-    if (honeypot) {
+    // 4. Honeypot check for bots
+    if (body.honeypot) {
       logger.warn('Honeypot filled - Bot detected', {
         ip,
-        honeypotValue: honeypot,
+        honeypotValue: body.honeypot,
         email: body.email
       });
-      // Return success to the bot to prevent it from trying other ways, 
-      // but don't actually create the user. Or return error.
-      // Usually, returning a generic error or "success" but doing nothing is best.
-      // Here we'll return a server error to be safe.
       return ApiResponses.serverError('Pendaftaran gagal. Silakan coba lagi nanti.');
     }
 
-    // Role is always 'thalibah' for public registration — never trust client input
-    const role = 'thalibah';
+    // 5. Sanitize all inputs
+    const cleanEmail = sanitizeEmail(body.email);
+    const cleanNamaKunyah = body.nama_kunyah ? sanitizeName(body.nama_kunyah) : null;
+    const cleanFullName = sanitizeName(body.full_name);
+    const cleanNegara = sanitizeCity(body.negara);
+    const cleanProvinsi = body.provinsi ? sanitizeCity(body.provinsi) : null;
+    const cleanKota = sanitizeCity(body.kota);
+    const cleanAlamat = sanitizeAddress(body.alamat);
+    const cleanWhatsApp = sanitizePhone(body.whatsapp, body.negara);
+    const cleanTelegram = body.telegram ? sanitizePhone(body.telegram, body.negara) : null;
+    const cleanZonaWaktu = sanitizeGeneric(body.zona_waktu, 10);
 
-    // Note: Validation is handled by Zod schema above
+    // 6. Check if email already exists in PostgreSQL
+    const existingEmail = await queryOne(
+      'SELECT id, email, full_name, is_active FROM users WHERE LOWER(email) = LOWER($1)',
+      [cleanEmail]
+    );
 
-    try {
-      // Sanitize all inputs
-      const sanitizedEmail = sanitizeEmail(email);
-      const sanitizedNamaKunyah = nama_kunyah ? sanitizeName(nama_kunyah) : null;
-      const sanitizedFullName = sanitizeName(full_name);
-      const sanitizedNegara = sanitizeCity(negara);
-      const sanitizedProvinsi = provinsi ? sanitizeCity(provinsi) : null;
-      const sanitizedKota = sanitizeCity(kota);
-      const sanitizedAlamat = sanitizeAddress(alamat);
-
-      const sanitizedWhatsApp = sanitizePhone(whatsapp, negara);
-      const sanitizedTelegram = telegram ? sanitizePhone(telegram, negara) : null;
-
-      const sanitizedZonaWaktu = sanitizeGeneric(zona_waktu, 10);
-
-      // Note: Timezone and role validation is handled by Zod schema
-
-      // Update body with sanitized values
-      body.nama_kunyah = sanitizedNamaKunyah;
-      body.email = sanitizedEmail;
-      body.full_name = sanitizedFullName;
-      body.negara = sanitizedNegara;
-      body.provinsi = sanitizedProvinsi;
-      body.kota = sanitizedKota;
-      body.alamat = sanitizedAlamat;
-      body.whatsapp = sanitizedWhatsApp;
-      body.telegram = sanitizedTelegram;
-      body.zona_waktu = sanitizedZonaWaktu;
-
-    } catch (error: any) {
-      return ApiResponses.customValidationError([{ field: 'general', message: error.message || 'Input tidak valid', code: 'custom' }]);
+    if (existingEmail) {
+      return ApiResponses.conflict('Email sudah terdaftar. Silakan login atau gunakan email lain.');
     }
 
-    // Initialize Supabase clients
-    const supabase = createServerClient();
-    const supabaseAdmin = createSupabaseAdmin();
-
-    // Check if email already exists in auth system using admin client
-    // Note: listUsers is an admin method that bypasses RLS
-    const { data: existingAuthUsers, error: authListError } = await (supabaseAdmin as any).auth.admin.listUsers();
-
-    if (!authListError && existingAuthUsers.users) {
-      const userExists = existingAuthUsers.users.some((user: any) => user.email === body.email);
-
-      if (userExists) {
-        // User exists in auth system
-        return ApiResponses.conflict('Email sudah terdaftar. Silakan login.');
-      }
-    }
-
-    // Check if email already exists in users table using admin client to bypass RLS
-    const { data: existingUser, error: checkError } = await supabaseAdmin
-      .from('users')
-      .select('email, full_name, negara, provinsi, kota, alamat, whatsapp, zona_waktu, role')
-      .eq('email', body.email)
-      .single();
-
-    if (checkError && checkError.code !== 'PGRST116') {
-      return ApiResponses.serverError('Terjadi kesalahan saat memeriksa email');
-    }
-
-    if (existingUser) {
-      // Check if user profile is incomplete
-      const isProfileComplete = !!(
-        existingUser.full_name &&
-        existingUser.negara &&
-        existingUser.kota &&
-        existingUser.alamat &&
-        existingUser.whatsapp &&
-        existingUser.zona_waktu
-      );
-
-      if (isProfileComplete) {
-        return ApiResponses.conflict('Email sudah terdaftar dan profil lengkap');
-      }
-    }
-
-    // Check if WhatsApp already exists in users table (1 Phone = 1 Account Security)
-    const { data: existingPhone, error: phoneError } = await supabaseAdmin
-      .from('users')
-      .select('id, full_name')
-      .eq('whatsapp', body.whatsapp)
-      .maybeSingle();
-
-    if (phoneError) {
-      console.error('[Register API] Database check for WhatsApp failed:', phoneError);
-      return ApiResponses.serverError('Terjadi kesalahan saat memeriksa nomor WhatsApp');
-    }
+    // 7. Check if WhatsApp already exists
+    const existingPhone = await queryOne(
+      'SELECT id, full_name FROM users WHERE whatsapp = $1',
+      [cleanWhatsApp]
+    );
 
     if (existingPhone) {
       return ApiResponses.customValidationError([{
@@ -217,25 +116,14 @@ export async function POST(request: NextRequest) {
       }]);
     }
 
-    // Check blacklist - prevent blacklisted phone or email from registering
-    const { data: blacklistCheck, error: blacklistError } = await supabaseAdmin
-      .from('users')
-      .select('id, email, whatsapp, blacklist_reason, is_blacklisted')
-      .or(`email.eq.${body.email},whatsapp.eq.${body.whatsapp}`)
-      .eq('is_blacklisted', true)
-      .maybeSingle();
+    // 8. Check blacklist
+    const blacklistCheck = await queryOne(
+      'SELECT id, email, whatsapp, blacklist_reason FROM users WHERE (LOWER(email) = LOWER($1) OR whatsapp = $2) AND is_blacklisted = true',
+      [cleanEmail, cleanWhatsApp]
+    );
 
-    if (!blacklistError && blacklistCheck) {
-      logger.warn('Blacklisted user attempted to register', {
-        email: body.email,
-        whatsapp: body.whatsapp,
-        matchedEmail: blacklistCheck.email,
-        matchedPhone: blacklistCheck.whatsapp,
-        reason: blacklistCheck.blacklist_reason,
-        ip
-      });
-
-      const matchedField = blacklistCheck.email === body.email ? 'email' : 'WhatsApp';
+    if (blacklistCheck) {
+      const matchedField = blacklistCheck.email?.toLowerCase() === cleanEmail.toLowerCase() ? 'email' : 'WhatsApp';
       return ApiResponses.customValidationError([{
         field: matchedField,
         message: `${matchedField === 'email' ? 'Email' : 'Nomor WhatsApp'} ini telah di-blacklist dari sistem. Hubungi admin jika ini kesalahan.`,
@@ -243,247 +131,80 @@ export async function POST(request: NextRequest) {
       }]);
     }
 
-    let newUser;
-    let authUser;
+    // 9. Hash password
+    const passwordHash = await hashPassword(body.password);
+    const newUserId = crypto.randomUUID();
+    const role = 'thalibah';
+    const roles = ['thalibah'];
 
-    // Create user with email confirmation required (SECURITY)
-    const { data: signUpData, error: signUpError } = await (supabaseAdmin as any).auth.admin.createUser({
-      email: body.email,
-      password: body.password,
-      email_confirm: true, // Auto-confirm email since user disabled manual confirmation
-      user_metadata: {
-        full_name: body.full_name,
-        role: body.role
-      }
+    // 10. Insert user into PostgreSQL users table
+    const insertedUser = await queryOne(
+      `INSERT INTO users (
+        id, email, password_hash, full_name, nama_kunyah,
+        negara, provinsi, kota, alamat,
+        whatsapp, telegram, zona_waktu,
+        tanggal_lahir, tempat_lahir, jenis_kelamin,
+        pekerjaan, alasan_daftar,
+        role, roles, is_active, is_blacklisted,
+        created_at, updated_at
+      ) VALUES (
+        $1, $2, $3, $4, $5,
+        $6, $7, $8, $9,
+        $10, $11, $12,
+        $13, $14, $15,
+        $16, $17,
+        $18, $19, true, false,
+        NOW(), NOW()
+      ) RETURNING id, email, full_name, role, roles`,
+      [
+        newUserId,
+        cleanEmail,
+        passwordHash,
+        cleanFullName,
+        cleanNamaKunyah,
+        cleanNegara,
+        cleanProvinsi,
+        cleanKota,
+        cleanAlamat,
+        cleanWhatsApp,
+        cleanTelegram,
+        cleanZonaWaktu,
+        body.tanggal_lahir,
+        body.tempat_lahir,
+        body.jenis_kelamin,
+        body.pekerjaan,
+        body.alasan_daftar,
+        role,
+        roles,
+      ]
+    );
+
+    logger.auth('User registered successfully', insertedUser.id, {
+      email: insertedUser.email,
+      role: insertedUser.role,
+      ip
     });
 
-    if (!signUpError) {
-      logger.info('User created, email confirmation required', {
-        email: body.email,
-        userId: signUpData.user.id,
-        emailConfirmRequired: true
-      });
-    }
-
-    if (signUpError) {
-      logger.error('Sign up error', {
-        email: body.email,
-        errorType: signUpError.name,
-        errorDetail: signUpError.message,
-        errorStatus: signUpError.status,
-        errorStack: signUpError.stack
-      });
-
-      // Provide more specific error messages based on the error
-      let errorMessage = 'Gagal membuat akun. Silakan periksa data Ukhti.';
-      let errorField = 'general';
-
-      if (signUpError.message === 'User not allowed' || signUpError.message?.includes('already registered') || signUpError.message?.includes('already been registered')) {
-        errorMessage = 'Email sudah terdaftar di sistem. Silakan login atau gunakan email lain.';
-        errorField = 'email';
-      } else if (signUpError.message?.includes('Password')) {
-        errorMessage = 'Password tidak valid. Gunakan minimal 8 karakter.';
-        errorField = 'password';
-      } else if (signUpError.message?.includes('Invalid email')) {
-        errorMessage = 'Format email tidak valid.';
-        errorField = 'email';
-      } else if (signUpError.message?.includes('A user with this email has already been registered')) {
-        errorMessage = 'Email sudah terdaftar di sistem. Silakan login atau gunakan email lain.';
-        errorField = 'email';
-      } else if (
-        signUpError.status === 429 ||
-        signUpError.message?.toLowerCase().includes('rate limit') ||
-        signUpError.message?.toLowerCase().includes('too many requests')
-      ) {
-        // Supabase GoTrue rate limit — return 429 so frontend can handle it
-        return ApiResponses.rateLimit('Terlalu banyak percobaan pendaftaran. Silakan tunggu beberapa menit sebelum mencoba kembali.');
-      }
-
-      return ApiResponses.customValidationError([{ field: errorField, message: errorMessage, code: 'custom' }]);
-    }
-
-    authUser = signUpData.user;
-
-    // Log successful user creation
-    logger.info('User created successfully', {
-      userId: authUser.id,
-      email: body.email,
-      emailConfirmed: authUser.email_confirmed_at
-    });
-
-    // Check if user was actually created and if email confirmation was sent
-    if (authUser && !authUser.email_confirmed_at) {
-      logger.info('Confirmation email sent', {
-        userId: authUser.id,
-        email: body.email,
-        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/confirm`
-      });
-    }
-
-    if (existingUser) {
-      // Update existing incomplete user profile using admin client to bypass RLS
-      const { data: updatedUser, error: updateError } = await supabaseAdmin
-        .from('users')
-        .update({
-          nama_kunyah: body.nama_kunyah,
-          full_name: body.full_name,
-          negara: body.negara,
-          provinsi: body.provinsi,
-          kota: body.kota,
-          alamat: body.alamat,
-          whatsapp: body.whatsapp,
-          telegram: body.telegram,
-          zona_waktu: body.zona_waktu,
-          tanggal_lahir: body.tanggal_lahir,
-          tempat_lahir: body.tempat_lahir,
-          jenis_kelamin: body.jenis_kelamin,
-          pekerjaan: body.pekerjaan,
-          alasan_daftar: body.alasan_daftar,
-          role: existingUser.role || role,
-          roles: ['thalibah'], // CRITICAL: roles array is the source of truth for auth. Must conform to check constraint.
-          is_active: true,
-        })
-        .eq('email', body.email)
-        .select('id, email, full_name, role')
-        .single();
-
-      if (updateError) {
-        logger.error('Profile update error', {
-          userId: authUser.id,
-          email: body.email
-        });
-
-        // Clean up auth user if profile update fails
-        try {
-          const { error: deleteError } = await (supabaseAdmin as any).auth.admin.deleteUser(authUser.id);
-          if (deleteError) {
-            logger.error('Failed to cleanup auth user after profile update failed', {
-              userId: authUser.id,
-              email: body.email,
-              deleteError
-            });
-          }
-        } catch (cleanupError) {
-          logger.error('Exception during auth user cleanup', {
-            userId: authUser.id,
-            email: body.email,
-            cleanupError
-          });
+    return ApiResponses.success(
+      {
+        user: {
+          id: insertedUser.id,
+          email: insertedUser.email,
+          full_name: insertedUser.full_name,
+          role: insertedUser.role,
         }
-        return ApiResponses.serverError('Gagal memperbarui data pengguna');
-      }
+      },
+      '🎉 Pendaftaran berhasil! Silakan login dengan akun Ukhti.',
+      201
+    );
 
-      newUser = updatedUser;
-    } else {
-      // Insert new user using admin client to bypass RLS
-      const { data: insertedUser, error: insertError } = await supabaseAdmin
-        .from('users')
-        .insert([
-          {
-            id: authUser.id, // Use auth user ID
-            email: body.email,
-            nama_kunyah: body.nama_kunyah,
-            full_name: body.full_name,
-            negara: body.negara,
-            provinsi: body.provinsi,
-            kota: body.kota,
-            alamat: body.alamat,
-            whatsapp: body.whatsapp,
-            telegram: body.telegram,
-            zona_waktu: body.zona_waktu,
-            tanggal_lahir: body.tanggal_lahir,
-            tempat_lahir: body.tempat_lahir,
-            jenis_kelamin: body.jenis_kelamin,
-            pekerjaan: body.pekerjaan,
-            alasan_daftar: body.alasan_daftar,
-            role: body.role,
-            roles: ['thalibah'], // CRITICAL: roles array is the source of truth for auth. Must conform to check constraint.
-            is_active: true,
-          }
-        ])
-        .select('id, email, full_name, role')
-        .single();
-
-      if (insertError) {
-        logger.error('Profile insert error', {
-          userId: authUser.id,
-          email: body.email,
-          error: insertError
-        });
-
-        // Clean up auth user if profile insert fails
-        try {
-          const { error: deleteError } = await (supabaseAdmin as any).auth.admin.deleteUser(authUser.id);
-          if (deleteError) {
-            logger.error('Failed to cleanup auth user after profile insert failed', {
-              userId: authUser.id,
-              email: body.email,
-              deleteError
-            });
-            // Log the orphaned user for later cleanup
-            logger.warn('ORPHANED USER CREATED', {
-              userId: authUser.id,
-              email: body.email,
-              reason: 'Profile insert failed and cleanup failed',
-              action: 'Manual cleanup required via /api/admin/check-orphaned-users'
-            });
-          }
-        } catch (cleanupError) {
-          logger.error('Exception during auth user cleanup', {
-            userId: authUser.id,
-            email: body.email,
-            cleanupError
-          });
-        }
-        return ApiResponses.serverError('Gagal mendaftarkan pengguna baru');
-      }
-
-      newUser = insertedUser;
-    }
-
-    // Log registration/update
-    if (existingUser) {
-      logger.auth('Profile updated', newUser.id, {
-        email: newUser.email,
-        role: newUser.role,
-        ip
-      });
-    } else {
-      logger.auth('User registered', newUser.id, {
-        email: newUser.email,
-        role: newUser.role,
-        ip
-      });
-    }
-
-    const responseMessage = existingUser
-      ? 'Profil berhasil diperbarui'
-      : `🎉 Pendaftaran berhasil! Silakan login dengan akun *Ukhti*.`;
-
-    logger.auth('Registration completed', newUser.id, {
-      email: body.email,
-      isUpdate: !!existingUser
-    });
-
-    const responseData = {
-      requiresEmailVerification: false, // Email confirmation disabled
-      user: {
-        id: newUser.id,
-        email: newUser.email,
-        full_name: newUser.full_name,
-        role: newUser.role
-      }
-    };
-
-    return ApiResponses.success(responseData, responseMessage, 201);
-
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Registration error', {
       endpoint: '/api/auth/register',
       ip,
-      error: error as Error
+      error: error?.message || error
     });
 
-    return ApiResponses.serverError('Terjadi kesalahan server. Silakan coba lagi.');
+    return ApiResponses.serverError('Terjadi kesalahan server saat memproses pendaftaran. Silakan coba lagi.');
   }
 }

@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createSupabaseAdmin } from '@/lib/supabase';
 import { ApiResponses } from '@/lib/api-responses';
 import { requireAdmin, getAuthorizationContext } from '@/lib/rbac';
 import { logAudit, getClientIp, getUserAgent } from '@/lib/audit-log';
@@ -36,10 +36,7 @@ export async function GET(request: Request) {
     // but usually createSupabaseAdmin is preferred for admin routes.
     // However, some routes prefer anon key if RLS allows it even for admins 
     // to track the specific admin user in audit logs via session.
-    // In this case, we use service role (supabaseAdmin) for full user management.
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-    const supabase = createClient(supabaseUrl, serviceKey);
+    const supabase = createSupabaseAdmin();
 
     // 3. Build query
     let query = supabase
@@ -146,7 +143,7 @@ export async function GET(request: Request) {
       formattedUsers = formattedUsers.map(user => {
         const userJurnals = (jurnalStats || []).filter(j => j.user_id === user.id);
         const userRegs = (registrations || []).filter(r => r.user_id === user.id);
-        const registeredBatches = Array.from(new Set(userRegs.map(r => (r.batch as any)?.name).filter(Boolean)));
+        const registeredBatches = Array.from(new Set<string>(userRegs.map((r: any) => (r.batch as any)?.name).filter(Boolean)));
 
         return {
           ...user,

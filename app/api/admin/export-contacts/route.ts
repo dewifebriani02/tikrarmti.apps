@@ -34,13 +34,7 @@ function getYearFromBirthDate(birthDate: string | null): string {
 // Helper function to format text to Proper Case (capitalize first letter of each word)
 function toProperCase(text: string | null): string {
   if (!text) return '';
-  return text
-    .split(' ')
-    .map(word => {
-      if (!word) return '';
-      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-    })
-    .join(' ');
+  return text.toLowerCase().replace(/(^\w|\s\w|-\w|\.\w|,\s*\w)/g, (letter) => letter.toUpperCase());
 }
 
 // Helper function to normalize phone number (remove +, spaces, dashes)

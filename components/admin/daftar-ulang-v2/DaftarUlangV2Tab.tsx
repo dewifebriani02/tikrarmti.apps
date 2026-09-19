@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+import { cn, parseAkadFiles } from '@/lib/utils';
 import {
   FileText,
   Download,
@@ -128,17 +128,9 @@ export function DaftarUlangV2Tab({ batchId: initialBatchId }: DaftarUlangTabProp
 
   const loadJuzOptions = async () => {
     try {
-      if (localBatchId && localBatchId !== 'all') {
-        const res = await fetch(`/api/admin/batch/${localBatchId}/juz`);
-        const result = await res.json();
-        if (result.success && result.data) {
-          setJuzOptions(result.data.filter((j: any) => j.is_mapped_to_batch));
-        }
-      } else {
-        const result = await getJuzOptionsAdmin();
-        if (result.success && result.data) {
-          setJuzOptions(result.data.filter((j: any) => j.is_active));
-        }
+      const result = await getJuzOptionsAdmin();
+      if (result.success && result.data) {
+        setJuzOptions(result.data.filter((j: any) => j.is_active));
       }
     } catch (error) {
       console.error('[DaftarUlangTab] Error loading juz options:', error);
@@ -701,7 +693,7 @@ export function DaftarUlangV2Tab({ batchId: initialBatchId }: DaftarUlangTabProp
 
       const toProperCase = (text: string) => {
         if (!text) return '';
-        return text.split(' ').map((word: string) => word ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase() : '').join(' ');
+        return text.toLowerCase().replace(/(^\w|\s\w|-\w|\.\w|,\s*\w)/g, (letter) => letter.toUpperCase());
       }
 
       const getYearFromBirthDate = (birthDate: string) => {
@@ -1370,8 +1362,8 @@ export function DaftarUlangV2Tab({ batchId: initialBatchId }: DaftarUlangTabProp
         return sortOrder === 'asc' ? aPeng.localeCompare(bPeng) : bPeng.localeCompare(aPeng);
       }
       if (sortField === 'akad_files') {
-        const aHasFile = a.akad_files && a.akad_files.length > 0 ? a.akad_files.length : 0;
-        const bHasFile = b.akad_files && b.akad_files.length > 0 ? b.akad_files.length : 0;
+        const aHasFile = parseAkadFiles(a.akad_files).length;
+        const bHasFile = parseAkadFiles(b.akad_files).length;
         return sortOrder === 'asc' ? aHasFile - bHasFile : bHasFile - aHasFile;
       }
       if (sortField === 'partner') {

@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createSupabaseAdmin } from '@/lib/supabase';
 import { createServerClient } from '@/lib/supabase/server';
 
-// Supabase admin client (service role) for database operations with admin privileges
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// PostgreSQL-backed admin client
+const supabaseAdmin = createSupabaseAdmin();
 
 export async function POST(request: NextRequest) {
   try {
@@ -272,12 +269,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get user's registration data using admin client for bypassing RLS
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-
+    // Get user's registration data using admin client
     const { data: registration, error } = await supabaseAdmin
       .from('pendaftaran_tikrar_tahfidz')
       .select('*')

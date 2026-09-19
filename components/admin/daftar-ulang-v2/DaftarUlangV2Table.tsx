@@ -4,7 +4,7 @@ import { Eye, FileText, RefreshCw, RotateCcw, MessageSquare, ArrowUp, ArrowDown,
 import { useState, useRef, useEffect } from 'react';
 import { DaftarUlangSubmission } from './types';
 import { getWhatsAppUrl } from '@/lib/utils/whatsapp';
-import { cn } from '@/lib/utils';
+import { cn, parseAkadFiles } from '@/lib/utils';
 
 interface DaftarUlangV2TableProps {
   submissions: DaftarUlangSubmission[];
@@ -509,24 +509,27 @@ export function DaftarUlangV2Table({
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    {submission.akad_files && submission.akad_files.length > 0 ? (
-                      <div className="flex flex-col gap-1.5">
-                        {submission.akad_files.map((file, idx) => (
-                          <a
-                            key={idx}
-                            href={file.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-md transition-colors w-max"
-                          >
-                            <FileText className="w-3.5 h-3.5" />
-                            File {idx + 1}
-                          </a>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="text-xs font-medium text-gray-400 bg-gray-50 px-2 py-1 rounded-md">Belum upload</span>
-                    )}
+                    {(() => {
+                      const files = parseAkadFiles(submission.akad_files);
+                      return files.length > 0 ? (
+                        <div className="flex flex-col gap-1.5">
+                          {files.map((file, idx) => (
+                            <a
+                              key={idx}
+                              href={file.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-md transition-colors w-max"
+                            >
+                              <FileText className="w-3.5 h-3.5" />
+                              {file.name || `File ${idx + 1}`}
+                            </a>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-xs font-medium text-gray-400 bg-gray-50 px-2 py-1 rounded-md">Belum upload</span>
+                      );
+                    })()}
                   </td>
                   <td className="px-6 py-4">
                     {renderStatusDropdown(submission, 'akad')}

@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 import { CheckCircle, AlertCircle, Clock, Users, Calendar, Upload, Download, ChevronRight, ChevronLeft, Info, FileText, X, ImageIcon, Trash2, Pencil } from 'lucide-react'
 import { submitDaftarUlang, saveDaftarUlangDraft, uploadAkad, updateAkadFiles, approveDaftarUlangSubmission, getReregistrationQuestions, resetAkadThalibah } from './actions'
 import { UserProfileCard } from '@/components/UserProfileCard'
+import { parseAkadFiles } from '@/lib/utils'
 
 type Step = 'confirm' | 'pengabdian' | 'akad' | 'halaqah' | 'partner' | 'success'
 
@@ -387,7 +388,7 @@ function DaftarUlangContent() {
         : [],
       donasi_amount: formatDonationAmount(existingSubmission.donasi_amount),
       // Preserve akad files for both draft and submitted
-      akad_files: existingSubmission.akad_files || [],
+      akad_files: parseAkadFiles(existingSubmission.akad_files),
     }))
 
     // Only change step for draft status, and only outside "Edit Upload Akad" mode
@@ -2271,22 +2272,23 @@ function AkadUploadStep({
       )}
 
       {/* Previously Uploaded Akad Files Info */}
-      {existingSubmission?.status === 'draft' &&
-       existingSubmission?.akad_files &&
-       existingSubmission.akad_files.length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-          <div className="flex items-start space-x-3">
-            <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-            <div className="text-sm text-blue-800">
-              <p className="font-semibold mb-1">Akad Sebelumnya Telah Tersimpan</p>
-              <p className="text-blue-700">
-                Ukhti sudah mengupload {existingSubmission.akad_files.length} file akad sebelumnya.
-                File-file tersebut masih tersimpan dan Ukhti tidak perlu mengupload ulang kecuali ingin menggantinya.
-              </p>
+      {(() => {
+        const savedFiles = parseAkadFiles(existingSubmission?.akad_files);
+        return existingSubmission?.status === 'draft' && savedFiles.length > 0 ? (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+            <div className="flex items-start space-x-3">
+              <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+              <div className="text-sm text-blue-800">
+                <p className="font-semibold mb-1">Akad Sebelumnya Telah Tersimpan</p>
+                <p className="text-blue-700">
+                  Ukhti sudah mengupload {savedFiles.length} file akad sebelumnya.
+                  File-file tersebut masih tersimpan dan Ukhti tidak perlu mengupload ulang kecuali ingin menggantinya.
+                </p>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        ) : null;
+      })()}
 
       <div className="space-y-4">
         {formData.akad_files?.map((file: any, index: number) => (
@@ -2417,28 +2419,31 @@ function SuccessStep({ existingSubmission }: { existingSubmission?: any }) {
             <h3 className={`font-semibold text-center ${isApproved ? 'text-emerald-900' : 'text-blue-900'}`}>Akad Daftar Ulang</h3>
 
             {/* Akad Files */}
-            {existingSubmission?.akad_files && existingSubmission.akad_files.length > 0 && (
-              <div className="bg-white rounded-lg p-4 border border-amber-100 mt-4">
-                <div className="flex items-center space-x-2 mb-3">
-                  <FileText className="w-5 h-5 text-amber-600" />
-                  <h4 className="font-medium text-gray-900">Akad Daftar Ulang</h4>
+            {(() => {
+              const files = parseAkadFiles(existingSubmission?.akad_files);
+              return files.length > 0 ? (
+                <div className="bg-white rounded-lg p-4 border border-amber-100 mt-4">
+                  <div className="flex items-center space-x-2 mb-3">
+                    <FileText className="w-5 h-5 text-amber-600" />
+                    <h4 className="font-medium text-gray-900">Akad Daftar Ulang</h4>
+                  </div>
+                  <div className="ml-7 space-y-2">
+                    {files.map((file, index) => (
+                      <a
+                        key={index}
+                        href={file.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center space-x-2 text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                      >
+                        <FileText className="w-4 h-4" />
+                        <span>{file.name || `Berkas ${index + 1}`}</span>
+                      </a>
+                    ))}
+                  </div>
                 </div>
-                <div className="ml-7 space-y-2">
-                  {existingSubmission.akad_files.map((file: { url: string; name: string }, index: number) => (
-                    <a
-                      key={index}
-                      href={file.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center space-x-2 text-sm text-blue-600 hover:text-blue-800 hover:underline"
-                    >
-                      <FileText className="w-4 h-4" />
-                      <span>{file.name}</span>
-                    </a>
-                  ))}
-                </div>
-              </div>
-            )}
+              ) : null;
+            })()}
           </div>
         </div>
       )}

@@ -63,13 +63,13 @@ export async function POST(
       .eq('status', 'waitlist');
 
     // Calculate actual quota usage: active students + submitted submissions (unique users)
-    const activeStudentIds = new Set(activeStudents?.map(s => s.thalibah_id) || []);
-    const submittedUserIds = new Set(submittedSubmissions?.map(s => s.user_id) || []);
+    const activeStudentIds = new Set<string>((activeStudents || []).map((s: any) => s.thalibah_id));
+    const submittedUserIds = new Set<string>((submittedSubmissions || []).map((s: any) => s.user_id));
 
     // Combine both sets to get unique count (use forEach for ES5 compatibility)
     const allUserIds = new Set<string>();
-    activeStudentIds.forEach(id => allUserIds.add(id));
-    submittedUserIds.forEach(id => allUserIds.add(id));
+    activeStudentIds.forEach((id: string) => allUserIds.add(id));
+    submittedUserIds.forEach((id: string) => allUserIds.add(id));
     const activeCount = allUserIds.size;
 
     // Check if student already enrolled

@@ -78,14 +78,53 @@ export default function TashihPage() {
   }, [user]);
 
   const { registrations, isLoading: registrationsLoading } = useAllRegistrations()
-  
-  // Get active registration
-  const activeRegistration = registrations.find((reg: any) =>
-    ['open', 'closed', 'ongoing'].includes(reg.batch?.status) &&
-    (reg.status === 'approved' || reg.selection_status === 'selected')
-  ) || registrations[0]
+  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null)
 
-  const { tashihStatus, isLoading: tashihStatusLoading, mutate: mutateTashihStatus } = useTashihStatus(undefined, activeRegistration?.batch?.id)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('mti_selected_batch_id');
+      if (saved) {
+        setSelectedBatchId(saved);
+      }
+    }
+  }, []);
+
+  const handleSelectBatch = (id: string) => {
+    setSelectedBatchId(id);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('mti_selected_batch_id', id);
+    }
+  };
+
+  const availableBatches = React.useMemo(() => {
+    const batchesMap = new Map<string, { id: string; name: string }>()
+    if (registrations && registrations.length > 0) {
+      registrations.forEach((reg: any) => {
+        if (reg.batch_id && !batchesMap.has(reg.batch_id)) {
+          batchesMap.set(reg.batch_id, {
+            id: reg.batch_id,
+            name: reg.batch_name || reg.batch?.name || `Batch`
+          })
+        }
+      })
+    }
+    return Array.from(batchesMap.values())
+  }, [registrations])
+  
+  // Get active registration matching selected batch
+  const activeRegistration = React.useMemo(() => {
+    if (selectedBatchId && registrations) {
+      const match = registrations.find((r: any) => r.batch_id === selectedBatchId)
+      if (match) return match
+    }
+    return registrations.find((reg: any) =>
+      ['open', 'closed', 'ongoing'].includes(reg.batch?.status) &&
+      (reg.status === 'approved' || reg.selection_status === 'selected')
+    ) || registrations[0]
+  }, [registrations, selectedBatchId])
+
+  const targetBatchId = activeRegistration?.batch_id || activeRegistration?.batch?.id
+  const { tashihStatus, isLoading: tashihStatusLoading, mutate: mutateTashihStatus } = useTashihStatus(undefined, targetBatchId)
 
   const [tashihData, setTashihData] = useState<TashihData>({
     blok: [],
@@ -366,6 +405,23 @@ export default function TashihPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 space-y-4 animate-fadeInUp">
+      {availableBatches.length > 1 && (
+        <div className="flex items-center justify-between bg-white/80 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-gray-100 shadow-sm">
+          <span className="text-xs font-bold text-gray-500">Pilih Angkatan:</span>
+          <select
+            value={activeRegistration?.batch_id || ''}
+            onChange={(e) => handleSelectBatch(e.target.value)}
+            className="bg-transparent text-gray-800 font-bold text-xs cursor-pointer focus:outline-none"
+          >
+            {availableBatches.map(b => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {/* Header Section - Zero Stats card, integrated into Header */}
       <TashihHeader 
         title={viewMode === 'form' ? "Kembali" : "Status Tashih"} 

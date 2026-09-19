@@ -1,74 +1,67 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
-import { cookies } from 'next/headers'
+import { revalidatePath } from 'next/cache';
+import {
+  loginWithEmailPassword,
+  createSessionToken,
+  setSessionCookie
+} from '@/lib/auth';
 
-export async function loginAction(formData: { email: string; password: string }) {
-  const cookieStore = cookies()
+export async function loginAction(formData: {
+  email: string;
+  password: string;
+  rememberMe?: boolean;
+}) {
+  try {
+    const cleanEmail = formData.email?.toLowerCase().trim();
+    const password = formData.password;
 
-  // Create server client with proper cookie handling
-  const { createServerClient } = await import('@supabase/ssr')
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, {
-              ...options,
-              maxAge: 60 * 60 * 24 * 7, // 1 week in seconds
-            })
-          )
-        },
+    if (!cleanEmail || !password) {
+      return { success: false, error: 'Email dan password harus diisi' };
+    }
+
+    const authResult = await loginWithEmailPassword(cleanEmail, password);
+
+    if (!authResult.success || !authResult.user) {
+      return {
+        success: false,
+        error: authResult.error || 'Email atau password salah. Silakan periksa kembali.'
+      };
+    }
+
+    const user = authResult.user;
+
+    // Generate signed JWT session token
+    const token = await createSessionToken(
+      {
+        sub: user.id,
+        email: user.email,
+        full_name: user.full_name,
+        role: user.role,
+        roles: user.roles || (user.role ? [user.role] : ['thalibah']),
       },
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
+      formData.rememberMe !== false
+    );
+
+    // Set secure HTTP-only cookie
+    await setSessionCookie(token, formData.rememberMe !== false);
+
+    revalidatePath('/dashboard');
+    return {
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        full_name: user.full_name,
+        role: user.role,
+        roles: user.roles,
       }
-    }
-  )
-
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email: formData.email.toLowerCase().trim(),
-    password: formData.password,
-  })
-
-  if (error) {
-    return { success: false, error: error.message }
+    };
+  } catch (error: any) {
+    console.error('[loginAction] Error during login:', error);
+    return {
+      success: false,
+      error: 'Terjadi kesalahan sistem saat memproses login. Silakan coba lagi.'
+    };
   }
-
-  if (!data.session) {
-    return { success: false, error: 'No session created' }
-  }
-
-  // Check if user exists in users table, create if not
-  let { data: userData, error: userError } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', data.user.id)
-    .single()
-
-  if (userError && userError.code === 'PGRST116') {
-    const { error: createError } = await supabase
-      .from('users')
-      .insert({
-        id: data.user.id,
-        email: data.user.email,
-        full_name: data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || '',
-        role: data.user.user_metadata?.role || 'thalibah',
-        created_at: new Date().toISOString(),
-      })
-
-    if (createError) {
-      console.error('Error creating user profile:', createError)
-    }
-  }
-
-  revalidatePath('/dashboard')
-  return { success: true, user: data.user }
 }

@@ -1,156 +1,125 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
-import { NextResponse, type NextRequest } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server';
+import { jwtVerify, SignJWT } from 'jose';
+
+const SESSION_COOKIE_NAME = 'mti_session';
+const JWT_SECRET = new TextEncoder().encode(
+  process.env.AUTH_SECRET ||
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  'mti-markaz-tikrar-indonesia-secure-secret-key-2026'
+);
 
 /** Allowed origins for state-changing API requests (CSRF protection) in Production. */
-const ALLOWED_ORIGINS_PROD = ['https://markaztikrar.id', 'https://www.markaztikrar.id']
+const ALLOWED_ORIGINS_PROD = ['https://markaztikrar.id', 'https://www.markaztikrar.id'];
 
 /**
  * Validates the Origin header for mutating API requests to prevent CSRF.
- * Returns true if the request should be blocked.
  */
 function isCsrfViolation(request: NextRequest): boolean {
-  const method = request.method.toUpperCase()
-  if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) return false
-  if (!request.nextUrl.pathname.startsWith('/api/')) return false
+  const method = request.method.toUpperCase();
+  if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) return false;
+  if (!request.nextUrl.pathname.startsWith('/api/')) return false;
 
-  const origin = request.headers.get('origin')
-  // Requests from same-origin (no Origin header, e.g. server actions) are allowed
-  if (!origin) return false
+  const origin = request.headers.get('origin');
+  if (!origin) return false;
 
-  // Dynamically check if the Origin matches the Host (same-origin request)
-  const host = request.headers.get('host')
-  const protocol = request.headers.get('x-forwarded-proto') || request.nextUrl.protocol.replace(':', '')
-  const expectedOrigin = `${protocol}://${host}`
-  
+  const host = request.headers.get('host');
+  const protocol = request.headers.get('x-forwarded-proto') || request.nextUrl.protocol.replace(':', '');
+  const expectedOrigin = `${protocol}://${host}`;
+
   if (origin === expectedOrigin || origin === `http://${host}` || origin === `https://${host}`) {
-    return false
+    return false;
   }
 
   if (process.env.NODE_ENV === 'production') {
-    return !ALLOWED_ORIGINS_PROD.includes(origin)
+    return !ALLOWED_ORIGINS_PROD.includes(origin);
   } else {
-    // In dev mode, allow any localhost origin
     return !origin.startsWith('http://localhost:') && !origin.startsWith('http://127.0.0.1:');
   }
 }
 
 /**
  * Updates the user's session and handles cookie persistence.
- * This is called by the main middleware for every request.
  */
 export async function updateSession(request: NextRequest) {
-  // We must run session update logic in all environments to ensure cookies are refreshed.
-
-  // CSRF check — block state-changing requests from unknown origins
+  // CSRF check
   if (isCsrfViolation(request)) {
-    return NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+    return NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 });
   }
 
-  // Create an initial response
-
-  // Security headers helper (applied to all responses below)
+  // Security headers helper
   const applySecurityHeaders = (res: NextResponse) => {
-    // Basic security headers for all environments
-    res.headers.set('X-Frame-Options', 'DENY')
-    res.headers.set('X-Content-Type-Options', 'nosniff')
-    res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
-    
-    // Apply strict CSP only in production as Dev Mode requires unsafe-eval/inline
+    res.headers.set('X-Frame-Options', 'DENY');
+    res.headers.set('X-Content-Type-Options', 'nosniff');
+    res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+
     if (process.env.NODE_ENV === 'production') {
-      res.headers.set('Permissions-Policy', 'camera=(), microphone=(self), geolocation=(self)')
-      res.headers.set('X-DNS-Prefetch-Control', 'off')
-      res.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
-      
+      res.headers.set('Permissions-Policy', 'camera=(), microphone=(self), geolocation=(self)');
+      res.headers.set('X-DNS-Prefetch-Control', 'off');
+      res.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+
       res.headers.set(
         'Content-Security-Policy',
         "default-src 'self'; " +
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.supabase.co; " +
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.google.com https://*.gstatic.com; " +
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-        "img-src 'self' blob: data: https: https://*.supabase.co https://*.googleusercontent.com; " +
+        "img-src 'self' blob: data: https: https://*.googleusercontent.com; " +
         "font-src 'self' data: https://fonts.gstatic.com https://fonts.googleapis.com; " +
-        "connect-src 'self' http://localhost:* https://*.supabase.co https://markaztikrar.id https://www.markaztikrar.id https://*.sentry.io https://*.google-analytics.com https://api.aladhan.com https://api.bigdatacloud.net https://ipapi.co; " +
-        "media-src 'self' blob: https://*.supabase.co; " +
-        "frame-src 'self';"
-      )
+        "connect-src 'self' http://localhost:* https://markaztikrar.id https://www.markaztikrar.id https://*.sentry.io https://*.google-analytics.com https://api.aladhan.com https://api.bigdatacloud.net https://ipapi.co https://accounts.google.com https://oauth2.googleapis.com; " +
+        "media-src 'self' blob:; " +
+        "frame-src 'self' https://*.google.com;"
+      );
     }
-    
-    return res
-  }
+
+    return res;
+  };
 
   try {
-    // SKIP auth check for auth callback and public auth routes to avoid interference
+    // SKIP session check for auth endpoints and static routes
     if (request.nextUrl.pathname.startsWith('/auth/')) {
-      const res = NextResponse.next({ request: { headers: request.headers } })
-      return applySecurityHeaders(res)
+      const res = NextResponse.next({ request: { headers: request.headers } });
+      return applySecurityHeaders(res);
     }
 
-    // Determine shared domain for cookies
-    const host = request.headers.get('host') || ''
-    const domain = (host.includes('markaztikrar.id') && !host.includes('localhost')) ? '.markaztikrar.id' : undefined
+    const host = request.headers.get('host') || '';
+    const domain = (host.includes('markaztikrar.id') && !host.includes('localhost')) ? '.markaztikrar.id' : undefined;
 
-    // IMPORTANT: Use the official Supabase pattern — response must be recreated
-    // inside setAll so that refreshed cookies are forwarded to Server Components
-    // via the mutated request object.
-    let response = NextResponse.next({ request: { headers: request.headers } })
+    const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
+    const response = NextResponse.next({ request: { headers: request.headers } });
 
-    // Persistent Session: Force 1-year maxAge for all auth cookies
-    const PERSISTENT_MAX_AGE = 60 * 60 * 24 * 365; // 365 days
+    if (token) {
+      try {
+        const { payload } = await jwtVerify(token, JWT_SECRET);
+        const exp = payload.exp;
 
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return request.cookies.getAll()
-          },
-          setAll(cookiesToSet) {
-            cookiesToSet.forEach(({ name, value, options: cookieOptions }) => {
-              const finalOptions = {
-                ...cookieOptions,
-                path: '/',
-                maxAge: PERSISTENT_MAX_AGE,
-                ...(domain ? { domain } : {}),
-              }
-              request.cookies.set({ name, value, ...finalOptions })
-            })
-            // Recreate response with mutated request so Server Components
-            // receive the updated cookies in their cookie store
-            response = NextResponse.next({ request })
-            cookiesToSet.forEach(({ name, value, options: cookieOptions }) => {
-              const finalOptions = {
-                ...cookieOptions,
-                path: '/',
-                maxAge: PERSISTENT_MAX_AGE,
-                ...(domain ? { domain } : {}),
-              }
-              response.cookies.set({ name, value, ...finalOptions })
-            })
-          },
-        },
-        cookieOptions: {
-          path: '/',
-          maxAge: PERSISTENT_MAX_AGE,
-          ...(domain ? { domain } : {}),
-        },
+        // Auto-refresh token if within 3 days of expiration
+        if (exp && exp - Math.floor(Date.now() / 1000) < 60 * 60 * 24 * 3) {
+          const freshToken = await new SignJWT(payload)
+            .setProtectedHeader({ alg: 'HS256' })
+            .setIssuedAt()
+            .setExpirationTime('365d')
+            .sign(JWT_SECRET);
+
+          response.cookies.set(SESSION_COOKIE_NAME, freshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            path: '/',
+            maxAge: 60 * 60 * 24 * 365,
+            ...(domain ? { domain } : {}),
+          });
+        }
+      } catch (jwtErr) {
+        // Invalid or expired token
       }
-    )
+    }
 
-    // Refresh the session (if needed) and validate the user
-    // If the token is refreshed, setAll is called and response is recreated above
-    await supabase.auth.getUser()
-
-    return applySecurityHeaders(response)
+    return applySecurityHeaders(response);
   } catch (err: any) {
-    // CRITICAL: If the Supabase library crashes (e.g. Invalid UTF-8 sequence),
-    // we catch it here and return a plain response to avoid a 500 error.
-    console.error('CRITICAL: Middleware Supabase Crash caught:', err.message);
-    
-    // Return a fresh response without the problematic state
+    console.error('Middleware crash caught:', err?.message || err);
     return NextResponse.next({
       request: {
         headers: request.headers,
       },
-    })
+    });
   }
 }
