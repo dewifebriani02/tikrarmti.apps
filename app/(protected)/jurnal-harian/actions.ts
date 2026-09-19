@@ -38,41 +38,44 @@ export async function saveJurnalRecord(data: JurnalFormData) {
 
   // 2. Sequential Validation - Ensure user doesn't skip blocks
   try {
-    // We reuse the logic from the status API to get all blocks
-    // Fetch user's registrations to get his juz
-    const { data: registrations } = await supabase
-      .from('pendaftaran_tikrar_tahfidz')
-      .select('status, chosen_juz, daftar_ulang:daftar_ulang_submissions(status, confirmed_chosen_juz)')
-      .eq('user_id', authUser.id)
-      .in('status', ['approved', 'selected'])
-      .limit(1)
+    // 2. Validasi Pendaftaran dan Daftar Ulang via direct SQL
+    const { rows: registrations } = await import('@/lib/db').then(m => m.query(
+      `SELECT 
+         p.id, 
+         p.status, 
+         p.chosen_juz, 
+         du.status as du_status, 
+         du.confirmed_chosen_juz
+       FROM pendaftaran_tikrar_tahfidz p
+       JOIN batches b ON p.batch_id = b.id
+       LEFT JOIN daftar_ulang_submissions du ON du.user_id = p.user_id AND du.batch_id = p.batch_id
+       WHERE p.user_id = $1
+         AND p.status IN ('approved', 'selected', 'registered')
+       ORDER BY (b.status = 'open' OR b.status = 'ongoing') DESC, p.created_at DESC
+       LIMIT 1`,
+      [authUser.id]
+    ));
 
-    const reg = registrations?.[0]
+    const reg = registrations?.[0];
     
     // Check if user is registered/approved
     if (!reg) {
       return { 
         success: false, 
         error: 'Afwan Ukhti, akun ini belum terdaftar untuk batch aktif. Jurnal hanya bisa diisi oleh thalibah yang terdaftar resmi.' 
-      }
+      };
     }
 
-    // Check if daftar ulang is approved
-    const du = reg.daftar_ulang as any;
-    const isDaftarUlangApproved = Array.isArray(du) 
-      ? du.some((d: any) => d.status === 'approved')
-      : du?.status === 'approved'
+    const isDaftarUlangApproved = reg.du_status === 'approved' || reg.status === 'approved';
 
-    if (reg.status !== 'approved' && !isDaftarUlangApproved) {
+    if (!isDaftarUlangApproved) {
       return { 
         success: false, 
         error: 'Afwan Ukhti, Daftar Ulang Ukhti belum disetujui. Jurnal harian baru dapat diakses setelah pendaftaran ulang disetujui oleh admin.' 
-      }
+      };
     }
 
-    const juzCode = Array.isArray(reg.daftar_ulang) && reg.daftar_ulang.length > 0
-      ? reg.daftar_ulang[0].confirmed_chosen_juz || reg.chosen_juz
-      : reg.chosen_juz
+    const juzCode = reg.confirmed_chosen_juz || reg.chosen_juz;
 
     if (juzCode) {
       // Get all blocks for this juz
