@@ -697,26 +697,17 @@ export async function resetUserPassword(userId: string) {
       }
     }
 
-    // Update password using admin client (auth.users table)
-    const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-      userId,
-      { password: 'MTI123!' }
-    )
+    // Update password directly in PostgreSQL users table and set must_change_password = true
+    const { hashPassword } = await import('@/lib/auth');
+    const { queryOne } = await import('@/lib/db');
+    const newHash = await hashPassword('MTI123!');
 
-    if (updateError) {
-      // Log database error
-      await logError(updateError, {
-        userId: user.id,
-        userEmail: user.email,
-        function: 'resetUserPassword',
-        errorType: 'database',
-        context: { targetUserId: userId, targetUserEmail: targetUser.email },
-      } as LogErrorContext)
-      return {
-        success: false,
-        error: updateError.message
-      }
-    }
+    await queryOne(
+      `UPDATE users
+       SET password_hash = $1, must_change_password = true, updated_at = NOW()
+       WHERE id = $2`,
+      [newHash, userId]
+    );
 
     // Log password reset action
     await logError(new Error(`Password reset for user ${targetUser.email}`), {
@@ -729,7 +720,7 @@ export async function resetUserPassword(userId: string) {
 
     return {
       success: true,
-      message: 'Password reset to default: MTI123!'
+      message: 'Password berhasil di-reset ke default: MTI123! User akan diminta membuat password baru saat login.'
     }
 
   } catch (error) {

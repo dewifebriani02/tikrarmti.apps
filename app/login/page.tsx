@@ -136,7 +136,11 @@ function LoginPageContent() {
       }
 
       // Show success notification
-      setNotificationMessage('Login berhasil! Mengarahkan ke dashboard...');
+      if (result.mustChangePassword) {
+        setNotificationMessage('Login berhasil! Silakan buat password baru Ukhti...');
+      } else {
+        setNotificationMessage('Login berhasil! Mengarahkan ke dashboard...');
+      }
       setNotificationType('success');
       setShowNotification(true);
 
@@ -149,9 +153,14 @@ function LoginPageContent() {
         } catch (e) {}
       }
 
-      // Check if there's a redirect URL from middleware
-      const redirectUrl = searchParams.get('redirect');
-      const targetUrl = redirectUrl && redirectUrl !== '/login' ? redirectUrl : '/dashboard';
+      // If password change is required, immediately redirect to /ganti-password
+      let targetUrl = '/dashboard';
+      if (result.mustChangePassword) {
+        targetUrl = '/ganti-password';
+      } else {
+        const redirectUrl = searchParams.get('redirect');
+        targetUrl = redirectUrl && redirectUrl !== '/login' ? redirectUrl : '/dashboard';
+      }
 
       console.log('[Login] Redirecting to:', targetUrl);
 

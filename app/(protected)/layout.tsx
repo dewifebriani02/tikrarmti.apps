@@ -33,6 +33,12 @@ export default async function ProtectedLayout({
     redirect('/login');
   }
 
+  // 1b. FORCE PASSWORD CHANGE GUARD: If user password was reset, enforce password update
+  if (userData.must_change_password) {
+    console.log(`[ProtectedLayout] ${userData.email} must change password. Redirecting to /ganti-password`);
+    redirect('/ganti-password');
+  }
+
   // 2. ROLE SYNTHESIS: Rank-based primary role detection from DATABASE
   const ownerEmails = getOwnerEmails();
   const rawRoles = [...(userData.roles || [])];

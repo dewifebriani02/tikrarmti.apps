@@ -18,6 +18,7 @@ export interface UserSessionPayload {
   full_name?: string;
   role?: string;
   roles?: string[];
+  must_change_password?: boolean;
   [key: string]: any;
 }
 
@@ -52,6 +53,7 @@ export async function createSessionToken(
   const nowMs = Date.now();
   const tokenPayload = {
     ...payload,
+    must_change_password: !!payload.must_change_password,
     session_id: payload.session_id || crypto.randomUUID(),
     iat_ms: payload.iat_ms || nowMs,
   };
@@ -149,7 +151,7 @@ export async function getCurrentUser() {
 
   const user = await queryOne(
     `SELECT id, email, full_name, role, roles, avatar_url, is_active, is_blacklisted,
-            whatsapp, telegram, negara, provinsi, kota, alamat, zona_waktu,
+            must_change_password, whatsapp, telegram, negara, provinsi, kota, alamat, zona_waktu,
             tanggal_lahir, tempat_lahir, jenis_kelamin, pekerjaan, alasan_daftar, created_at
      FROM users WHERE id = $1`,
     [latestPayload.sub]
@@ -169,7 +171,7 @@ export async function loginWithEmailPassword(email: string, plainPassword: strin
   const cleanEmail = email.toLowerCase().trim();
 
   const user = await queryOne(
-    `SELECT id, email, password_hash, full_name, role, roles, is_active, is_blacklisted
+    `SELECT id, email, password_hash, full_name, role, roles, is_active, is_blacklisted, must_change_password
      FROM users WHERE LOWER(email) = $1`,
     [cleanEmail]
   );
@@ -196,6 +198,21 @@ export async function loginWithEmailPassword(email: string, plainPassword: strin
   }
 
   return { success: true, user };
+}
+
+/**
+ * Change user password and clear must_change_password flag
+ */
+export async function changeUserPassword(userId: string, newPassword: string) {
+  const hash = await hashPassword(newPassword);
+  const updatedUser = await queryOne(
+    `UPDATE users
+     SET password_hash = $1, must_change_password = false, updated_at = NOW()
+     WHERE id = $2
+     RETURNING id, email, full_name, role, roles, must_change_password`,
+    [hash, userId]
+  );
+  return updatedUser;
 }
 
 /**

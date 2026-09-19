@@ -1,93 +1,66 @@
-import { createClient } from '@/lib/supabase/server';
+import { NextResponse } from 'next/server';
 import { getAuthorizationContext } from '@/lib/rbac';
 import { ApiResponses } from '@/lib/api-responses';
+import { query } from '@/lib/db';
 
 /**
  * GET /api/pendaftaran/all
  *
- * API for perjalanan-saya page - shows thalibah registrations from OPEN batches
- * Only queries pendaftaran_tikrar_tahfidz (thalibah registrations)
+ * API for perjalanan-saya and jurnal pages - shows thalibah registrations with batch and daftar ulang data
  */
 export async function GET(request: Request) {
   try {
-    const context = await getAuthorizationContext();
+    const response = new NextResponse();
+    const context = await getAuthorizationContext({ response });
     if (!context) return ApiResponses.unauthorized();
 
-    const supabase = createClient();
+    // 1. Get tikrar registrations with batch & program joined
+    const { rows: tikrarRegistrations } = await query(
+      `SELECT 
+         p.*,
+         row_to_json(b.*) as batch,
+         row_to_json(pr.*) as program
+       FROM pendaftaran_tikrar_tahfidz p
+       LEFT JOIN batches b ON p.batch_id = b.id
+       LEFT JOIN programs pr ON p.program_id = pr.id
+       WHERE p.user_id = $1
+       ORDER BY p.created_at DESC`,
+      [context.userId]
+    );
 
-    // Get tikrar registrations with daftar ulang data embedded
-    const { data: tikrarRegistrations, error: tikrarError } = await supabase
-      .from('pendaftaran_tikrar_tahfidz')
-      .select(`
-        *,
-        batch:batches(*),
-        program:programs(*),
-        daftar_ulang:daftar_ulang_submissions(
-          id,
-          user_id,
-          batch_id,
-          registration_id,
-          confirmed_full_name,
-          confirmed_chosen_juz,
-          confirmed_main_time_slot,
-          confirmed_backup_time_slot,
-          status,
-          created_at,
-          submitted_at,
-          reviewed_at,
-          akad_files,
-          akad_status,
-          ujian_halaqah_id,
-          tashih_halaqah_id,
-          partner_type,
-          partner_user_id,
-          partner_status,
-          pairing_status,
-          ujian_halaqah:halaqah!daftar_ulang_submissions_ujian_halaqah_id_fkey(
-            id,
-            name,
-            day_of_week,
-            start_time,
-            end_time,
-            location
-          ),
-          tashih_halaqah:halaqah!daftar_ulang_submissions_tashih_halaqah_id_fkey(
-            id,
-            name,
-            day_of_week,
-            start_time,
-            end_time,
-            location
-          )
-        )
-      `)
-      .eq('user_id', context.userId)
-      .order('created_at', { ascending: false });
+    // 2. Fetch daftar ulang submissions with halaqah info
+    const { rows: daftarUlangSubmissions } = await query(
+      `SELECT 
+         du.*,
+         row_to_json(b.*) as batch,
+         row_to_json(th.*) as tashih_halaqah,
+         row_to_json(uh.*) as ujian_halaqah
+       FROM daftar_ulang_submissions du
+       LEFT JOIN batches b ON du.batch_id = b.id
+       LEFT JOIN halaqah th ON du.tashih_halaqah_id = th.id
+       LEFT JOIN halaqah uh ON du.ujian_halaqah_id = uh.id
+       WHERE du.user_id = $1
+       ORDER BY du.created_at DESC`,
+      [context.userId]
+    );
 
-    if (tikrarError) {
-      console.error('[Pendaftaran All API] Database error:', tikrarError);
-      return ApiResponses.databaseError(tikrarError);
-    }
+    // 3. Process registrations and embed daftar ulang data
+    const allRegistrations = (tikrarRegistrations || []).map((reg: any) => {
+      const daftarUlang = (daftarUlangSubmissions || []).find(
+        (du: any) => du.registration_id === reg.id || du.batch_id === reg.batch_id
+      ) || null;
 
-    // Process registrations and embed daftar ulang data
-    const allRegistrations = (tikrarRegistrations || [])
-      .map((reg: any) => {
-        // Get daftar ulang submission for this batch
-        const daftarUlang = reg.daftar_ulang && Array.isArray(reg.daftar_ulang)
-          ? reg.daftar_ulang.find((du: any) => du.batch_id === reg.batch_id)
-          : null;
-
-        return {
-          ...reg,
-          registration_type: 'thalibah',
-          role: 'thalibah',
-          status: reg.status || 'pending',
-          batch_name: reg.batch?.name || null,
-          daftar_ulang: daftarUlang || null,
-          // For backwards compatibility
-          re_enrollment_completed: daftarUlang?.status === 'approved' ? true : reg.re_enrollment_completed
-        };
-      });
+      return {
+        ...reg,
+        registration_type: 'thalibah',
+        role: 'thalibah',
+        status: reg.status || 'pending',
+        batch_name: reg.batch?.name || null,
+        daftar_ulang: daftarUlang,
+        // For backwards compatibility
+        re_enrollment_completed: daftarUlang?.status === 'approved' ? true : reg.re_enrollment_completed
+      };
+    });
 
     // Sort by created_at descending
     allRegistrations.sort((a: any, b: any) => {

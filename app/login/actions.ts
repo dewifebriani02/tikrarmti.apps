@@ -39,6 +39,7 @@ export async function loginAction(formData: {
         full_name: user.full_name,
         role: user.role,
         roles: user.roles || (user.role ? [user.role] : ['thalibah']),
+        must_change_password: !!user.must_change_password,
       },
       formData.rememberMe !== false
     );
@@ -49,12 +50,14 @@ export async function loginAction(formData: {
     revalidatePath('/dashboard');
     return {
       success: true,
+      mustChangePassword: !!user.must_change_password,
       user: {
         id: user.id,
         email: user.email,
         full_name: user.full_name,
         role: user.role,
         roles: user.roles,
+        must_change_password: !!user.must_change_password,
       }
     };
   } catch (error: any) {

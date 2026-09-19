@@ -5,6 +5,7 @@ import { Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { useAllRegistrations } from '@/hooks/useRegistrations'
+import { useActiveBatch } from '@/hooks/useBatches'
 import { useAuth } from '@/hooks/useAuth'
 import { useTashihStatus } from '@/hooks/useDashboard'
 import { saveTashihRecord } from './actions'
@@ -157,6 +158,9 @@ export default function TashihPage() {
 
 
 
+  const { activeBatch } = useActiveBatch()
+  const effectiveBatch = activeRegistration?.batch || activeBatch
+
   const juzToUse = activeRegistration?.daftar_ulang?.confirmed_chosen_juz ||
                       (activeRegistration as any)?.chosen_juz ||
                       (isAdmin ? '30A' : null)
@@ -164,16 +168,16 @@ export default function TashihPage() {
   useEffect(() => {
     if (juzToUse) {
       setConfirmedJuz(juzToUse)
-      if (activeRegistration?.batch) {
-        setBatchId(activeRegistration.batch.id)
-        setBatchStartDate(activeRegistration.batch.first_week_start_date || activeRegistration.batch.start_date)
+      if (effectiveBatch) {
+        setBatchId(effectiveBatch.id)
+        setBatchStartDate(effectiveBatch.first_week_start_date || effectiveBatch.start_date)
       } else if (isAdmin) {
         setBatchId('preview-batch')
         setBatchStartDate(new Date().toISOString())
       }
       loadJuzInfo(juzToUse)
     }
-  }, [juzToUse, activeRegistration, isAdmin])
+  }, [juzToUse, effectiveBatch, isAdmin])
 
   useEffect(() => {
     if (selectedJuzInfo && batchStartDate) {

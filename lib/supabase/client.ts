@@ -58,7 +58,25 @@ export function createClient() {
       onAuthStateChange: () => ({
         data: { subscription: { unsubscribe: () => {} } }
       }),
-      updateUser: async (_attrs: any) => ({ data: { user: null }, error: null }),
+      updateUser: async (attrs: any) => {
+        try {
+          if (attrs?.password) {
+            const res = await fetch('/api/user/change-password', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ newPassword: attrs.password }),
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+              return { data: { user: null }, error: { message: data.error || 'Gagal mengubah password' } };
+            }
+            return { data: { user: data.user }, error: null };
+          }
+          return { data: { user: null }, error: null };
+        } catch (err: any) {
+          return { data: { user: null }, error: { message: err.message } };
+        }
+      },
       resetPasswordForEmail: async (_email: string) => ({ data: {}, error: null }),
       signInWithPassword: async () => ({ data: { user: null, session: null }, error: null }),
       signUp: async () => ({ data: { user: null, session: null }, error: null }),

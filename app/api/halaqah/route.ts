@@ -41,25 +41,19 @@ export async function GET(request: Request) {
     if (status && VALID_HALAQAH_STATUSES.includes(status)) query = query.eq('status', status);
     
     if (queryBatchId) {
-       // Since Supabase `eq` on an outer joined table nullifies the joined object rather than filtering the parent row,
-       // and `!inner` join would exclude halaqahs without a program (which we need for auto-created ones),
-       // we fetch valid program IDs and muallimah IDs for the batch and filter the parent row explicitly.
-       const { data: batchPrograms } = await supabaseAdmin.from('programs').select('id').eq('batch_id', queryBatchId);
-       const programIds = batchPrograms?.map(p => p.id) || [];
-       
-       const { data: batchMuallimahs } = await supabaseAdmin.from('muallimah_akads').select('user_id').eq('batch_id', queryBatchId).eq('status', 'approved');
-       const muallimahIds = batchMuallimahs?.map(m => m.user_id) || [];
+      const { data: batchPrograms } = await supabaseAdmin
+        .from('programs')
+        .select('id')
+        .eq('batch_id', queryBatchId);
+      const programIds = batchPrograms?.map((p: any) => p.id) || [];
 
-       if (programIds.length > 0 && muallimahIds.length > 0) {
-         query = query.or(`program_id.in.(${programIds.join(',')}),and(program_id.is.null,muallimah_id.in.(${muallimahIds.join(',')}))`);
-       } else if (programIds.length > 0) {
-         query = query.in('program_id', programIds);
-       } else if (muallimahIds.length > 0) {
-         query = query.or(`and(program_id.is.null,muallimah_id.in.(${muallimahIds.join(',')}))`);
-       } else {
-         query = query.eq('id', '00000000-0000-0000-0000-000000000000'); // Force empty
-       }
+      if (programIds.length > 0) {
+        query = query.in('program_id', programIds);
+      } else {
+        query = query.eq('id', '00000000-0000-0000-0000-000000000000'); // Force empty
+      }
     }
+
 
     if (programId) query = query.eq('program_id', programId);
     if (muallimahId) query = query.eq('muallimah_id', muallimahId);

@@ -5,6 +5,7 @@ import { Loader2, Info } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { useAllRegistrations } from '@/hooks/useRegistrations'
+import { useActiveBatch } from '@/hooks/useBatches'
 import { useAuth } from '@/hooks/useAuth'
 import { useJurnalStatus } from '@/hooks/useDashboard'
 import { saveJurnalRecord } from './actions'
@@ -84,6 +85,8 @@ export default function JurnalHarianPage() {
     return Array.from(batchesMap.values())
   }, [registrations])
 
+  const { activeBatch } = useActiveBatch()
+  
   // Get active registration matching selected batch
   const activeRegistration = React.useMemo(() => {
     if (selectedBatchId && registrations) {
@@ -96,7 +99,8 @@ export default function JurnalHarianPage() {
     ) || registrations[0]
   }, [registrations, selectedBatchId])
 
-  const targetBatchId = activeRegistration?.batch_id || activeRegistration?.batch?.id
+  const effectiveBatch = activeRegistration?.batch || activeBatch
+  const targetBatchId = activeRegistration?.batch_id || activeRegistration?.batch?.id || activeBatch?.id
   const { jurnalStatus, isLoading: jurnalStatusLoading, mutate: mutateJurnalStatus } = useJurnalStatus(undefined, targetBatchId)
 
   const [jurnalData, setJurnalData] = useState<JurnalData>({
@@ -123,15 +127,13 @@ export default function JurnalHarianPage() {
   const [viewMode, setViewMode] = useState<'status' | 'form'>('status')
   const [currentWeekNumber, setCurrentWeekNumber] = useState<number>(1)
 
-
-
   const hasNoActiveRegistration = !activeRegistration && !isAdmin
 
   const juzToUse = activeRegistration?.daftar_ulang?.confirmed_chosen_juz ||
                       (activeRegistration as any)?.chosen_juz ||
                       (isAdmin ? '30A' : null)
 
-  const firstWeekStartDate = activeRegistration?.batch?.first_week_start_date || (isAdmin ? new Date().toISOString() : null)
+  const firstWeekStartDate = effectiveBatch?.first_week_start_date || effectiveBatch?.start_date
 
   useEffect(() => {
     if (juzToUse) {
@@ -142,9 +144,14 @@ export default function JurnalHarianPage() {
   useEffect(() => {
     if (firstWeekStartDate) {
       const startDate = new Date(firstWeekStartDate)
-      const diffDays = Math.floor((new Date().getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
-      const weekNum = Math.max(1, Math.floor(diffDays / 7) + 1)
-      setCurrentWeekNumber(weekNum)
+      const now = new Date()
+      if (now < startDate) {
+        setCurrentWeekNumber(1)
+      } else {
+        const diffDays = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+        const weekNum = Math.min(11, Math.max(1, Math.floor(diffDays / 7) + 1))
+        setCurrentWeekNumber(weekNum)
+      }
     }
   }, [firstWeekStartDate])
 
