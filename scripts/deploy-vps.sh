@@ -33,6 +33,7 @@ rsync -avz --delete \
   --exclude 'node_modules' \
   --exclude '.git' \
   --exclude 'backups' \
+  --exclude 'public/uploads' \
   --exclude '.env.local' \
   ./ ${VPS_USER}@${VPS_HOST}:${REMOTE_PATH}/
 
@@ -56,7 +57,7 @@ ssh ${VPS_USER}@${VPS_HOST} "
   systemctl restart postgrest-mti || true
   chmod -R 775 ${REMOTE_PATH}
   chown -R ${SITE_USER}:${SITE_USER} ${REMOTE_PATH}
-  su - ${SITE_USER} -c 'cd ${REMOTE_PATH} && npm install --omit=dev --legacy-peer-deps && (pm2 restart markaztikrar-app || pm2 start npm --name \"markaztikrar-app\" -- start -- -p ${APP_PORT}) && pm2 save'
+  su - ${SITE_USER} -c 'cd ${REMOTE_PATH} && npm install --legacy-peer-deps && npm run build && (pm2 restart markaztikrar-app || pm2 start npm --name \"markaztikrar-app\" -- start -- -p ${APP_PORT}) && pm2 save'
 "
 
 # 6. Verify Health
