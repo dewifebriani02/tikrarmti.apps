@@ -140,135 +140,109 @@ export async function GET(request: Request) {
     let activeBatchData: any = null;
 
     if (!activeBatchId) {
-      const { data: activeBatch } = await supabase
-        .from('batches')
-        .select('id, start_date, first_week_start_date, end_date')
-        .eq('status', 'open')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      
-      activeBatchId = activeBatch?.id;
-      activeBatchData = activeBatch;
+      const { rows: batchRows } = await import('@/lib/db').then(m => m.query(
+        `SELECT id, start_date, first_week_start_date, end_date FROM batches WHERE status = 'open' ORDER BY created_at DESC LIMIT 1`
+      ));
+      activeBatchData = batchRows[0] || null;
+      activeBatchId = activeBatchData?.id;
     } else {
-      const { data: batch } = await supabase
-        .from('batches')
-        .select('start_date, first_week_start_date, end_date')
-        .eq('id', activeBatchId)
-        .maybeSingle();
-        
-      activeBatchData = batch;
+      const { rows: batchRows } = await import('@/lib/db').then(m => m.query(
+        `SELECT id, start_date, first_week_start_date, end_date FROM batches WHERE id = $1`,
+        [activeBatchId]
+      ));
+      activeBatchData = batchRows[0] || null;
     }
 
     if (activeBatchData?.first_week_start_date) {
       const firstWeekStart = new Date(activeBatchData.first_week_start_date);
-      // Jurnal logic: add 7 days to first_week_start_date to calculate currentWeek
-      firstWeekStart.setDate(firstWeekStart.getDate() + 7);
+      // Tashih starts on first_week_start_date
       const now = new Date();
       const diffTime = now.getTime() - firstWeekStart.getTime();
       const diffWeeks = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 7));
       currentWeek = Math.max(1, diffWeeks + 1);
     }
 
-    // First, get total count
-    let countQuery = supabase
-      .from('daftar_ulang_submissions')
-      .select('*, users!daftar_ulang_submissions_user_id_fkey!inner(is_blacklisted)', { count: 'exact', head: true })
-      .in('status', targetStatuses);
-    
+    // Build WHERE clauses for SQL query
+    const whereClauses: string[] = ['du.status = ANY($1::text[])'];
+    const params: any[] = [targetStatuses];
+
     if (isBlacklisted) {
-      countQuery = countQuery.eq('users.is_blacklisted', true);
+      params.push(true);
+      whereClauses.push(`u.is_blacklisted = $${params.length}`);
     } else if (statusParam !== 'dropout') {
-      countQuery = countQuery.eq('users.is_blacklisted', false);
+      params.push(false);
+      whereClauses.push(`u.is_blacklisted = $${params.length}`);
     }
 
     if (activeBatchId) {
-      countQuery = countQuery.eq('batch_id', activeBatchId);
-    }
-    
-    if (search) {
-      const safeSearch = search.replace(/,/g, '');
-      const searchPattern = `%${safeSearch}%`;
-      const orString = `full_name.ilike.${searchPattern},nama_kunyah.ilike.${searchPattern}`;
-      countQuery = countQuery.or(orString, { foreignTable: 'users' });
-    }
-    
-    const { count: totalCount } = await countQuery;
-
-    // Get count specifically for 'approved' status
-    let approvedCountQuery = supabase
-      .from('daftar_ulang_submissions')
-      .select('*, users!daftar_ulang_submissions_user_id_fkey!inner(is_blacklisted)', { count: 'exact', head: true })
-      .eq('status', 'approved');
-      
-    if (isBlacklisted) {
-      approvedCountQuery = approvedCountQuery.eq('users.is_blacklisted', true);
-    } else if (statusParam !== 'dropout') {
-      approvedCountQuery = approvedCountQuery.eq('users.is_blacklisted', false);
-    }
-
-    if (activeBatchId) {
-      approvedCountQuery = approvedCountQuery.eq('batch_id', activeBatchId);
+      params.push(activeBatchId);
+      whereClauses.push(`du.batch_id = $${params.length}`);
     }
 
     if (search) {
-      const safeSearch = search.replace(/,/g, '');
-      const searchPattern = `%${safeSearch}%`;
-      const orString = `full_name.ilike.${searchPattern},nama_kunyah.ilike.${searchPattern}`;
-      approvedCountQuery = approvedCountQuery.or(orString, { foreignTable: 'users' });
-    }
-    
-    const { count: approvedCount } = await approvedCountQuery;
-
-    // Get count specifically for 'dropout' status
-    let dropoutCountQuery = supabase
-      .from('daftar_ulang_submissions')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'dropout');
-    if (activeBatchId) dropoutCountQuery = dropoutCountQuery.eq('batch_id', activeBatchId);
-    const { count: dropoutCount } = await dropoutCountQuery;
-
-    // Get count specifically for 'mengundurkan_diri' status
-    let resignCountQuery = supabase
-      .from('daftar_ulang_submissions')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'mengundurkan_diri');
-    if (activeBatchId) resignCountQuery = resignCountQuery.eq('batch_id', activeBatchId);
-    const { count: resignCount } = await resignCountQuery;
-
-    // Then, get paginated submissions
-    let submissionsQuery = supabase
-      .from('daftar_ulang_submissions')
-      .select('user_id, confirmed_full_name, confirmed_wa_phone, confirmed_chosen_juz, status, users!daftar_ulang_submissions_user_id_fkey!inner(full_name, nama_kunyah, avatar_url, whatsapp, email, is_blacklisted)')
-      .in('status', targetStatuses)
-      .order('confirmed_full_name', { ascending: true })
-      .range(offset, offset + limit - 1);
-    
-    if (isBlacklisted) {
-      submissionsQuery = submissionsQuery.eq('users.is_blacklisted', true);
-    } else if (statusParam !== 'dropout') {
-      submissionsQuery = submissionsQuery.eq('users.is_blacklisted', false);
-    }
-    
-    if (activeBatchId) {
-      submissionsQuery = submissionsQuery.eq('batch_id', activeBatchId);
+      params.push(`%${search.trim().toLowerCase()}%`);
+      whereClauses.push(`(LOWER(u.full_name) LIKE $${params.length} OR LOWER(COALESCE(u.nama_kunyah, '')) LIKE $${params.length} OR LOWER(COALESCE(du.confirmed_full_name, '')) LIKE $${params.length})`);
     }
 
-    if (search) {
-      const safeSearch = search.replace(/,/g, '');
-      const searchPattern = `%${safeSearch}%`;
-      const orString = `full_name.ilike.${searchPattern},nama_kunyah.ilike.${searchPattern}`;
-      submissionsQuery = submissionsQuery.or(orString, { foreignTable: 'users' });
-    }
+    const whereSql = whereClauses.join(' AND ');
 
-    const { data: daftarUlangUsers, error: daftarUlangError } = await submissionsQuery;
+    // 1. Total Count Query
+    const { rows: countRows } = await import('@/lib/db').then(m => m.query(
+      `SELECT COUNT(*) as cnt
+       FROM daftar_ulang_submissions du
+       JOIN users u ON du.user_id = u.id
+       WHERE ${whereSql}`,
+      params
+    ));
+    const totalCount = parseInt(countRows[0]?.cnt || '0', 10);
 
-    if (daftarUlangError) {
-      console.error('[Musyrifah Tashih API] Database error (daftar_ulang):', daftarUlangError);
-      return ApiResponses.databaseError(daftarUlangError);
-    }
+    // 2. Approved Count Query
+    const { rows: approvedCountRows } = await import('@/lib/db').then(m => m.query(
+      `SELECT COUNT(*) as cnt
+       FROM daftar_ulang_submissions du
+       JOIN users u ON du.user_id = u.id
+       WHERE du.status = 'approved' ${activeBatchId ? `AND du.batch_id = '${activeBatchId}'` : ''} AND u.is_blacklisted = false`
+    ));
+    const approvedCount = parseInt(approvedCountRows[0]?.cnt || '0', 10);
 
-    const userIds = daftarUlangUsers?.map((d: any) => d.user_id) || [];
+    // 3. Dropout Count Query
+    const { rows: dropoutRows } = await import('@/lib/db').then(m => m.query(
+      `SELECT COUNT(*) as cnt FROM daftar_ulang_submissions WHERE status = 'dropout' ${activeBatchId ? `AND batch_id = '${activeBatchId}'` : ''}`
+    ));
+    const dropoutCount = parseInt(dropoutRows[0]?.cnt || '0', 10);
+
+    // 4. Resign Count Query
+    const { rows: resignRows } = await import('@/lib/db').then(m => m.query(
+      `SELECT COUNT(*) as cnt FROM daftar_ulang_submissions WHERE status = 'mengundurkan_diri' ${activeBatchId ? `AND batch_id = '${activeBatchId}'` : ''}`
+    ));
+    const resignCount = parseInt(resignRows[0]?.cnt || '0', 10);
+
+    // 5. Paginated Submissions Query
+    const queryParams = [...params, limit, offset];
+    const { rows: daftarUlangUsers } = await import('@/lib/db').then(m => m.query(
+      `SELECT 
+         du.user_id,
+         du.confirmed_full_name,
+         du.confirmed_wa_phone,
+         du.confirmed_chosen_juz,
+         du.status,
+         du.submitted_at,
+         du.reviewed_at,
+         u.full_name,
+         u.nama_kunyah,
+         u.avatar_url,
+         u.whatsapp,
+         u.email,
+         u.is_blacklisted
+       FROM daftar_ulang_submissions du
+       JOIN users u ON du.user_id = u.id
+       WHERE ${whereSql}
+       ORDER BY du.confirmed_full_name ASC
+       LIMIT $${queryParams.length - 1} OFFSET $${queryParams.length}`,
+      queryParams
+    ));
+
+    const userIds = daftarUlangUsers.map((d: any) => d.user_id);
     if (userIds.length === 0) {
       return ApiResponses.success({
         entries: [],
@@ -289,48 +263,44 @@ export async function GET(request: Request) {
       }, 'No thalibah found');
     }
 
-    // Fetch user data separately
-    const { data: usersData } = await supabase
-      .from('users')
-      .select('id, full_name, nama_kunyah, whatsapp, email, is_blacklisted')
-      .in('id', userIds);
-
     const userMap = new Map();
-    usersData?.forEach((u: any) => {
-      userMap.set(u.id, u);
+    daftarUlangUsers.forEach((u: any) => {
+      userMap.set(u.user_id, {
+        id: u.user_id,
+        full_name: u.full_name,
+        nama_kunyah: u.nama_kunyah,
+        avatar_url: u.avatar_url,
+        whatsapp: u.whatsapp,
+        email: u.email,
+        is_blacklisted: u.is_blacklisted,
+      });
     });
 
     const daftarUlangMap = new Map();
-    daftarUlangUsers?.forEach((d: any) => {
+    daftarUlangUsers.forEach((d: any) => {
       daftarUlangMap.set(d.user_id, d);
     });
 
-    // Fetch all tashih_records for these users
-    let tashihQuery = supabase
-      .from('tashih_records')
-      .select('*')
-      .in('user_id', userIds)
-      .order('waktu_tashih', { ascending: false });
-
-    // Filter by batch dates to prevent data leakage from previous batches
+    // 6. Fetch Tashih Records
+    const tParams: any[] = [userIds];
+    let tWhere = 'user_id = ANY($1::uuid[])';
     if (activeBatchData?.start_date) {
       const filterStartDate = new Date(activeBatchData.start_date);
       filterStartDate.setDate(filterStartDate.getDate() - 1);
-      tashihQuery = tashihQuery.gte('created_at', filterStartDate.toISOString());
+      tParams.push(filterStartDate.toISOString());
+      tWhere += ` AND created_at >= $${tParams.length}`;
     }
-    
     if (activeBatchData?.end_date) {
       const filterEndDate = new Date(activeBatchData.end_date);
       filterEndDate.setDate(filterEndDate.getDate() + 7);
-      tashihQuery = tashihQuery.lte('created_at', filterEndDate.toISOString());
+      tParams.push(filterEndDate.toISOString());
+      tWhere += ` AND created_at <= $${tParams.length}`;
     }
 
-    const { data: allTashihRecords, error: tashihError } = await tashihQuery;
-
-    if (tashihError) {
-      console.error('[Musyrifah Tashih API] Database error (tashih_records):', tashihError);
-      return ApiResponses.databaseError(tashihError);
-    }
+    const { rows: allTashihRecords } = await import('@/lib/db').then(m => m.query(
+      `SELECT * FROM tashih_records WHERE ${tWhere} ORDER BY waktu_tashih DESC`,
+      tParams
+    ));
 
     let tashihRecords = allTashihRecords || [];
     if (blok && blok !== 'all') {
@@ -355,19 +325,18 @@ export async function GET(request: Request) {
     });
 
     // Get all unique juz codes from daftar ulang
-    const uniqueJuzCodes = new Set(
-      daftarUlangUsers?.map((d: any) => d.confirmed_chosen_juz).filter(Boolean) || []
-    );
+    const uniqueJuzCodes = Array.from(new Set(
+      daftarUlangUsers.map((d: any) => d.confirmed_chosen_juz).filter(Boolean)
+    ));
 
     // Fetch juz info for all unique juz codes
     const juzInfoMap = new Map();
-    if (uniqueJuzCodes.size > 0) {
-      const { data: juzOptions } = await supabase
-        .from('juz_options')
-        .select('*')
-        .in('code', Array.from(uniqueJuzCodes));
-
-      juzOptions?.forEach((juz: any) => {
+    if (uniqueJuzCodes.length > 0) {
+      const { rows: juzRows } = await import('@/lib/db').then(m => m.query(
+        `SELECT * FROM juz_options WHERE code = ANY($1::text[])`,
+        [uniqueJuzCodes]
+      ));
+      juzRows.forEach((juz: any) => {
         juzInfoMap.set(juz.code, juz);
       });
     }

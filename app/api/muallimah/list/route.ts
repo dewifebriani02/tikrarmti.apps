@@ -20,35 +20,26 @@ export async function GET(request: Request) {
       return ApiResponses.validationError([{ message: 'batch_id is required' } as any]);
     }
 
-    // Use admin client to bypass RLS for this specific public list
-    const supabase = createSupabaseAdmin();
-    
-    // Get from muallimah_akads for this batch to ensure we only get active teachers for this specific batch
-    const { data: akads, error } = await supabase
-      .from('muallimah_akads')
-      .select('id, user_id, preferred_juz, status, user:users!muallimah_akads_user_id_fkey(full_name)')
-      .eq('batch_id', batchId)
-      .eq('status', 'approved');
+    const { rows } = await import('@/lib/db').then(m => m.query(
+      `SELECT 
+         ma.id, 
+         ma.user_id, 
+         ma.preferred_juz, 
+         ma.status, 
+         COALESCE(u.full_name, 'Tanpa Nama') as full_name
+       FROM muallimah_akads ma
+       LEFT JOIN users u ON ma.user_id = u.id
+       WHERE ma.batch_id = $1 AND ma.status = 'approved'
+       ORDER BY LOWER(COALESCE(u.full_name, '')) ASC`,
+      [batchId]
+    ));
 
-    if (error) {
-      console.error('[Muallimah List API] Database error:', error);
-      return ApiResponses.databaseError(error);
-    }
-
-    // Format the response to match what the frontend expects
-    const finalList = (akads || []).map(akad => ({
+    const finalList = rows.map(akad => ({
       id: akad.id,
       user_id: akad.user_id,
-      full_name: (akad.user as any)?.full_name || 'Tanpa Nama',
+      full_name: akad.full_name || 'Tanpa Nama',
       preferred_juz: akad.preferred_juz || ''
     }));
-
-    // Sort alphabetically
-    finalList.sort((a, b) => {
-      const nameA = (a.full_name || '').toLowerCase();
-      const nameB = (b.full_name || '').toLowerCase();
-      return nameA.localeCompare(nameB);
-    });
 
     return ApiResponses.success(finalList);
   } catch (error) {
