@@ -162,14 +162,19 @@ async function processJurnalStatus(supabase: any, user: any, activeRegistration:
     dateFilter = activeRegistration.batch.start_date
   }
 
-  // Get all jurnal records for this user (skip for preview-id mock)
   if (activeRegistration.id !== 'preview-id') {
-    const { data: jurnalRecords, error: jurnalError } = await supabase
+    let jurnalQuery = supabase
       .from('jurnal_records')
-      .select('blok, tanggal_setor')
+      .select('blok, tanggal_setor, juz_code')
       .eq('user_id', user.id)
       .gte('tanggal_setor', dateFilter)
       .order('tanggal_setor', { ascending: true })
+
+    if (juzCode) {
+      jurnalQuery = jurnalQuery.or(`juz_code.eq.${juzCode},juz_code.is.null`)
+    }
+
+    const { data: jurnalRecords, error: jurnalError } = await jurnalQuery
 
     if (!jurnalError && jurnalRecords) {
       const blockStatus = new Map<string, { is_completed: boolean; jurnal_count: number; jurnal_date?: string }>()

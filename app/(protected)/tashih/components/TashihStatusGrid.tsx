@@ -49,8 +49,6 @@ export function TashihStatusGrid({ blocks, currentWeekNumber, onBlockClick, isAd
         {sortedWeeks.map(weekNum => {
           const weekBlocks = blocksByWeek.get(weekNum)!
           const completedInWeek = weekBlocks.filter(b => b.is_completed).length
-          const isWeekAllowed = weekNum <= currentWeekNumber
-          const isFutureWeek = weekNum > currentWeekNumber
           const isFullyCompleted = completedInWeek === weekBlocks.length && weekBlocks.length > 0
           
           // Get block range label (e.g., H21A - H21D)
@@ -62,19 +60,13 @@ export function TashihStatusGrid({ blocks, currentWeekNumber, onBlockClick, isAd
             <button
               key={weekNum}
               onClick={() => onBlockClick(firstBlock, weekNum)}
-              disabled={!isWeekAllowed}
-              className={cn(
-                "w-full text-left transition-all duration-300 active:scale-[0.98] group",
-                !isWeekAllowed ? "opacity-40 grayscale-[0.3]" : ""
-              )}
+              className="w-full text-left transition-all duration-300 active:scale-[0.98] group"
             >
               <Card className={cn(
-                "overflow-hidden border-none shadow-sm flex items-center justify-between p-3 sm:p-4 rounded-2xl",
+                "overflow-hidden border-none shadow-sm flex items-center justify-between p-3 sm:p-4 rounded-2xl transition-all",
                 isFullyCompleted 
                   ? "bg-gradient-to-r from-green-600 to-green-500 border-green-500 text-white shadow-green-600/20" 
-                  : cn("glass-premium", isWeekAllowed
-                      ? "bg-white border-green-50 text-gray-900 hover:border-green-400"
-                      : "bg-gray-50 border-gray-100 text-gray-400")
+                  : "bg-white border border-gray-100 text-gray-900 hover:border-green-400 hover:shadow-md"
               )}>
                 <div className="flex items-center gap-3">
                   {/* Compact Week ID */}
@@ -107,30 +99,23 @@ export function TashihStatusGrid({ blocks, currentWeekNumber, onBlockClick, isAd
 
                 {/* Status Indicator */}
                 <div className="flex items-center gap-3">
-                  {!isWeekAllowed ? (
-                    <div className="flex items-center gap-1.5 opacity-50">
-                       <span className="text-[8px] font-black uppercase tracking-widest">{isFutureWeek ? 'Menunggu' : 'Lewat'}</span>
-                       <Lock className="w-3 h-3" />
+                  <div className="flex items-center gap-2">
+                    <div className="text-right hidden sm:block">
+                      <p className={cn(
+                        "text-[8px] font-black uppercase tracking-tighter",
+                        isFullyCompleted ? "text-white/80" : "text-gray-400"
+                      )}>
+                        {completedInWeek}/{weekBlocks.length} SELESAI
+                      </p>
                     </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <div className="text-right hidden sm:block">
-                        <p className={cn(
-                          "text-[8px] font-black uppercase tracking-tighter",
-                          isFullyCompleted ? "text-white/80" : "text-gray-400"
-                        )}>
-                          {completedInWeek}/{weekBlocks.length} SELESAI
-                        </p>
+                    {isFullyCompleted ? (
+                      <CheckCircle className="w-5 h-5 text-white animate-fadeIn" />
+                    ) : (
+                      <div className="w-5 h-5 rounded-full border-2 border-green-200/50 flex items-center justify-center group-hover:border-green-500 transition-colors">
+                         <ChevronRight className="w-3 h-3 text-green-500" />
                       </div>
-                      {isFullyCompleted ? (
-                        <CheckCircle className="w-5 h-5 text-white animate-fadeIn" />
-                      ) : (
-                        <div className="w-5 h-5 rounded-full border-2 border-green-200/50 flex items-center justify-center group-hover:border-green-500 transition-colors">
-                           <ChevronRight className="w-3 h-3 text-green-500" />
-                        </div>
-                      )}
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </Card>
             </button>
@@ -138,10 +123,10 @@ export function TashihStatusGrid({ blocks, currentWeekNumber, onBlockClick, isAd
         })}
       </div>
 
-      {/* Legend - Only if needed, but keeping it minimal */}
+      {/* Legend */}
       <div className="flex justify-center gap-4 pt-2 text-[8px] font-black text-gray-600 uppercase tracking-tighter">
          <div className="flex items-center gap-1"><div className="w-2 h-2 rounded bg-green-500" /><span>Selesai</span></div>
-         <div className="flex items-center gap-1"><div className="w-2 h-2 rounded bg-white border border-green-200" /><span>Tersedia</span></div>
+         <div className="flex items-center gap-1"><div className="w-2 h-2 rounded bg-white border border-green-200" /><span>Tersedia / Siap Input</span></div>
       </div>
     </div>
   )

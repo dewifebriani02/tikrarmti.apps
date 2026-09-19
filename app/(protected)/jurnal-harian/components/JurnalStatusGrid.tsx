@@ -24,12 +24,12 @@ interface JurnalStatusGridProps {
 export function JurnalStatusGrid({ blocks, currentWeekNumber, onBlockClick, isAdminPreview }: JurnalStatusGridProps) {
   const [expandedWeek, setExpandedWeek] = useState<number | null>(currentWeekNumber)
 
-  // Identify unlocked blocks - a block is unlocked if it's the first one or if the previous block is completed
+  // Identify unlocked blocks - a block is unlocked if it's the first one, if previous block completed, or in preview/admin
   const unlockedBlocks = new Set<string>()
   if (blocks.length > 0) {
     unlockedBlocks.add(blocks[0].block_code)
     for (let i = 1; i < blocks.length; i++) {
-      if (blocks[i - 1].is_completed) {
+      if (blocks[i - 1].is_completed || isAdminPreview || (blocks[i].week_number > 10 && currentWeekNumber >= 11)) {
         unlockedBlocks.add(blocks[i].block_code)
       }
     }
@@ -112,7 +112,7 @@ export function JurnalStatusGrid({ blocks, currentWeekNumber, onBlockClick, isAd
                       </div>
                       <p className={cn("text-[8px] font-black uppercase tracking-tighter mt-1", 
                         isFullyCompleted ? "text-green-100/60" : "text-gray-500")}>
-                        {weekNum > 10 ? 'Review Juz Tahfidz' : `${completedInWeek}/${weekBlocks.length} Blok Selesai`}
+                        {`${completedInWeek}/${weekBlocks.length} ${weekNum > 10 ? 'Hari' : 'Blok'} Selesai`}
                       </p>
                     </div>
                   </div>
