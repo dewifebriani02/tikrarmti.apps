@@ -1,9 +1,7 @@
-import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireAdmin } from '@/lib/rbac';
 import { ApiResponses } from '@/lib/api-responses';
 import { NextRequest, NextResponse } from 'next/server';
-
-const supabaseAdmin = createSupabaseAdmin();
+import { query } from '@/lib/db';
 
 /**
  * GET /api/admin/testimonials
@@ -17,31 +15,37 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const approvedOnly = searchParams.get('approved_only') === 'true';
 
-    let query = supabaseAdmin
-      .from('testimonials')
-      .select(`
-        *,
-        user:users (
-          id,
-          full_name,
-          email,
-          kota
-        )
-      `)
-      .order('created_at', { ascending: false });
+    let sql = `
+      SELECT 
+        t.id,
+        t.user_id,
+        t.content,
+        t.rating,
+        t.is_approved,
+        t.created_at,
+        t.updated_at,
+        CASE WHEN u.id IS NOT NULL THEN
+          json_build_object(
+            'id', u.id,
+            'full_name', u.full_name,
+            'email', u.email,
+            'kota', u.kota
+          )
+        ELSE NULL END as user
+      FROM testimonials t
+      LEFT JOIN users u ON u.id = t.user_id
+    `;
 
+    const params: any[] = [];
     if (approvedOnly) {
-      query = query.eq('is_approved', true);
+      sql += ` WHERE t.is_approved = true`;
     }
 
-    const { data: testimonials, error } = await query;
+    sql += ` ORDER BY t.created_at DESC`;
 
-    if (error) {
-      console.error('[Admin Testimonials API GET] Database error:', error);
-      return ApiResponses.databaseError(error);
-    }
+    const { rows } = await query(sql, params);
 
-    return ApiResponses.success(testimonials);
+    return ApiResponses.success(rows);
   } catch (error: any) {
     console.error('[Admin Testimonials API GET] Server error:', error);
     return ApiResponses.handleUnknown(error);
@@ -64,22 +68,15 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Missing testimonial ID' }, { status: 400 });
     }
 
-    const { data, error } = await supabaseAdmin
-      .from('testimonials')
-      .update({
-        is_approved: !!is_approved,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', id)
-      .select()
-      .single();
+    const { rows } = await query(
+      `UPDATE testimonials
+       SET is_approved = $1, updated_at = NOW()
+       WHERE id = $2
+       RETURNING *`,
+      [!!is_approved, id]
+    );
 
-    if (error) {
-      console.error('[Admin Testimonials API PUT] Database error:', error);
-      return ApiResponses.databaseError(error);
-    }
-
-    return ApiResponses.success(data, 'Status persetujuan testimoni berhasil diperbarui');
+    return ApiResponses.success(rows[0], 'Status persetujuan testimoni berhasil diperbarui');
   } catch (error: any) {
     console.error('[Admin Testimonials API PUT] Server error:', error);
     return ApiResponses.handleUnknown(error);
@@ -109,15 +106,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Missing testimonial ID' }, { status: 400 });
     }
 
-    const { error } = await supabaseAdmin
-      .from('testimonials')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      console.error('[Admin Testimonials API DELETE] Database error:', error);
-      return ApiResponses.databaseError(error);
-    }
+    await query(`DELETE FROM testimonials WHERE id = $1`, [id]);
 
     return ApiResponses.success(null, 'Testimoni berhasil dihapus');
   } catch (error: any) {
