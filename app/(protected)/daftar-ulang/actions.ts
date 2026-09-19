@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createSupabaseAdmin } from '@/lib/supabase'
 import { syncApprovedSubmissionToHalaqahStudents } from '@/lib/halaqah-students-sync'
+import { saveUploadedFile, deleteUploadedFile } from '@/lib/storage'
 
 const parseDonationAmount = (value: string | number | null | undefined): number | null => {
   if (value === null || value === undefined || value === '') return null
@@ -472,34 +473,8 @@ export async function uploadAkad(formData: FormData) {
     const fileName = `${authUser.id}/${Date.now()}_akad.${fileExt}`
     const filePath = `akad/${fileName}`
 
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('documents')
-      .upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: false
-      })
-
-    if (uploadError) {
-      console.error('Upload error:', uploadError)
-
-      // Provide more specific error messages
-      if (uploadError.message.includes('bucket not found') || uploadError.message.includes('The resource was not found')) {
-        return {
-          success: false,
-          error: 'Bucket storage belum tersedia. Silakan hubungi admin.'
-        }
-      }
-
-      return {
-        success: false,
-        error: `Gagal mengupload file: ${uploadError.message}`
-      }
-    }
-
-    // Get public URL
-    const { data: { publicUrl } } = supabase.storage
-      .from('documents')
-      .getPublicUrl(filePath)
+    const buffer = Buffer.from(await file.arrayBuffer())
+    const { publicUrl } = await saveUploadedFile('documents', filePath, buffer)
 
     return {
       success: true,
@@ -512,18 +487,9 @@ export async function uploadAkad(formData: FormData) {
     }
   } catch (error: any) {
     console.error('Upload akad error:', error)
-
-    // Check for bucket-related errors
-    if (error?.message?.includes('bucket') || error?.message?.includes('storage')) {
-      return {
-        success: false,
-        error: 'Bucket storage belum tersedia. Silakan hubungi admin.'
-      }
-    }
-
     return {
       success: false,
-      error: error?.message || 'Terjadi kesalahan saat upload file'
+      error: `Gagal mengupload file: ${error.message || error}`
     }
   }
 }
@@ -787,22 +753,16 @@ export async function resetAkadThalibah(submissionId: string) {
   // Delete files from storage
   if (submission.akad_files && Array.isArray(submission.akad_files)) {
     try {
-      const filePaths = submission.akad_files.map((file: any) => {
-        const urlParts = file.url.split('/documents/');
-        if (urlParts.length > 1) {
-          return urlParts[1];
+      for (const file of submission.akad_files) {
+        if (!file?.url) continue;
+        let filePath = '';
+        if (file.url.includes('/documents/')) {
+          filePath = file.url.split('/documents/')[1];
+        } else {
+          filePath = file.url.split('/').pop() || '';
         }
-        return null;
-      }).filter(Boolean);
-
-      if (filePaths.length > 0) {
-        const { error: storageError } = await supabaseAdmin
-          .storage
-          .from('documents')
-          .remove(filePaths);
-          
-        if (storageError) {
-          console.error('[Reset Akad Thalibah] Storage delete error:', storageError);
+        if (filePath) {
+          await deleteUploadedFile('documents', filePath);
         }
       }
     } catch (e) {

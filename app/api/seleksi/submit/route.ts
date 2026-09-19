@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { createServerClient } from '@/lib/supabase/server';
+import { saveUploadedFile } from '@/lib/storage';
 
 // PostgreSQL-backed admin client
 const supabaseAdmin = createSupabaseAdmin();
@@ -114,30 +115,9 @@ export async function POST(request: NextRequest) {
       }
 
       const audioBuffer = Buffer.from(await audioFile.arrayBuffer());
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('selection-audios')
-        .upload(fileName, audioBuffer, {
-          contentType: audioFile.type || 'audio/webm',
-          duplex: 'half',
-          cacheControl: '3600'
-        } as any);
+      const { publicUrl } = await saveUploadedFile('selection-audios', fileName, audioBuffer);
 
-      if (uploadError) {
-        console.error('❌ API: Upload error:', uploadError);
-        return NextResponse.json(
-          { error: 'Failed to upload audio', details: uploadError.message },
-          { status: 500 }
-        );
-      }
-
-      console.log('✅ API: Upload successful:', uploadData);
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('selection-audios')
-        .getPublicUrl(fileName);
-
-      console.log('🔗 API: Public URL:', publicUrl);
+      console.log('✅ API: Upload successful, Local URL:', publicUrl);
 
       submissionData = {
         user_id: user.id,

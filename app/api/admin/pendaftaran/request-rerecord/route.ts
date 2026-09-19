@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { getAuthorizationContext } from '@/lib/rbac';
 import { ApiResponses } from '@/lib/api-responses';
-
+import { deleteUploadedFile } from '@/lib/storage';
 
 export async function POST(request: Request) {
   try {
@@ -31,24 +31,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Failed to fetch registration' }, { status: 500 });
     }
 
-    // 2. Delete the old file from storage if it exists
+    // 2. Delete the old file from local storage if it exists
     if (registration.oral_submission_url) {
       try {
-        // Extract the file path from the public URL
-        // Example URL: https://...supabase.co/storage/v1/object/public/recordings/audio.webm
         const urlObj = new URL(registration.oral_submission_url);
-        const pathParts = urlObj.pathname.split('/public/recordings/');
-        if (pathParts.length > 1) {
-          const filePath = pathParts[1];
-          const { error: removeError } = await supabaseAdmin
-            .storage
-            .from('recordings')
-            .remove([filePath]);
-            
-          if (removeError) {
-            console.error('[Admin] Error deleting file from storage:', removeError);
-            // We continue even if file deletion fails, as the main goal is to reset the state
-          }
+        const pathname = urlObj.pathname;
+        let filePath = '';
+        if (pathname.includes('/selection-audios/')) {
+          filePath = pathname.split('/selection-audios/')[1];
+        } else if (pathname.includes('/recordings/')) {
+          filePath = pathname.split('/recordings/')[1];
+        } else {
+          filePath = pathname.split('/').pop() || '';
+        }
+        
+        if (filePath) {
+          await deleteUploadedFile('selection-audios', filePath);
         }
       } catch (e) {
         console.error('[Admin] Error parsing URL for deletion:', e);

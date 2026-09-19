@@ -108,23 +108,23 @@ export default function InfaqDonasiPage() {
       setUploadingProof(true);
       setProofFile(file);
 
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user?.id}/${Date.now()}.${fileExt}`;
-      const filePath = `donations/${fileName}`;
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('bucket', 'documents');
+      formData.append('subfolder', 'donations');
 
-      const { data, error } = await supabase.storage
-        .from('documents')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: true
-        });
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
 
-      if (error) throw error;
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || 'Gagal mengunggah bukti transfer');
+      }
 
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('documents')
-        .getPublicUrl(filePath);
+      const json = await res.json();
+      const publicUrl = json.data?.publicUrl || json.data?.url;
 
       setProofUrl(publicUrl);
       toast.success('Bukti transfer berhasil diunggah');

@@ -103,3 +103,8 @@ backups/
 scripts/users_with_passwords.json
 test_proper.js
 
+# Local uploads
+public/uploads/*
+!public/uploads/.gitkeep
+
+

@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { saveUploadedFile } from '@/lib/storage'
 
 export interface JurnalFormData {
   tanggal_setor: string
@@ -215,25 +216,8 @@ export async function uploadJurnalScreenshot(formData: FormData) {
     const fileName = `${authUser.id}/${Date.now()}_jurnal_tarteel.${fileExt}`
     const filePath = `jurnal/${fileName}`
 
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('documents')
-      .upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: false
-      })
-
-    if (uploadError) {
-      console.error('Upload error:', uploadError)
-      return {
-        success: false,
-        error: `Gagal mengupload file: ${uploadError.message}`
-      }
-    }
-
-    // Get public URL
-    const { data: { publicUrl } } = supabase.storage
-      .from('documents')
-      .getPublicUrl(filePath)
+    const buffer = Buffer.from(await file.arrayBuffer())
+    const { publicUrl } = await saveUploadedFile('documents', filePath, buffer)
 
     return {
       success: true,

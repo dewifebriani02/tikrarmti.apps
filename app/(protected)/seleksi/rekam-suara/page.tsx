@@ -288,24 +288,26 @@ export default function RekamSuaraPage() {
 
       setUploadProgress(20);
 
-      // Upload to Supabase Storage
-      const { error: uploadError } = await supabase.storage
-        .from('selection-audios')
-        .upload(fileName, audioBlob, {
-          contentType: audioBlob.type || 'audio/webm',
-          upsert: false
-        });
+      // Upload via server API
+      const formData = new FormData();
+      formData.append('audio', audioBlob, fileName);
+      formData.append('fileName', fileName);
 
-      if (uploadError) {
-        throw new Error(uploadError.message);
+      const uploadRes = await fetch('/api/seleksi/submit', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+
+      if (!uploadRes.ok) {
+        const errData = await uploadRes.json().catch(() => ({}));
+        throw new Error(errData.error || 'Gagal mengunggah audio seleksi');
       }
 
-      setUploadProgress(60);
+      const uploadResult = await uploadRes.json();
+      const publicUrl = uploadResult.data?.audio_url || uploadResult.submission?.oral_submission_url;
 
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('selection-audios')
-        .getPublicUrl(fileName);
+      setUploadProgress(60);
 
       // Get registration ID
       const myRegistrationResponse = await fetch('/api/pendaftaran/my', {

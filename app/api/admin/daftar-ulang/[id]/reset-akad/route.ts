@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { deleteUploadedFile } from '@/lib/storage';
 import { NextRequest, NextResponse } from 'next/server';
 
 /**
@@ -45,30 +46,15 @@ export async function POST(
 
     // Try to delete files from storage if they exist
     if (submission.akad_files && Array.isArray(submission.akad_files)) {
-      try {
-        const filePaths = submission.akad_files.map((file: any) => {
-          // Extract path after 'documents/akad/'
-          // Example url: https://nmbvklixthlqtkkgqnjl.supabase.co/storage/v1/object/public/documents/akad/abc/file.pdf
-          const urlParts = file.url.split('/documents/');
+      for (const file of submission.akad_files) {
+        try {
+          const urlParts = (file.url || '').split('/documents/');
           if (urlParts.length > 1) {
-            return urlParts[1]; // e.g., 'akad/abc/file.pdf'
+            await deleteUploadedFile('documents', urlParts[1]);
           }
-          return null;
-        }).filter(Boolean);
-
-        if (filePaths.length > 0) {
-          const { error: storageError } = await supabaseAdmin
-            .storage
-            .from('documents')
-            .remove(filePaths);
-            
-          if (storageError) {
-            console.error('[Reset Akad] Storage delete error:', storageError);
-            // We continue even if delete fails, so user can re-upload
-          }
+        } catch (e) {
+          console.error('[Reset Akad] Error deleting file:', e);
         }
-      } catch (e) {
-        console.error('[Reset Akad] Error deleting files:', e);
       }
     }
 

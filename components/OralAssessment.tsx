@@ -140,26 +140,26 @@ export function OralAssessment({
       let finalAudioUrl = existingAudioUrl;
 
       if (audioBlob) {
-        const supabase = createClient();
         const fileName = `${registrationId}-${Date.now()}.webm`;
-        const { data, error } = await supabase.storage
-          .from('selection-audios')
-          .upload(`feedback/${fileName}`, audioBlob, {
-            contentType: audioBlob.type || 'audio/webm',
-            upsert: false
-          });
-          
-        if (error) {
-          console.error("Error uploading audio:", error);
+        const formData = new FormData();
+        formData.append('file', audioBlob, fileName);
+        formData.append('bucket', 'selection-audios');
+        formData.append('subfolder', 'feedback');
+        formData.append('customFileName', fileName);
+
+        const uploadRes = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const uploadData = await uploadRes.json();
+        if (!uploadRes.ok || !uploadData.success) {
+          console.error("Error uploading audio feedback:", uploadData);
           alert('Gagal mengupload audio feedback');
           throw new Error('Gagal mengupload audio feedback');
         }
-        
-        const { data: { publicUrl } } = supabase.storage
-          .from('selection-audios')
-          .getPublicUrl(`feedback/${fileName}`);
-          
-        finalAudioUrl = publicUrl;
+
+        finalAudioUrl = uploadData.publicUrl || uploadData.data?.publicUrl;
       }
 
       await onSave({
