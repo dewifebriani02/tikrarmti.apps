@@ -79,8 +79,15 @@ export default function AdminJadwalHarianTab() {
       }
       
       setActiveBatchName(batch.name);
-      const { data: links } = await supabase.from('batch_zoom_links').select('id, name').eq('batch_id', batch.id).order('name');
-      setZoomLinks(links || []);
+      
+      let links: any[] = [];
+      try {
+        const { data } = await supabase.from('batch_zoom_links').select('id, name').eq('batch_id', batch.id).order('name');
+        links = data || [];
+      } catch (e) {
+        console.warn('Could not fetch zoom links:', e);
+      }
+      setZoomLinks(links);
 
       // 2. Get ALL halaqahs for this batch (to enable global search)
       // We use the server-side API to bypass RLS so that all authenticated users
@@ -89,52 +96,65 @@ export default function AdminJadwalHarianTab() {
       if (!response.ok) {
         throw new Error('Failed to fetch halaqah data');
       }
-      const { data: halaqahData } = await response.json();
+      const rosterJson = await response.json();
+      const halaqahData = rosterJson.data || [];
 
       let filteredData = halaqahData || [];
 
       // Daftar Ulang uses confirmed_full_name. Use the same approved, batch-scoped
       // value in Jadwal Harian so the roster name is identical everywhere.
       const confirmedNameMap = new Map<string, string>();
-      const { data: approvedSubmissions } = await supabase
-        .from('daftar_ulang_submissions')
-        .select('user_id, confirmed_full_name, updated_at')
-        .eq('batch_id', batch.id)
-        .eq('status', 'approved')
-        .order('updated_at', { ascending: false });
+      try {
+        const { data: approvedSubmissions } = await supabase
+          .from('daftar_ulang_submissions')
+          .select('user_id, confirmed_full_name, updated_at')
+          .eq('batch_id', batch.id)
+          .eq('status', 'approved')
+          .order('updated_at', { ascending: false });
 
-      for (const submission of approvedSubmissions || []) {
-        if (submission.confirmed_full_name && !confirmedNameMap.has(submission.user_id)) {
-          confirmedNameMap.set(submission.user_id, submission.confirmed_full_name);
+        for (const submission of approvedSubmissions || []) {
+          if (submission.confirmed_full_name && !confirmedNameMap.has(submission.user_id)) {
+            confirmedNameMap.set(submission.user_id, submission.confirmed_full_name);
+          }
         }
+      } catch (e) {
+        console.warn('Could not fetch confirmed names:', e);
       }
 
       // Map to HalaqahForReminder format
       // Get the start of the current week (Monday)
-      const now = new Date();
-      const currentDay = now.getDay();
-      const distance = currentDay === 0 ? 6 : currentDay - 1;
-      const lastMonday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - distance);
-      lastMonday.setHours(0, 0, 0, 0);
-      const startOfWeek = lastMonday.toISOString();
+      let sitInLogs: any[] = [];
+      try {
+        const now = new Date();
+        const currentDay = now.getDay();
+        const distance = currentDay === 0 ? 6 : currentDay - 1;
+        const lastMonday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - distance);
+        lastMonday.setHours(0, 0, 0, 0);
+        const startOfWeek = lastMonday.toISOString();
 
-      const { data: sitInLogs } = await supabase
-        .from('audit_logs')
-        .select('user_id, created_at, details, user:users(full_name, whatsapp)')
-        .eq('action', 'UPDATE')
-        .eq('resource', 'halaqah')
-        .gte('created_at', startOfWeek);
+        const { data } = await supabase
+          .from('audit_logs')
+          .select('user_id, created_at, details, user:users(full_name, whatsapp)')
+          .eq('action', 'UPDATE')
+          .eq('resource', 'halaqah')
+          .gte('created_at', startOfWeek);
+        sitInLogs = data || [];
+      } catch (e) {
+        console.warn('Could not fetch sit-in logs:', e);
+      }
 
       // Fetch accurate quota/student counts that bypass RLS
       let quotas: Record<string, { activeCount: number, maxStudents: number }> = {};
       try {
         const quotaRes = await fetch(`/api/shared/halaqah-quota?batch_id=${batch.id}`);
         if (quotaRes.ok) {
-          const quotaData = await quotaRes.json();
-          // Convert array to map
-          quotaData.forEach((q: any) => {
-            quotas[q.halaqahId] = { activeCount: q.activeCount, maxStudents: q.maxStudents };
-          });
+          const quotaJson = await quotaRes.json();
+          const quotaList = Array.isArray(quotaJson) ? quotaJson : (quotaJson.data?.halaqah || quotaJson.data || []);
+          if (Array.isArray(quotaList)) {
+            quotaList.forEach((q: any) => {
+              quotas[q.id || q.halaqahId] = { activeCount: q.total_current_students ?? q.activeCount ?? 0, maxStudents: q.total_max_students ?? q.maxStudents ?? 5 };
+            });
+          }
         }
       } catch (err) {
         console.error('Failed to fetch halaqah quota', err);
@@ -184,7 +204,7 @@ export default function AdminJadwalHarianTab() {
             ]
           ).values()
         ),
-        activeCount: quotas[h.id]?.activeCount || (h.students?.filter((s: any) => s.status === 'active').length || 0)
+        activeCount: quotas[h.id]?.activeCount ?? (h.students?.filter((s: any) => s.status === 'active').length || 0)
       };
     });
 

@@ -1,27 +1,23 @@
-import { createSupabaseAdmin } from '@/lib/supabase';
-import { ApiResponses } from '@/lib/api-responses';
-import { getAuthorizationContext } from '@/lib/rbac';
-
-const supabaseAdmin = createSupabaseAdmin();
+import { NextResponse } from 'next/server';
+import { getCurrentUser } from '@/lib/auth';
+import { query } from '@/lib/db';
 
 export async function GET(request: Request) {
   try {
-    const context = await getAuthorizationContext();
-    if (!context) return ApiResponses.unauthorized();
-
-    const { data, error } = await supabaseAdmin
-      .from('batches')
-      .select('id, name, status')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching batches:', error);
-      return ApiResponses.error('FETCH_FAILED', 'Failed to fetch batches');
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    return ApiResponses.success(data);
+    const { rows } = await query(
+      `SELECT id, name, status, start_date, first_week_start_date, created_at 
+       FROM batches 
+       ORDER BY created_at DESC`
+    );
+
+    return NextResponse.json({ success: true, data: rows });
   } catch (error) {
     console.error('Unexpected error fetching batches:', error);
-    return ApiResponses.serverError();
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
