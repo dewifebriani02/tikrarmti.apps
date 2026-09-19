@@ -145,30 +145,6 @@ export default function AlumniPage() {
     );
   }
 
-  // Not an alumni UI (unless admin)
-  if (!isAlumni && !isAdmin) {
-    return (
-      <div className="min-h-screen bg-[#F4F7F5] py-16 px-4">
-        <div className="max-w-2xl mx-auto">
-          <Card className="border-0 shadow-xl overflow-hidden rounded-2xl bg-white">
-            <div className="h-3 bg-emerald-700" />
-            <CardContent className="p-10 text-center">
-              <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-6 border border-emerald-100">
-                <BookOpen className="w-10 h-10 text-emerald-700 animate-pulse" />
-              </div>
-              <h1 className="text-3xl font-extrabold text-gray-900 mb-4 tracking-tight">Halaman Khusus Alumni MTI</h1>
-              <div className="flex justify-center">
-                <UIButton asChild className="bg-emerald-800 hover:bg-emerald-700 text-white rounded-xl px-6 py-6 font-medium shadow-lg transition-all">
-                  <Link href="/dashboard">Kembali ke Dashboard</Link>
-                </UIButton>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-[#F8FAF9] py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-5xl mx-auto">

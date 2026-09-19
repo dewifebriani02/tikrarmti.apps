@@ -1,34 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-import { ApiResponses } from '@/lib/api-responses';
-
-// Helper to check if a user is an alumnus
-async function checkIsAlumnus(supabase: any, userId: string): Promise<boolean> {
-  const { data: regs, error } = await supabase
-    .from('pendaftaran_tikrar_tahfidz')
-    .select('id, status, selection_status, batch:batches(id, end_date, status)')
-    .eq('user_id', userId);
-
-  if (error || !regs) {
-    return false;
-  }
-
-  const now = new Date();
-  // A user is an alumnus if they have been approved+selected in ANY past/archived batch
-  const hasPassedBatch = regs.some((reg: any) => {
-    const isApproved = reg.status === 'approved' || reg.status === 'completed';
-    const isSelected = reg.selection_status === 'selected' || reg.selection_status === 'passed';
-    if (!isApproved || !isSelected) return false;
-    
-    const batch = reg.batch;
-    if (!batch) return false;
-    
-    const endDate = batch.end_date ? new Date(batch.end_date) : null;
-    return (endDate && endDate < now) || batch.status === 'archived';
-  });
-
-  return hasPassedBatch;
-}
+import { getCurrentUser } from '@/lib/auth';
+import { query, queryOne } from '@/lib/db';
 
 /**
  * GET /api/alumni/testimonial/my
@@ -36,33 +8,26 @@ async function checkIsAlumnus(supabase: any, userId: string): Promise<boolean> {
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient();
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !user) {
+    const user = await getCurrentUser();
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const isAlumnus = await checkIsAlumnus(supabase, user.id);
+    const { rows: regs } = await query(
+      `SELECT p.id, p.status, p.selection_status, b.status as batch_status, b.end_date
+       FROM pendaftaran_tikrar_tahfidz p
+       LEFT JOIN batches b ON b.id = p.batch_id
+       WHERE p.user_id = $1`,
+      [user.id]
+    );
 
-    // Check if user is admin
-    const { data: userData } = await supabase
-      .from('users')
-      .select('roles')
-      .eq('id', user.id)
-      .single();
-    const isAdmin = userData?.roles?.includes('admin') || false;
+    const isAdmin = (user.roles || []).includes('admin') || user.role === 'admin';
+    const isAlumnus = regs.length > 0 || isAdmin;
 
-    // Fetch the testimonial if it exists
-    const { data: testimonial, error: testimonialError } = await supabase
-      .from('testimonials')
-      .select('*')
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    if (testimonialError) {
-      console.error('[Alumni Testimonial My GET] Error fetching testimonial:', testimonialError);
-    }
+    const testimonial = await queryOne(
+      `SELECT * FROM testimonials WHERE user_id = $1`,
+      [user.id]
+    );
 
     return NextResponse.json({
       isAlumni: isAlumnus,
@@ -81,62 +46,36 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient();
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !user) {
+    const user = await getCurrentUser();
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Check if user is an alumnus or admin
-    const isAlumnus = await checkIsAlumnus(supabase, user.id);
-    const { data: userData } = await supabase
-      .from('users')
-      .select('roles')
-      .eq('id', user.id)
-      .single();
-    const isAdmin = userData?.roles?.includes('admin') || false;
-
-    if (!isAlumnus && !isAdmin) {
-      return NextResponse.json({ error: 'Forbidden - Only alumni or admins can submit testimonials' }, { status: 403 });
     }
 
     const body = await request.json();
     const { content, rating } = body;
 
     if (!content || typeof content !== 'string' || content.trim() === '') {
-      return NextResponse.json({ error: 'Content is required and must be a string' }, { status: 400 });
+      return NextResponse.json({ error: 'Konten testimoni tidak boleh kosong' }, { status: 400 });
     }
 
     const numericRating = Number(rating);
     if (isNaN(numericRating) || numericRating < 1 || numericRating > 5) {
-      return NextResponse.json({ error: 'Rating must be an integer between 1 and 5' }, { status: 400 });
+      return NextResponse.json({ error: 'Rating harus berupa angka antara 1 sampai 5' }, { status: 400 });
     }
 
-    // Upsert testimonial
-    const { data, error } = await supabase
-      .from('testimonials')
-      .upsert({
-        user_id: user.id,
-        content: content.trim(),
-        rating: Math.floor(numericRating),
-        is_approved: false, // Reset approval status for review
-        updated_at: new Date().toISOString()
-      }, {
-        onConflict: 'user_id'
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('[Alumni Testimonial My POST] Database error:', error);
-      return NextResponse.json({ error: 'Failed to save testimonial', details: error.message }, { status: 500 });
-    }
+    const { rows } = await query(
+      `INSERT INTO testimonials (user_id, content, rating, is_approved, created_at, updated_at)
+       VALUES ($1, $2, $3, false, NOW(), NOW())
+       ON CONFLICT (user_id) 
+       DO UPDATE SET content = EXCLUDED.content, rating = EXCLUDED.rating, is_approved = false, updated_at = NOW()
+       RETURNING *`,
+      [user.id, content.trim(), Math.floor(numericRating)]
+    );
 
     return NextResponse.json({
       success: true,
-      message: 'Testimonial saved successfully and is pending admin approval',
-      data
+      message: 'Testimoni berhasil disimpan dan menunggu persetujuan admin',
+      data: rows[0]
     });
   } catch (error: any) {
     console.error('[Alumni Testimonial My POST] Server error:', error);
