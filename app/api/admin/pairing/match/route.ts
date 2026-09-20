@@ -47,62 +47,47 @@ export async function GET(request: Request) {
   }
 
   try {
-    // 3. Fetch user data from daftar_ulang_submissions (not pendaftaran_tikrar_tahfidz)
-    const { data: userData, error: userError } = await supabase
+    // 3. Fetch user data from daftar_ulang_submissions, users, and pendaftaran_tikrar_tahfidz
+    const { data: submissionData } = await supabase
       .from('daftar_ulang_submissions')
-      .select(`
-        user_id,
-        batch_id,
-        registration_id,
-        partner_type,
-        users!daftar_ulang_submissions_user_id_fkey (
-          id,
-          full_name,
-          email,
-          zona_waktu,
-          whatsapp
-        ),
-        registrations:pendaftaran_tikrar_tahfidz!daftar_ulang_submissions_registration_id_fkey (
-          user_id,
-          full_name,
-          chosen_juz,
-          main_time_slot,
-          backup_time_slot,
-          timezone,
-          oral_total_score
-        )
-      `)
+      .select('*')
       .eq('user_id', userId)
       .eq('batch_id', batchId)
-      .single()
+      .maybeSingle()
 
-    console.log('[MATCH API] User data lookup:', { data: userData, error: userError })
+    const { data: userRecord } = await supabase
+      .from('users')
+      .select('id, full_name, email, zona_waktu, whatsapp')
+      .eq('id', userId)
+      .maybeSingle()
 
-    if (userError || !userData) {
+    const { data: regRecord } = await supabase
+      .from('pendaftaran_tikrar_tahfidz')
+      .select('user_id, full_name, chosen_juz, main_time_slot, backup_time_slot, timezone, oral_total_score')
+      .eq('user_id', userId)
+      .eq('batch_id', batchId)
+      .maybeSingle()
+
+    if (!submissionData && !regRecord) {
       return NextResponse.json(
         { error: 'User not found in this batch' },
         { status: 404 }
       )
     }
 
-    // Use timezone from registration if available, otherwise fall back to users.zona_waktu
-    const userDataUsers = (Array.isArray(userData.users) ? userData.users : (userData.users ? [userData.users] : [])) as any
-    const userRegistrations = (Array.isArray(userData.registrations) ? userData.registrations : (userData.registrations ? [userData.registrations] : [])) as any
-
-    const userTimezone = userRegistrations?.[0]?.timezone || userDataUsers?.[0]?.zona_waktu || 'WIB'
-    const userChosenJuz = userRegistrations?.[0]?.chosen_juz || 'N/A'
-    const userMainTimeSlot = userRegistrations?.[0]?.main_time_slot || 'N/A'
-    const userBackupTimeSlot = userRegistrations?.[0]?.backup_time_slot || 'N/A'
-    const userOralScore = userRegistrations?.[0]?.oral_total_score || 0
+    const userTimezone = regRecord?.timezone || userRecord?.zona_waktu || 'WIB'
+    const userChosenJuz = submissionData?.confirmed_chosen_juz || regRecord?.chosen_juz || 'N/A'
+    const userMainTimeSlot = submissionData?.confirmed_main_time_slot || regRecord?.main_time_slot || 'N/A'
+    const userBackupTimeSlot = submissionData?.confirmed_backup_time_slot || regRecord?.backup_time_slot || 'N/A'
+    const userOralScore = regRecord?.oral_total_score || 0
 
     console.log('[MATCH API] User parsed data:', {
-      user_id: userData.user_id,
+      user_id: userId,
       userTimezone,
       userChosenJuz,
       userMainTimeSlot,
       userBackupTimeSlot,
-      hasUsers: !!userData.users,
-      hasRegistrations: !!userData.registrations,
+      userOralScore,
     })
 
     // 4. Fetch existing pairings to exclude already paired users
@@ -292,8 +277,8 @@ export async function GET(request: Request) {
       success: true,
       data: {
         user: {
-          user_id: userData.user_id,
-          full_name: userDataUsers?.[0]?.full_name || 'Unknown',
+          user_id: userId,
+          full_name: userRecord?.full_name || regRecord?.full_name || submissionData?.confirmed_full_name || 'Unknown',
           chosen_juz: userChosenJuz,
           zona_waktu: userTimezone,
           main_time_slot: userMainTimeSlot,

@@ -246,6 +246,16 @@ export async function GET(request: Request) {
         user_2_juz: pairedUsersRegMap.get(p.user_2_id)?.chosen_juz || null,
       }))
 
+    let batchData: any = null
+    if (batchId) {
+      const { data: b } = await supabase
+        .from('batches')
+        .select('id, name')
+        .eq('id', batchId)
+        .maybeSingle()
+      batchData = b
+    }
+
     const processedMutualMatches = new Set<string>() // Track processed mutual matches to avoid duplicates
 
     // 6. Transform data for frontend with mutual match detection
@@ -257,36 +267,34 @@ export async function GET(request: Request) {
     console.log('[PAIRING API] Starting to process', uniqueSubmissionsArray.length, 'unique submissions')
 
     for (const submission of uniqueSubmissionsArray) {
-      // Supabase returns nested relations - check if array or object
-      // Try both structures to handle different Supabase response formats
-      const users = (Array.isArray(submission.users) ? submission.users : (submission.users ? [submission.users] : [])) as any
-      const registrations = (Array.isArray(submission.registrations) ? submission.registrations : (submission.registrations ? [submission.registrations] : [])) as any
-      const batch = (Array.isArray(submission.batch) ? submission.batch : (submission.batch ? [submission.batch] : [])) as any
+      const userObj = userDetailsMap.get(submission.user_id) || {}
+      const regObj = pairedUsersRegMap.get(submission.user_id) || {}
 
       // Use timezone from registration (pendaftaran_tikrar_tahfidz) if available,
       // otherwise fall back to zona_waktu from users table
-      const userTimezone = registrations?.[0]?.timezone || users?.[0]?.zona_waktu || 'WIB'
+      const userTimezone = regObj.timezone || userObj.zona_waktu || 'WIB'
 
       const requestData = {
         id: submission.id,
         user_id: submission.user_id,
-        user_name: users?.[0]?.full_name,
-        user_email: users?.[0]?.email,
+        user_name: userObj.full_name || submission.confirmed_full_name || 'Hamba Allah',
+        user_email: userObj.email || '',
         user_zona_waktu: userTimezone,
-        user_wa_phone: users?.[0]?.whatsapp,
-        user_tanggal_lahir: users?.[0]?.tanggal_lahir,
-        chosen_juz: registrations?.[0]?.chosen_juz,
-        main_time_slot: registrations?.[0]?.main_time_slot,
-        backup_time_slot: registrations?.[0]?.backup_time_slot,
-        exam_score: registrations?.[0]?.oral_total_score,
+        user_wa_phone: userObj.whatsapp || submission.confirmed_wa_phone || '',
+        user_tanggal_lahir: userObj.tanggal_lahir || null,
+        chosen_juz: submission.confirmed_chosen_juz || regObj.chosen_juz || '-',
+        main_time_slot: submission.confirmed_main_time_slot || regObj.main_time_slot || '-',
+        backup_time_slot: submission.confirmed_backup_time_slot || regObj.backup_time_slot || '-',
+        exam_score: regObj.oral_total_score ?? regObj.exam_score ?? null,
         partner_type: submission.partner_type,
         partner_id: submission.partner_user_id,
         partner_name: submission.partner_name,
         partner_relationship: submission.partner_relationship,
         partner_notes: submission.partner_notes,
+        partner_wa_phone: submission.partner_wa_phone,
         submitted_at: submission.submitted_at,
         batch_id: submission.batch_id,
-        batch_name: batch?.[0]?.name,
+        batch_name: batchData?.name || '',
       }
 
       if (submission.effective_partner_type === 'self_match') {
@@ -352,7 +360,12 @@ export async function GET(request: Request) {
         // Calculate matching statistics for this user
         const matchStats = calculateMatchingStatistics(
           submission.user_id,
-          registrations?.[0],
+          regObj.chosen_juz ? regObj : {
+            chosen_juz: submission.confirmed_chosen_juz,
+            main_time_slot: submission.confirmed_main_time_slot,
+            backup_time_slot: submission.confirmed_backup_time_slot,
+            timezone: userTimezone,
+          },
           uniqueSubmissionsArray,
           pairedUsersMap, // Exclude already paired users from statistics
           userDetailsMap,
