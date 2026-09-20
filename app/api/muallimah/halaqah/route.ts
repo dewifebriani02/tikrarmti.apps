@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { requireAnyRole, getAuthorizationContext } from '@/lib/rbac';
 import { ApiResponses } from '@/lib/api-responses';
+import { parseBlokField } from '@/lib/blok';
 
 export async function GET(request: Request) {
   try {
@@ -68,25 +69,13 @@ export async function GET(request: Request) {
           // Count jurnal blocks completed
           const thalibahJurnal = jurnalData?.filter((j: any) => j.user_id === thalibahId) || [];
           const jurnalBlocks = thalibahJurnal.reduce((count: number, record: any) => {
-            if (record.blok) {
-              const blocks = typeof record.blok === 'string'
-                ? record.blok.split(',').filter((b: string) => b.trim())
-                : (Array.isArray(record.blok) ? record.blok : []);
-              return count + blocks.length;
-            }
-            return count;
+            return count + parseBlokField(record.blok).length;
           }, 0);
 
           // Count tashih blocks completed
           const thalibahTashih = tashihData?.filter((t: any) => t.user_id === thalibahId) || [];
           const tashihBlocks = thalibahTashih.reduce((count: number, record: any) => {
-            if (record.blok) {
-              const blocks = typeof record.blok === 'string'
-                ? record.blok.split(',').filter((b: string) => b.trim())
-                : (Array.isArray(record.blok) ? record.blok : []);
-              return count + blocks.length;
-            }
-            return count;
+            return count + parseBlokField(record.blok).length;
           }, 0);
 
           return {

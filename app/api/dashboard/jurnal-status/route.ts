@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { getAuthorizationContext, isUserAdmin } from '@/lib/rbac'
+import { parseBlokField } from '@/lib/blok'
+
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 export interface JurnalBlockStatus {
   block_code: string
@@ -179,9 +182,7 @@ async function processJurnalStatus(user: any, activeRegistration: any) {
 
       jurnalRecords.forEach((record: any) => {
         if (record.blok) {
-          const blocksInRecord: string[] = typeof record.blok === 'string'
-            ? record.blok.split(',').map((b: string) => b.trim()).filter((b: string) => b)
-            : (Array.isArray(record.blok) ? record.blok : []);
+          const blocksInRecord: string[] = parseBlokField(record.blok);
 
           blocksInRecord.forEach((blockCode: string) => {
             const current = blockStatus.get(blockCode);

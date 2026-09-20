@@ -21,15 +21,18 @@ export async function GET(request: Request) {
     }
 
     const { rows } = await import('@/lib/db').then(m => m.query(
-      `SELECT 
-         ma.id, 
-         ma.user_id, 
-         ma.preferred_juz, 
-         ma.status, 
+      `SELECT DISTINCT
+         COALESCE(ma.id, u.id) as id, 
+         u.id as user_id, 
+         COALESCE(ma.preferred_juz, h.preferred_juz, '') as preferred_juz, 
+         'approved' as status, 
          COALESCE(u.full_name, 'Tanpa Nama') as full_name
-       FROM muallimah_akads ma
-       LEFT JOIN users u ON ma.user_id = u.id
-       WHERE ma.batch_id = $1 AND ma.status = 'approved'
+       FROM users u
+       LEFT JOIN muallimah_akads ma ON ma.user_id = u.id AND ma.batch_id = $1 AND ma.status = 'approved'
+       LEFT JOIN halaqah h ON h.muallimah_id = u.id
+       LEFT JOIN halaqah_mentors hm ON hm.mentor_id = u.id
+       WHERE (ma.id IS NOT NULL OR h.id IS NOT NULL OR hm.id IS NOT NULL OR u.role = 'muallimah' OR 'musyrifah' = ANY(u.roles))
+         AND u.is_active = true
        ORDER BY LOWER(COALESCE(u.full_name, '')) ASC`,
       [batchId]
     ));

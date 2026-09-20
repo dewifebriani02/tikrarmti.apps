@@ -5,18 +5,7 @@ import { requireAnyRole, getAuthorizationContext } from '@/lib/rbac';
 import { ApiResponses } from '@/lib/api-responses';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-
-// Helper function to parse blok field (can be string or array)
-function parseBlokField(blok: any): string[] {
-  if (!blok) return [];
-  if (typeof blok === 'string') {
-    return blok.split(',').map(b => b.trim()).filter(b => b);
-  }
-  if (Array.isArray(blok)) {
-    return blok;
-  }
-  return [];
-}
+import { parseBlokField } from '@/lib/blok';
 
 // Validation schema for tashih record
 const tashihRecordSchema = z.object({
@@ -155,11 +144,12 @@ export async function GET(request: Request) {
 
     if (activeBatchData?.first_week_start_date) {
       const firstWeekStart = new Date(activeBatchData.first_week_start_date);
-      // Tashih starts on first_week_start_date
-      const now = new Date();
-      const diffTime = now.getTime() - firstWeekStart.getTime();
+      // Tashih runs 1 week ahead of Ziyadah for upcoming week prep
+      const nowUtc = new Date();
+      const nowWib = new Date(nowUtc.getTime() + 7 * 60 * 60 * 1000);
+      const diffTime = nowWib.getTime() - firstWeekStart.getTime();
       const diffWeeks = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 7));
-      currentWeek = Math.max(1, diffWeeks + 1);
+      currentWeek = Math.max(1, diffWeeks + 2);
     }
 
     // Build WHERE clauses for SQL query

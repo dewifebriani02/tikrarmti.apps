@@ -1,8 +1,8 @@
 'use client'
 
-import React, { useState } from 'react'
-import { CheckCircle, MapPin, School, AlertCircle, Calendar, ChevronDown, BookOpen } from 'lucide-react'
-import { Card, CardContent } from '@/components/ui/card'
+import React, { useState, useEffect, useMemo } from 'react'
+import { CheckCircle, AlertCircle, ChevronDown, Sparkles, Calendar, ArrowRight } from 'lucide-react'
+import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 
 interface JurnalBlock {
@@ -22,20 +22,46 @@ interface JurnalStatusGridProps {
 }
 
 export function JurnalStatusGrid({ blocks, currentWeekNumber, onBlockClick, isAdminPreview }: JurnalStatusGridProps) {
-  const [expandedWeek, setExpandedWeek] = useState<number | null>(currentWeekNumber)
-
   // Group blocks by week_number
-  const blocksByWeek = new Map<number, JurnalBlock[]>()
-  blocks.forEach(block => {
-    const weekNum = block.week_number
-    if (!blocksByWeek.has(weekNum)) {
-      blocksByWeek.set(weekNum, [])
-    }
-    blocksByWeek.get(weekNum)!.push(block)
-  })
+  const blocksByWeek = useMemo(() => {
+    const map = new Map<number, JurnalBlock[]>()
+    blocks.forEach(block => {
+      const weekNum = block.week_number
+      if (!map.has(weekNum)) {
+        map.set(weekNum, [])
+      }
+      map.get(weekNum)!.push(block)
+    })
+    return map
+  }, [blocks])
 
   // Sort weeks
-  const sortedWeeks = Array.from(blocksByWeek.keys()).sort((a, b) => a - b)
+  const sortedWeeks = useMemo(() => {
+    return Array.from(blocksByWeek.keys()).sort((a, b) => a - b)
+  }, [blocksByWeek])
+
+  const calendarWeek = currentWeekNumber || 1
+  const tashihWeek = Math.min(10, calendarWeek + 1)
+
+  // Smart default week: find the first week that is not fully completed
+  const firstIncompleteWeek = useMemo(() => {
+    for (const weekNum of sortedWeeks) {
+      const weekBlocks = blocksByWeek.get(weekNum) || []
+      const isDone = weekBlocks.length > 0 && weekBlocks.every(b => b.is_completed)
+      if (!isDone) {
+        return weekNum
+      }
+    }
+    return calendarWeek
+  }, [sortedWeeks, blocksByWeek, calendarWeek])
+
+  const [expandedWeek, setExpandedWeek] = useState<number | null>(firstIncompleteWeek)
+
+  useEffect(() => {
+    setExpandedWeek(firstIncompleteWeek)
+  }, [firstIncompleteWeek])
+
+  const isBehindSchedule = firstIncompleteWeek < calendarWeek
 
   return (
     <div className="space-y-3 animate-fadeInUp">
@@ -47,6 +73,38 @@ export function JurnalStatusGrid({ blocks, currentWeekNumber, onBlockClick, isAd
           </div>
         </div>
       )}
+
+      {/* Helper Banner: Clarifies Active Ziyadah vs Tashih Schedule */}
+      <div className="p-3.5 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-100/80 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-sm">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+            <Calendar className="w-3.5 h-3.5" />
+          </div>
+          <div>
+            <p className="text-xs font-black text-gray-900 leading-tight">
+              Jadwal Angkatan: <span className="text-emerald-700 font-extrabold">Pekan {calendarWeek} Ziyadah</span>
+              <span className="text-gray-300 mx-1.5">&bull;</span>
+              <span className="text-blue-700 font-extrabold">Pekan {tashihWeek} Tashih</span>
+            </p>
+            <p className="text-[10px] text-gray-500 font-medium mt-0.5">
+              Tashih berjalan 1 pekan lebih awal untuk persiapan hafalan pekan depan
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          {isBehindSchedule ? (
+            <span className="text-[10px] font-extrabold text-amber-800 bg-amber-100/90 px-2.5 py-1 rounded-lg border border-amber-200 flex items-center gap-1">
+              <span>Lengkapi Pekan {firstIncompleteWeek}</span>
+              <ArrowRight className="w-3 h-3" />
+            </span>
+          ) : (
+            <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100/90 px-2.5 py-1 rounded-lg border border-emerald-200">
+              Pekan Berjalan Aktif
+            </span>
+          )}
+        </div>
+      </div>
 
       {/* COMPACT: One Card Per Week with Inner Blocks */}
       <div className="flex flex-col gap-2">
@@ -67,6 +125,7 @@ export function JurnalStatusGrid({ blocks, currentWeekNumber, onBlockClick, isAd
           return (
             <div key={weekNum} className="space-y-2">
               <button
+                type="button"
                 onClick={() => setExpandedWeek(isExpanded ? null : weekNum)}
                 className="w-full text-left transition-all active:scale-[0.99]"
               >
@@ -77,7 +136,7 @@ export function JurnalStatusGrid({ blocks, currentWeekNumber, onBlockClick, isAd
                     isFullyCompleted 
                       ? "bg-gradient-to-r from-green-600 to-green-500 text-white shadow-green-600/10 border-transparent" 
                       : isExpanded 
-                        ? "border-green-300 shadow-md scale-[1.01]" 
+                        ? "border-green-400 shadow-md ring-1 ring-green-300 scale-[1.005]" 
                         : "bg-white border-gray-100 text-gray-900 hover:border-green-200"
                   )}
                 >
@@ -98,6 +157,12 @@ export function JurnalStatusGrid({ blocks, currentWeekNumber, onBlockClick, isAd
                           Hal. {Math.min(...weekBlocks.map(b => b.start_page))}
                           {weekNum > 10 && ` - ${Math.max(...weekBlocks.map(b => b.end_page))}`}
                         </span>
+                        {weekNum === calendarWeek && (
+                          <span className={cn("text-[9px] font-bold px-1.5 py-0.2 rounded-md", 
+                            isFullyCompleted ? "bg-white/25 text-white" : "bg-emerald-100 text-emerald-800")}>
+                            Jadwal Pekan Ini
+                          </span>
+                        )}
                       </div>
                       <p className={cn("text-[8px] font-black uppercase tracking-tighter mt-1", 
                         isFullyCompleted ? "text-green-100/60" : "text-gray-500")}>
@@ -110,7 +175,7 @@ export function JurnalStatusGrid({ blocks, currentWeekNumber, onBlockClick, isAd
                     {isFullyCompleted ? (
                       <CheckCircle className="w-5 h-5 text-white" />
                     ) : (
-                      <ChevronDown className={cn("w-4 h-4 text-green-600 transition-transform", isExpanded && "rotate-180")} />
+                      <ChevronDown className={cn("w-4 h-4 text-green-600 transition-transform duration-200", isExpanded && "rotate-180")} />
                     )}
                   </div>
                 </Card>
@@ -123,11 +188,12 @@ export function JurnalStatusGrid({ blocks, currentWeekNumber, onBlockClick, isAd
                     return (
                       <button
                         key={block.block_code}
+                        type="button"
                         onClick={() => onBlockClick(block.block_code, weekNum)}
                         className={cn(
-                          "flex flex-col items-center justify-center p-2 rounded-xl border-2 transition-all duration-300 min-h-[58px] relative active:scale-95",
+                          "flex flex-col items-center justify-center p-2 rounded-xl border-2 transition-all duration-200 min-h-[58px] relative active:scale-95 cursor-pointer",
                           block.is_completed
-                            ? "bg-green-50 border-green-200 text-green-700"
+                            ? "bg-green-50 border-green-200 text-green-700 hover:bg-green-100/70"
                             : "bg-white border-green-100 text-gray-700 hover:border-green-500 hover:bg-green-50 shadow-sm"
                         )}
                       >

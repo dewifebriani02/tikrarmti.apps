@@ -27,6 +27,7 @@ interface JuzOption {
 }
 
 interface JurnalData {
+  batch_id?: string | null
   tanggal_setor: string
   juz_code: string
   blok: string
@@ -63,28 +64,6 @@ export default function JurnalHarianPage() {
     }
   }, []);
 
-  const handleSelectBatch = (id: string) => {
-    setSelectedBatchId(id);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('mti_selected_batch_id', id);
-    }
-  };
-
-  const availableBatches = React.useMemo(() => {
-    const batchesMap = new Map<string, { id: string; name: string }>()
-    if (registrations && registrations.length > 0) {
-      registrations.forEach((reg: any) => {
-        if (reg.batch_id && !batchesMap.has(reg.batch_id)) {
-          batchesMap.set(reg.batch_id, {
-            id: reg.batch_id,
-            name: reg.batch_name || reg.batch?.name || `Batch`
-          })
-        }
-      })
-    }
-    return Array.from(batchesMap.values())
-  }, [registrations])
-
   const { activeBatch } = useActiveBatch()
   
   // Get active registration matching selected batch
@@ -104,6 +83,7 @@ export default function JurnalHarianPage() {
   const { jurnalStatus, isLoading: jurnalStatusLoading, mutate: mutateJurnalStatus } = useJurnalStatus(undefined, targetBatchId)
 
   const [jurnalData, setJurnalData] = useState<JurnalData>({
+    batch_id: targetBatchId || null,
     tanggal_setor: new Date().toISOString().slice(0, 10),
     juz_code: '',
     blok: '',
@@ -130,8 +110,9 @@ export default function JurnalHarianPage() {
   const hasNoActiveRegistration = !activeRegistration && !isAdmin
 
   const juzToUse = activeRegistration?.daftar_ulang?.confirmed_chosen_juz ||
-                      (activeRegistration as any)?.chosen_juz ||
-                      (isAdmin ? '30A' : null)
+                   (activeRegistration as any)?.confirmed_chosen_juz ||
+                   (activeRegistration as any)?.chosen_juz ||
+                   (isAdmin ? '30A' : null)
 
   const firstWeekStartDate = effectiveBatch?.first_week_start_date || effectiveBatch?.start_date
 
@@ -162,7 +143,7 @@ export default function JurnalHarianPage() {
       const { data } = await supabase.from('juz_options').select('*').eq('code', juzCode).single()
       if (data) {
         setSelectedJuzInfo(data)
-        setJurnalData(prev => ({ ...prev, juz_code: juzCode }))
+        setJurnalData(prev => ({ ...prev, juz_code: juzCode, batch_id: targetBatchId }))
       }
     } catch (error) {
       console.error('Error loading juz info:', error)
@@ -177,21 +158,14 @@ export default function JurnalHarianPage() {
       return
     }
 
-    if (weekNumber > currentWeekNumber) {
-      const confirmMsg = `Peringatan: Blok ${blockCode} adalah target untuk Pekan ${weekNumber}, sedangkan Jurnal Harian saat ini baru Pekan ${currentWeekNumber}.\n\nApakah Ukhti yakin ingin mengisi jurnal mendahului jadwal kalender?`;
-      if (!window.confirm(confirmMsg)) {
-        return;
-      }
-    }
-
     // Reset form for the specific block
     const blockData = jurnalStatus?.blocks.find(b => b.block_code === blockCode)
     
-    // If block exists and is completed, we could load it (optional edit mode)
-    // For now, let's just reset
     setJurnalData(prev => ({ 
       ...prev, 
       blok: blockCode,
+      juz_code: juzToUse || prev.juz_code,
+      batch_id: targetBatchId || prev.batch_id,
       label: (blockData as any)?.label,
       rabth_completed: false,
       murajaah_completed: false,
@@ -212,17 +186,19 @@ export default function JurnalHarianPage() {
     try {
       const result = await saveJurnalRecord({
         ...data,
+        batch_id: targetBatchId || selectedBatchId || null,
+        juz_code: juzToUse || data.juz_code,
         weekNumber: data.blok.startsWith('M') ? 11 : Math.ceil(parseInt(data.blok.match(/H(\d+)/)?.[1] || '1') / 1)
       })
       if (result.success) {
-        toast.success(result.message)
+        toast.success(result.message || 'Jurnal berhasil disimpan!')
         await mutateJurnalStatus()
         setViewMode('status')
       } else {
         toast.error(result.error)
       }
-    } catch (error) {
-      toast.error('Gagal menyimpan jurnal')
+    } catch (error: any) {
+      toast.error(error?.message || 'Gagal menyimpan jurnal')
     } finally {
       setIsSubmitting(false)
     }
@@ -232,9 +208,9 @@ export default function JurnalHarianPage() {
     return <div className="flex justify-center items-center py-24"><Loader2 className="h-10 w-10 animate-spin text-green-900" /></div>
   }
 
-  // NOTE: We don't return early if !jurnalStatus anymore, 
-  // because we want to show the read-only view with the banner.
-  
+  const completedBlocks = jurnalStatus?.summary?.completed_blocks || 0
+  const totalBlocks = jurnalStatus?.summary?.total_blocks || 40
+
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 space-y-6 animate-fadeInUp">
       {/* Registration Banner for Unauthorized Users */}
@@ -248,76 +224,45 @@ export default function JurnalHarianPage() {
             <div className="flex-1 text-center md:text-left">
               <h3 className="text-lg font-bold">Ukhti Belum Terdaftar</h3>
               <p className="text-emerald-50 text-xs opacity-90 leading-relaxed max-w-sm">
-                Afwan, saat ini Ukhti hanya bisa melihat progres. Silakan mendaftar di Batch berikutnya untuk mendapatkan akses penuh Jurnal Harian.
+                Fitur Jurnal Harian khusus bagi thalibah aktif Markaz Tikrar Indonesia.
               </p>
             </div>
-            <a 
-              href="/pendaftaran/tikrar-tahfidz"
-              className="px-5 py-2.5 bg-white text-emerald-700 rounded-2xl font-bold text-sm shadow-lg hover:bg-emerald-50 transition-all active:scale-95 border-b-4 border-emerald-100/50"
-            >
-              Mendaftar Sekarang
-            </a>
           </div>
         </div>
       )}
 
-      {availableBatches.length > 1 && (
-        <div className="flex items-center justify-between bg-white/80 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-gray-100 shadow-sm">
-          <span className="text-xs font-bold text-gray-500">Pilih Angkatan:</span>
-          <select
-            value={activeRegistration?.batch_id || ''}
-            onChange={(e) => handleSelectBatch(e.target.value)}
-            className="bg-transparent text-gray-800 font-bold text-xs cursor-pointer focus:outline-none"
-          >
-            {availableBatches.map(b => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {/* Header Section */}
-      <JurnalHeader 
-        title={viewMode === 'form' ? "Entry Jurnal Harian" : "Jurnal Harian"} 
-        subtitle={viewMode === 'form' ? "Catat aktivitas harian Ukhti" : "Pantau kedisiplinan hafalan harian"} 
-        juzInfo={selectedJuzInfo}
-        progress={jurnalStatus ? {
-          completed: jurnalStatus.summary.completed_blocks,
-          total: jurnalStatus.summary.total_blocks
-        } : (isAdmin ? { completed: 0, total: 40 } : undefined)}
-        streakCount={jurnalStatus?.summary?.streak_count}
-      />
-
-      {viewMode === 'status' ? (
-        <>
-          {/* Grid Section */}
-          {(jurnalStatus || isAdmin || hasNoActiveRegistration) && (
-            <JurnalStatusGrid 
-              blocks={jurnalStatus?.blocks || []} 
-              currentWeekNumber={currentWeekNumber}
-              onBlockClick={handleBlockClick}
-              isAdminPreview={isAdmin && !activeRegistration}
-            />
-          )}
-
-          {(!jurnalStatus && !isAdmin && !hasNoActiveRegistration) && (
-            <div className="text-center py-12 glass-premium rounded-3xl">
-              <h2 className="text-xl font-bold text-gray-800">Halaqah Belum Aktif</h2>
-              <p className="text-gray-500 mt-2">Pendaftaran Ukhti sedang diproses.</p>
-            </div>
-          )}
-        </>
-      ) : (
-        <JurnalEntryForm 
-          blockCode={jurnalData.blok}
-          initialData={jurnalData}
-          isSubmitting={isSubmitting}
-          onSubmit={handleFormSubmit}
-          onCancel={() => setViewMode('status')}
+      {/* Main Jurnal Container */}
+      <div className="space-y-6">
+        {/* Dynamic Header Component */}
+        <JurnalHeader 
+          title="Jurnal Harian"
+          subtitle={effectiveBatch?.name || 'Tikrar Tahfidz'}
+          juzInfo={selectedJuzInfo}
+          progress={{
+            completed: completedBlocks,
+            total: totalBlocks
+          }}
+          streakCount={jurnalStatus?.summary?.streak_count || 0}
         />
-      )}
+
+        {/* Dynamic View: Status Grid vs Form Entry */}
+        {viewMode === 'status' ? (
+          <JurnalStatusGrid
+            blocks={jurnalStatus?.blocks || []}
+            currentWeekNumber={currentWeekNumber}
+            onBlockClick={handleBlockClick}
+            isAdminPreview={!activeRegistration && isAdmin}
+          />
+        ) : (
+          <JurnalEntryForm
+            blockCode={jurnalData.blok}
+            initialData={jurnalData}
+            isSubmitting={isSubmitting}
+            onSubmit={handleFormSubmit}
+            onCancel={() => setViewMode('status')}
+          />
+        )}
+      </div>
     </div>
   )
 }

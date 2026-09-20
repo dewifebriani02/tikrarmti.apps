@@ -2,26 +2,9 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { requireAnyRole } from '@/lib/rbac';
 import { ApiResponses } from '@/lib/api-responses';
+import { parseBlokField } from '@/lib/blok';
 
 export async function GET(request: Request) {
-  // Helper to parse blocks
-  const parseBlokField = (blok: any): string[] => {
-    if (!blok) return [];
-    if (typeof blok === 'string') {
-      if (blok.startsWith('[')) {
-        try {
-          const parsed = JSON.parse(blok);
-          if (Array.isArray(parsed)) return parsed;
-        } catch (e) {}
-      }
-      return blok.split(',').map(b => b.trim()).filter(b => b);
-    }
-    if (Array.isArray(blok)) {
-      return blok;
-    }
-    return [];
-  };
-
   try {
     // 1. Authorization check
     const authError = await requireAnyRole(['admin', 'musyrifah']);

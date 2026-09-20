@@ -107,7 +107,7 @@ export async function saveTashihRecord(data: TashihFormData) {
       ustadzah_id: finalUstadzahId,
       nama_pemeriksa: finalNamaPemeriksa,
       jumlah_kesalahan_tajwid: data.jumlah_kesalahan_tajwid,
-      masalah_tajwid: data.masalah_tajwid,
+      masalah_tajwid: Array.isArray(data.masalah_tajwid) ? JSON.stringify(data.masalah_tajwid) : (data.masalah_tajwid || '[]'),
       catatan_tambahan: data.catatan_tambahan || null,
       waktu_tashih: data.waktu_tashih
     }
@@ -147,6 +147,7 @@ export async function saveTashihRecord(data: TashihFormData) {
     // Revalidate paths
     revalidatePath('/tashih')
     revalidatePath('/dashboard')
+    revalidatePath('/presensi-jurnal')
 
     return {
       success: true,
@@ -159,5 +160,33 @@ export async function saveTashihRecord(data: TashihFormData) {
       success: false,
       error: error?.message || 'Terjadi kesalahan tidak terduga'
     }
+  }
+}
+
+export async function getJuzOption(code: string) {
+  try {
+    const { rows } = await import('@/lib/db').then(m => m.query(
+      `SELECT * FROM juz_options WHERE code = $1 LIMIT 1`,
+      [code]
+    ));
+    return rows[0] || null;
+  } catch (err) {
+    console.error('[getJuzOption] Error:', err);
+    return null;
+  }
+}
+
+export async function getWeekTashihRecords(userId: string, weekStartIso: string, weekEndIso: string) {
+  try {
+    const { rows } = await import('@/lib/db').then(m => m.query(
+      `SELECT * FROM tashih_records 
+       WHERE user_id = $1 AND waktu_tashih >= $2 AND waktu_tashih < $3
+       ORDER BY waktu_tashih ASC`,
+      [userId, weekStartIso, weekEndIso]
+    ));
+    return rows || [];
+  } catch (err) {
+    console.error('[getWeekTashihRecords] Error:', err);
+    return [];
   }
 }

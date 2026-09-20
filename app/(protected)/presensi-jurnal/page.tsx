@@ -47,6 +47,7 @@ import {
   ClipboardCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { parseBlokField } from '@/lib/blok';
 import { HalaqahSummaryTab } from './components/HalaqahSummaryTab';
 import { KurikulumTab } from './components/KurikulumTab';
 
@@ -1387,7 +1388,7 @@ function TashihTabSimple({ selectedBatchId, entries, currentWeek, onRefresh, onS
                                      onClick={() => {
                                        if (isLocked) return;
                                        const records = entry.tashih_records.filter((r: any) => {
-                                         const bloks = typeof r.blok === 'string' ? r.blok.split(',').map((b: string) => b.trim()) : (r.blok || []);
+                                         const bloks = parseBlokField(r.blok);
                                          return bloks.includes(block.block_code);
                                        });
                                        if (block.is_completed) {
@@ -2007,14 +2008,7 @@ Tetap semangat untuk pekan-pekan berikutnya!
                                             onClick={() => {
                                               if (isLocked) return;
                                               const records = entry.jurnal_records.filter((r: any) => {
-                                                const normalizedRaw = r.blok || '';
-                                                if (normalizedRaw.startsWith('[')) {
-                                                  try {
-                                                    const parsed = JSON.parse(normalizedRaw);
-                                                    return Array.isArray(parsed) && parsed.includes(block.block_code);
-                                                  } catch { return false; }
-                                                }
-                                                return normalizedRaw === block.block_code;
+                                                return parseBlokField(r.blok).includes(block.block_code);
                                               });
                                               if (block.is_completed) {
                                                 onShowRecords(entry.user, block.block_code, records);

@@ -3,11 +3,13 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { saveUploadedFile } from '@/lib/storage'
+import { query } from '@/lib/db'
 
 export interface JurnalFormData {
+  batch_id?: string | null
   tanggal_setor: string
   juz_code?: string | null
-  blok: string // Single blok for jurnal (stored as array in DB)
+  blok: string // Single blok for jurnal (stored as string in DB)
   rabth_completed: boolean
   rabth_methods: string[]
   murajaah_completed: boolean
@@ -23,13 +25,13 @@ export interface JurnalFormData {
   catatan_tambahan?: string | null
   // For tashih validation
   weekNumber: number
-  juzPart: 'A' | 'B'
+  juzPart?: 'A' | 'B'
 }
 
 export async function saveJurnalRecord(data: JurnalFormData) {
   const supabase = createClient()
 
-  // 1. Validasi Auth - menggunakan getUser() sesuai arsitektur.md
+  // 1. Validasi Auth
   const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
 
   if (!authUser || authError) {
@@ -37,25 +39,33 @@ export async function saveJurnalRecord(data: JurnalFormData) {
     return { success: false, error: 'Unauthorized. Silakan login kembali.' }
   }
 
-  // 2. Sequential Validation - Ensure user doesn't skip blocks
+  // 2. Validasi Pendaftaran dan Daftar Ulang via direct SQL
   try {
-    // 2. Validasi Pendaftaran dan Daftar Ulang via direct SQL
-    const { rows: registrations } = await import('@/lib/db').then(m => m.query(
+    const queryParams: any[] = [authUser.id];
+    let batchFilter = '';
+    if (data.batch_id) {
+      queryParams.push(data.batch_id);
+      batchFilter = `AND p.batch_id = $2`;
+    }
+
+    const { rows: registrations } = await query(
       `SELECT 
          p.id, 
          p.status, 
          p.chosen_juz, 
+         p.batch_id,
          du.status as du_status, 
          du.confirmed_chosen_juz
        FROM pendaftaran_tikrar_tahfidz p
        JOIN batches b ON p.batch_id = b.id
        LEFT JOIN daftar_ulang_submissions du ON du.user_id = p.user_id AND du.batch_id = p.batch_id
        WHERE p.user_id = $1
+         ${batchFilter}
          AND p.status IN ('approved', 'selected', 'registered')
        ORDER BY (b.status = 'open' OR b.status = 'ongoing') DESC, p.created_at DESC
        LIMIT 1`,
-      [authUser.id]
-    ));
+      queryParams
+    );
 
     const reg = registrations?.[0];
     
@@ -76,63 +86,14 @@ export async function saveJurnalRecord(data: JurnalFormData) {
       };
     }
 
-    const juzCode = reg.confirmed_chosen_juz || reg.chosen_juz;
+    const resolvedJuzCode = data.juz_code || reg.confirmed_chosen_juz || reg.chosen_juz;
 
-    if (juzCode) {
-      // Get all blocks for this juz
-      const { data: juzInfo } = await supabase.from('juz_options').select('*').eq('code', juzCode).single()
-      
-      if (juzInfo) {
-        const parts = ['A', 'B', 'C', 'D']
-        const totalPages = juzInfo.end_page - juzInfo.start_page + 1
-        const blockOffset = juzInfo.part === 'B' ? 10 : 0
-        const allBlockCodes: string[] = []
-
-        // 1. Ziyadah Weeks (Pekan 1-10)
-        for (let week = 1; week <= 10; week++) {
-          const blockNumber = week + blockOffset
-          for (let i = 0; i < 4; i++) {
-            allBlockCodes.push(`H${blockNumber}${parts[i]}`)
-          }
-        }
-
-        // 2. Murajaah Week (M1-M7)
-        for (let i = 1; i <= 7; i++) {
-          allBlockCodes.push(`M${i}`)
-        }
-
-        // Get completed blocks
-        const { data: existingRecords } = await supabase
-          .from('jurnal_records')
-          .select('blok')
-          .eq('user_id', authUser.id)
-
-        const completedSet = new Set<string>()
-        existingRecords?.forEach(r => {
-          if (r.blok) completedSet.add(r.blok)
-        })
-
-        // Find current block index
-        const targetIndex = allBlockCodes.indexOf(data.blok)
-        if (targetIndex > 0) {
-          const prevBlock = allBlockCodes[targetIndex - 1]
-          if (!completedSet.has(prevBlock)) {
-            return { success: false, error: `Ukhti harus mengisi blok ${prevBlock} terlebih dahulu sebelum mengisi ${data.blok}.` }
-          }
-        }
-      }
-    }
-  } catch (err) {
-    console.error('[saveJurnalRecord] Sequence validation failed:', err)
-    // Continue if validation fails due to internal error, but log it
-  }
-  try {
     const recordData = {
-      user_id: authUser.id, // Menggunakan authUser.id dari server, dijamin sama dengan auth.uid()
+      user_id: authUser.id,
       tanggal_jurnal: new Date().toISOString(),
       tanggal_setor: data.tanggal_setor,
-      juz_code: data.juz_code || null,
-      blok: data.blok || null, // Store as single string (VARCHAR in DB)
+      juz_code: resolvedJuzCode || null,
+      blok: data.blok || null,
       tashih_completed: true,
       rabth_completed: data.rabth_completed,
       rabth_methods: data.rabth_completed ? data.rabth_methods : [],
@@ -156,31 +117,56 @@ export async function saveJurnalRecord(data: JurnalFormData) {
       catatan_tambahan: data.catatan_tambahan || null
     }
 
-    const { data: result, error: insertError } = await supabase
-      .from('jurnal_records')
-      .insert(recordData)
-      .select()
-      .single()
+    // Check if record exists for this user and blok (to update instead of duplicate)
+    const { rows: existingRows } = await query(
+      `SELECT id FROM jurnal_records WHERE user_id = $1 AND blok = $2 LIMIT 1`,
+      [authUser.id, data.blok]
+    );
 
-    if (insertError) {
-      console.error('[saveJurnalRecord] Insert error:', insertError)
-      return { success: false, error: insertError.message }
+    let result;
+    if (existingRows && existingRows.length > 0) {
+      const existingId = existingRows[0].id;
+      const { data: updated, error: updateError } = await supabase
+        .from('jurnal_records')
+        .update(recordData)
+        .eq('id', existingId)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error('[saveJurnalRecord] Update error:', updateError);
+        return { success: false, error: updateError.message };
+      }
+      result = updated;
+    } else {
+      const { data: inserted, error: insertError } = await supabase
+        .from('jurnal_records')
+        .insert(recordData)
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('[saveJurnalRecord] Insert error:', insertError);
+        return { success: false, error: insertError.message };
+      }
+      result = inserted;
     }
 
     // Revalidate paths
     revalidatePath('/jurnal-harian')
     revalidatePath('/dashboard')
+    revalidatePath('/presensi-jurnal')
 
     return {
       success: true,
       data: result,
-      message: 'Jurnal berhasil disimpan!'
+      message: `Alhamdulillah, Jurnal Blok ${data.blok} berhasil disimpan!`
     }
   } catch (error: any) {
     console.error('[saveJurnalRecord] Error:', error)
     return {
       success: false,
-      error: error?.message || 'Terjadi kesalahan tidak terduga'
+      error: error?.message || 'Terjadi kesalahan tidak terduga saat menyimpan jurnal'
     }
   }
 }

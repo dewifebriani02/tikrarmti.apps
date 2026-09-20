@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { requireAnyRole, getAuthorizationContext } from '@/lib/rbac';
 import { ApiResponses } from '@/lib/api-responses';
+import { parseBlokField } from '@/lib/blok';
 
 export async function GET() {
   try {
@@ -151,17 +152,7 @@ async function calculateJurnalStats(supabase: any, batchId: string) {
   const jurnalUserIds = new Set(jurnalRecords.map((r: any) => r.user_id));
 
   const totalBlocksCompleted = jurnalRecords.reduce((count: number, record: any) => {
-    if (record.blok) {
-      try {
-        const blocks = typeof record.blok === 'string' && record.blok.startsWith('[')
-          ? JSON.parse(record.blok)
-          : (typeof record.blok === 'string' ? record.blok.split(',').filter((b: string) => b.trim()) : (Array.isArray(record.blok) ? record.blok : []));
-        return count + blocks.length;
-      } catch {
-        return count + 1;
-      }
-    }
-    return count;
+    return count + parseBlokField(record.blok).length;
   }, 0);
 
   const totalExpectedBlocks = totalThalibah * 40;
@@ -210,13 +201,7 @@ async function calculateTashihStats(supabase: any, batchId: string) {
   const tashihUserIds = new Set(tashihRecords.map((r: any) => r.user_id));
 
   const totalBlocksCompleted = tashihRecords.reduce((count: number, record: any) => {
-    if (record.blok) {
-      const blocks = typeof record.blok === 'string'
-        ? record.blok.split(',').filter((b: string) => b.trim())
-        : (Array.isArray(record.blok) ? record.blok : []);
-      return count + blocks.length;
-    }
-    return count;
+    return count + parseBlokField(record.blok).length;
   }, 0);
 
   const totalExpectedBlocks = totalThalibah * 40;

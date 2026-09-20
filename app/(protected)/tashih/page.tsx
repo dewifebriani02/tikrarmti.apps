@@ -2,14 +2,14 @@
 
 import React, { useState, useEffect } from 'react'
 import { Loader2 } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { useAllRegistrations } from '@/hooks/useRegistrations'
 import { useActiveBatch } from '@/hooks/useBatches'
 import { useAuth } from '@/hooks/useAuth'
 import { useTashihStatus } from '@/hooks/useDashboard'
-import { saveTashihRecord } from './actions'
+import { saveTashihRecord, getJuzOption, getWeekTashihRecords } from './actions'
 import { getRoleRank, ROLE_RANKS } from '@/lib/roles'
+import { parseBlokField } from '@/lib/blok'
 
 // Import Modular Components
 import { TashihHeader } from './components/TashihHeader'
@@ -200,8 +200,7 @@ export default function TashihPage() {
   const loadJuzInfo = async (juzCode: string) => {
     setIsLoadingBlocks(true)
     try {
-      const supabase = createClient()
-      const { data: juzData } = await supabase.from('juz_options').select('*').eq('code', juzCode).single()
+      const juzData = await getJuzOption(juzCode)
       if (juzData) setSelectedJuzInfo(juzData)
     } catch (error) {
       console.error('Error loading juz info:', error)
@@ -252,11 +251,9 @@ export default function TashihPage() {
   const loadWeekRecords = async () => {
     if (!user || !batchStartDate) return
     try {
-      const supabase = createClient()
       const weekStart = getWeekStartDate(selectedWeekNumber)
       const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 7)
-      const { data } = await supabase.from('tashih_records').select('*').eq('user_id', user.id)
-        .gte('waktu_tashih', weekStart.toISOString()).lt('waktu_tashih', weekEnd.toISOString())
+      const data = await getWeekTashihRecords(user.id, weekStart.toISOString(), weekEnd.toISOString())
       setWeekRecords(data || [])
     } catch (error) {
       console.error('Error loading records:', error)
@@ -296,11 +293,11 @@ export default function TashihPage() {
     }
 
     if (block.is_completed && block.tashih_date) {
-        const record = weekRecords.find(r => r.blok?.includes(blockCode))
+        const record = weekRecords.find(r => parseBlokField(r.blok).includes(blockCode))
         if (record) {
             setTashihData({
                 id: record.id,
-                blok: typeof record.blok === 'string' ? record.blok.split(',') : (record.blok || []),
+                blok: parseBlokField(record.blok),
                 lokasi: (record.lokasi === 'halaqah' ? 'mti' : record.lokasi) as 'mti' | 'luar',
                 lokasiDetail: record.lokasi_detail || '',
                 ustadzahId: record.ustadzah_id,

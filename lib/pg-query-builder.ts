@@ -78,6 +78,7 @@ class PgQueryBuilder<T = any> {
   private _upsertData: any | any[] | null = null;
   private _upsertOnConflict: string | null = null;
   private _returningAll: boolean = false;
+  private _returningCols: string = '*';
   private _paramOffset: number = 0;
   private _isCountOnly: boolean = false; // head: true — only return count
 
@@ -93,8 +94,16 @@ class PgQueryBuilder<T = any> {
   }
 
   // ── Column selection ──
+  // Supabase semantics: `.select()` setelah `.insert()`/`.update()`/`.upsert()`/`.delete()`
+  // hanya menentukan kolom yang di-RETURN, BUKAN mengubah operasi menjadi SELECT.
+  // Jika kita reset ke 'select', operasi tulis diam-diam dibatalkan → bug fatal.
   select(columns: string = '*', options?: { count?: 'exact' | 'estimated' | 'planned'; head?: boolean }): this {
-    this._operation = 'select';
+    if (this._operation !== 'select') {
+      // Chain DML: from().insert(...).select() — jangan ubah operation, cukup tandai return
+      this._returningAll = true;
+      this._returningCols = buildSelectCols(columns);
+      return this;
+    }
     this._selectCols = buildSelectCols(columns);
     if (options?.head === true) {
       this._isCountOnly = true;

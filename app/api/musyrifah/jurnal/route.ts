@@ -364,7 +364,6 @@ export async function GET(request: Request) {
 
     if (activeBatchData?.first_week_start_date) {
       const firstWeekStart = new Date(activeBatchData.first_week_start_date);
-      firstWeekStart.setDate(firstWeekStart.getDate() + 7); // Jurnal starts 1 week after Tashih
       // Use WIB (UTC+7) time to avoid off-by-one on Monday 00:00-06:59 WIB
       const nowUtc = new Date();
       const nowWib = new Date(nowUtc.getTime() + 7 * 60 * 60 * 1000);
