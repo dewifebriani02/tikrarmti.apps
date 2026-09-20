@@ -2,6 +2,7 @@ import { ApiResponses } from '@/lib/api-responses';
 import { requireAdmin, getAuthorizationContext } from '@/lib/rbac';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { logAudit, getClientIp, getUserAgent } from '@/lib/audit-log';
+import { transaction, query } from '@/lib/db';
 
 /**
  * POST /api/admin/users/merge
@@ -29,48 +30,62 @@ export async function POST(request: Request) {
       return ApiResponses.error('VALIDATION_ERROR', 'Source and Target must be different', {}, 400);
     }
 
-    const supabase = createSupabaseAdmin();
+    // 3. Check if both users exist
+    const usersRes = await query(
+      `SELECT id, email, full_name FROM users WHERE id IN ($1, $2)`,
+      [sourceUserId, targetUserId]
+    );
 
-    // 3. Check if both users exist and get their info for audit log
-    const { data: users, error: fetchError } = await supabase
-      .from('users')
-      .select('id, email, full_name')
-      .in('id', [sourceUserId, targetUserId]);
-
-    if (fetchError || !users || users.length < 2) {
+    if (usersRes.rows.length < 2) {
       return ApiResponses.error('NOT_FOUND', 'One or both users not found', {}, 404);
     }
 
-    const sourceUser = users.find(u => u.id === sourceUserId);
-    const targetUser = users.find(u => u.id === targetUserId);
+    const sourceUser = usersRes.rows.find((u: any) => u.id === sourceUserId);
+    const targetUser = usersRes.rows.find((u: any) => u.id === targetUserId);
 
-    // 4. Execute RPC Merge (Atomic Database Change)
-    const { error: rpcError } = await supabase.rpc('merge_users', {
-      source_id: sourceUserId,
-      target_id: targetUserId
+    // 4. Execute Transactional Merge across all related tables
+    await transaction(async (client) => {
+      // Helper to update foreign keys safely
+      const updateRef = async (table: string, column: string) => {
+        try {
+          await client.query(`UPDATE ${table} SET ${column} = $1 WHERE ${column} = $2`, [targetUserId, sourceUserId]);
+        } catch (e: any) {
+          // Table or column might not exist or constraint violation - log and proceed if non-critical
+          console.warn(`[Merge User] Updating ${table}.${column} warning:`, e.message);
+        }
+      };
+
+      await updateRef('pendaftaran_tikrar_tahfidz', 'user_id');
+      await updateRef('pendaftaran_pra_tikrar', 'user_id');
+      await updateRef('muallimah_registrations', 'user_id');
+      await updateRef('musyrifah_registrations', 'user_id');
+      await updateRef('daftar_ulang_submissions', 'user_id');
+      await updateRef('daftar_ulang_submissions', 'partner_user_id');
+      await updateRef('jurnal_records', 'user_id');
+      await updateRef('tashih_records', 'thalibah_id');
+      await updateRef('tashih_records', 'musyrifah_id');
+      await updateRef('exam_attempts', 'user_id');
+      await updateRef('final_exam_registrations', 'user_id');
+      await updateRef('halaqah_students', 'student_id');
+      await updateRef('halaqah', 'muallimah_id');
+      await updateRef('audit_logs', 'user_id');
+
+      // Clean up source user profile and user
+      try {
+        await client.query(`DELETE FROM user_profiles WHERE id = $1`, [sourceUserId]);
+      } catch (e: any) {
+        console.warn('[Merge User] Delete user_profile warning:', e.message);
+      }
+
+      await client.query(`DELETE FROM users WHERE id = $1`, [sourceUserId]);
     });
 
-    if (rpcError) {
-      console.error('[Admin Merge API] Database Transaction Failed:', {
-        code: rpcError.code,
-        message: rpcError.message,
-        details: rpcError.details,
-        hint: rpcError.hint
-      });
-      return ApiResponses.error(
-        'DATABASE_ERROR', 
-        `Gagal di level database: ${rpcError.message}`, 
-        { rpcError }, 
-        500
-      );
-    }
-
-    // 5. Delete from Supabase Auth (Permanent cleanup of login access)
-    // We use auth.admin to delete across schemas
-    const { error: authErrorDeletion } = await supabase.auth.admin.deleteUser(sourceUserId);
-    if (authErrorDeletion) {
-      console.warn('[Admin Merge API] Auth deletion warning (user may not have auth record or error occurred):', authErrorDeletion);
-      // We don't return error here because the database part (public.users and records) was successful
+    // 5. Delete from Supabase Auth if available
+    try {
+      const supabase = createSupabaseAdmin();
+      await supabase.auth.admin.deleteUser(sourceUserId);
+    } catch (authErr) {
+      console.warn('[Admin Merge API] Auth deletion warning:', authErr);
     }
 
     // 6. Log Audit Trail
@@ -82,7 +97,6 @@ export async function POST(request: Request) {
         operation: 'merge_user',
         source: { id: sourceUserId, email: sourceUser?.email, name: sourceUser?.full_name },
         target: { id: targetUserId, email: targetUser?.email, name: targetUser?.full_name },
-        authDeleted: !authErrorDeletion
       },
       ipAddress: getClientIp(request),
       userAgent: getUserAgent(request),

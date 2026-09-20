@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { getClientIp, getUserAgent, logAudit } from '@/lib/audit-log';
+import { query } from '@/lib/db';
 
 const supabaseAdmin = createSupabaseAdmin();
 
@@ -49,24 +50,71 @@ export async function GET(request: NextRequest) {
 
     console.log('[Matching Analysis API] Loading matching analysis for batch:', batchId);
 
-    // Call analyze_potential_matches function
-    const { data: matches, error: matchesError } = await supabaseAdmin
-      .rpc('analyze_potential_matches', { p_batch_id: batchId });
+    // Fetch batch data
+    const batchRes = await query(`SELECT id, name FROM batches WHERE id = $1`, [batchId]);
+    const batchData = batchRes.rows[0] || null;
 
-    if (matchesError) {
-      console.error('[Matching Analysis API] Error loading matches:', matchesError);
-      return NextResponse.json(
-        { error: 'Failed to load matching analysis', details: matchesError.message },
-        { status: 500 }
-      );
-    }
+    // Fetch all applicants for this batch
+    const pendaftaranRes = await query(
+      `SELECT 
+        user_id, 
+        full_name, 
+        COALESCE(final_juz, chosen_juz, '') as chosen_juz, 
+        COALESCE(main_time_slot, '') as main_time_slot, 
+        COALESCE(backup_time_slot, '') as backup_time_slot,
+        COALESCE(timezone, 'WIB') as timezone
+       FROM pendaftaran_tikrar_tahfidz
+       WHERE batch_id = $1`,
+      [batchId]
+    );
 
-    // Get batch info
-    const { data: batchData, error: batchError } = await supabaseAdmin
-      .from('batches')
-      .select('name, id')
-      .eq('id', batchId)
-      .single();
+    const rows = pendaftaranRes.rows;
+
+    const parseJuzNum = (juzStr: string) => {
+      const match = juzStr.match(/\d+/);
+      return match ? parseInt(match[0], 10) : 0;
+    };
+
+    const matches = rows.map((u, i) => {
+      let total_matches = 0;
+      let zona_waktu_matches = 0;
+      let same_juz_matches = 0;
+      let cross_juz_matches = 0;
+
+      rows.forEach((other, j) => {
+        if (i === j) return;
+
+        const timeMatch =
+          (u.main_time_slot && (u.main_time_slot === other.main_time_slot || u.main_time_slot === other.backup_time_slot)) ||
+          (u.backup_time_slot && (u.backup_time_slot === other.main_time_slot || u.backup_time_slot === other.backup_time_slot));
+
+        if (timeMatch) {
+          total_matches++;
+          if (u.timezone && other.timezone && u.timezone === other.timezone) {
+            zona_waktu_matches++;
+          }
+          if (u.chosen_juz && other.chosen_juz && u.chosen_juz === other.chosen_juz) {
+            same_juz_matches++;
+          } else {
+            cross_juz_matches++;
+          }
+        }
+      });
+
+      return {
+        user_id: u.user_id,
+        user_name: u.full_name,
+        user_juz: u.chosen_juz,
+        user_juz_number: parseJuzNum(u.chosen_juz),
+        user_zona_waktu: u.timezone,
+        user_main_time: u.main_time_slot,
+        user_backup_time: u.backup_time_slot,
+        total_matches,
+        zona_waktu_matches,
+        same_juz_matches,
+        cross_juz_matches,
+      };
+    });
 
     // Audit log for matching analysis access
     await logAudit({
@@ -91,10 +139,10 @@ export async function GET(request: NextRequest) {
       }
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('[Matching Analysis API] Server error:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: error.message },
       { status: 500 }
     );
   }
