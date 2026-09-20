@@ -20,18 +20,38 @@ export async function GET(request: Request) {
       return ApiResponses.validationError([{ message: 'batch_id is required' } as any]);
     }
 
+    // Hanya muallimah/musyrifah yang aktif di batch tertentu:
+    //   1) Punya muallimah_akad approved untuk batch tersebut, ATAU
+    //   2) Menjadi muallimah_id pada halaqah yang program-nya di batch tersebut, ATAU
+    //   3) Terdaftar sebagai halaqah_mentor pada halaqah yang program-nya di batch tersebut.
+    // Fallback lama (role='muallimah'/'musyrifah' saja) sengaja dihapus — itu yang
+    // menyebabkan ustadzah dari batch lain ikut muncul.
     const { rows } = await import('@/lib/db').then(m => m.query(
       `SELECT DISTINCT
-         COALESCE(ma.id, u.id) as id, 
-         u.id as user_id, 
-         COALESCE(ma.preferred_juz, h.preferred_juz, '') as preferred_juz, 
-         'approved' as status, 
+         COALESCE(ma.id, u.id) as id,
+         u.id as user_id,
+         COALESCE(ma.preferred_juz, h.preferred_juz, '') as preferred_juz,
+         'approved' as status,
          COALESCE(u.full_name, 'Tanpa Nama') as full_name
        FROM users u
-       LEFT JOIN muallimah_akads ma ON ma.user_id = u.id AND ma.batch_id = $1 AND ma.status = 'approved'
-       LEFT JOIN halaqah h ON h.muallimah_id = u.id
-       LEFT JOIN halaqah_mentors hm ON hm.mentor_id = u.id
-       WHERE (ma.id IS NOT NULL OR h.id IS NOT NULL OR hm.id IS NOT NULL OR u.role = 'muallimah' OR 'musyrifah' = ANY(u.roles))
+       LEFT JOIN muallimah_akads ma
+              ON ma.user_id = u.id
+             AND ma.batch_id = $1
+             AND ma.status = 'approved'
+       LEFT JOIN halaqah h
+              ON h.muallimah_id = u.id
+             AND EXISTS (
+               SELECT 1 FROM programs p
+               WHERE p.id = h.program_id AND p.batch_id = $1
+             )
+       LEFT JOIN halaqah_mentors hm
+              ON hm.mentor_id = u.id
+             AND EXISTS (
+               SELECT 1 FROM halaqah h2
+               JOIN programs p2 ON p2.id = h2.program_id
+               WHERE h2.id = hm.halaqah_id AND p2.batch_id = $1
+             )
+       WHERE (ma.id IS NOT NULL OR h.id IS NOT NULL OR hm.id IS NOT NULL)
          AND u.is_active = true
        ORDER BY LOWER(COALESCE(u.full_name, '')) ASC`,
       [batchId]

@@ -93,10 +93,8 @@ export async function saveTashihRecord(data: TashihFormData) {
       
       if (reg) {
         finalUstadzahId = reg.id
-      } else {
-        // Fallback if not found, to avoid FK violation
-        finalUstadzahId = null
       }
+      // If reg is null, keep finalUstadzahId as user_id (ustadzah_id in tashih_records is text and has no FK constraint)
     }
 
     const recordData = {
