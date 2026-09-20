@@ -54,6 +54,8 @@ export async function saveJurnalRecord(data: JurnalFormData) {
          p.status, 
          p.chosen_juz, 
          p.batch_id,
+         b.opening_class_date as b_opening_class_date,
+         b.start_date as b_start_date,
          du.status as du_status, 
          du.confirmed_chosen_juz
        FROM pendaftaran_tikrar_tahfidz p
@@ -117,10 +119,23 @@ export async function saveJurnalRecord(data: JurnalFormData) {
       catatan_tambahan: data.catatan_tambahan || null
     }
 
-    // Check if record exists for this user and blok (to update instead of duplicate)
+    // Batas awal batch ini (sama dengan filter di /api/dashboard/jurnal-status) agar
+    // jurnal blok yang sama dari batch sebelumnya tidak ikut tertimpa.
+    let batchDateFilter = '1970-01-01';
+    const batchStart = reg.b_opening_class_date || reg.b_start_date;
+    if (batchStart) {
+      const d = new Date(batchStart);
+      d.setDate(d.getDate() - 1);
+      batchDateFilter = d.toISOString().split('T')[0];
+    }
+
     const { rows: existingRows } = await query(
-      `SELECT id FROM jurnal_records WHERE user_id = $1 AND blok = $2 LIMIT 1`,
-      [authUser.id, data.blok]
+      `SELECT id FROM jurnal_records
+       WHERE user_id = $1 AND blok = $2
+         AND (tanggal_setor >= $3 OR created_at >= $3)
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [authUser.id, data.blok, batchDateFilter]
     );
 
     let result;
