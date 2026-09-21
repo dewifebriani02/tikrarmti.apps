@@ -160,7 +160,7 @@ export default function TashihPage() {
     if (confirmedJuz && user && selectedWeekNumber) {
       loadWeekRecords()
     }
-  }, [confirmedJuz, user, selectedWeekNumber])
+  }, [confirmedJuz, user, selectedWeekNumber, targetBatchId])
 
   const loadJuzInfo = async (juzCode: string) => {
     setIsLoadingBlocks(true)
@@ -216,7 +216,7 @@ export default function TashihPage() {
   const loadWeekRecords = async () => {
     if (!user) return
     try {
-      const data = await getWeekTashihRecords(user.id)
+      const data = await getWeekTashihRecords(user.id, targetBatchId)
       setWeekRecords(data || [])
     } catch (error) {
       console.error('Error loading records:', error)
@@ -332,9 +332,13 @@ export default function TashihPage() {
   const isWeekCompleted = (): boolean => {
     if (!selectedJuzInfo) return false
     const expectedBlocks = [`H${selectedWeekNumber + (selectedJuzInfo.part === 'B' ? 10 : 0)}A`, `H${selectedWeekNumber + (selectedJuzInfo.part === 'B' ? 10 : 0)}B`, `H${selectedWeekNumber + (selectedJuzInfo.part === 'B' ? 10 : 0)}C`, `H${selectedWeekNumber + (selectedJuzInfo.part === 'B' ? 10 : 0)}D`]
+    // Sumber kebenaran: status blok batch aktif (sama dengan yang ditampilkan di header),
+    // dan catatan dibatasi ke batch aktif. Kode blok sama di semua batch.
+    if (!tashihStatus) return false
+    const completedInStatus = new Set(tashihStatus.blocks.filter(b => b.is_completed).map(b => b.block_code))
     const weekBlocksStatus = new Set<string>()
-    weekRecords.forEach(r => r.blok?.split(',').forEach(b => weekBlocksStatus.add(b.trim())))
-    return expectedBlocks.every(b => weekBlocksStatus.has(b))
+    weekRecords.forEach(r => parseBlokField(r.blok).forEach(b => weekBlocksStatus.add(b)))
+    return expectedBlocks.every(b => completedInStatus.has(b) && weekBlocksStatus.has(b))
   }
 
   if (registrationsLoading || tashihStatusLoading) {

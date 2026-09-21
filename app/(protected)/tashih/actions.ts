@@ -174,14 +174,33 @@ export async function getJuzOption(code: string) {
   }
 }
 
-export async function getWeekTashihRecords(userId: string, weekStartIso?: string, weekEndIso?: string) {
+export async function getWeekTashihRecords(userId: string, batchId?: string | null) {
   try {
-    const { rows } = await import('@/lib/db').then(m => m.query(
-      `SELECT * FROM tashih_records 
+    const { query } = await import('@/lib/db')
+
+    // Kode blok (H1A, H2B, ...) sama di semua batch, jadi catatan harus dibatasi ke batch
+    // yang dipakai (filter sama dengan /api/dashboard/tashih-status).
+    let dateFilter = '1970-01-01'
+    if (batchId) {
+      const { rows: batchRows } = await query(
+        `SELECT opening_class_date, start_date FROM batches WHERE id = $1`,
+        [batchId]
+      )
+      const batchStart = batchRows[0]?.opening_class_date || batchRows[0]?.start_date
+      if (batchStart) {
+        const d = new Date(batchStart)
+        d.setDate(d.getDate() - 1)
+        dateFilter = d.toISOString().split('T')[0]
+      }
+    }
+
+    const { rows } = await query(
+      `SELECT * FROM tashih_records
        WHERE user_id = $1
+         AND (waktu_tashih >= $2 OR created_at >= $2)
        ORDER BY waktu_tashih ASC`,
-      [userId]
-    ));
+      [userId, dateFilter]
+    );
     return rows || [];
   } catch (err) {
     console.error('[getWeekTashihRecords] Error:', err);
