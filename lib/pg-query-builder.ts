@@ -13,6 +13,7 @@
  */
 
 import { db } from '@/lib/db';
+import { hasEmbeds, parseSelect, loadMeta, buildEmbedSql, type ParsedSelect, type EmbedFilter, type DbMeta } from '@/lib/pg-embed';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -81,6 +82,8 @@ class PgQueryBuilder<T = any> {
   private _returningCols: string = '*';
   private _paramOffset: number = 0;
   private _isCountOnly: boolean = false; // head: true — only return count
+  private _parsed: ParsedSelect | null = null; // select dengan relasi bersarang
+  private _dotted: EmbedFilter[] = []; // filter pada kolom relasi, mis. 'programs.batch_id'
 
   constructor(table: string) {
     this._table = table;
@@ -91,6 +94,16 @@ class PgQueryBuilder<T = any> {
   private _addParam(value: any): string {
     this._params.push(value);
     return `$${this._params.length}`;
+  }
+
+  // Filter pada kolom relasi ('alias.kolom') dipetakan ke subquery relasi saat SQL dibangun.
+  private _addFilter(column: string, make: (colSql: string) => string): void {
+    const dot = column.indexOf('.');
+    if (dot > 0 && !column.includes('->')) {
+      this._dotted.push({ prefix: column.slice(0, dot), col: column.slice(dot + 1), make });
+    } else {
+      this._whereClauses.push({ sql: make(escapeIdent(column)), params: [] });
+    }
   }
 
   // ── Column selection ──
@@ -104,7 +117,12 @@ class PgQueryBuilder<T = any> {
       this._returningCols = buildSelectCols(columns);
       return this;
     }
-    this._selectCols = buildSelectCols(columns);
+    if (columns && hasEmbeds(columns)) {
+      this._parsed = parseSelect(columns);
+    } else {
+      this._parsed = null;
+      this._selectCols = buildSelectCols(columns);
+    }
     if (options?.head === true) {
       this._isCountOnly = true;
     }
@@ -143,46 +161,46 @@ class PgQueryBuilder<T = any> {
   // ── WHERE filters ──
   eq(column: string, value: any): this {
     const p = this._addParam(value);
-    this._whereClauses.push({ sql: `${escapeIdent(column)} = ${p}`, params: [] });
+    this._addFilter(column, c => `${c} = ${p}`);
     return this;
   }
 
   neq(column: string, value: any): this {
     const p = this._addParam(value);
-    this._whereClauses.push({ sql: `${escapeIdent(column)} != ${p}`, params: [] });
+    this._addFilter(column, c => `${c} != ${p}`);
     return this;
   }
 
   gt(column: string, value: any): this {
     const p = this._addParam(value);
-    this._whereClauses.push({ sql: `${escapeIdent(column)} > ${p}`, params: [] });
+    this._addFilter(column, c => `${c} > ${p}`);
     return this;
   }
 
   gte(column: string, value: any): this {
     const p = this._addParam(value);
-    this._whereClauses.push({ sql: `${escapeIdent(column)} >= ${p}`, params: [] });
+    this._addFilter(column, c => `${c} >= ${p}`);
     return this;
   }
 
   lt(column: string, value: any): this {
     const p = this._addParam(value);
-    this._whereClauses.push({ sql: `${escapeIdent(column)} < ${p}`, params: [] });
+    this._addFilter(column, c => `${c} < ${p}`);
     return this;
   }
 
   lte(column: string, value: any): this {
     const p = this._addParam(value);
-    this._whereClauses.push({ sql: `${escapeIdent(column)} <= ${p}`, params: [] });
+    this._addFilter(column, c => `${c} <= ${p}`);
     return this;
   }
 
   is(column: string, value: null | boolean): this {
     if (value === null) {
-      this._whereClauses.push({ sql: `${escapeIdent(column)} IS NULL`, params: [] });
+      this._addFilter(column, c => `${c} IS NULL`);
     } else {
       const p = this._addParam(value);
-      this._whereClauses.push({ sql: `${escapeIdent(column)} IS ${p}`, params: [] });
+      this._addFilter(column, c => `${c} IS ${p}`);
     }
     return this;
   }
@@ -190,17 +208,17 @@ class PgQueryBuilder<T = any> {
   not(column: string, operator: string, value: any): this {
     const op = operator.toUpperCase();
     if (op === 'IS' && value === null) {
-      this._whereClauses.push({ sql: `${escapeIdent(column)} IS NOT NULL`, params: [] });
+      this._addFilter(column, c => `${c} IS NOT NULL`);
     } else if (op === 'IN') {
       const vals = Array.isArray(value) ? value : [value];
       const placeholders = vals.map((v: any) => this._addParam(v)).join(', ');
-      this._whereClauses.push({ sql: `${escapeIdent(column)} NOT IN (${placeholders})`, params: [] });
+      this._addFilter(column, c => `${c} NOT IN (${placeholders})`);
     } else if (op === 'EQ') {
       const p = this._addParam(value);
-      this._whereClauses.push({ sql: `${escapeIdent(column)} != ${p}`, params: [] });
+      this._addFilter(column, c => `${c} != ${p}`);
     } else {
       const p = this._addParam(value);
-      this._whereClauses.push({ sql: `NOT (${escapeIdent(column)} ${op} ${p})`, params: [] });
+      this._addFilter(column, c => `NOT (${c} ${op} ${p})`);
     }
     return this;
   }
@@ -212,26 +230,26 @@ class PgQueryBuilder<T = any> {
       return this;
     }
     const placeholders = values.map((v: any) => this._addParam(v)).join(', ');
-    this._whereClauses.push({ sql: `${escapeIdent(column)} IN (${placeholders})`, params: [] });
+    this._addFilter(column, c => `${c} IN (${placeholders})`);
     return this;
   }
 
   ilike(column: string, pattern: string): this {
     const p = this._addParam(pattern);
-    this._whereClauses.push({ sql: `${escapeIdent(column)} ILIKE ${p}`, params: [] });
+    this._addFilter(column, c => `${c} ILIKE ${p}`);
     return this;
   }
 
   like(column: string, pattern: string): this {
     const p = this._addParam(pattern);
-    this._whereClauses.push({ sql: `${escapeIdent(column)} LIKE ${p}`, params: [] });
+    this._addFilter(column, c => `${c} LIKE ${p}`);
     return this;
   }
 
   contains(column: string, value: any): this {
     // For jsonb arrays use @>
     const p = this._addParam(JSON.stringify(value));
-    this._whereClauses.push({ sql: `${escapeIdent(column)} @> ${p}::jsonb`, params: [] });
+    this._addFilter(column, c => `${c} @> ${p}::jsonb`);
     return this;
   }
 
@@ -245,10 +263,10 @@ class PgQueryBuilder<T = any> {
     if (sqlOp === 'IN') {
       const vals = Array.isArray(value) ? value : [value];
       const placeholders = vals.map((v: any) => this._addParam(v)).join(', ');
-      this._whereClauses.push({ sql: `${escapeIdent(column)} IN (${placeholders})`, params: [] });
+      this._addFilter(column, c => `${c} IN (${placeholders})`);
     } else {
       const p = this._addParam(value);
-      this._whereClauses.push({ sql: `${escapeIdent(column)} ${sqlOp} ${p}`, params: [] });
+      this._addFilter(column, c => `${c} ${sqlOp} ${p}`);
     }
     return this;
   }
@@ -316,9 +334,12 @@ class PgQueryBuilder<T = any> {
   }
 
   // ── SQL building ──
-  private _buildWhere(): string {
-    if (this._whereClauses.length === 0) return '';
-    return 'WHERE ' + this._whereClauses.map(c => c.sql).join(' AND ');
+  private _buildWhere(extra: string[] = [], dotted: EmbedFilter[] = this._dotted): string {
+    const parts = this._whereClauses.map(c => c.sql);
+    // Filter pada kolom relasi yang tidak cocok dengan relasi manapun -> kolom bertabel ("tabel"."kolom")
+    for (const f of dotted) parts.push(f.make(`${escapeIdent(f.prefix)}.${escapeIdent(f.col)}`));
+    parts.push(...extra);
+    return parts.length ? 'WHERE ' + parts.join(' AND ') : '';
   }
 
   private _buildInsertSQL(data: any | any[]): string {
@@ -368,8 +389,16 @@ class PgQueryBuilder<T = any> {
     return `INSERT INTO ${escapeIdent(this._table)} (${cols}) VALUES ${valueSets} ${onConflict} RETURNING *`;
   }
 
-  private _buildSelectSQL(): string {
-    const where = this._buildWhere();
+  private _buildSelectSQL(meta?: DbMeta): string {
+    let selectList = this._selectCols;
+    let where: string;
+    if (this._parsed && meta) {
+      const emb = buildEmbedSql(this._table, this._parsed, this._dotted, meta);
+      selectList = emb.selectList;
+      where = this._buildWhere(emb.extraWhere, emb.unmatchedFilters);
+    } else {
+      where = this._buildWhere();
+    }
     const order = this._orderClauses.length > 0
       ? `ORDER BY ${this._orderClauses.join(', ')}`
       : '';
@@ -382,7 +411,7 @@ class PgQueryBuilder<T = any> {
       const limitP = this._addParam(this._limitVal);
       pagination = `LIMIT ${limitP}`;
     }
-    return `SELECT ${this._selectCols} FROM ${escapeIdent(this._table)} ${where} ${order} ${pagination}`.trim().replace(/\s+/g, ' ');
+    return `SELECT ${selectList} FROM ${escapeIdent(this._table)} ${where} ${order} ${pagination}`.trim().replace(/\s+/g, ' ');
   }
 
   // ── Execution — resolves Promise via `.then()` / `await` ──
@@ -418,7 +447,7 @@ class PgQueryBuilder<T = any> {
             const count = parseInt(countResult.rows[0]?._count ?? '0', 10);
             return { data: null, count, error: null };
           }
-          sql = this._buildSelectSQL();
+          sql = this._buildSelectSQL(this._parsed ? await loadMeta() : undefined);
       }
 
       const result = await db.query(sql, this._params);
