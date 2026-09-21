@@ -27,20 +27,25 @@ export async function GET(request: Request) {
     // Fallback lama (role='muallimah'/'musyrifah' saja) sengaja dihapus — itu yang
     // menyebabkan ustadzah dari batch lain ikut muncul.
     const { rows } = await import('@/lib/db').then(m => m.query(
-      `SELECT DISTINCT
-         COALESCE(ma.id, mr.id, u.id) as id, 
-         u.id as user_id, 
-         COALESCE(ma.preferred_juz, h.preferred_juz, mr.preferred_juz, '') as preferred_juz, 
-         'approved' as status, 
-         COALESCE(u.full_name, 'Tanpa Nama') as full_name
-       FROM users u
-       LEFT JOIN muallimah_akads ma ON ma.user_id = u.id AND ma.batch_id = $1 AND ma.status = 'approved'
-       LEFT JOIN muallimah_registrations mr ON mr.user_id = u.id AND mr.batch_id = $1 AND mr.status = 'approved'
-       LEFT JOIN halaqah h ON h.muallimah_id = u.id AND h.program_id IN (SELECT id FROM programs WHERE batch_id = $1)
-       LEFT JOIN halaqah_mentors hm ON hm.mentor_id = u.id AND hm.halaqah_id IN (SELECT id FROM halaqah WHERE program_id IN (SELECT id FROM programs WHERE batch_id = $1))
-       WHERE (ma.id IS NOT NULL OR mr.id IS NOT NULL OR h.id IS NOT NULL OR hm.id IS NOT NULL)
-         AND u.is_active = true
-       ORDER BY LOWER(COALESCE(u.full_name, '')) ASC`,
+      // Satu baris per user (DISTINCT ON), lalu diurutkan berdasarkan nama di query luar;
+      // ORDER BY ekspresi di dalam SELECT DISTINCT membuat PostgreSQL error dan daftar kosong.
+      `SELECT * FROM (
+         SELECT DISTINCT ON (u.id)
+           COALESCE(ma.id, mr.id, u.id) AS id,
+           u.id AS user_id,
+           COALESCE(NULLIF(ma.preferred_juz, ''), NULLIF(h.preferred_juz, ''), NULLIF(mr.preferred_juz, ''), '') AS preferred_juz,
+           'approved' AS status,
+           COALESCE(u.full_name, 'Tanpa Nama') AS full_name
+         FROM users u
+         LEFT JOIN muallimah_akads ma ON ma.user_id = u.id AND ma.batch_id = $1 AND ma.status = 'approved'
+         LEFT JOIN muallimah_registrations mr ON mr.user_id = u.id AND mr.batch_id = $1 AND mr.status = 'approved'
+         LEFT JOIN halaqah h ON h.muallimah_id = u.id AND h.program_id IN (SELECT id FROM programs WHERE batch_id = $1)
+         LEFT JOIN halaqah_mentors hm ON hm.mentor_id = u.id AND hm.halaqah_id IN (SELECT id FROM halaqah WHERE program_id IN (SELECT id FROM programs WHERE batch_id = $1))
+         WHERE (ma.id IS NOT NULL OR mr.id IS NOT NULL OR h.id IS NOT NULL OR hm.id IS NOT NULL)
+           AND u.is_active = true
+         ORDER BY u.id, (ma.id IS NULL), (mr.id IS NULL)
+       ) t
+       ORDER BY LOWER(t.full_name) ASC`,
       [batchId]
     ));
 
