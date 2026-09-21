@@ -20,6 +20,14 @@ export async function GET(request: Request) {
       return ApiResponses.validationError([{ message: 'batch_id is required' } as any]);
     }
 
+    // Daftar pemeriksa selalu dari batch aktif (open/ongoing), berapa pun batch_id yang dikirim
+    // klien; batch_id hanya dipakai bila tidak ada batch aktif.
+    const { rows: activeRows } = await import('@/lib/db').then(m => m.query(
+      `SELECT id FROM batches WHERE status IN ('open', 'ongoing')
+       ORDER BY (status = 'open') DESC, created_at DESC LIMIT 1`
+    ));
+    const effectiveBatchId = activeRows[0]?.id || batchId;
+
     // Hanya muallimah/musyrifah yang aktif di batch tertentu:
     //   1) Punya muallimah_akad approved untuk batch tersebut, ATAU
     //   2) Menjadi muallimah_id pada halaqah yang program-nya di batch tersebut, ATAU
@@ -46,7 +54,7 @@ export async function GET(request: Request) {
          ORDER BY u.id, (ma.id IS NULL), (mr.id IS NULL)
        ) t
        ORDER BY LOWER(t.full_name) ASC`,
-      [batchId]
+      [effectiveBatchId]
     ));
 
     const finalList = rows.map(akad => ({

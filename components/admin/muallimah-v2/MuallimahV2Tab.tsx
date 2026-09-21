@@ -40,28 +40,40 @@ export function MuallimahV2Tab({ user }: { user: any }) {
     sortBy: 'newest'
   });
 
+  const [batchReady, setBatchReady] = useState(false);
+
+  // Batch diambil lewat API server (query klien ke tabel batches mengembalikan kosong),
+  // dan default selalu batch aktif supaya data batch lama tidak bercampur.
   const fetchBatches = async () => {
-    const { data } = await supabase.from('batches').select('*').order('name', { ascending: false });
-    const loadedBatches = data || [];
+    let loadedBatches: any[] = [];
+    try {
+      const res = await fetch('/api/batch');
+      const json = await res.json();
+      loadedBatches = Array.isArray(json?.data) ? json.data : [];
+    } catch {
+      loadedBatches = [];
+    }
     setBatches(loadedBatches);
-    
-    // Find the currently active batch and set it as default in filters
-    const active = loadedBatches.find((b: any) => 
-      b.registration_start_date && 
-      b.registration_end_date &&
-      new Date(b.registration_start_date) <= new Date() && 
-      new Date(b.registration_end_date) >= new Date()
-    ) || loadedBatches.find((b: any) => b.status === 'open') || loadedBatches[0];
+
+    const active =
+      loadedBatches.find((b: any) => b.status === 'open') ||
+      loadedBatches.find((b: any) => b.status === 'ongoing') ||
+      loadedBatches.find((b: any) =>
+        b.registration_start_date &&
+        b.registration_end_date &&
+        new Date(b.registration_start_date) <= new Date() &&
+        new Date(b.registration_end_date) >= new Date()
+      ) ||
+      loadedBatches[0];
 
     if (active) {
-      setFilters(prev => ({
-        ...prev,
-        batchId: active.id
-      }));
+      setFilters(prev => ({ ...prev, batchId: active.id }));
     }
+    setBatchReady(true);
   };
 
   const fetchMuallimahData = useCallback(async () => {
+    if (!batchReady) return;
     setIsLoading(true);
     try {
       const queryParams = new URLSearchParams();
@@ -104,7 +116,7 @@ export function MuallimahV2Tab({ user }: { user: any }) {
     } finally {
       setIsLoading(false);
     }
-  }, [filters]);
+  }, [filters, batchReady]);
 
   useEffect(() => {
     fetchBatches();
