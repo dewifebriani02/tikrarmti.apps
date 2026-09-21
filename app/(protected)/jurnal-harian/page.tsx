@@ -53,30 +53,17 @@ export default function JurnalHarianPage() {
   }, [user]);
 
   const { registrations, isLoading: registrationsLoading } = useAllRegistrations()
-  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('mti_selected_batch_id');
-      if (saved) {
-        setSelectedBatchId(saved);
-      }
-    }
-  }, []);
 
   const { activeBatch } = useActiveBatch()
   
-  // Get active registration matching selected batch
+  // Selalu batch yang sedang berjalan (open/ongoing); tidak ada pilihan batch untuk thalibah.
   const activeRegistration = React.useMemo(() => {
-    if (selectedBatchId && registrations) {
-      const match = registrations.find((r: any) => r.batch_id === selectedBatchId)
-      if (match) return match
-    }
-    return registrations.find((reg: any) =>
-      ['open', 'closed', 'ongoing'].includes(reg.batch?.status) &&
-      (reg.status === 'approved' || reg.selection_status === 'selected')
-    ) || registrations[0]
-  }, [registrations, selectedBatchId])
+    const isEligible = (r: any) => r.status === 'approved' || r.selection_status === 'selected'
+    const isCurrent = (r: any) => ['open', 'ongoing'].includes(r.batch?.status)
+    return registrations.find((r: any) => isCurrent(r) && isEligible(r))
+      || registrations.find((r: any) => r.batch?.status === 'closed' && isEligible(r))
+      || registrations[0]
+  }, [registrations])
 
   const effectiveBatch = activeRegistration?.batch || activeBatch
   const targetBatchId = activeRegistration?.batch_id || activeRegistration?.batch?.id || activeBatch?.id
@@ -186,7 +173,7 @@ export default function JurnalHarianPage() {
     try {
       const result = await saveJurnalRecord({
         ...data,
-        batch_id: targetBatchId || selectedBatchId || null,
+        batch_id: targetBatchId || null,
         juz_code: juzToUse || data.juz_code,
         weekNumber: data.blok.startsWith('M') ? 11 : Math.ceil(parseInt(data.blok.match(/H(\d+)/)?.[1] || '1') / 1)
       })

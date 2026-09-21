@@ -28,30 +28,17 @@ export async function GET(request: Request) {
     // menyebabkan ustadzah dari batch lain ikut muncul.
     const { rows } = await import('@/lib/db').then(m => m.query(
       `SELECT DISTINCT
-         COALESCE(ma.id, u.id) as id,
-         u.id as user_id,
-         COALESCE(ma.preferred_juz, h.preferred_juz, '') as preferred_juz,
-         'approved' as status,
+         COALESCE(ma.id, mr.id, u.id) as id, 
+         u.id as user_id, 
+         COALESCE(ma.preferred_juz, h.preferred_juz, mr.preferred_juz, '') as preferred_juz, 
+         'approved' as status, 
          COALESCE(u.full_name, 'Tanpa Nama') as full_name
        FROM users u
-       LEFT JOIN muallimah_akads ma
-              ON ma.user_id = u.id
-             AND ma.batch_id = $1
-             AND ma.status = 'approved'
-       LEFT JOIN halaqah h
-              ON h.muallimah_id = u.id
-             AND EXISTS (
-               SELECT 1 FROM programs p
-               WHERE p.id = h.program_id AND p.batch_id = $1
-             )
-       LEFT JOIN halaqah_mentors hm
-              ON hm.mentor_id = u.id
-             AND EXISTS (
-               SELECT 1 FROM halaqah h2
-               JOIN programs p2 ON p2.id = h2.program_id
-               WHERE h2.id = hm.halaqah_id AND p2.batch_id = $1
-             )
-       WHERE (ma.id IS NOT NULL OR h.id IS NOT NULL OR hm.id IS NOT NULL)
+       LEFT JOIN muallimah_akads ma ON ma.user_id = u.id AND ma.batch_id = $1 AND ma.status = 'approved'
+       LEFT JOIN muallimah_registrations mr ON mr.user_id = u.id AND mr.batch_id = $1 AND mr.status = 'approved'
+       LEFT JOIN halaqah h ON h.muallimah_id = u.id AND h.program_id IN (SELECT id FROM programs WHERE batch_id = $1)
+       LEFT JOIN halaqah_mentors hm ON hm.mentor_id = u.id AND hm.halaqah_id IN (SELECT id FROM halaqah WHERE program_id IN (SELECT id FROM programs WHERE batch_id = $1))
+       WHERE (ma.id IS NOT NULL OR mr.id IS NOT NULL OR h.id IS NOT NULL OR hm.id IS NOT NULL)
          AND u.is_active = true
        ORDER BY LOWER(COALESCE(u.full_name, '')) ASC`,
       [batchId]

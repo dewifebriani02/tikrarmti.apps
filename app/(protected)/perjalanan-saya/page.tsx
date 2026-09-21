@@ -139,20 +139,9 @@ export default function PerjalananSaya() {
   const [isAlumnus, setIsAlumnus] = useState(false);
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('mti_selected_batch_id');
-      if (saved) {
-        setSelectedBatchId(saved);
-      }
-    }
-  }, []);
-
+  // Default selalu batch aktif; pilihan batch lama dari browser tidak dibaca lagi.
   const handleSelectBatch = (id: string) => {
     setSelectedBatchId(id);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('mti_selected_batch_id', id);
-    }
   };
   
   useEffect(() => {

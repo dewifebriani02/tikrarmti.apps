@@ -174,13 +174,13 @@ export async function getJuzOption(code: string) {
   }
 }
 
-export async function getWeekTashihRecords(userId: string, weekStartIso: string, weekEndIso: string) {
+export async function getWeekTashihRecords(userId: string, weekStartIso?: string, weekEndIso?: string) {
   try {
     const { rows } = await import('@/lib/db').then(m => m.query(
       `SELECT * FROM tashih_records 
-       WHERE user_id = $1 AND waktu_tashih >= $2 AND waktu_tashih < $3
+       WHERE user_id = $1
        ORDER BY waktu_tashih ASC`,
-      [userId, weekStartIso, weekEndIso]
+      [userId]
     ));
     return rows || [];
   } catch (err) {

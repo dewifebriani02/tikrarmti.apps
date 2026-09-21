@@ -70,20 +70,9 @@ export default function DashboardContent() {
 
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('mti_selected_batch_id');
-      if (saved) {
-        setSelectedBatchId(saved);
-      }
-    }
-  }, []);
-
+  // Default selalu batch aktif; pilihan batch lama dari browser tidak dibaca lagi.
   const handleSelectBatch = (batchId: string) => {
     setSelectedBatchId(batchId);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('mti_selected_batch_id', batchId);
-    }
   };
 
   // SWR hooks for data fetching
