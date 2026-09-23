@@ -227,7 +227,8 @@
       "Bash(ps -p 45093 -o pid,ppid,etime,command)",
       "Bash(ps -p 45092 -o pid,ppid,etime,command)",
       "Bash(kill 45093 45092)",
-      "Bash(pkill -f \"next dev\")"
+      "Bash(pkill -f \"next dev\")",
+      "Bash(ssh -o BatchMode=yes root@187.52.120.159:*)"
     ],
     "deny": [],
     "ask": []

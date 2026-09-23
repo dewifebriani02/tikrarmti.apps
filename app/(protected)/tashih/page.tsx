@@ -251,10 +251,9 @@ export default function TashihPage() {
 
     const currentWeekNumber = getCurrentWeekNumber()
     if (blockWeekNumber > currentWeekNumber) {
-        const confirmMsg = `Peringatan: Blok ini merupakan target untuk Pekan ${blockWeekNumber}, sedangkan jadwal Tashih saat ini masih Pekan ${currentWeekNumber}.\n\nApakah Ukhti yakin ingin menyetorkan Tashih mendahului jadwal? Pastikan data yang diinput benar.`;
-        if (!window.confirm(confirmMsg)) {
-            return;
-        }
+        // Hanya tampilkan info toast - tidak memblokir (window.confirm dinonaktifkan karena
+        // bermasalah di mobile/WebView dan membingungkan santri)
+        toast.info(`Info: Mengisi Tashih Pekan ${blockWeekNumber} lebih awal dari jadwal.`)
     }
 
     if (block.is_completed && block.tashih_date) {
