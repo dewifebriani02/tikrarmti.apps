@@ -55,6 +55,7 @@ export async function saveJurnalRecord(data: JurnalFormData) {
          p.chosen_juz, 
          p.batch_id,
          b.opening_class_date as b_opening_class_date,
+         b.first_week_start_date as b_first_week_start_date,
          b.start_date as b_start_date,
          du.status as du_status, 
          du.confirmed_chosen_juz
@@ -85,6 +86,39 @@ export async function saveJurnalRecord(data: JurnalFormData) {
       return { 
         success: false, 
         error: 'Afwan Ukhti, Daftar Ulang Ukhti belum disetujui. Jurnal harian baru dapat diakses setelah pendaftaran ulang disetujui oleh admin.' 
+      };
+    }
+
+    // 3. Validasi Pekan Masa Depan (Future Week Lock)
+    // Hitung pekan berjalan angkatan
+    let currentBatchWeek = 1;
+    const firstWeekStart = reg.b_first_week_start_date || reg.b_start_date;
+    if (firstWeekStart) {
+      const startDate = new Date(firstWeekStart);
+      const nowUtc = new Date();
+      const nowWib = new Date(nowUtc.getTime() + 7 * 60 * 60 * 1000);
+      const diffDays = Math.floor((nowWib.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+      currentBatchWeek = Math.max(1, Math.floor(diffDays / 7) + 1);
+    }
+
+    // Tentukan nomor pekan dari blok yang dikirim
+    let blockWeekNumber = data.weekNumber || 1;
+    if (data.blok) {
+      if (data.blok.startsWith('M')) {
+        blockWeekNumber = 11;
+      } else {
+        const match = data.blok.match(/H(\d+)/);
+        if (match) {
+          blockWeekNumber = parseInt(match[1]);
+        }
+      }
+    }
+
+    // Blokir jika mencoba mengisi pekan masa depan yang belum dibuka
+    if (blockWeekNumber > currentBatchWeek) {
+      return {
+        success: false,
+        error: `Afwan Ukhti, Jurnal Pekan ${blockWeekNumber} belum dibuka. Jadwal Ziyadah saat ini masih Pekan ke-${currentBatchWeek}.`
       };
     }
 

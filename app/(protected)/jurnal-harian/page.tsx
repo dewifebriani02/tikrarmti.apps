@@ -145,6 +145,12 @@ export default function JurnalHarianPage() {
       return
     }
 
+    const blockWeek = blockCode.startsWith('M') ? 11 : parseInt(blockCode.match(/H(\d+)/)?.[1] || `${weekNumber}`);
+    if (!isAdmin && blockWeek > currentWeekNumber) {
+      toast.error(`Afwan Ukhti, Jurnal Pekan ${blockWeek} belum dibuka. Jadwal Ziyadah saat ini masih Pekan ke-${currentWeekNumber}.`);
+      return;
+    }
+
     // Reset form for the specific block
     const blockData = jurnalStatus?.blocks.find(b => b.block_code === blockCode)
     
