@@ -145,7 +145,18 @@ export default function JurnalHarianPage() {
       return
     }
 
-    const blockWeek = blockCode.startsWith('M') ? 11 : parseInt(blockCode.match(/H(\d+)/)?.[1] || `${weekNumber}`);
+    // Hitung week number sebenarnya (Part A: H1..H10 -> Pekan 1..10, Part B: H11..H20 -> Pekan 1..10)
+    let blockWeek = weekNumber;
+    if (blockCode.startsWith('M')) {
+      blockWeek = 11;
+    } else {
+      const match = blockCode.match(/H(\d+)/);
+      if (match) {
+        const blockNum = parseInt(match[1]);
+        blockWeek = blockNum > 10 ? blockNum - 10 : blockNum;
+      }
+    }
+
     if (!isAdmin && blockWeek > currentWeekNumber) {
       toast.error(`Afwan Ukhti, Jurnal Pekan ${blockWeek} belum dibuka. Jadwal Ziyadah saat ini masih Pekan ke-${currentWeekNumber}.`);
       return;
@@ -177,11 +188,20 @@ export default function JurnalHarianPage() {
   const handleFormSubmit = async (data: any) => {
     setIsSubmitting(true)
     try {
+      const match = data.blok?.match(/H(\d+)/);
+      let calculatedWeek = 1;
+      if (data.blok?.startsWith('M')) {
+        calculatedWeek = 11;
+      } else if (match) {
+        const blockNum = parseInt(match[1]);
+        calculatedWeek = blockNum > 10 ? blockNum - 10 : blockNum;
+      }
+
       const result = await saveJurnalRecord({
         ...data,
         batch_id: targetBatchId || null,
         juz_code: juzToUse || data.juz_code,
-        weekNumber: data.blok.startsWith('M') ? 11 : Math.ceil(parseInt(data.blok.match(/H(\d+)/)?.[1] || '1') / 1)
+        weekNumber: calculatedWeek
       })
       if (result.success) {
         toast.success(result.message || 'Jurnal berhasil disimpan!')

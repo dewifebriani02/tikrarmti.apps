@@ -101,7 +101,7 @@ export async function saveJurnalRecord(data: JurnalFormData) {
       currentBatchWeek = Math.max(1, Math.floor(diffDays / 7) + 1);
     }
 
-    // Tentukan nomor pekan dari blok yang dikirim
+    // Tentukan nomor pekan dari blok yang dikirim (Part A: H1..H10 -> Pekan 1..10, Part B: H11..H20 -> Pekan 1..10)
     let blockWeekNumber = data.weekNumber || 1;
     if (data.blok) {
       if (data.blok.startsWith('M')) {
@@ -109,7 +109,8 @@ export async function saveJurnalRecord(data: JurnalFormData) {
       } else {
         const match = data.blok.match(/H(\d+)/);
         if (match) {
-          blockWeekNumber = parseInt(match[1]);
+          const blockNum = parseInt(match[1]);
+          blockWeekNumber = blockNum > 10 ? blockNum - 10 : blockNum;
         }
       }
     }
