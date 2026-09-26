@@ -10,12 +10,6 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser, clearSessionCookie } from '@/lib/auth';
 import { createPgClient } from '@/lib/pg-query-builder';
 
-// Legacy export kept for middleware / env config consumers
-export const supabaseUrl =
-  process.env.INTERNAL_DB_URL ||
-  process.env.NEXT_PUBLIC_SUPABASE_URL ||
-  'https://markaztikrar.id';
-
 /**
  * Creates a server-side client with:
  * - `.from()` → direct PostgreSQL via pg-query-builder

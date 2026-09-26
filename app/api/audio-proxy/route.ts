@@ -13,15 +13,13 @@ export async function GET(request: Request) {
     }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://markaztikrar.id';
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://nmbvklixthlqtkkgqnjl.supabase.co';
 
-    // Allow local domain, relative paths, or legacy supabase url
+    // Allow local domain or relative paths
     const isAllowedOrigin =
       audioUrl.startsWith('/') ||
       audioUrl.startsWith('https://markaztikrar.id') ||
       audioUrl.startsWith('http://localhost') ||
-      audioUrl.startsWith(appUrl) ||
-      audioUrl.startsWith(supabaseUrl);
+      audioUrl.startsWith(appUrl);
 
     if (!isAllowedOrigin) {
       return new Response('Unauthorized audio origin', { status: 403 });

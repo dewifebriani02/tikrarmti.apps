@@ -22,16 +22,13 @@ import { updateSession } from '@/lib/supabase/middleware'
  * ❌ Authorization checks (done in Server Layout via getUser)
  * ❌ Role-based access control (done via RLS in database)
  * ❌ Heavy business logic (keep middleware fast)
- * ❌ Manual cookie manipulation (handled by @supabase/ssr)
  *
  * Security Architecture:
  * - Middleware: Token refresh only (this file)
  * - Layout: Auth guard with getUser() (app/(protected)/layout.tsx)
- * - Database: RLS policies for data access control
  *
  * Reference:
  * - arsitektur.md section 6 "Middleware (The Cookie Refresher)"
- * - https://supabase.com/docs/guides/auth/server-side/nextjs
  *
  * CRITICAL: Do not add route-based redirect logic here.
  * Let Server Components handle authorization decisions.

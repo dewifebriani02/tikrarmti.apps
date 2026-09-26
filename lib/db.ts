@@ -30,7 +30,7 @@ function getPool(): Pool {
           port: parseInt(process.env.DB_PORT || '5432', 10),
           database: process.env.DB_NAME || 'mti_db',
           user: process.env.DB_USER || 'mti_user',
-          password: process.env.DB_PASSWORD || 'Dewifebri123@',
+          password: process.env.DB_PASSWORD,
           max: 20,
           idleTimeoutMillis: 30000,
           connectionTimeoutMillis: 10000,

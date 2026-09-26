@@ -203,12 +203,12 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://*.supabase.co",
+              "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com https://fonts.googleapis.com",
-              "img-src 'self' data: https: https://*.supabase.co https://*.googleusercontent.com",
-              "media-src 'self' blob: https://*.supabase.co",
-              "connect-src 'self' http://localhost:* https://*.supabase.co https://markaztikrar.id https://www.markaztikrar.id https://*.sentry.io https://*.google-analytics.com https://api.aladhan.com https://api.bigdatacloud.net https://ipapi.co",
+              "img-src 'self' data: https: https://*.googleusercontent.com",
+              "media-src 'self' blob:",
+              "connect-src 'self' http://localhost:* https://markaztikrar.id https://www.markaztikrar.id https://*.sentry.io https://*.google-analytics.com https://api.aladhan.com https://api.bigdatacloud.net https://ipapi.co",
             ].join('; ')
           },
           // Allow microphone for audio features globally
