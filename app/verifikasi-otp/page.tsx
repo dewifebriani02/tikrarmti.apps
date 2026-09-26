@@ -18,7 +18,7 @@ function VerifikasiOTPContent() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [step, setStep] = useState<'verify' | 'reset'>('verify');
-  const [verifiedEmail, setVerifiedEmail] = useState('');
+  const [resetToken, setResetToken] = useState('');
 
   const email = searchParams.get('email') || '';
 
@@ -83,7 +83,7 @@ function VerifikasiOTPContent() {
         throw new Error(data.error || 'Kode tidak valid');
       }
 
-      setVerifiedEmail(data.email);
+      setResetToken(data.reset_token);
       setStep('reset');
       toast.success('Kode berhasil diverifikasi!');
     } catch (error: any) {
@@ -113,7 +113,7 @@ function VerifikasiOTPContent() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: verifiedEmail,
+          reset_token: resetToken,
           new_password: password
         })
       });

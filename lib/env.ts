@@ -16,16 +16,15 @@ interface EnvVar {
 }
 
 const envVars: EnvVar[] = [
-  // Supabase
-  { name: 'NEXT_PUBLIC_SUPABASE_URL', required: true, description: 'Supabase project URL' },
-  { name: 'NEXT_PUBLIC_SUPABASE_ANON_KEY', required: true, description: 'Supabase anonymous key' },
-  { name: 'SUPABASE_SERVICE_ROLE_KEY', required: true, description: 'Supabase service role key (server only)' },
+  // Auth
+  { name: 'AUTH_SECRET', required: true, description: 'JWT signing secret for sessions (min 32 chars)' },
 
   // Application
   { name: 'OWNER_EMAIL', required: false, description: 'Owner email for super-admin access' },
 
   // Optional: Email
   { name: 'RESEND_API_KEY', required: false, description: 'Resend API key for emails' },
+  { name: 'EMAIL_FROM', required: false, description: 'Sender address for emails, e.g. "MTI <noreply@markaztikrar.id>"' },
 
   // Optional: reCAPTCHA
   { name: 'RECAPTCHA_SECRET_KEY', required: false, description: 'reCAPTCHA secret key' },

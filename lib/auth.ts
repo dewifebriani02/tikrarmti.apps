@@ -3,14 +3,11 @@ import bcrypt from 'bcryptjs';
 import { cookies, headers } from 'next/headers';
 import { queryOne, query } from '@/lib/db';
 import { extractRoles, getPrimaryRole } from '@/lib/roles';
+import { getAuthSecret } from '@/lib/auth-secret';
 
 export const SESSION_COOKIE_NAME = 'mti_session';
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.AUTH_SECRET ||
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  'mti-markaz-tikrar-indonesia-secure-secret-key-2026'
-);
+const PASSWORD_RESET_PURPOSE = 'password_reset';
 
 export interface UserSessionPayload {
   sub: string;
@@ -62,7 +59,7 @@ export async function createSessionToken(
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt(Math.floor(nowMs / 1000))
     .setExpirationTime(maxAge)
-    .sign(JWT_SECRET);
+    .sign(getAuthSecret());
 }
 
 /**
@@ -70,9 +67,35 @@ export async function createSessionToken(
  */
 export async function verifySessionToken(token: string): Promise<UserSessionPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
+    const { payload } = await jwtVerify(token, getAuthSecret());
+    // Password-reset tokens share the secret but must never act as a session
+    if (payload.purpose === PASSWORD_RESET_PURPOSE) return null;
     return payload as unknown as UserSessionPayload;
   } catch (error) {
+    return null;
+  }
+}
+
+/**
+ * Short-lived token proving the holder verified a password-reset OTP for `email`.
+ */
+export async function createPasswordResetToken(email: string): Promise<string> {
+  return await new SignJWT({ purpose: PASSWORD_RESET_PURPOSE, email })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime('15m')
+    .sign(getAuthSecret());
+}
+
+/**
+ * Returns the verified email, or null if the token is invalid/expired.
+ */
+export async function verifyPasswordResetToken(token: string): Promise<string | null> {
+  try {
+    const { payload } = await jwtVerify(token, getAuthSecret());
+    if (payload.purpose !== PASSWORD_RESET_PURPOSE || typeof payload.email !== 'string') return null;
+    return payload.email;
+  } catch {
     return null;
   }
 }

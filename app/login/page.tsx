@@ -316,7 +316,7 @@ function LoginPageContent() {
 
                 <div className="flex justify-end">
                   <Link
-                    href="/forgot-password"
+                    href="/lupa-password"
                     className="text-sm text-green-900 hover:text-green-700 hover:underline transition-colors"
                   >
                     Lupa password?

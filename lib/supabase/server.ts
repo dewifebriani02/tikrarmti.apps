@@ -100,10 +100,6 @@ export function createClient(_options?: {
       return { error: null };
     },
 
-    resetPasswordForEmail: async (_email: string, _opts?: any) => {
-      return { data: {}, error: null };
-    },
-
     updateUser: async (attrs: { password?: string; data?: Record<string, any> }) => {
       try {
         const user = await getCurrentUser();

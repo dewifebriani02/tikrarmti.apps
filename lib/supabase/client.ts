@@ -77,7 +77,6 @@ export function createClient() {
           return { data: { user: null }, error: { message: err.message } };
         }
       },
-      resetPasswordForEmail: async (_email: string) => ({ data: {}, error: null }),
       signInWithPassword: async () => ({ data: { user: null, session: null }, error: null }),
       signUp: async () => ({ data: { user: null, session: null }, error: null }),
       setSession: async (_tokens: any) => ({ data: { user: null, session: null }, error: null }),

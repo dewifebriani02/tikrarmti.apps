@@ -21,37 +21,15 @@ export default function LupaPasswordPage() {
     setIsLoading(true);
 
     try {
-      // Generate OTP code
-      const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-      const expiryTime = new Date(Date.now() + 15 * 60000); // 15 menit
-
-      // Simpan OTP di database via API
-      const saveResponse = await fetch('/api/auth/save-otp', {
+      const response = await fetch('/api/auth/request-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: email.toLowerCase().trim(),
-          code: otpCode,
-          expires_at: expiryTime.toISOString()
-        })
+        body: JSON.stringify({ email: email.toLowerCase().trim() })
       });
 
-      if (!saveResponse.ok) {
-        throw new Error('Gagal menyimpan kode reset');
-      }
-
-      // Kirim email dengan kode OTP
-      const emailResponse = await fetch('/api/auth/send-otp-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: email.toLowerCase().trim(),
-          code: otpCode
-        })
-      });
-
-      if (!emailResponse.ok) {
-        throw new Error('Gagal mengirim email');
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'Gagal mengirim kode reset');
       }
 
       setSuccess(true);

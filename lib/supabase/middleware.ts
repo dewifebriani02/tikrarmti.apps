@@ -1,12 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { jwtVerify, SignJWT } from 'jose';
+import { getAuthSecret } from '@/lib/auth-secret';
 
 const SESSION_COOKIE_NAME = 'mti_session';
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.AUTH_SECRET ||
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  'mti-markaz-tikrar-indonesia-secure-secret-key-2026'
-);
 
 /** Allowed origins for state-changing API requests (CSRF protection) in Production. */
 const ALLOWED_ORIGINS_PROD = ['https://markaztikrar.id', 'https://www.markaztikrar.id'];
@@ -84,6 +80,7 @@ export async function updateSession(request: NextRequest) {
     const response = NextResponse.next({ request: { headers: request.headers } });
 
     if (allCookies && allCookies.length > 0) {
+      const secret = getAuthSecret();
       let latestPayload: any = null;
       let latestToken = '';
       let latestTimestamp = -1;
@@ -91,7 +88,8 @@ export async function updateSession(request: NextRequest) {
       for (const c of allCookies) {
         if (!c.value) continue;
         try {
-          const { payload } = await jwtVerify(c.value, JWT_SECRET);
+          const { payload } = await jwtVerify(c.value, secret);
+          if (payload.purpose === 'password_reset') continue;
           const ts = Number(payload.iat_ms) || (Number(payload.iat) * 1000) || 0;
           if (ts > latestTimestamp) {
             latestTimestamp = ts;
