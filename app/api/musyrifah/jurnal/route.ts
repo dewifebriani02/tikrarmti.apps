@@ -468,14 +468,18 @@ export async function GET(request: Request) {
       if (activeBatchData?.start_date) {
         const filterStartDate = new Date(activeBatchData.start_date);
         filterStartDate.setDate(filterStartDate.getDate() - 1);
-        jParams.push(filterStartDate.toISOString());
-        jWhere += ` AND created_at >= $${jParams.length}`;
+        const filterStartDateIso = filterStartDate.toISOString();
+        const filterStartDateStr = filterStartDateIso.split('T')[0];
+        jParams.push(filterStartDateStr, filterStartDateIso);
+        jWhere += ` AND (tanggal_setor >= $${jParams.length - 1} OR created_at >= $${jParams.length} OR updated_at >= $${jParams.length})`;
       }
       if (activeBatchData?.end_date) {
         const filterEndDate = new Date(activeBatchData.end_date);
         filterEndDate.setDate(filterEndDate.getDate() + 7);
-        jParams.push(filterEndDate.toISOString());
-        jWhere += ` AND created_at <= $${jParams.length}`;
+        const filterEndDateIso = filterEndDate.toISOString();
+        const filterEndDateStr = filterEndDateIso.split('T')[0];
+        jParams.push(filterEndDateStr, filterEndDateIso);
+        jWhere += ` AND (tanggal_setor <= $${jParams.length - 1} OR created_at <= $${jParams.length} OR updated_at <= $${jParams.length})`;
       }
       const { rows: jRows } = await import('@/lib/db').then(m => m.query(
         `SELECT id, user_id, tanggal_jurnal, tanggal_setor, juz_code, blok,

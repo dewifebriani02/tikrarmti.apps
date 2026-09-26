@@ -151,7 +151,8 @@ export async function saveJurnalRecord(data: JurnalFormData) {
       tafsir_completed: data.tafsir_options.includes('baca_tafsir'),
       menulis_completed: data.tafsir_options.includes('tulis_ayat'),
       tafsir_options: data.tafsir_options,
-      catatan_tambahan: data.catatan_tambahan || null
+      catatan_tambahan: data.catatan_tambahan || null,
+      updated_at: new Date().toISOString()
     }
 
     // Batas awal batch ini (sama dengan filter di /api/dashboard/jurnal-status) agar

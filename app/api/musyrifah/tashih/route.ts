@@ -277,14 +277,18 @@ export async function GET(request: Request) {
     if (activeBatchData?.start_date) {
       const filterStartDate = new Date(activeBatchData.start_date);
       filterStartDate.setDate(filterStartDate.getDate() - 1);
-      tParams.push(filterStartDate.toISOString());
-      tWhere += ` AND created_at >= $${tParams.length}`;
+      const filterStartDateIso = filterStartDate.toISOString();
+      const filterStartDateStr = filterStartDateIso.split('T')[0];
+      tParams.push(filterStartDateStr, filterStartDateIso);
+      tWhere += ` AND (waktu_tashih >= $${tParams.length - 1} OR created_at >= $${tParams.length} OR updated_at >= $${tParams.length})`;
     }
     if (activeBatchData?.end_date) {
       const filterEndDate = new Date(activeBatchData.end_date);
       filterEndDate.setDate(filterEndDate.getDate() + 7);
-      tParams.push(filterEndDate.toISOString());
-      tWhere += ` AND created_at <= $${tParams.length}`;
+      const filterEndDateIso = filterEndDate.toISOString();
+      const filterEndDateStr = filterEndDateIso.split('T')[0];
+      tParams.push(filterEndDateStr, filterEndDateIso);
+      tWhere += ` AND (waktu_tashih <= $${tParams.length - 1} OR created_at <= $${tParams.length} OR updated_at <= $${tParams.length})`;
     }
 
     const { rows: allTashihRecords } = await import('@/lib/db').then(m => m.query(

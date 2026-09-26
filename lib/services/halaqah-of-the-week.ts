@@ -139,24 +139,26 @@ export async function computeHalaqahOfTheWeek(batchId?: string, authUserId?: str
   let tashihRecords: any[] = [];
   if (thalibahIds.length > 0) {
     const bStartIso = batchStart ? batchStart.toISOString() : new Date(0).toISOString();
+    const bStartStr = bStartIso.split('T')[0];
     const wEndIso = weekEndDate.toISOString();
+    const wEndStr = wEndIso.split('T')[0];
 
     const { rows: jRows } = await query(
-      `SELECT user_id, blok, created_at, tafsir_options
+      `SELECT user_id, blok, created_at, updated_at, tanggal_setor, tafsir_options
        FROM jurnal_records
        WHERE user_id = ANY($1::uuid[])
-         AND created_at >= $2
-         AND created_at < $3`,
-      [thalibahIds, bStartIso, wEndIso]
+         AND (tanggal_setor >= $2 OR created_at >= $3 OR updated_at >= $3)
+         AND (tanggal_setor < $4 OR created_at < $5 OR updated_at < $5)`,
+      [thalibahIds, bStartStr, bStartIso, wEndStr, wEndIso]
     );
     jurnalRecords = jRows;
 
     const { rows: tRows } = await query(
-      `SELECT user_id, blok, created_at
+      `SELECT user_id, blok, created_at, updated_at, waktu_tashih
        FROM tashih_records
        WHERE user_id = ANY($1::uuid[])
-         AND created_at >= $2
-         AND created_at < $3`,
+         AND (waktu_tashih >= $2 OR created_at >= $2 OR updated_at >= $2)
+         AND (waktu_tashih < $3 OR created_at < $3 OR updated_at < $3)`,
       [thalibahIds, bStartIso, wEndIso]
     );
     tashihRecords = tRows;
@@ -223,7 +225,8 @@ export async function computeHalaqahOfTheWeek(batchId?: string, authUserId?: str
     
     if (newBlocksForUser.length > 0) {
       jurnalCountMap.set(r.user_id, (jurnalCountMap.get(r.user_id) || 0) + newBlocksForUser.length);
-      let punctuality = calculatePunctuality(newBlocksForUser, r.created_at);
+      const recordDate = r.tanggal_setor || r.updated_at || r.created_at;
+      let punctuality = calculatePunctuality(newBlocksForUser, recordDate);
       
       let tafsirOpts = r.tafsir_options;
       if (typeof tafsirOpts === 'string') {

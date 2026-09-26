@@ -107,7 +107,8 @@ export async function saveTashihRecord(data: TashihFormData) {
       jumlah_kesalahan_tajwid: data.jumlah_kesalahan_tajwid,
       masalah_tajwid: Array.isArray(data.masalah_tajwid) ? JSON.stringify(data.masalah_tajwid) : (data.masalah_tajwid || '[]'),
       catatan_tambahan: data.catatan_tambahan || null,
-      waktu_tashih: data.waktu_tashih
+      waktu_tashih: data.waktu_tashih,
+      updated_at: new Date().toISOString()
     }
 
     let result;
