@@ -10,6 +10,9 @@ import Footer from '@/components/Footer'
 
 import { AuthProvider } from '@/contexts/AuthContext'
 import { cn } from '@/lib/utils'
+import { useInfaqStatus } from '@/hooks/useInfaqStatus'
+import { InfaqReminderBanner } from '@/components/InfaqReminderBanner'
+import { InfaqSuspendGuard } from '@/components/InfaqSuspendGuard'
 
 interface ProtectedClientLayoutProps {
   children: ReactNode
@@ -39,6 +42,7 @@ export default function ProtectedClientLayout({ children, user }: ProtectedClien
   const pathname = usePathname()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
+  const { status: infaqStatus, refreshStatus } = useInfaqStatus()
 
   // Routes that should not have header and footer
   const hideHeaderFooterRoutes: string[] = []
@@ -89,7 +93,21 @@ export default function ProtectedClientLayout({ children, user }: ProtectedClien
 
             <main className="p-3 sm:p-4 lg:p-6 flex-grow">
               <div className="max-w-full">
-                {children}
+                {/* Infaq Reminder Banner (Tgl 1 - 10) */}
+                {isMounted && <InfaqReminderBanner status={infaqStatus} />}
+
+                {/* Infaq Suspend Guard (Lewat Tgl 10) */}
+                {isMounted ? (
+                  <InfaqSuspendGuard
+                    status={infaqStatus}
+                    user={user}
+                    onStatusRefresh={refreshStatus}
+                  >
+                    {children}
+                  </InfaqSuspendGuard>
+                ) : (
+                  children
+                )}
               </div>
             </main>
 
@@ -103,4 +121,5 @@ export default function ProtectedClientLayout({ children, user }: ProtectedClien
     </AuthProvider>
   )
 }
+
 
