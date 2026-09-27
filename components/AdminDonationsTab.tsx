@@ -228,6 +228,11 @@ export function AdminDonationsTab() {
         if (!selectedBatchId && json.data.selected_batch) {
           setSelectedBatchId(json.data.selected_batch.id);
         }
+        setSelectedThalibah((prev) => {
+          if (!prev) return null;
+          const updated = json.data.thalibah_list?.find((t: RekapThalibah) => t.user_id === prev.user_id);
+          return updated || prev;
+        });
       } else {
         toast.error(json.error || 'Gagal memuat rekapitulasi infaq bulanan');
       }
@@ -264,20 +269,13 @@ export function AdminDonationsTab() {
         setCurrentDonation(null);
         // Refresh both lists
         fetchDonations();
-        fetchRekap(selectedMonth, selectedYear, selectedBatchId);
-
-        // If drilldown is open, refresh selected thalibah data
-        if (selectedThalibah) {
-          setTimeout(() => {
-            fetchRekap(selectedMonth, selectedYear, selectedBatchId);
-          }, 300);
-        }
+        await fetchRekap(selectedMonth, selectedYear, selectedBatchId);
       } else {
         toast.error(json.error || 'Gagal memperbarui status infaq');
       }
     } catch (err: any) {
       console.error(err);
-      toast.error('Terjadi kesalahan saat memproses status');
+      toast.error(err?.message || 'Terjadi kesalahan saat memproses status');
     } finally {
       setUpdatingStatus(false);
     }
