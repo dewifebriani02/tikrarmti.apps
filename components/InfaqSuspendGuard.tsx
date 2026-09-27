@@ -219,7 +219,7 @@ export function InfaqSuspendGuard({
                   </button>
                 </div>
                 <p className="text-xs text-emerald-200 mt-1 font-medium">
-                  Bank Syariah Indonesia (BSI) • a.n <strong>Markaz Tikrar Indonesia</strong>
+                  Bank Syariah Indonesia (BSI) • a.n <strong>Mara Martalena</strong>
                 </p>
               </div>
 

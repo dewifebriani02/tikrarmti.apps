@@ -278,7 +278,7 @@ Kami dari *Admin Markaz Tikrar Indonesia (MTI)* ingin menyampaikan pengingat ter
 💳 *Rekening Pembayaran:*
 • Bank: *Bank Syariah Indonesia (BSI)*
 • No. Rekening: *7345608197*
-• Atas Nama: *Markaz Tikrar Indonesia*
+• Atas Nama: *Mara Martalena*
 
 🔗 *Konfirmasi & Unggah Bukti:*
 Setelah melakukan transfer, mohon konfirmasi dan unggah bukti transfer melalui tautan aplikasi berikut:
@@ -405,13 +405,13 @@ Terima kasih atas konfirmasi infaq bulanan *${monthName} ${selectedYear}*. Semog
         {/* Card 1: Total Thalibah Infaq */}
         <Card className="border-0 shadow-sm bg-white overflow-hidden rounded-2xl relative border-l-4 border-l-emerald-600">
           <div className="absolute right-0 top-0 translate-x-3 -translate-y-3 w-16 h-16 rounded-full bg-emerald-500/10 blur-xl" />
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-800 border border-emerald-100 shrink-0">
-              <Users className="w-6 h-6" />
+          <CardContent className="p-4 sm:p-5 flex items-center gap-3.5">
+            <div className="w-11 h-11 sm:w-12 sm:h-12 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-800 border border-emerald-100 shrink-0">
+              <Users className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[11px] text-gray-400 font-bold uppercase tracking-wider">Thalibah Wajib Infaq</p>
-              <h3 className="text-xl sm:text-2xl font-black text-gray-900 mt-1 truncate">
+              <p className="text-[10px] sm:text-[11px] text-gray-400 font-bold uppercase tracking-wider">Thalibah Wajib Infaq</p>
+              <h3 className="text-lg sm:text-xl xl:text-2xl font-black text-gray-900 mt-0.5 leading-tight">
                 {rekapData?.stats.total_donasi_cohort || 0} orang
               </h3>
               <p className="text-xs text-gray-500 mt-0.5 font-medium">Jalur Komitmen Donasi</p>
@@ -422,13 +422,13 @@ Terima kasih atas konfirmasi infaq bulanan *${monthName} ${selectedYear}*. Semog
         {/* Card 2: Sudah Membayar (Bulan Ini) */}
         <Card className="border-0 shadow-sm bg-white overflow-hidden rounded-2xl relative border-l-4 border-l-green-600">
           <div className="absolute right-0 top-0 translate-x-3 -translate-y-3 w-16 h-16 rounded-full bg-green-500/10 blur-xl" />
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center text-green-700 border border-green-100 shrink-0">
-              <ShieldCheck className="w-6 h-6" />
+          <CardContent className="p-4 sm:p-5 flex items-center gap-3.5">
+            <div className="w-11 h-11 sm:w-12 sm:h-12 bg-green-50 rounded-xl flex items-center justify-center text-green-700 border border-green-100 shrink-0">
+              <ShieldCheck className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[11px] text-gray-400 font-bold uppercase tracking-wider">Sudah Membayar ({rekapData?.month_name})</p>
-              <h3 className="text-xl sm:text-2xl font-black text-emerald-950 mt-1 truncate">
+              <p className="text-[10px] sm:text-[11px] text-gray-400 font-bold uppercase tracking-wider">Sudah Membayar ({rekapData?.month_name})</p>
+              <h3 className="text-lg sm:text-xl xl:text-2xl font-black text-emerald-950 mt-0.5 leading-tight">
                 {rekapData?.stats.total_paid || 0} orang
               </h3>
               <p className="text-xs text-green-700 font-semibold mt-0.5">
@@ -441,17 +441,17 @@ Terima kasih atas konfirmasi infaq bulanan *${monthName} ${selectedYear}*. Semog
         {/* Card 3: Menunggu Verifikasi */}
         <Card className="border-0 shadow-sm bg-white overflow-hidden rounded-2xl relative border-l-4 border-l-amber-500">
           <div className="absolute right-0 top-0 translate-x-3 -translate-y-3 w-16 h-16 rounded-full bg-amber-500/10 blur-xl" />
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="w-12 h-12 bg-amber-50 rounded-xl flex items-center justify-center text-amber-700 border border-amber-100 shrink-0">
-              <Clock className="w-6 h-6" />
+          <CardContent className="p-4 sm:p-5 flex items-center gap-3.5">
+            <div className="w-11 h-11 sm:w-12 sm:h-12 bg-amber-50 rounded-xl flex items-center justify-center text-amber-700 border border-amber-100 shrink-0">
+              <Clock className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[11px] text-gray-400 font-bold uppercase tracking-wider">Menunggu Verifikasi</p>
-              <h3 className="text-xl sm:text-2xl font-black text-amber-950 mt-1 truncate">
-                {rekapData?.stats.total_pending || 0} orang
+              <p className="text-[10px] sm:text-[11px] text-gray-400 font-bold uppercase tracking-wider">Menunggu Verifikasi</p>
+              <h3 className="text-lg sm:text-xl xl:text-2xl font-black text-amber-950 mt-0.5 leading-tight">
+                {rekapData?.stats.total_pending || 0} transaksi
               </h3>
               <p className="text-xs text-amber-700 font-semibold mt-0.5">
-                {formatIDR(rekapData?.stats.amount_pending || 0)} pending
+                {formatIDR(rekapData?.stats.amount_pending || 0)}
               </p>
             </div>
           </CardContent>
@@ -460,13 +460,13 @@ Terima kasih atas konfirmasi infaq bulanan *${monthName} ${selectedYear}*. Semog
         {/* Card 4: Belum Membayar */}
         <Card className="border-0 shadow-sm bg-white overflow-hidden rounded-2xl relative border-l-4 border-l-rose-500">
           <div className="absolute right-0 top-0 translate-x-3 -translate-y-3 w-16 h-16 rounded-full bg-rose-500/10 blur-xl" />
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="w-12 h-12 bg-rose-50 rounded-xl flex items-center justify-center text-rose-700 border border-rose-100 shrink-0">
-              <AlertCircle className="w-6 h-6" />
+          <CardContent className="p-4 sm:p-5 flex items-center gap-3.5">
+            <div className="w-11 h-11 sm:w-12 sm:h-12 bg-rose-50 rounded-xl flex items-center justify-center text-rose-700 border border-rose-100 shrink-0">
+              <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[11px] text-gray-400 font-bold uppercase tracking-wider">Belum Membayar ({rekapData?.month_name})</p>
-              <h3 className="text-xl sm:text-2xl font-black text-rose-950 mt-1 truncate">
+              <p className="text-[10px] sm:text-[11px] text-gray-400 font-bold uppercase tracking-wider">Belum Membayar ({rekapData?.month_name})</p>
+              <h3 className="text-lg sm:text-xl xl:text-2xl font-black text-rose-950 mt-0.5 leading-tight">
                 {rekapData?.stats.total_unpaid || 0} orang
               </h3>
               <p className="text-xs text-rose-700 font-semibold mt-0.5">Perlu Reminder WhatsApp</p>
