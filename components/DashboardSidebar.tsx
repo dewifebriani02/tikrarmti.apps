@@ -164,7 +164,7 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
         });
         baseItems.push({
           href: '/admin/donations',
-          label: 'Donasi Operasional',
+          label: 'Infaq Bulanan',
           icon: <HeartHandshake className="h-5 w-5" />,
         });
       }

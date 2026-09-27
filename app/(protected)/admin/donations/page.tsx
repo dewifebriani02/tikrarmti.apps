@@ -39,7 +39,7 @@ export default function AdminDonationsPage() {
                   <span>Authority Console</span>
                 </div>
                 <h1 className="text-2xl font-black text-gray-900 tracking-tight flex items-center gap-3">
-                  Donasi Operasional
+                  Infaq Bulanan
                 </h1>
               </div>
             </div>
@@ -48,7 +48,7 @@ export default function AdminDonationsPage() {
               <div className="h-10 px-4 rounded-xl bg-gray-100/50 border border-gray-100 flex items-center gap-2">
                 <HeartHandshake className="h-4 w-4 text-gray-400" />
                 <span className="text-sm font-bold text-gray-600">
-                  Data Donasi
+                  Data Infaq Bulanan
                 </span>
               </div>
             </div>

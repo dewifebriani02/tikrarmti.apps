@@ -153,7 +153,7 @@ export default function GlobalAuthenticatedHeader({
       '/admin/otp-viewer': 'OTP Viewer',
       '/admin/partner': 'Manajemen Partner',
       '/admin/daftar-ulang': 'Daftar Ulang',
-      '/admin/donations': 'Donasi Operasional',
+      '/admin/donations': 'Infaq Bulanan',
       '/panel-musyrifah': 'Panel Musyrifah',
       '/panel-muallimah': 'Panel Muallimah',
       '/presensi-jurnal': 'Presensi & Jurnal',
@@ -237,7 +237,7 @@ export default function GlobalAuthenticatedHeader({
       } else if (pathname.includes('/testimonials')) {
         breadcrumbs.push({ label: 'Testimoni Alumni', href: '/admin/testimonials' });
       } else if (pathname.includes('/donations')) {
-        breadcrumbs.push({ label: 'Donasi Operasional', href: '/admin/donations' });
+        breadcrumbs.push({ label: 'Infaq Bulanan', href: '/admin/donations' });
       }
       // If it's the main admin route but has a tab
       else if (pathname === '/admin' && tab) {
