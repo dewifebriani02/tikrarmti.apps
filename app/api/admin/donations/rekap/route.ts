@@ -205,6 +205,17 @@ export async function GET(request: NextRequest) {
         } else {
           totalUnpaid++;
         }
+      } else {
+        // Jalur Pengabdian (Voluntary donation allowed)
+        if (paymentStatus === 'paid') {
+          totalPaid++;
+          amountPaid += Number(selectedMonthDonation?.amount || 0);
+        } else if (paymentStatus === 'pending') {
+          totalPending++;
+          amountPending += Number(selectedMonthDonation?.amount || 0);
+        } else if (paymentStatus === 'rejected') {
+          totalRejected++;
+        }
       }
 
       const phoneRaw = t.confirmed_wa_phone || t.whatsapp || '';

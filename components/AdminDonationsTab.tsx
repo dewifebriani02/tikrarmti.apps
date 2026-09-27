@@ -159,7 +159,7 @@ export function AdminDonationsTab() {
   const [selectedMonth, setSelectedMonth] = useState<number>(now.getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState<number>(now.getFullYear());
   const [selectedBatchId, setSelectedBatchId] = useState<string>('');
-  const [rekapStatusFilter, setRekapStatusFilter] = useState<'all' | 'unpaid' | 'pending' | 'paid' | 'pengabdian'>('all');
+  const [rekapStatusFilter, setRekapStatusFilter] = useState<'donasi' | 'unpaid' | 'pending' | 'paid' | 'pengabdian' | 'all'>('donasi');
   const [rekapSearch, setRekapSearch] = useState('');
 
   // Note Modal States for approval/rejection in table
@@ -386,10 +386,11 @@ Semoga Allah Ta'ala melipatgandakan pahala dan keberkahan untuk Ukhti sekeluarga
     if (!rekapData?.thalibah_list) return [];
     return rekapData.thalibah_list.filter((t) => {
       // Status Filter
+      if (rekapStatusFilter === 'donasi' && !t.is_donasi_choice) return false;
       if (rekapStatusFilter === 'pengabdian' && t.is_donasi_choice) return false;
-      if (rekapStatusFilter === 'paid' && t.payment_status !== 'paid') return false;
-      if (rekapStatusFilter === 'pending' && t.payment_status !== 'pending') return false;
       if (rekapStatusFilter === 'unpaid' && (!t.is_donasi_choice || t.payment_status !== 'unpaid')) return false;
+      if (rekapStatusFilter === 'pending' && t.payment_status !== 'pending') return false;
+      if (rekapStatusFilter === 'paid' && t.payment_status !== 'paid') return false;
 
       // Search Filter
       if (rekapSearch.trim()) {
@@ -640,12 +641,12 @@ Semoga Allah Ta'ala melipatgandakan pahala dan keberkahan untuk Ukhti sekeluarga
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
               <div className="flex flex-wrap bg-gray-100 p-1 rounded-xl border border-gray-200 shrink-0">
                 <button
-                  onClick={() => setRekapStatusFilter('all')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    rekapStatusFilter === 'all' ? 'bg-white text-emerald-950 shadow-sm' : 'text-gray-600 hover:text-emerald-950'
+                  onClick={() => setRekapStatusFilter('donasi')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    rekapStatusFilter === 'donasi' ? 'bg-white text-emerald-950 shadow-sm border border-emerald-300' : 'text-gray-600 hover:text-emerald-950'
                   }`}
                 >
-                  Semua ({rekapData?.thalibah_list?.length || 0})
+                  Wajib Infaq ({rekapData?.stats?.total_donasi_cohort || 0})
                 </button>
                 <button
                   onClick={() => setRekapStatusFilter('unpaid')}
@@ -674,10 +675,18 @@ Semoga Allah Ta'ala melipatgandakan pahala dan keberkahan untuk Ukhti sekeluarga
                 <button
                   onClick={() => setRekapStatusFilter('pengabdian')}
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    rekapStatusFilter === 'pengabdian' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                    rekapStatusFilter === 'pengabdian' ? 'bg-white text-blue-800 shadow-sm' : 'text-gray-600 hover:text-blue-800'
                   }`}
                 >
-                  Jalur Pengabdian
+                  Jalur Pengabdian ({rekapData?.thalibah_list?.filter(x => !x.is_donasi_choice).length || 0})
+                </button>
+                <button
+                  onClick={() => setRekapStatusFilter('all')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    rekapStatusFilter === 'all' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Semua ({rekapData?.thalibah_list?.length || 0})
                 </button>
               </div>
 
@@ -811,27 +820,15 @@ Semoga Allah Ta'ala melipatgandakan pahala dan keberkahan untuk Ukhti sekeluarga
                           const pStatus = mDetail?.payment_status || 'unpaid';
                           const donation = mDetail?.donation || null;
 
-                          if (!t.is_donasi_choice) {
+                          // 1. Paid Status (Mandatory or Voluntary Pengabdian)
+                          if (pStatus === 'paid') {
                             return (
                               <td 
                                 key={mNum} 
-                                className={`py-3 px-1.5 text-center text-[10px] ${
-                                  isCurrentSelected ? 'bg-emerald-50/50 border-x border-emerald-100' : ''
+                                className={`py-3 px-1 text-center ${
+                                  isCurrentSelected ? 'bg-emerald-50/50 border-x border-emerald-200' : ''
                                 }`}
                               >
-                                <span className="text-gray-300 text-[10px] font-mono">Bebas</span>
-                              </td>
-                            );
-                          }
-
-                          return (
-                            <td 
-                              key={mNum} 
-                              className={`py-3 px-1 text-center ${
-                                isCurrentSelected ? 'bg-emerald-50/50 border-x border-emerald-200' : ''
-                              }`}
-                            >
-                              {pStatus === 'paid' ? (
                                 <button
                                   onClick={() => openDrilldown(t, mNum)}
                                   className="w-full py-1.5 px-1 bg-emerald-100/80 hover:bg-emerald-200 text-emerald-900 rounded-lg flex flex-col items-center justify-center transition-all shadow-xs border border-emerald-300/60"
@@ -840,7 +837,19 @@ Semoga Allah Ta'ala melipatgandakan pahala dan keberkahan untuk Ukhti sekeluarga
                                   <CheckCircle className="w-3.5 h-3.5 text-emerald-700" />
                                   <span className="text-[9px] font-extrabold mt-0.5 leading-tight">Lunas</span>
                                 </button>
-                              ) : pStatus === 'pending' ? (
+                              </td>
+                            );
+                          }
+
+                          // 2. Pending Status (Mandatory or Voluntary Pengabdian)
+                          if (pStatus === 'pending') {
+                            return (
+                              <td 
+                                key={mNum} 
+                                className={`py-3 px-1 text-center ${
+                                  isCurrentSelected ? 'bg-emerald-50/50 border-x border-emerald-200' : ''
+                                }`}
+                              >
                                 <button
                                   onClick={() => openDrilldown(t, mNum)}
                                   className="w-full py-1.5 px-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg flex flex-col items-center justify-center transition-all shadow-xs border border-amber-300 animate-pulse"
@@ -849,7 +858,19 @@ Semoga Allah Ta'ala melipatgandakan pahala dan keberkahan untuk Ukhti sekeluarga
                                   <Clock className="w-3.5 h-3.5 text-amber-700" />
                                   <span className="text-[9px] font-extrabold mt-0.5 leading-tight">Pending</span>
                                 </button>
-                              ) : pStatus === 'rejected' ? (
+                              </td>
+                            );
+                          }
+
+                          // 3. Rejected Status
+                          if (pStatus === 'rejected') {
+                            return (
+                              <td 
+                                key={mNum} 
+                                className={`py-3 px-1 text-center ${
+                                  isCurrentSelected ? 'bg-emerald-50/50 border-x border-emerald-200' : ''
+                                }`}
+                              >
                                 <button
                                   onClick={() => openDrilldown(t, mNum)}
                                   className="w-full py-1.5 px-1 bg-rose-50 hover:bg-rose-100 text-rose-800 rounded-lg flex flex-col items-center justify-center transition-all border border-rose-200"
@@ -858,16 +879,47 @@ Semoga Allah Ta'ala melipatgandakan pahala dan keberkahan untuk Ukhti sekeluarga
                                   <Ban className="w-3.5 h-3.5 text-rose-600" />
                                   <span className="text-[9px] font-extrabold mt-0.5 leading-tight">Ditolak</span>
                                 </button>
-                              ) : (
+                              </td>
+                            );
+                          }
+
+                          // 4. Unpaid:
+                          // If Jalur Pengabdian -> display Bebas (clickable in case they wish to view or donate)
+                          if (!t.is_donasi_choice) {
+                            return (
+                              <td 
+                                key={mNum} 
+                                className={`py-3 px-1.5 text-center text-[10px] ${
+                                  isCurrentSelected ? 'bg-emerald-50/50 border-x border-emerald-100' : ''
+                                }`}
+                              >
                                 <button
                                   onClick={() => openDrilldown(t, mNum)}
-                                  className="w-full py-1.5 px-1 bg-gray-50 hover:bg-rose-50 text-gray-400 hover:text-rose-700 rounded-lg flex flex-col items-center justify-center transition-all border border-gray-100 hover:border-rose-200"
-                                  title={`Bulan ${monthNames[mNum - 1]}: Belum Bayar. Klik untuk kirim reminder WA.`}
+                                  className="w-full py-1.5 px-1 text-gray-400 hover:text-emerald-800 hover:bg-emerald-50/50 rounded-lg text-[10px] font-mono transition-colors"
+                                  title="Jalur Pengabdian (Bebas Infaq, namun boleh berdonasi sukarela)"
                                 >
-                                  <span className="text-xs text-gray-300 font-bold">✕</span>
-                                  <span className="text-[8px] font-semibold mt-0.5 leading-tight">Belum</span>
+                                  Bebas
                                 </button>
-                              )}
+                              </td>
+                            );
+                          }
+
+                          // If Mandatory Donasi Unpaid
+                          return (
+                            <td 
+                              key={mNum} 
+                              className={`py-3 px-1 text-center ${
+                                isCurrentSelected ? 'bg-emerald-50/50 border-x border-emerald-200' : ''
+                              }`}
+                            >
+                              <button
+                                onClick={() => openDrilldown(t, mNum)}
+                                className="w-full py-1.5 px-1 bg-gray-50 hover:bg-rose-50 text-gray-400 hover:text-rose-700 rounded-lg flex flex-col items-center justify-center transition-all border border-gray-100 hover:border-rose-200"
+                                title={`Bulan ${monthNames[mNum - 1]}: Belum Bayar. Klik untuk kirim reminder WA.`}
+                              >
+                                <span className="text-xs text-gray-300 font-bold">✕</span>
+                                <span className="text-[8px] font-semibold mt-0.5 leading-tight">Belum</span>
+                              </button>
                             </td>
                           );
                         })}
@@ -981,22 +1033,24 @@ Semoga Allah Ta'ala melipatgandakan pahala dan keberkahan untuk Ukhti sekeluarga
                           )}
                         </td>
                         <td className="py-4 px-6 whitespace-nowrap">
-                          {!t.is_donasi_choice ? (
-                            <span className="text-xs text-gray-400 font-medium">Bebas Infaq</span>
-                          ) : t.payment_status === 'paid' ? (
+                          {t.payment_status === 'paid' ? (
                             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-900 border border-emerald-200">
                               <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
-                              Sudah Membayar
+                              Sudah Membayar {!t.is_donasi_choice && '(Sukarela)'}
                             </span>
                           ) : t.payment_status === 'pending' ? (
                             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-200 animate-pulse">
                               <Clock className="w-3.5 h-3.5 text-amber-600" />
-                              Menunggu Verifikasi
+                              Menunggu Verifikasi {!t.is_donasi_choice && '(Sukarela)'}
                             </span>
                           ) : t.payment_status === 'rejected' ? (
                             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-900 border border-rose-200">
                               <Ban className="w-3.5 h-3.5 text-rose-600" />
                               Bukti Ditolak
+                            </span>
+                          ) : !t.is_donasi_choice ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
+                              Bebas Infaq (Pengabdian)
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-100">

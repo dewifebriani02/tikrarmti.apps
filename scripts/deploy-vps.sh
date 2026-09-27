@@ -6,7 +6,7 @@
 set -e
 
 VPS_HOST="187.52.120.159"
-VPS_USER="root"
+VPS_USER="markaztikrar"
 SITE_USER="markaztikrar"
 REMOTE_PATH="/home/markaztikrar/htdocs/markaztikrar.id"
 APP_PORT="3006"
@@ -52,12 +52,13 @@ fi
 
 # 5. Set Permissions, Install Dependencies & Restart Services
 echo ""
-echo "Step 5: Setting Permissions, Installing Dependencies & Restarting Services on VPS..."
+echo "Step 5: Installing Dependencies & Restarting Services on VPS..."
 ssh ${VPS_USER}@${VPS_HOST} "
-  systemctl restart postgrest-mti || true
-  chmod -R 775 ${REMOTE_PATH}
-  chown -R ${SITE_USER}:${SITE_USER} ${REMOTE_PATH}
-  su - ${SITE_USER} -c 'cd ${REMOTE_PATH} && npm install --legacy-peer-deps && npm run build && (pm2 restart markaztikrar-app || pm2 start npm --name \"markaztikrar-app\" -- start -- -p ${APP_PORT}) && pm2 save'
+  cd ${REMOTE_PATH}
+  npm install --legacy-peer-deps
+  npm run build
+  pm2 restart markaztikrar-app || pm2 start npm --name 'markaztikrar-app' -- start -- -p ${APP_PORT}
+  pm2 save
 "
 
 # 6. Verify Health
