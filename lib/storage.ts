@@ -6,7 +6,9 @@ import { join, dirname } from 'path';
  * Base directory for uploads. In Next.js, public/uploads is served statically.
  */
 const UPLOAD_BASE_DIR = process.env.UPLOAD_DIR || join(process.cwd(), 'public', 'uploads');
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://markaztikrar.id';
+const APP_URL = (process.env.NODE_ENV === 'production' || !process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_APP_URL.includes('localhost'))
+  ? 'https://markaztikrar.id'
+  : process.env.NEXT_PUBLIC_APP_URL;
 
 /**
  * Save an uploaded file buffer to the local VPS storage (public/uploads/<bucket>/<filePath>)
@@ -33,7 +35,8 @@ export async function saveUploadedFile(
     : Buffer.from(data.buffer, data.byteOffset, data.byteLength);
   await writeFile(fullPath, buffer);
 
-  const publicUrl = `${APP_URL}/uploads/${bucket}/${cleanPath}`;
+  // Return relative path or public production URL
+  const publicUrl = `/uploads/${bucket}/${cleanPath}`;
 
   return {
     publicUrl,

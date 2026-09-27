@@ -5,6 +5,20 @@ import { query } from '@/lib/db';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+function cleanProofUrl(url?: string | null): string | null {
+  if (!url) return null;
+  const trimmed = url.trim();
+  if (trimmed.startsWith('http://localhost') || trimmed.startsWith('http://127.0.0.1')) {
+    try {
+      const parsed = new URL(trimmed);
+      return parsed.pathname;
+    } catch {
+      return trimmed.replace(/^http:\/\/localhost(:\d+)?/, '');
+    }
+  }
+  return trimmed;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const authError = await requireAdmin();
@@ -15,7 +29,7 @@ export async function GET(request: NextRequest) {
     // Date calculation (default to Asia/Jakarta current month)
     const now = new Date();
     const jakartaDateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' }); // YYYY-MM-DD
-    const [defYearStr, defMonthStr, defDayStr] = jakartaDateStr.split('-');
+    const [defYearStr, defMonthStr] = jakartaDateStr.split('-');
     
     const month = parseInt(searchParams.get('month') || defMonthStr, 10);
     const year = parseInt(searchParams.get('year') || defYearStr, 10);
@@ -83,40 +97,55 @@ export async function GET(request: NextRequest) {
 
     const userIds = thalibahRows.map((t: any) => t.user_id);
 
-    // 3. Define date boundaries for the selected month
-    const startOfMonthIso = `${year}-${String(month).padStart(2, '0')}-01T00:00:00+07:00`;
-    const nextMonth = month === 12 ? 1 : month + 1;
-    const nextYear = month === 12 ? year + 1 : year;
-    const startOfNextMonthIso = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01T00:00:00+07:00`;
-
-    // 4. Fetch donations for these users in the selected month
-    let donationByUser = new Map<string, any>();
+    // 3. Fetch ALL donations for these users
+    let userDonationsMap = new Map<string, any[]>();
     if (userIds.length > 0) {
       const { rows: donationRows } = await query(
         `SELECT id, user_id, amount, donor_name, whatsapp, proof_url, status, notes, created_at, updated_at
          FROM donations
          WHERE user_id = ANY($1::uuid[])
-           AND (
-             (created_at >= ($2::timestamptz - interval '5 days') AND created_at < $3::timestamptz)
-             OR (updated_at >= $2::timestamptz AND updated_at < $3::timestamptz)
-           )
          ORDER BY created_at DESC`,
-        [userIds, startOfMonthIso, startOfNextMonthIso]
+        [userIds]
       );
 
       donationRows.forEach((d: any) => {
-        if (!donationByUser.has(d.user_id)) {
-          donationByUser.set(d.user_id, d);
-        }
+        const cleaned = {
+          ...d,
+          proof_url: cleanProofUrl(d.proof_url),
+        };
+        const arr = userDonationsMap.get(d.user_id) || [];
+        arr.push(cleaned);
+        userDonationsMap.set(d.user_id, arr);
       });
     }
 
-    // 5. Build Rekap list
+    // 4. Month Names
     const monthNamesIndo = [
       'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
       'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
     ];
     const monthName = monthNamesIndo[month - 1];
+
+    // Helper: Determine payment status for a specific month & year
+    const getMonthDonation = (userDons: any[], targetMonth: number, targetYear: number) => {
+      // Find donation where created_at is within targetMonth (with 5-day grace before month start)
+      const startOfMonth = new Date(Date.UTC(targetYear, targetMonth - 1, 1, 0, 0, 0));
+      const graceStart = new Date(startOfMonth.getTime() - 5 * 24 * 60 * 60 * 1000);
+      const endOfMonth = new Date(Date.UTC(targetYear, targetMonth, 1, 0, 0, 0));
+
+      const matched = userDons.filter((d) => {
+        const dDate = new Date(d.created_at);
+        return dDate >= graceStart && dDate < endOfMonth;
+      });
+
+      if (matched.length === 0) return null;
+      // Prioritize approved, then pending, then rejected
+      const approved = matched.find((m) => m.status === 'approved');
+      if (approved) return approved;
+      const pending = matched.find((m) => m.status === 'pending');
+      if (pending) return pending;
+      return matched[0];
+    };
 
     let totalDonasiCohort = 0;
     let totalPaid = 0;
@@ -129,27 +158,48 @@ export async function GET(request: NextRequest) {
     const list = thalibahRows.map((t: any) => {
       const isDonasiChoice = t.pengabdian_choice && t.pengabdian_choice.toLowerCase().includes('donasi');
       const hasDispensation = !!(t.review_notes && t.review_notes.toLowerCase().includes('[dispensasi]'));
-      const donation = donationByUser.get(t.user_id) || null;
+      const userDons = userDonationsMap.get(t.user_id) || [];
 
-      let paymentStatus: 'paid' | 'pending' | 'unpaid' | 'rejected' = 'unpaid';
-      if (donation) {
-        if (donation.status === 'approved') {
-          paymentStatus = 'paid';
-        } else if (donation.status === 'pending') {
-          paymentStatus = 'pending';
-        } else if (donation.status === 'rejected') {
-          paymentStatus = 'rejected';
+      // Calculate monthly status map for months 1..12
+      const monthlyStatus: Record<number, {
+        payment_status: 'paid' | 'pending' | 'unpaid' | 'rejected';
+        donation: any | null;
+      }> = {};
+
+      for (let m = 1; m <= 12; m++) {
+        const d = getMonthDonation(userDons, m, year);
+        let pStatus: 'paid' | 'pending' | 'unpaid' | 'rejected' = 'unpaid';
+        if (d) {
+          if (d.status === 'approved') pStatus = 'paid';
+          else if (d.status === 'pending') pStatus = 'pending';
+          else if (d.status === 'rejected') pStatus = 'rejected';
         }
+        monthlyStatus[m] = {
+          payment_status: pStatus,
+          donation: d ? {
+            id: d.id,
+            amount: Number(d.amount),
+            status: d.status,
+            proof_url: d.proof_url,
+            notes: d.notes,
+            created_at: d.created_at,
+          } : null,
+        };
       }
+
+      // Selected month donation
+      const curMonthStatus = monthlyStatus[month];
+      const selectedMonthDonation = curMonthStatus.donation;
+      const paymentStatus = curMonthStatus.payment_status;
 
       if (isDonasiChoice) {
         totalDonasiCohort++;
         if (paymentStatus === 'paid') {
           totalPaid++;
-          amountPaid += Number(donation?.amount || 0);
+          amountPaid += Number(selectedMonthDonation?.amount || 0);
         } else if (paymentStatus === 'pending') {
           totalPending++;
-          amountPending += Number(donation?.amount || 0);
+          amountPending += Number(selectedMonthDonation?.amount || 0);
         } else if (paymentStatus === 'rejected') {
           totalRejected++;
         } else {
@@ -181,14 +231,18 @@ export async function GET(request: NextRequest) {
         commitment_amount: commitmentAmount,
         has_dispensation: hasDispensation,
         payment_status: paymentStatus,
-        donation: donation ? {
-          id: donation.id,
-          amount: Number(donation.amount),
-          status: donation.status,
-          proof_url: donation.proof_url,
-          notes: donation.notes,
-          created_at: donation.created_at,
-        } : null,
+        donation: selectedMonthDonation,
+        monthly_status: monthlyStatus,
+        donations_history: userDons.map((d) => ({
+          id: d.id,
+          amount: Number(d.amount),
+          status: d.status,
+          proof_url: d.proof_url,
+          notes: d.notes,
+          created_at: d.created_at,
+          donor_name: d.donor_name,
+          whatsapp: d.whatsapp,
+        })),
       };
     });
 
