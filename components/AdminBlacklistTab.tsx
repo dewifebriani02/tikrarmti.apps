@@ -1,14 +1,17 @@
 'use client';
 
-import { ShieldAlert, RefreshCw, Ban, Search } from 'lucide-react';
+import { useState } from 'react';
+import { ShieldAlert, RefreshCw, Ban, Search, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAdminBlacklist } from '@/hooks/useAdminBlacklist';
 import { BlacklistStats } from './blacklist/BlacklistStats';
 import { BlacklistTable } from './blacklist/BlacklistTable';
 import { BlacklistModals } from './blacklist/BlacklistModals';
+import { AdminRekapChatDisiplinModal } from './AdminRekapChatDisiplinModal';
 
 export function AdminBlacklistTab() {
+  const [isRekapChatOpen, setIsRekapChatOpen] = useState(false);
   const {
     blacklistedUsers, isLoading, search, setSearch, currentPage, setCurrentPage, totalPages, totalItems,
     isAddModalOpen, setIsAddModalOpen, isDetailModalOpen, setIsDetailModalOpen, selectedUser, setSelectedUser,
@@ -26,6 +29,9 @@ export function AdminBlacklistTab() {
           <p className="text-gray-600 mt-1">Kelola user yang di-blacklist dari pendaftaran</p>
         </div>
         <div className="flex gap-2">
+          <Button onClick={() => setIsRekapChatOpen(true)} variant="outline" className="gap-2 border-emerald-600 text-emerald-700 hover:bg-emerald-50">
+            <MessageSquare className="h-4 w-4" /> Template Rekap Chat WA
+          </Button>
           <Button onClick={() => fetchBlacklist()} variant="outline" className="gap-2">
             <RefreshCw className="h-4 w-4" /> Refresh
           </Button>
@@ -74,6 +80,11 @@ export function AdminBlacklistTab() {
         setIsDetailModalOpen={setIsDetailModalOpen}
         selectedUser={selectedUser}
         onRemove={handleRemoveFromBlacklist}
+      />
+
+      <AdminRekapChatDisiplinModal
+        isOpen={isRekapChatOpen}
+        onClose={() => setIsRekapChatOpen(false)}
       />
     </div>
   );

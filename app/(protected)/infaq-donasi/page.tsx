@@ -137,9 +137,16 @@ export default function InfaqDonasiPage() {
   };
 
   const handleDonationSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!donationAmount || Number(donationAmount) <= 0) {
-      toast.error('Masukkan jumlah donasi yang valid');
+    const rawDigits = donationAmount.replace(/\D/g, '');
+    let parsedAmount = Number(rawDigits);
+    
+    // Auto-correct if user typed shorthand like '25' or '50' for ribuan
+    if (parsedAmount > 0 && parsedAmount < 1000) {
+      parsedAmount = parsedAmount * 1000;
+    }
+
+    if (!parsedAmount || parsedAmount < 1000) {
+      toast.error('Masukkan jumlah donasi minimal Rp 1.000');
       return;
     }
     if (!donorName.trim()) {
@@ -157,7 +164,7 @@ export default function InfaqDonasiPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amount: Number(donationAmount),
+          amount: parsedAmount,
           donor_name: donorName,
           whatsapp,
           proof_url: proofUrl,
@@ -291,16 +298,47 @@ export default function InfaqDonasiPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* Amount */}
                     <div className="space-y-2">
-                      <Label htmlFor="amount" className="text-sm font-semibold text-gray-700">Nominal Donasi (IDR)</Label>
-                      <Input
-                        id="amount"
-                        type="number"
-                        min="1"
-                        value={donationAmount}
-                        onChange={(e) => setDonationAmount(e.target.value)}
-                        placeholder="Contoh: 100000"
-                        className="rounded-xl border-gray-200 focus:border-emerald-500"
-                      />
+                      <Label htmlFor="amount" className="text-sm font-semibold text-gray-700">Nominal Infaq / Donasi (IDR)</Label>
+                      <div className="flex flex-wrap gap-1.5 mb-2">
+                        {['25.000', '50.000', '100.000', '200.000'].map((preset) => (
+                          <button
+                            key={preset}
+                            type="button"
+                            onClick={() => setDonationAmount(preset)}
+                            className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-all ${
+                              donationAmount === preset
+                                ? 'bg-emerald-700 text-white border-emerald-700 shadow-sm'
+                                : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-emerald-50 hover:border-emerald-300'
+                            }`}
+                          >
+                            Rp {preset}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-sm">Rp</span>
+                        <Input
+                          id="amount"
+                          type="text"
+                          value={donationAmount}
+                          onChange={(e) => {
+                            const digits = e.target.value.replace(/\D/g, '');
+                            if (!digits) {
+                              setDonationAmount('');
+                            } else {
+                              const formatted = new Intl.NumberFormat('id-ID').format(Number(digits));
+                              setDonationAmount(formatted);
+                            }
+                          }}
+                          placeholder="25.000"
+                          className="rounded-xl border-gray-200 focus:border-emerald-500 pl-10 font-bold text-gray-900"
+                        />
+                      </div>
+                      {donationAmount && Number(donationAmount.replace(/\D/g, '')) > 0 && Number(donationAmount.replace(/\D/g, '')) < 1000 && (
+                        <p className="text-[11px] text-amber-600 font-medium">
+                          * Otomatis dihitung sebagai Rp {new Intl.NumberFormat('id-ID').format(Number(donationAmount.replace(/\D/g, '')) * 1000)}
+                        </p>
+                      )}
                     </div>
 
                     {/* Proof Upload */}

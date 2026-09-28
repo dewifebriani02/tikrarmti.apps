@@ -50,6 +50,7 @@ import { cn } from '@/lib/utils';
 import { parseBlokField } from '@/lib/blok';
 import { HalaqahSummaryTab } from './components/HalaqahSummaryTab';
 import { KurikulumTab } from './components/KurikulumTab';
+import { AdminRekapChatDisiplinModal } from '@/components/AdminRekapChatDisiplinModal';
 
 function Pagination({ 
   currentPage, 
@@ -301,6 +302,7 @@ function PresensiJurnalContent() {
   const searchParams = useSearchParams();
   const { user, isLoading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<'presensi' | 'jurnal' | 'blacklist' | 'dropout' | 'halaqah' | 'kurikulum'>('jurnal');
+  const [rekapChatModalOpen, setRekapChatModalOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [dataLoading, setDataLoading] = useState(false);
   const [jurnalEntries, setJurnalEntries] = useState<JurnalUserEntry[]>([]);
@@ -612,6 +614,17 @@ function PresensiJurnalContent() {
                   </span>
                 </h1>
               </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 w-full md:w-auto justify-end">
+              <button
+                onClick={() => setRekapChatModalOpen(true)}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white font-bold text-xs sm:text-sm shadow-md shadow-green-900/10 hover:shadow-lg transition-all active:scale-95"
+                title="Buka Template Rekap Chat WhatsApp Evaluasi Pekanan"
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span>📋 Template Rekap Chat WA</span>
+              </button>
             </div>
           </div>
         </div>
@@ -1094,6 +1107,13 @@ function PresensiJurnalContent() {
             }}
           />
         )}
+
+        {/* WhatsApp Weekly Evaluation Rekap Chat Modal */}
+        <AdminRekapChatDisiplinModal
+          isOpen={rekapChatModalOpen}
+          onClose={() => setRekapChatModalOpen(false)}
+          defaultBatchId={selectedBatchId}
+        />
       </div>
       
       <EffectHandler 
