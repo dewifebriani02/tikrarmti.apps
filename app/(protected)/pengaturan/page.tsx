@@ -2,17 +2,33 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Settings } from 'lucide-react';
+import { Settings, Shield } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { ROLE_RANKS, hasRequiredRank } from '@/lib/roles';
+import { AdminBackupCard } from '@/components/AdminBackupCard';
 
 export default function PengaturanPage() {
   const router = useRouter();
+  const { user } = useAuth();
+  const userRoles = (user as any)?.primaryRole ? [(user as any).primaryRole] : (user?.roles || []);
+  const isAdmin = hasRequiredRank(userRoles, ROLE_RANKS.admin);
 
   return (
-    <div className="max-w-4xl mx-auto">
-        <div className="bg-white shadow rounded-lg p-6">
+    <div className="max-w-4xl mx-auto space-y-6">
+        {isAdmin && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Shield className="w-5 h-5 text-emerald-700" />
+              <h2 className="text-lg font-bold text-gray-900">Pemeliharaan & Keamanan Data (Admin)</h2>
+            </div>
+            <AdminBackupCard />
+          </div>
+        )}
+
+        <div className="bg-white shadow rounded-2xl p-6 border border-gray-100">
           <div className="flex items-center gap-3 mb-6">
-            <Settings className="w-6 h-6 text-green-900" />
-            <h1 className="text-2xl font-bold text-gray-900">Pengaturan</h1>
+            <Settings className="w-6 h-6 text-emerald-900" />
+            <h1 className="text-2xl font-bold text-gray-900">Pengaturan Akun</h1>
           </div>
 
           <div className="space-y-6">
