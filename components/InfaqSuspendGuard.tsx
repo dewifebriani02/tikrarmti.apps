@@ -173,59 +173,69 @@ export function InfaqSuspendGuard({
   };
 
   return (
-    <div className="min-h-[85vh] flex items-center justify-center p-4 sm:p-6 lg:p-8">
-      <div className="max-w-2xl w-full bg-white rounded-3xl shadow-xl border border-rose-100 overflow-hidden relative">
+    <div className="w-full max-w-xl mx-auto py-2 sm:py-6 px-3 sm:px-4">
+      <div className="bg-white rounded-3xl shadow-xl border border-rose-100 overflow-hidden relative">
         {/* Top Warning Bar */}
         <div className="h-2 bg-gradient-to-r from-rose-500 via-amber-500 to-rose-600" />
 
-        <div className="p-6 sm:p-8 lg:p-10 space-y-6">
+        <div className="p-4 sm:p-6 space-y-4">
           {/* Header Section */}
-          <div className="flex flex-col items-center text-center space-y-3">
-            <div className="w-16 h-16 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 shadow-inner">
-              <ShieldAlert className="w-8 h-8" />
+          <div className="flex flex-col items-center text-center space-y-2">
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 shadow-inner">
+              <ShieldAlert className="w-6 h-6" />
             </div>
 
             <div className="space-y-1">
-              <span className="text-[11px] font-extrabold uppercase tracking-widest text-rose-600 bg-rose-50 border border-rose-200 px-3 py-1 rounded-full inline-block">
+              <span className="text-[10px] font-extrabold uppercase tracking-widest text-rose-600 bg-rose-50 border border-rose-200 px-2.5 py-0.5 rounded-full inline-block">
                 Akses Aplikasi Sementara Dijeda
               </span>
-              <h2 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight mt-2">
+              <h2 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">
                 Konfirmasi Infaq Bulanan {status.month_name} {status.current_year}
               </h2>
             </div>
 
-            <p className="text-sm text-gray-600 leading-relaxed max-w-lg">
-              Afwan Ukhti <strong>{user.full_name}</strong>, batas waktu konfirmasi infaq bulanan (tanggal 10 {status.month_name}) telah terlewati. Mohon selesaikan konfirmasi infaq operasional bulanan sebesar <strong className="text-gray-900">{formatIDR(status.commitment_amount)}</strong> agar modul pembelajaran dapat dibuka kembali secara otomatis.
+            <p className="text-xs sm:text-sm text-gray-600 leading-relaxed max-w-md">
+              Afwan Ukhti <strong>{user.full_name}</strong>, batas waktu konfirmasi infaq bulanan (tgl 10 {status.month_name}) telah terlewati. Mohon unggah bukti infaq operasional sebesar <strong className="text-emerald-700 font-bold">{formatIDR(status.commitment_amount)}</strong> di bawah ini agar akses modul pembelajaran terbuka kembali otomatis.
             </p>
           </div>
 
           {/* Bank Info Card */}
-          <div className="bg-gradient-to-br from-emerald-950 to-emerald-900 text-white p-5 sm:p-6 rounded-2xl shadow-lg relative overflow-hidden">
+          <div className="bg-gradient-to-br from-emerald-950 to-emerald-900 text-white p-4 sm:p-5 rounded-2xl shadow-md relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-xl pointer-events-none" />
             
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
               <div>
-                <p className="text-xs text-emerald-200 uppercase tracking-wider font-semibold">Rekening Infaq Operasional</p>
-                <div className="flex items-center gap-2 mt-1">
+                <p className="text-[10px] text-emerald-300 uppercase tracking-wider font-semibold">Rekening Infaq Operasional</p>
+                <div className="flex items-center gap-2 mt-0.5">
                   <h3 className="text-xl sm:text-2xl font-mono font-bold tracking-wider text-white">
                     7345608197
                   </h3>
                   <button
                     onClick={copyBankNumber}
-                    className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
+                    className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center gap-1 text-xs"
                     title="Salin nomor rekening"
                   >
-                    {copiedBank ? <Check className="w-4 h-4 text-emerald-300" /> : <Copy className="w-4 h-4" />}
+                    {copiedBank ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-300" />
+                        <span className="text-[10px] text-emerald-300 font-bold">Tersalin</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span className="text-[10px] font-medium">Salin</span>
+                      </>
+                    )}
                   </button>
                 </div>
-                <p className="text-xs text-emerald-200 mt-1 font-medium">
+                <p className="text-[11px] text-emerald-200 mt-1 font-medium">
                   Bank Syariah Indonesia (BSI) • a.n <strong>Mara Martalena</strong>
                 </p>
               </div>
 
-              <div className="text-left sm:text-right shrink-0">
-                <p className="text-[11px] text-emerald-300 uppercase tracking-wider font-semibold">Nominal Komitmen</p>
-                <p className="text-xl font-extrabold text-amber-300 mt-0.5">
+              <div className="text-left sm:text-right shrink-0 pt-1 sm:pt-0 border-t sm:border-t-0 border-white/10 w-full sm:w-auto flex justify-between sm:block">
+                <p className="text-[10px] text-emerald-300 uppercase tracking-wider font-semibold">Nominal Komitmen</p>
+                <p className="text-lg sm:text-xl font-black text-amber-300">
                   {formatIDR(status.commitment_amount)}
                 </p>
               </div>
@@ -233,23 +243,28 @@ export function InfaqSuspendGuard({
           </div>
 
           {/* Quick Upload Form */}
-          <form onSubmit={handleSubmit} className="space-y-4 pt-2">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="guardAmount" className="text-xs font-bold text-gray-700">Nominal Transfer (Rp)</Label>
+          <form onSubmit={handleSubmit} className="space-y-3 bg-gray-50/80 p-3.5 sm:p-4 rounded-2xl border border-gray-100">
+            <div className="flex items-center gap-2 text-xs font-bold text-gray-800 pb-1 border-b border-gray-200/60">
+              <Upload className="w-4 h-4 text-emerald-600" />
+              <span>Unggah Bukti Transfer</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="guardAmount" className="text-[11px] font-bold text-gray-700">Nominal Transfer (Rp)</Label>
                 <Input
                   id="guardAmount"
                   type="number"
-                  placeholder="25000"
+                  placeholder="50000"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  className="rounded-xl border-gray-200 h-10 text-sm focus:border-emerald-500"
+                  className="rounded-xl border-gray-200 h-9 text-xs font-semibold focus:border-emerald-500 bg-white"
                   required
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="guardProof" className="text-xs font-bold text-gray-700">Bukti Transfer (Foto / Screenshot)</Label>
+              <div className="space-y-1">
+                <Label htmlFor="guardProof" className="text-[11px] font-bold text-gray-700">Foto Bukti Transfer</Label>
                 <div className="relative">
                   <input
                     id="guardProof"
@@ -261,24 +276,24 @@ export function InfaqSuspendGuard({
                   />
                   <label
                     htmlFor="guardProof"
-                    className={`flex items-center justify-center gap-2 w-full h-10 px-4 rounded-xl border border-dashed border-gray-300 hover:border-emerald-500 bg-gray-50/50 hover:bg-emerald-50/30 text-xs font-medium text-gray-700 cursor-pointer transition-colors ${
+                    className={`flex items-center justify-center gap-1.5 w-full h-9 px-3 rounded-xl border border-dashed border-emerald-300 hover:border-emerald-600 bg-white hover:bg-emerald-50 text-xs font-medium text-gray-700 cursor-pointer transition-colors shadow-sm ${
                       uploadingProof ? 'opacity-50 pointer-events-none' : ''
                     }`}
                   >
                     {uploadingProof ? (
-                      <span className="flex items-center gap-2 text-emerald-800">
-                        <div className="w-3.5 h-3.5 border-2 border-emerald-800 border-t-transparent rounded-full animate-spin" />
-                        Mengunggah bukti...
+                      <span className="flex items-center gap-1.5 text-emerald-800 text-[11px]">
+                        <div className="w-3 h-3 border-2 border-emerald-800 border-t-transparent rounded-full animate-spin" />
+                        Mengunggah...
                       </span>
                     ) : proofUrl ? (
-                      <span className="flex items-center gap-1.5 text-emerald-700 font-semibold truncate">
+                      <span className="flex items-center gap-1 text-emerald-700 font-bold truncate text-[11px]">
                         <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        {proofFile ? proofFile.name : 'Bukti Terunggah'}
+                        {proofFile ? proofFile.name : 'Bukti Terpilih'}
                       </span>
                     ) : (
-                      <span className="flex items-center gap-1.5 text-gray-500">
+                      <span className="flex items-center gap-1.5 text-emerald-800 font-semibold text-[11px]">
                         <Upload className="w-3.5 h-3.5" />
-                        Pilih File Bukti Transfer
+                        Pilih Gambar / PDF
                       </span>
                     )}
                   </label>
@@ -286,25 +301,25 @@ export function InfaqSuspendGuard({
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="guardNotes" className="text-xs font-bold text-gray-700">Catatan Tambahan (Opsional)</Label>
+            <div className="space-y-1">
+              <Label htmlFor="guardNotes" className="text-[11px] font-bold text-gray-700">Catatan (Opsional)</Label>
               <Input
                 id="guardNotes"
-                placeholder={`Contoh: Infaq ${status.month_name} ${status.current_year} - ${user.full_name}`}
+                placeholder={`Infaq ${status.month_name} ${status.current_year} - ${user.full_name}`}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                className="rounded-xl border-gray-200 h-10 text-xs focus:border-emerald-500"
+                className="rounded-xl border-gray-200 h-9 text-xs focus:border-emerald-500 bg-white"
               />
             </div>
 
             <Button
               type="submit"
               disabled={uploadingProof || submitting || !proofUrl}
-              className="w-full bg-emerald-800 hover:bg-emerald-700 text-white rounded-xl h-11 text-sm font-bold shadow-md hover:shadow-lg transition-all gap-2"
+              className="w-full bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl h-10 text-xs sm:text-sm font-bold shadow-md hover:shadow-lg transition-all gap-2 mt-1"
             >
               {submitting ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   <span>Memproses & Membuka Akses...</span>
                 </>
               ) : (
@@ -317,22 +332,22 @@ export function InfaqSuspendGuard({
           </form>
 
           {/* Footer Actions / Help */}
-          <div className="pt-2 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-500">
+          <div className="pt-2 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-gray-500">
             <Link
               href="/infaq-donasi"
-              className="hover:text-emerald-800 underline font-semibold transition-colors"
+              className="hover:text-emerald-800 underline font-semibold transition-colors text-[11px]"
             >
-              Buka Halaman Infaq & Riwayat Lengkap
+              Buka Halaman Infaq Lengkap
             </Link>
 
             <a
               href="https://wa.me/6281234567890?text=Assalamu%27alaikum%20Admin%20MTI,%20saya%20ingin%20konfirmasi%20terkait%20infaq%20bulanan"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-gray-600 hover:text-gray-900 font-medium"
+              className="flex items-center gap-1.5 text-gray-600 hover:text-gray-900 font-medium text-[11px]"
             >
               <PhoneCall className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Butuh Bantuan Admin?</span>
+              <span>Butuh Bantuan / Dispensasi?</span>
             </a>
           </div>
         </div>
