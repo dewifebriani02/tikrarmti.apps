@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast, Toaster } from 'sonner';
+import { uploadFileWithFallback } from '@/lib/image-compress';
 import { 
   HeartHandshake, 
   FileText, 
@@ -91,15 +92,14 @@ export default function InfaqDonasiPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Ukuran file maksimal 5MB');
+    // Allow larger photos since client-side compression will downsize them
+    if (file.size > 25 * 1024 * 1024) {
+      toast.error('Ukuran file maksimal 25MB');
       return;
     }
 
-    // Validate type
-    const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
-    if (!validTypes.includes(file.type)) {
+    const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf', 'image/webp', 'image/heic', 'image/heif'];
+    if (!validTypes.includes(file.type) && !file.type.startsWith('image/')) {
       toast.error('Format file harus berupa JPG, PNG, atau PDF');
       return;
     }
@@ -108,23 +108,13 @@ export default function InfaqDonasiPage() {
       setUploadingProof(true);
       setProofFile(file);
 
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('bucket', 'documents');
-      formData.append('subfolder', 'donations');
-
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
+      const { publicUrl } = await uploadFileWithFallback(file, {
+        bucket: 'documents',
+        subfolder: 'donations',
+        maxWidth: 1200,
+        maxHeight: 1200,
+        quality: 0.8
       });
-
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson.error || 'Gagal mengunggah bukti transfer');
-      }
-
-      const json = await res.json();
-      const publicUrl = json.data?.publicUrl || json.data?.url;
 
       setProofUrl(publicUrl);
       toast.success('Bukti transfer berhasil diunggah');

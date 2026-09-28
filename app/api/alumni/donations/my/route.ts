@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
+import { createSupabaseAdmin } from '@/lib/supabase';
 import { ApiResponses } from '@/lib/api-responses';
+import { query, queryOne } from '@/lib/db';
+
+const supabaseAdmin = createSupabaseAdmin();
 
 /**
  * GET /api/alumni/donations/my
@@ -8,25 +12,17 @@ import { ApiResponses } from '@/lib/api-responses';
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient();
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !user) {
+    const user = await getCurrentUser();
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: donations, error } = await supabase
-      .from('donations')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
+    const donations = await query(
+      `SELECT * FROM donations WHERE user_id = $1 ORDER BY created_at DESC`,
+      [user.id]
+    );
 
-    if (error) {
-      console.error('[Alumni Donations My GET] Database error:', error);
-      return ApiResponses.databaseError(error);
-    }
-
-    return ApiResponses.success(donations);
+    return ApiResponses.success(donations || []);
   } catch (error: any) {
     console.error('[Alumni Donations My GET] Server error:', error);
     return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
@@ -39,10 +35,8 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient();
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !user) {
+    const user = await getCurrentUser();
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -55,35 +49,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Jumlah donasi harus berupa angka lebih besar dari 0' }, { status: 400 });
     }
 
-    if (!donor_name || typeof donor_name !== 'string' || donor_name.trim() === '') {
-      return NextResponse.json({ error: 'Nama donatur wajib diisi' }, { status: 400 });
-    }
+    const donorName = donor_name && typeof donor_name === 'string' && donor_name.trim() 
+      ? donor_name.trim() 
+      : user.full_name || 'Thalibah MTI';
 
     if (!proof_url || typeof proof_url !== 'string' || proof_url.trim() === '') {
       return NextResponse.json({ error: 'Bukti transfer wajib diunggah' }, { status: 400 });
     }
 
-    const { data, error } = await supabase
-      .from('donations')
-      .insert({
-        user_id: user.id,
-        amount: numericAmount,
-        donor_name: donor_name.trim(),
-        whatsapp: whatsapp ? whatsapp.trim() : null,
-        proof_url: proof_url.trim(),
-        notes: notes ? notes.trim() : null,
-        status: 'pending',
-        updated_at: new Date().toISOString()
-      })
-      .select()
-      .single();
+    const userPhone = whatsapp ? whatsapp.trim() : (user.whatsapp || null);
 
-    if (error) {
-      console.error('[Alumni Donations My POST] Database error:', error);
-      return ApiResponses.databaseError(error);
-    }
+    const newDonation = await queryOne(
+      `INSERT INTO donations (user_id, amount, donor_name, whatsapp, proof_url, notes, status, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, 'pending', NOW(), NOW())
+       RETURNING *`,
+      [
+        user.id,
+        numericAmount,
+        donorName,
+        userPhone,
+        proof_url.trim(),
+        notes ? notes.trim() : null
+      ]
+    );
 
-    return ApiResponses.success(data, 'Konfirmasi donasi berhasil dikirim', 201);
+    return ApiResponses.success(newDonation, 'Konfirmasi donasi berhasil dikirim', 201);
   } catch (error: any) {
     console.error('[Alumni Donations My POST] Server error:', error);
     return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
