@@ -34,7 +34,9 @@ import {
   Maximize2,
   X,
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  Plus,
+  Upload
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -176,6 +178,122 @@ export function AdminDonationsTab() {
 
   // Image Preview Modal
   const [previewImage, setPreviewImage] = useState<{ url: string; title: string } | null>(null);
+
+  // Manual Donation Input Modal State
+  const [manualModalOpen, setManualModalOpen] = useState(false);
+  const [manualThalibahSearch, setManualThalibahSearch] = useState('');
+  const [manualForm, setManualForm] = useState({
+    user_id: '',
+    donor_name: '',
+    whatsapp: '',
+    amount: 25000,
+    month: selectedMonth,
+    year: selectedYear,
+    payment_method: 'Transfer Bank BSI',
+    status: 'approved' as 'approved' | 'pending',
+    notes: 'Transfer via WA',
+    proof_url: '',
+  });
+  const [uploadingManualProof, setUploadingManualProof] = useState(false);
+  const [submittingManual, setSubmittingManual] = useState(false);
+
+  const openManualModal = (thalibah?: RekapThalibah, targetMonth?: number, targetYear?: number) => {
+    const tMonth = targetMonth || selectedMonth;
+    const tYear = targetYear || selectedYear;
+    if (thalibah) {
+      setManualForm({
+        user_id: thalibah.user_id,
+        donor_name: thalibah.full_name,
+        whatsapp: thalibah.whatsapp || '',
+        amount: thalibah.commitment_amount > 0 ? thalibah.commitment_amount : 25000,
+        month: tMonth,
+        year: tYear,
+        payment_method: 'Transfer Bank BSI',
+        status: 'approved',
+        notes: `Transfer via WA (Infaq ${monthNames[tMonth - 1]} ${tYear})`,
+        proof_url: '',
+      });
+    } else {
+      setManualForm({
+        user_id: '',
+        donor_name: '',
+        whatsapp: '',
+        amount: 25000,
+        month: tMonth,
+        year: tYear,
+        payment_method: 'Transfer Bank BSI',
+        status: 'approved',
+        notes: 'Transfer via WA',
+        proof_url: '',
+      });
+    }
+    setManualThalibahSearch('');
+    setManualModalOpen(true);
+  };
+
+  const handleManualFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setUploadingManualProof(true);
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('folder', 'donations');
+
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      const json = await res.json();
+      if (json.success && json.url) {
+        setManualForm(prev => ({ ...prev, proof_url: json.url }));
+        toast.success('Bukti transfer berhasil diunggah');
+      } else {
+        toast.error(json.error || 'Gagal mengunggah bukti transfer');
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Gagal mengunggah berkas');
+    } finally {
+      setUploadingManualProof(false);
+    }
+  };
+
+  const handleSaveManualDonation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualForm.amount || Number(manualForm.amount) <= 0) {
+      toast.error('Nominal infaq harus lebih besar dari 0');
+      return;
+    }
+    if (!manualForm.user_id && !manualForm.donor_name.trim()) {
+      toast.error('Pilih thalibah atau isi nama donatur');
+      return;
+    }
+
+    try {
+      setSubmittingManual(true);
+      const res = await fetch('/api/admin/donations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(manualForm),
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success('Transaksi infaq manual berhasil dicatat!');
+        setManualModalOpen(false);
+        // Refresh rekap & donations list
+        fetchDonations();
+        await fetchRekap(selectedMonth, selectedYear, selectedBatchId);
+      } else {
+        toast.error(json.error || 'Gagal mencatat transaksi manual');
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Terjadi kesalahan saat menyimpan transaksi');
+    } finally {
+      setSubmittingManual(false);
+    }
+  };
 
   const monthNames = [
     'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
@@ -463,12 +581,20 @@ Semoga Allah Ta'ala melipatgandakan pahala dan keberkahan untuk Ukhti sekeluarga
           </button>
         </div>
 
-        {/* Global Batch & Month indicator */}
-        <div className="flex items-center gap-2 text-xs font-semibold text-gray-500">
+        {/* Global Batch & Month indicator + Input Transaksi Manual Button */}
+        <div className="flex flex-wrap items-center gap-2.5 text-xs font-semibold">
           <span className="px-3 py-1.5 bg-emerald-50 text-emerald-800 rounded-xl border border-emerald-100 flex items-center gap-1.5">
             <Calendar className="w-3.5 h-3.5" />
             {rekapData?.month_name || monthNames[selectedMonth - 1]} {selectedYear}
           </span>
+
+          <Button
+            onClick={() => openManualModal()}
+            className="bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs h-9 px-3.5 font-bold shadow-sm flex items-center gap-1.5 transition-all"
+          >
+            <Plus className="w-4 h-4" />
+            <span>+ Input Infaq Manual</span>
+          </Button>
         </div>
       </div>
 
@@ -1283,7 +1409,7 @@ Semoga Allah Ta'ala melipatgandakan pahala dan keberkahan untuk Ukhti sekeluarga
                                     setActionType('approved');
                                     setNoteModalOpen(true);
                                   }}
-                                  className="rounded-xl h-8 px-3 text-xs bg-emerald-800 hover:bg-emerald-900 text-white"
+                                  className="rounded-xl h-8 px-3 text-xs bg-emerald-800 hover:bg-emerald-900 text-white font-bold"
                                 >
                                   Terima
                                 </Button>
@@ -1295,11 +1421,43 @@ Semoga Allah Ta'ala melipatgandakan pahala dan keberkahan untuk Ukhti sekeluarga
                                     setActionType('rejected');
                                     setNoteModalOpen(true);
                                   }}
-                                  className="rounded-xl h-8 px-2.5 text-xs text-rose-600 hover:bg-rose-50"
+                                  className="rounded-xl h-8 px-2.5 text-xs text-rose-600 hover:bg-rose-50 font-bold"
                                 >
                                   Tolak
                                 </Button>
                               </>
+                            )}
+
+                            {d.status === 'approved' && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  setCurrentDonation(d);
+                                  setActionType('rejected');
+                                  setNoteModalOpen(true);
+                                }}
+                                className="rounded-xl h-8 px-2.5 text-xs text-rose-600 hover:bg-rose-50"
+                                title="Ubah status jadi Ditolak"
+                              >
+                                Tolak
+                              </Button>
+                            )}
+
+                            {d.status === 'rejected' && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  setCurrentDonation(d);
+                                  setActionType('approved');
+                                  setNoteModalOpen(true);
+                                }}
+                                className="rounded-xl h-8 px-2.5 text-xs text-emerald-700 hover:bg-emerald-50 font-bold"
+                                title="Ubah status jadi Diterima"
+                              >
+                                Terima
+                              </Button>
                             )}
 
                             <Button
@@ -1600,9 +1758,18 @@ Semoga Allah Ta'ala melipatgandakan pahala dan keberkahan untuk Ukhti sekeluarga
                         </div>
                       </div>
                     ) : (
-                      <div className="py-4 text-center text-gray-500 text-xs">
-                        <AlertCircle className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                      <div className="py-5 text-center text-gray-500 text-xs space-y-3">
+                        <AlertCircle className="w-8 h-8 mx-auto text-gray-300" />
                         <p className="font-medium">Belum ada transaksi infaq yang tercatat untuk bulan {monthNames[drilldownMonth - 1]} {selectedYear}.</p>
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => openManualModal(selectedThalibah, drilldownMonth, selectedYear)}
+                          className="bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs h-8 px-3.5 font-bold gap-1.5 shadow-sm inline-flex items-center"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Input Infaq Manual ({monthNames[drilldownMonth - 1]})</span>
+                        </Button>
                       </div>
                     )}
                   </div>
@@ -1611,9 +1778,21 @@ Semoga Allah Ta'ala melipatgandakan pahala dan keberkahan untuk Ukhti sekeluarga
 
               {/* All History Timeline for this Thalibah */}
               <div>
-                <h4 className="font-bold text-gray-900 text-xs uppercase tracking-wider mb-3">
-                  Semua Riwayat Infaq Thalibah ({selectedThalibah.donations_history?.length || 0} Transaksi)
-                </h4>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-bold text-gray-900 text-xs uppercase tracking-wider">
+                    Semua Riwayat Infaq Thalibah ({selectedThalibah.donations_history?.length || 0} Transaksi)
+                  </h4>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openManualModal(selectedThalibah, drilldownMonth, selectedYear)}
+                    className="h-7 px-2.5 rounded-lg text-[11px] font-bold text-emerald-800 border-emerald-200 hover:bg-emerald-50 flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>+ Tambah Transaksi</span>
+                  </Button>
+                </div>
                 {selectedThalibah.donations_history && selectedThalibah.donations_history.length > 0 ? (
                   <div className="border border-gray-200 rounded-2xl divide-y divide-gray-100 max-h-52 overflow-y-auto text-xs">
                     {selectedThalibah.donations_history.map((hist) => {
@@ -1827,6 +2006,313 @@ Semoga Allah Ta'ala melipatgandakan pahala dan keberkahan untuk Ukhti sekeluarga
                 {updatingStatus ? 'Menyimpan...' : actionType === 'approved' ? 'Ya, Terima Infaq' : 'Tolak Infaq'}
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL INPUT TRANSAKSI INFAQ MANUAL (VIA WA / CHAT ADMIN)                 */}
+      {/* ========================================================================= */}
+      {manualModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-xl w-full max-h-[92vh] overflow-hidden shadow-2xl flex flex-col border border-gray-100">
+            {/* Header */}
+            <div className="p-5 bg-gradient-to-r from-emerald-950 via-emerald-900 to-teal-900 text-white flex justify-between items-start">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-300">
+                  <Plus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-black text-white">Catat Transaksi Infaq Manual</h3>
+                  <p className="text-xs text-emerald-200/90">
+                    Input bukti transfer yang dikirim thalibah via WhatsApp atau pembayaran langsung.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setManualModalOpen(false)}
+                className="text-white/70 hover:text-white p-1.5 rounded-full hover:bg-white/10 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Form Body */}
+            <form onSubmit={handleSaveManualDonation} className="p-5 sm:p-6 overflow-y-auto space-y-4 text-xs">
+              {/* Thalibah Selection */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-gray-700 flex justify-between items-center">
+                  <span>Pilih Thalibah (Opsional)</span>
+                  {manualForm.user_id && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setManualForm(prev => ({
+                          ...prev,
+                          user_id: '',
+                          donor_name: '',
+                          whatsapp: '',
+                        }));
+                      }}
+                      className="text-rose-600 hover:underline font-normal text-[11px]"
+                    >
+                      Batal Pilih (Donatur Luar)
+                    </button>
+                  )}
+                </Label>
+
+                {/* Filter Search Input for Thalibah */}
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <Input
+                    placeholder="Ketik nama thalibah untuk mencari..."
+                    value={manualThalibahSearch}
+                    onChange={(e) => setManualThalibahSearch(e.target.value)}
+                    className="pl-8 h-8 text-xs rounded-xl border-gray-200"
+                  />
+                </div>
+
+                {/* Filtered Thalibah Quick Select List */}
+                <div className="max-h-32 overflow-y-auto border border-gray-200 rounded-xl divide-y divide-gray-100 bg-gray-50/50">
+                  <div
+                    onClick={() => {
+                      setManualForm(prev => ({
+                        ...prev,
+                        user_id: '',
+                        donor_name: prev.donor_name || 'Donatur Umum / Hamba Allah',
+                      }));
+                      setManualThalibahSearch('');
+                    }}
+                    className={`p-2 hover:bg-emerald-50 cursor-pointer transition-colors text-[11px] flex justify-between items-center ${
+                      !manualForm.user_id ? 'bg-emerald-100/50 font-bold text-emerald-950' : 'text-gray-600'
+                    }`}
+                  >
+                    <span>👥 Donatur Umum / Hamba Allah (Di Luar Thalibah Terdaftar)</span>
+                    {!manualForm.user_id && <Check className="w-3.5 h-3.5 text-emerald-700" />}
+                  </div>
+
+                  {(rekapData?.thalibah_list || [])
+                    .filter((t) => {
+                      if (!manualThalibahSearch.trim()) return true;
+                      const q = manualThalibahSearch.toLowerCase();
+                      return (
+                        t.full_name?.toLowerCase().includes(q) ||
+                        t.nama_kunyah?.toLowerCase().includes(q) ||
+                        t.whatsapp?.includes(q) ||
+                        t.halaqah_name?.toLowerCase().includes(q)
+                      );
+                    })
+                    .slice(0, 15)
+                    .map((t) => {
+                      const isSel = manualForm.user_id === t.user_id;
+                      return (
+                        <div
+                          key={t.user_id}
+                          onClick={() => {
+                            setManualForm(prev => ({
+                              ...prev,
+                              user_id: t.user_id,
+                              donor_name: t.full_name,
+                              whatsapp: t.whatsapp || '',
+                              amount: t.commitment_amount > 0 ? t.commitment_amount : prev.amount,
+                            }));
+                            setManualThalibahSearch('');
+                          }}
+                          className={`p-2 hover:bg-emerald-50 cursor-pointer transition-colors text-[11px] flex items-center justify-between ${
+                            isSel ? 'bg-emerald-100/70 font-bold text-emerald-950' : 'text-gray-700'
+                          }`}
+                        >
+                          <div>
+                            <span className="font-semibold text-gray-900">{t.full_name}</span>
+                            {t.nama_kunyah && <span className="text-gray-500 ml-1">({t.nama_kunyah})</span>}
+                            <span className="text-[10px] text-gray-400 block">
+                              {t.halaqah_name || 'Halaqah'} • {t.is_donasi_choice ? formatIDR(t.commitment_amount) : 'Pengabdian'}
+                            </span>
+                          </div>
+                          {isSel && <Check className="w-4 h-4 text-emerald-700" />}
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+
+              {/* Donor Name & WhatsApp */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold text-gray-700">Nama Donatur / Thalibah *</Label>
+                  <Input
+                    required
+                    value={manualForm.donor_name}
+                    onChange={(e) => setManualForm(prev => ({ ...prev, donor_name: e.target.value }))}
+                    placeholder="Nama lengkap"
+                    className="h-9 text-xs rounded-xl"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold text-gray-700">Nomor WhatsApp</Label>
+                  <Input
+                    value={manualForm.whatsapp}
+                    onChange={(e) => setManualForm(prev => ({ ...prev, whatsapp: e.target.value }))}
+                    placeholder="0812xxxxxxxx"
+                    className="h-9 text-xs rounded-xl"
+                  />
+                </div>
+              </div>
+
+              {/* Nominal & Quick Presets */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-gray-700">Nominal Transfer (Rp) *</Label>
+                <div className="flex gap-2 items-center">
+                  <Input
+                    type="number"
+                    required
+                    min={1000}
+                    step={1000}
+                    value={manualForm.amount}
+                    onChange={(e) => setManualForm(prev => ({ ...prev, amount: Number(e.target.value) }))}
+                    placeholder="25000"
+                    className="h-9 text-xs rounded-xl font-bold text-emerald-950"
+                  />
+                </div>
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {[25000, 50000, 100000, 200000, 500000].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setManualForm(prev => ({ ...prev, amount: preset }))}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-colors ${
+                        manualForm.amount === preset
+                          ? 'bg-emerald-700 text-white border-emerald-700'
+                          : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border-gray-200'
+                      }`}
+                    >
+                      {formatIDR(preset)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Target Month & Year Allocation */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold text-gray-700">Alokasi Bulan</Label>
+                  <select
+                    value={manualForm.month}
+                    onChange={(e) => setManualForm(prev => ({ ...prev, month: Number(e.target.value) }))}
+                    className="w-full h-9 px-3 rounded-xl border border-gray-200 bg-white text-xs font-semibold text-gray-800 focus:border-emerald-500"
+                  >
+                    {monthNames.map((mName, idx) => (
+                      <option key={idx + 1} value={idx + 1}>
+                        {mName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold text-gray-700">Tahun</Label>
+                  <select
+                    value={manualForm.year}
+                    onChange={(e) => setManualForm(prev => ({ ...prev, year: Number(e.target.value) }))}
+                    className="w-full h-9 px-3 rounded-xl border border-gray-200 bg-white text-xs font-semibold text-gray-800 focus:border-emerald-500"
+                  >
+                    <option value={2026}>2026</option>
+                    <option value={2027}>2027</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Status & Payment Method */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold text-gray-700">Status Pembayaran</Label>
+                  <select
+                    value={manualForm.status}
+                    onChange={(e) => setManualForm(prev => ({ ...prev, status: e.target.value as 'approved' | 'pending' }))}
+                    className="w-full h-9 px-3 rounded-xl border border-gray-200 bg-white text-xs font-bold text-gray-800 focus:border-emerald-500"
+                  >
+                    <option value="approved">✅ Diterima (Lunas Langsung)</option>
+                    <option value="pending">⏳ Pending (Perlu Verifikasi)</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold text-gray-700">Metode Pembayaran</Label>
+                  <select
+                    value={manualForm.payment_method}
+                    onChange={(e) => setManualForm(prev => ({ ...prev, payment_method: e.target.value }))}
+                    className="w-full h-9 px-3 rounded-xl border border-gray-200 bg-white text-xs font-medium text-gray-800 focus:border-emerald-500"
+                  >
+                    <option value="Transfer Bank BSI">Transfer Bank BSI</option>
+                    <option value="Transfer Bank Lain">Transfer Bank Lain</option>
+                    <option value="QRIS">QRIS</option>
+                    <option value="Tunai / Cash">Tunai / Cash</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Proof Attachment (Optional) */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-gray-700">Bukti Transfer (Opsional)</Label>
+                <div className="flex items-center gap-3">
+                  <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition-colors border border-gray-200">
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>{uploadingManualProof ? 'Mengunggah...' : 'Unggah Tangkapan Layar WA'}</span>
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      onChange={handleManualFileUpload}
+                      disabled={uploadingManualProof}
+                      className="hidden"
+                    />
+                  </label>
+                  {manualForm.proof_url && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-emerald-700 text-xs font-semibold flex items-center gap-1">
+                        <CheckCircle className="w-3.5 h-3.5" /> Berkas Terlampir
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setManualForm(prev => ({ ...prev, proof_url: '' }))}
+                        className="text-rose-500 hover:underline text-[11px]"
+                      >
+                        Hapus
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-gray-700">Catatan / Keterangan</Label>
+                <Input
+                  value={manualForm.notes}
+                  onChange={(e) => setManualForm(prev => ({ ...prev, notes: e.target.value }))}
+                  placeholder="Misal: Bukti transfer via chat WA Kak Ros"
+                  className="h-9 text-xs rounded-xl"
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end gap-2.5 pt-3 border-t border-gray-100">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setManualModalOpen(false)}
+                  disabled={submittingManual}
+                  className="rounded-xl text-xs h-9 px-4 font-semibold"
+                >
+                  Batal
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={submittingManual || uploadingManualProof}
+                  className="bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs h-9 px-5 font-bold shadow-md"
+                >
+                  {submittingManual ? 'Menyimpan...' : 'Simpan Transaksi Infaq'}
+                </Button>
+              </div>
+            </form>
           </div>
         </div>
       )}
