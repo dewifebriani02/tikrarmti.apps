@@ -40,16 +40,12 @@ export function InfaqReminderBanner({ status }: InfaqReminderBannerProps) {
     return null;
   }
 
-  // If suspended, InfaqSuspendGuard handles it
-  if (status.is_suspended) {
+  if (dismissed) {
     return null;
   }
 
-  if (dismissed && status.phase === 'reminder') {
-    return null;
-  }
-
-  const isWarning = status.phase === 'warning';
+  const isSuspended = Boolean(status.is_suspended);
+  const isWarning = status.phase === 'warning' || isSuspended;
 
   const formatIDR = (num: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -83,11 +79,13 @@ export function InfaqReminderBanner({ status }: InfaqReminderBannerProps) {
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
               <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                isWarning 
+                isSuspended
+                  ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                  : isWarning 
                   ? 'bg-amber-200/80 text-amber-900 border border-amber-300' 
                   : 'bg-emerald-200/80 text-emerald-900 border border-emerald-300'
               }`}>
-                {isWarning ? 'Peringatan Batas Akhir' : 'Pengingat Infaq Bulanan'}
+                {isSuspended ? 'Konfirmasi Infaq Terlewat' : isWarning ? 'Peringatan Batas Akhir' : 'Pengingat Infaq Bulanan'}
               </span>
 
               <span className="text-xs font-semibold flex items-center gap-1 opacity-80">
@@ -97,7 +95,11 @@ export function InfaqReminderBanner({ status }: InfaqReminderBannerProps) {
             </div>
 
             <p className="text-sm font-bold text-gray-900">
-              {isWarning ? (
+              {isSuspended ? (
+                <span>
+                  Batas waktu konfirmasi infaq bulanan (tanggal 10 {status.month_name}) telah terlewati.
+                </span>
+              ) : isWarning ? (
                 <span>
                   Sisa waktu konfirmasi infaq tinggal <strong className="text-amber-800 underline font-black">{status.days_left} hari lagi</strong> (Maksimal tanggal 10 {status.month_name}).
                 </span>
@@ -109,7 +111,7 @@ export function InfaqReminderBanner({ status }: InfaqReminderBannerProps) {
             </p>
 
             <p className="text-xs text-gray-600 leading-relaxed max-w-2xl">
-              Komitmen infaq operasional: <strong>{formatIDR(status.commitment_amount)}</strong>. Mohon segera tunaikan dan unggah bukti transfer agar kegiatan belajar Ukhti tetap lancar tanpa jeda.
+              Komitmen infaq operasional: <strong>{formatIDR(status.commitment_amount)}</strong>. Mohon segera tunaikan dan unggah bukti transfer agar keberlangsungan program tetap terjaga.
             </p>
           </div>
         </div>
@@ -119,26 +121,26 @@ export function InfaqReminderBanner({ status }: InfaqReminderBannerProps) {
             asChild
             size="sm"
             className={`w-full md:w-auto rounded-xl text-xs font-bold shadow-sm transition-all h-9 px-4 gap-1.5 ${
-              isWarning
+              isSuspended
+                ? 'bg-rose-700 hover:bg-rose-800 text-white'
+                : isWarning
                 ? 'bg-amber-600 hover:bg-amber-700 text-white'
                 : 'bg-emerald-700 hover:bg-emerald-800 text-white'
             }`}
           >
             <Link href="/infaq-donasi">
-              <span>Tunaikan Infaq</span>
+              <span>Konfirmasi Infaq</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </Button>
 
-          {!isWarning && (
-            <button
-              onClick={() => setDismissed(true)}
-              className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-black/5 transition-colors"
-              title="Tutup pengingat"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
+          <button
+            onClick={() => setDismissed(true)}
+            className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-black/5 transition-colors"
+            title="Tutup pengingat"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </div>
