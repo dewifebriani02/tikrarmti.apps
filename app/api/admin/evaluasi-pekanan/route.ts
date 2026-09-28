@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const supabaseAdmin = createSupabaseAdmin();
 
-export interface WeekEvaluationItem {
+interface WeekEvaluationItem {
   week_number: number;
   label?: string; // e.g. "Pekan 1", "Pekan ke 2"
   special_status?: string; // e.g. "Tashih", "Pemutihan"
@@ -79,7 +79,7 @@ const DEFAULT_WEEKS: WeekEvaluationItem[] = [
 ];
 
 // Helper to format WhatsApp Chat
-export function formatEvaluationToChat(weeks: WeekEvaluationItem[]): string {
+function formatEvaluationToChat(weeks: WeekEvaluationItem[]): string {
   const sections: string[] = [];
 
   weeks.forEach((w) => {
