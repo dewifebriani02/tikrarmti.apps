@@ -128,14 +128,12 @@ export async function GET(request: NextRequest) {
 
     // Helper: Determine payment status for a specific month & year
     const getMonthDonation = (userDons: any[], targetMonth: number, targetYear: number) => {
-      // Find donation where created_at is within targetMonth (with 5-day grace before month start)
-      const startOfMonth = new Date(Date.UTC(targetYear, targetMonth - 1, 1, 0, 0, 0));
-      const graceStart = new Date(startOfMonth.getTime() - 5 * 24 * 60 * 60 * 1000);
-      const endOfMonth = new Date(Date.UTC(targetYear, targetMonth, 1, 0, 0, 0));
-
+      // Determine donation calendar month using Asia/Jakarta timezone
       const matched = userDons.filter((d) => {
         const dDate = new Date(d.created_at);
-        return dDate >= graceStart && dDate < endOfMonth;
+        const jakartaStr = dDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' }); // YYYY-MM-DD
+        const [y, m] = jakartaStr.split('-').map(Number);
+        return y === targetYear && m === targetMonth;
       });
 
       if (matched.length === 0) return null;

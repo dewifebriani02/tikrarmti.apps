@@ -252,8 +252,8 @@ export function AdminDonationsTab() {
     fetchRekap(selectedMonth, selectedYear, selectedBatchId);
   }, [selectedMonth, selectedYear, selectedBatchId]);
 
-  // Handle Approve / Reject
-  const handleUpdateStatus = async (donationId: string, status: 'approved' | 'rejected', notes?: string) => {
+  // Handle Approve / Reject / Pending
+  const handleUpdateStatus = async (donationId: string, status: 'approved' | 'rejected' | 'pending', notes?: string) => {
     try {
       setUpdatingStatus(true);
       const res = await fetch(`/api/admin/donations/${donationId}`, {
@@ -263,7 +263,8 @@ export function AdminDonationsTab() {
       });
       const json = await res.json();
       if (json.success) {
-        toast.success(`Infaq berhasil ${status === 'approved' ? 'disetujui' : 'ditolak'}`);
+        const msg = status === 'approved' ? 'disetujui (Lunas)' : status === 'rejected' ? 'ditolak' : 'dikembalikan ke pending';
+        toast.success(`Infaq berhasil ${msg}`);
         setNoteModalOpen(false);
         setAdminNotes('');
         setCurrentDonation(null);
@@ -1483,7 +1484,7 @@ Semoga Allah Ta'ala melipatgandakan pahala dan keberkahan untuk Ukhti sekeluarga
                             </div>
                           )}
 
-                          {/* Quick Actions if Pending */}
+                          {/* Actions based on current status */}
                           {curStatus === 'pending' && (
                             <div className="pt-2 flex gap-2">
                               <Button
@@ -1499,7 +1500,7 @@ Semoga Allah Ta'ala melipatgandakan pahala dan keberkahan untuk Ukhti sekeluarga
                                 size="sm"
                                 variant="outline"
                                 onClick={() => {
-                                  const reason = prompt('Masukkan alasan penolakan bukti transfer:', 'Bukti transfer tidak terbaca');
+                                  const reason = prompt('Masukkan alasan penolakan bukti transfer:', 'Bukti transfer tidak sesuai');
                                   if (reason) handleUpdateStatus(curDonation.id, 'rejected', reason);
                                 }}
                                 disabled={updatingStatus}
@@ -1507,6 +1508,58 @@ Semoga Allah Ta'ala melipatgandakan pahala dan keberkahan untuk Ukhti sekeluarga
                               >
                                 <X className="w-4 h-4 mr-1" />
                                 Tolak
+                              </Button>
+                            </div>
+                          )}
+
+                          {curStatus === 'rejected' && (
+                            <div className="pt-2 flex gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() => handleUpdateStatus(curDonation.id, 'approved')}
+                                disabled={updatingStatus}
+                                className="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl h-9"
+                              >
+                                <Check className="w-4 h-4 mr-1" />
+                                Ubah Jadi Diterima (Lunas)
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleUpdateStatus(curDonation.id, 'pending')}
+                                disabled={updatingStatus}
+                                className="text-amber-700 border-amber-200 hover:bg-amber-50 text-xs font-bold rounded-xl h-9"
+                              >
+                                <Clock className="w-3.5 h-3.5 mr-1" />
+                                Kembalikan ke Pending
+                              </Button>
+                            </div>
+                          )}
+
+                          {curStatus === 'paid' && (
+                            <div className="pt-2 flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  const reason = prompt('Masukkan alasan pembatalan / penolakan:', 'Bukti transfer dibatalkan');
+                                  if (reason) handleUpdateStatus(curDonation.id, 'rejected', reason);
+                                }}
+                                disabled={updatingStatus}
+                                className="text-rose-600 border-rose-200 hover:bg-rose-50 text-xs font-bold rounded-xl h-9"
+                              >
+                                <X className="w-4 h-4 mr-1" />
+                                Ubah Jadi Ditolak
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleUpdateStatus(curDonation.id, 'pending')}
+                                disabled={updatingStatus}
+                                className="text-amber-700 border-amber-200 hover:bg-amber-50 text-xs font-bold rounded-xl h-9"
+                              >
+                                <Clock className="w-3.5 h-3.5 mr-1" />
+                                Set ke Pending
                               </Button>
                             </div>
                           )}
@@ -1587,7 +1640,7 @@ Semoga Allah Ta'ala melipatgandakan pahala dan keberkahan untuk Ukhti sekeluarga
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5">
                             {cleanHistUrl && (
                               <button
                                 type="button"
@@ -1595,6 +1648,31 @@ Semoga Allah Ta'ala melipatgandakan pahala dan keberkahan untuk Ukhti sekeluarga
                                 className="px-2.5 py-1 bg-gray-100 hover:bg-emerald-100 text-emerald-900 font-bold rounded-lg text-[11px] transition-colors"
                               >
                                 Bukti
+                              </button>
+                            )}
+
+                            {hist.status !== 'approved' && (
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateStatus(hist.id, 'approved')}
+                                className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold rounded-lg text-[10px] transition-colors"
+                                title="Setujui transaksi ini"
+                              >
+                                Setujui
+                              </button>
+                            )}
+
+                            {hist.status !== 'rejected' && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const reason = prompt('Alasan tolak:', 'Bukti transfer tidak sesuai');
+                                  if (reason) handleUpdateStatus(hist.id, 'rejected', reason);
+                                }}
+                                className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-800 font-bold rounded-lg text-[10px] transition-colors"
+                                title="Tolak transaksi ini"
+                              >
+                                Tolak
                               </button>
                             )}
                           </div>
