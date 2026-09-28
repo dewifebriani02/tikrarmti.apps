@@ -40,7 +40,10 @@ if (fs.existsSync(ENV_FILE)) {
 }
 
 // Configuration
-const RECIPIENT_EMAIL = process.env.BACKUP_NOTIFICATION_EMAIL || 'markaztikrarindonesia@gmail.com';
+const customArgEmail = process.argv[2];
+const envEmail = process.env.BACKUP_NOTIFICATION_EMAIL;
+const rawEmails = customArgEmail || envEmail || 'markaztikrarindonesia@gmail.com';
+const RECIPIENT_EMAILS = rawEmails.split(',').map(e => e.trim()).filter(Boolean);
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const EMAIL_FROM = process.env.EMAIL_FROM || 'MTI Backup System <noreply@markaztikrar.id>';
 
@@ -238,7 +241,7 @@ async function runDailyBackup() {
     } catch (e) {}
 
     // 5. Send Email via Resend
-    log(`5. Mengirimkan email backup ke ${RECIPIENT_EMAIL}...`);
+    log(`5. Mengirimkan email backup ke ${RECIPIENT_EMAILS.join(', ')}...`);
     const durationSec = ((Date.now() - startTime) / 1000).toFixed(1);
 
     const emailSubject = `💾 [BACKUP MTI] Backup Otomatis Database & Sistem (${dateFormatted})`;
@@ -353,13 +356,13 @@ async function runDailyBackup() {
     ];
 
     const emailRes = await sendEmailWithAttachment({
-      to: RECIPIENT_EMAIL,
+      to: RECIPIENT_EMAILS,
       subject: emailSubject,
       html: emailHtml,
       attachments
     });
 
-    log(`✅ Email backup berhasil terkirim ke ${RECIPIENT_EMAIL}! (ID: ${emailRes.id || JSON.stringify(emailRes)})`);
+    log(`✅ Email backup berhasil terkirim ke ${RECIPIENT_EMAILS.join(', ')}! (ID: ${emailRes.id || JSON.stringify(emailRes)})`);
     log(`✨ Proses backup selesai dengan sukses dalam ${durationSec} detik.`);
     log('================================================================');
 
@@ -377,7 +380,7 @@ async function runDailyBackup() {
     // Attempt to send failure notification
     try {
       await sendEmailWithAttachment({
-        to: RECIPIENT_EMAIL,
+        to: RECIPIENT_EMAILS,
         subject: `⚠️ [ALERT] Kegagalan Backup MTI (${dateFormatted})`,
         html: `
           <h2>⚠️ Peringatan: Proses Backup MTI Mengalami Kendala</h2>

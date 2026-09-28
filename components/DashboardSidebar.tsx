@@ -6,7 +6,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { 
   X, BookOpen, GraduationCap, Users, LogOut, ChevronLeft, ChevronRight, Eye,
   LayoutGrid, ClipboardList, FileText, UserCheck, BarChart3, Calendar, Shield, Settings,
-  MessageSquare, HeartHandshake, HelpCircle, Award, ArrowRightLeft, Video
+  MessageSquare, HeartHandshake, HelpCircle, Award, ArrowRightLeft, Video, Database
 } from 'lucide-react';
 import { ROLE_RANKS, hasRequiredRank, isStaff } from '@/lib/roles';
 import { useAuth } from '@/hooks/useAuth';
@@ -186,6 +186,18 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
           href: '/admin/pengaturan/faq',
           label: 'Pengaturan FAQ',
           icon: <HelpCircle className="h-5 w-5" />,
+        });
+
+        baseItems.push({
+          href: '/admin/backup',
+          label: 'Backup Database',
+          icon: <Database className="h-5 w-5 text-emerald-600" />,
+        });
+
+        baseItems.push({
+          href: '/pengaturan',
+          label: 'Pengaturan Akun',
+          icon: <Settings className="h-5 w-5" />,
         });
       }
     } 

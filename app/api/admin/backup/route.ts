@@ -60,11 +60,19 @@ export async function POST(request: NextRequest) {
     const authError = await requireAdmin();
     if (authError) return authError;
 
+    let targetEmail = 'markaztikrarindonesia@gmail.com';
+    try {
+      const body = await request.json();
+      if (body.recipient_email && typeof body.recipient_email === 'string' && body.recipient_email.trim()) {
+        targetEmail = body.recipient_email.trim();
+      }
+    } catch (e) {}
+
     const scriptPath = path.join(process.cwd(), 'scripts', 'daily-backup-email.js');
 
-    // Run script asynchronously or await
+    // Run script asynchronously with custom target email
     const result = await new Promise((resolve, reject) => {
-      exec(`node "${scriptPath}"`, { timeout: 120000 }, (error, stdout, stderr) => {
+      exec(`node "${scriptPath}" "${targetEmail}"`, { timeout: 120000 }, (error, stdout, stderr) => {
         if (error) {
           console.error('[Backup Manual Trigger Error]:', error, stderr);
           reject(new Error(stderr || error.message));
@@ -75,8 +83,8 @@ export async function POST(request: NextRequest) {
     });
 
     return ApiResponses.success(
-      { output: result },
-      'Backup database berhasil dibuat dan dikirimkan ke markaztikrarindonesia@gmail.com'
+      { output: result, recipient_email: targetEmail },
+      `Backup database berhasil dibuat dan dikirimkan ke ${targetEmail}`
     );
   } catch (error: any) {
     console.error('[Admin Backup POST Error]:', error);
