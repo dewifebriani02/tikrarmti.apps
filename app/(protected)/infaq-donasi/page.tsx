@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { createClient } from '@/lib/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -41,7 +40,6 @@ interface Donation {
 
 export default function InfaqDonasiPage() {
   const { user } = useAuth();
-  const supabase = createClient();
 
   const [loading, setLoading] = useState(true);
   const [donations, setDonations] = useState<Donation[]>([]);

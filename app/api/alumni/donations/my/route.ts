@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import { createSupabaseAdmin } from '@/lib/supabase';
 import { ApiResponses } from '@/lib/api-responses';
 import { query, queryOne } from '@/lib/db';
-
-const supabaseAdmin = createSupabaseAdmin();
 
 /**
  * GET /api/alumni/donations/my
