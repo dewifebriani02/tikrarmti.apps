@@ -1,9 +1,10 @@
-import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireAdmin } from '@/lib/rbac';
 import { ApiResponses } from '@/lib/api-responses';
 import { NextRequest, NextResponse } from 'next/server';
+import { query, queryOne } from '@/lib/db';
 
-const supabaseAdmin = createSupabaseAdmin();
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 /**
  * GET /api/admin/donations/[id]
@@ -21,22 +22,22 @@ export async function GET(
       return NextResponse.json({ error: 'Missing donation ID' }, { status: 400 });
     }
 
-    const { data, error } = await supabaseAdmin
-      .from('donations')
-      .select(`
-        *,
-        user:users!donations_user_id_fkey (
-          id,
-          full_name,
-          email
-        )
-      `)
-      .eq('id', id)
-      .single();
+    const data = await queryOne(
+      `SELECT 
+        d.*,
+        json_build_object(
+          'id', u.id,
+          'full_name', u.full_name,
+          'email', u.email
+        ) as user
+      FROM donations d
+      LEFT JOIN users u ON d.user_id = u.id
+      WHERE d.id = $1`,
+      [id]
+    );
 
-    if (error) {
-      console.error('[Admin Donations [id] GET] Database error:', error);
-      return ApiResponses.databaseError(error);
+    if (!data) {
+      return NextResponse.json({ error: 'Donasi tidak ditemukan' }, { status: 404 });
     }
 
     return ApiResponses.success(data);
@@ -73,25 +74,23 @@ export async function PATCH(
       );
     }
 
-    const updatePayload: Record<string, any> = {
-      status,
-      updated_at: new Date().toISOString()
-    };
-
+    let data;
     if (notes !== undefined) {
-      updatePayload.notes = notes ? String(notes).trim() : null;
-    }
-
-    const { data, error } = await supabaseAdmin
-      .from('donations')
-      .update(updatePayload)
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) {
-      console.error('[Admin Donations [id] PATCH] Database error:', error);
-      return ApiResponses.databaseError(error);
+      data = await queryOne(
+        `UPDATE donations
+         SET status = $1, notes = $2, updated_at = NOW()
+         WHERE id = $3
+         RETURNING *`,
+        [status, notes ? String(notes).trim() : null, id]
+      );
+    } else {
+      data = await queryOne(
+        `UPDATE donations
+         SET status = $1, updated_at = NOW()
+         WHERE id = $2
+         RETURNING *`,
+        [status, id]
+      );
     }
 
     return ApiResponses.success(data, `Status infaq berhasil diperbarui (${status})`);
@@ -101,19 +100,13 @@ export async function PATCH(
   }
 }
 
-/**
- * PUT /api/admin/donations/[id]
- */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
-  return PATCH(request, { params });
+  return PATCH(request, context);
 }
 
-/**
- * DELETE /api/admin/donations/[id]
- */
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -127,17 +120,9 @@ export async function DELETE(
       return NextResponse.json({ error: 'Missing donation ID' }, { status: 400 });
     }
 
-    const { error } = await supabaseAdmin
-      .from('donations')
-      .delete()
-      .eq('id', id);
+    await query(`DELETE FROM donations WHERE id = $1`, [id]);
 
-    if (error) {
-      console.error('[Admin Donations [id] DELETE] Database error:', error);
-      return ApiResponses.databaseError(error);
-    }
-
-    return ApiResponses.success(null, 'Catatan infaq berhasil dihapus');
+    return ApiResponses.success(null, 'Catatan donasi berhasil dihapus');
   } catch (error: any) {
     console.error('[Admin Donations [id] DELETE] Server error:', error);
     return ApiResponses.handleUnknown(error);

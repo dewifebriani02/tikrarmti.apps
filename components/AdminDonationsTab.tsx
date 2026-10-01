@@ -556,9 +556,9 @@ Semoga Allah Ta'ala melipatgandakan pahala dan keberkahan untuk Ukhti sekeluarga
           >
             <Users className="w-4 h-4 text-emerald-700" />
             <span>Rekap & Reminder Bulanan</span>
-            {rekapData && (
+            {rekapData?.stats?.total_donasi_cohort !== undefined && (
               <span className="bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
-                {rekapData.stats.total_donasi_cohort}
+                {rekapData.stats?.total_donasi_cohort || 0}
               </span>
             )}
           </button>
@@ -573,9 +573,9 @@ Semoga Allah Ta'ala melipatgandakan pahala dan keberkahan untuk Ukhti sekeluarga
           >
             <ShieldCheck className="w-4 h-4 text-emerald-700" />
             <span>Verifikasi Bukti Transfer</span>
-            {donations.filter(d => d.status === 'pending').length > 0 && (
+            {(donations || []).filter(d => d.status === 'pending').length > 0 && (
               <span className="bg-amber-100 text-amber-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full animate-pulse">
-                {donations.filter(d => d.status === 'pending').length}
+                {(donations || []).filter(d => d.status === 'pending').length}
               </span>
             )}
           </button>
@@ -610,7 +610,7 @@ Semoga Allah Ta'ala melipatgandakan pahala dan keberkahan untuk Ukhti sekeluarga
             <div className="min-w-0 flex-1">
               <p className="text-[10px] sm:text-[11px] text-gray-400 font-bold uppercase tracking-wider">Thalibah Wajib Infaq</p>
               <h3 className="text-lg sm:text-xl xl:text-2xl font-black text-gray-900 mt-0.5 leading-tight">
-                {rekapData?.stats.total_donasi_cohort || 0} orang
+                {rekapData?.stats?.total_donasi_cohort || 0} orang
               </h3>
               <p className="text-xs text-gray-500 mt-0.5 font-medium">Jalur Komitmen Donasi</p>
             </div>
@@ -625,12 +625,12 @@ Semoga Allah Ta'ala melipatgandakan pahala dan keberkahan untuk Ukhti sekeluarga
               <ShieldCheck className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] sm:text-[11px] text-gray-400 font-bold uppercase tracking-wider">Sudah Membayar ({rekapData?.month_name})</p>
+              <p className="text-[10px] sm:text-[11px] text-gray-400 font-bold uppercase tracking-wider">Sudah Membayar ({rekapData?.month_name || monthNames[selectedMonth - 1]})</p>
               <h3 className="text-lg sm:text-xl xl:text-2xl font-black text-emerald-950 mt-0.5 leading-tight">
-                {rekapData?.stats.total_paid || 0} orang
+                {rekapData?.stats?.total_paid || 0} orang
               </h3>
               <p className="text-xs text-green-700 font-semibold mt-0.5">
-                {formatIDR(rekapData?.stats.amount_paid || 0)}
+                {formatIDR(rekapData?.stats?.amount_paid || 0)}
               </p>
             </div>
           </CardContent>
@@ -646,10 +646,10 @@ Semoga Allah Ta'ala melipatgandakan pahala dan keberkahan untuk Ukhti sekeluarga
             <div className="min-w-0 flex-1">
               <p className="text-[10px] sm:text-[11px] text-gray-400 font-bold uppercase tracking-wider">Menunggu Verifikasi</p>
               <h3 className="text-lg sm:text-xl xl:text-2xl font-black text-amber-950 mt-0.5 leading-tight">
-                {rekapData?.stats.total_pending || 0} transaksi
+                {rekapData?.stats?.total_pending || 0} transaksi
               </h3>
               <p className="text-xs text-amber-700 font-semibold mt-0.5">
-                {formatIDR(rekapData?.stats.amount_pending || 0)}
+                {formatIDR(rekapData?.stats?.amount_pending || 0)}
               </p>
             </div>
           </CardContent>
@@ -663,9 +663,9 @@ Semoga Allah Ta'ala melipatgandakan pahala dan keberkahan untuk Ukhti sekeluarga
               <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] sm:text-[11px] text-gray-400 font-bold uppercase tracking-wider">Belum Membayar ({rekapData?.month_name})</p>
+              <p className="text-[10px] sm:text-[11px] text-gray-400 font-bold uppercase tracking-wider">Belum Membayar ({rekapData?.month_name || monthNames[selectedMonth - 1]})</p>
               <h3 className="text-lg sm:text-xl xl:text-2xl font-black text-rose-950 mt-0.5 leading-tight">
-                {rekapData?.stats.total_unpaid || 0} orang
+                {rekapData?.stats?.total_unpaid || 0} orang
               </h3>
               <p className="text-xs text-rose-700 font-semibold mt-0.5">Perlu Reminder WhatsApp</p>
             </div>
@@ -1105,7 +1105,7 @@ Semoga Allah Ta'ala melipatgandakan pahala dan keberkahan untuk Ukhti sekeluarga
                     <th className="py-3.5 px-6">Thalibah</th>
                     <th className="py-3.5 px-6">Halaqah & Juz</th>
                     <th className="py-3.5 px-6">Komitmen Infaq</th>
-                    <th className="py-3.5 px-6">Status Infaq {rekapData?.month_name}</th>
+                    <th className="py-3.5 px-6">Status Infaq {rekapData?.month_name || monthNames[selectedMonth - 1]}</th>
                     <th className="py-3.5 px-6">Bukti Transfer</th>
                     <th className="py-3.5 px-6 text-right">Aksi Drilldown & WA</th>
                   </tr>

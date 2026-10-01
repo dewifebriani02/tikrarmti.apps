@@ -1,9 +1,10 @@
-import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireAdmin } from '@/lib/rbac';
 import { ApiResponses } from '@/lib/api-responses';
 import { NextRequest, NextResponse } from 'next/server';
+import { query, queryOne } from '@/lib/db';
 
-const supabaseAdmin = createSupabaseAdmin();
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 /**
  * GET /api/admin/donations
@@ -17,30 +18,39 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
 
-    let query = supabaseAdmin
-      .from('donations')
-      .select(`
-        *,
-        user:users!donations_user_id_fkey (
-          id,
-          full_name,
-          email
-        )
-      `)
-      .order('created_at', { ascending: false });
+    let sql = `
+      SELECT 
+        d.id,
+        d.user_id,
+        d.amount,
+        d.donor_name,
+        d.whatsapp,
+        d.proof_url,
+        d.status,
+        d.notes,
+        d.payment_method,
+        d.created_at,
+        d.updated_at,
+        json_build_object(
+          'id', u.id,
+          'full_name', u.full_name,
+          'email', u.email
+        ) as user
+      FROM donations d
+      LEFT JOIN users u ON d.user_id = u.id
+    `;
 
+    const params: any[] = [];
     if (status && ['pending', 'approved', 'rejected'].includes(status)) {
-      query = query.eq('status', status);
+      sql += ` WHERE d.status = $1`;
+      params.push(status);
     }
 
-    const { data: donations, error } = await query;
+    sql += ` ORDER BY d.created_at DESC`;
 
-    if (error) {
-      console.error('[Admin Donations API GET] Database error:', error);
-      return ApiResponses.databaseError(error);
-    }
+    const { rows: donations } = await query(sql, params);
 
-    return ApiResponses.success(donations);
+    return ApiResponses.success(donations || []);
   } catch (error: any) {
     console.error('[Admin Donations API GET] Server error:', error);
     return ApiResponses.handleUnknown(error);
@@ -79,15 +89,14 @@ export async function POST(request: NextRequest) {
     let finalPhone = whatsapp;
 
     if (user_id) {
-      const { data: userData } = await supabaseAdmin
-        .from('users')
-        .select('id, full_name, whatsapp, phone')
-        .eq('id', user_id)
-        .single();
+      const userData = await queryOne(
+        `SELECT id, full_name, whatsapp FROM users WHERE id = $1`,
+        [user_id]
+      );
 
       if (userData) {
         if (!finalDonorName) finalDonorName = userData.full_name;
-        if (!finalPhone) finalPhone = userData.whatsapp || (userData as any).phone;
+        if (!finalPhone) finalPhone = userData.whatsapp;
       }
     }
 
@@ -103,36 +112,32 @@ export async function POST(request: NextRequest) {
         createdAtIso = d.toISOString();
       }
     } else if (month && year) {
-      // If specific month and year provided (1-12)
       const mStr = String(month).padStart(2, '0');
       createdAtIso = `${year}-${mStr}-10T10:00:00+07:00`;
     }
 
-    const insertPayload: Record<string, any> = {
-      user_id: user_id || null,
-      amount: Number(amount),
-      donor_name: finalDonorName,
-      whatsapp: finalPhone || null,
-      proof_url: proof_url || null,
-      status: ['approved', 'pending', 'rejected'].includes(status) ? status : 'approved',
-      notes: notes ? notes.trim() : `Input Manual Admin (Infaq ${month || ''} ${year || ''})`.trim(),
-      payment_method: payment_method || 'Transfer Bank BSI',
-      created_at: createdAtIso,
-      updated_at: new Date().toISOString()
-    };
+    const finalStatus = ['approved', 'pending', 'rejected'].includes(status) ? status : 'approved';
+    const finalNotes = notes ? notes.trim() : `Input Manual Admin (Infaq ${month || ''} ${year || ''})`.trim();
 
-    const { data, error } = await supabaseAdmin
-      .from('donations')
-      .insert(insertPayload)
-      .select()
-      .single();
+    const newDonation = await queryOne(
+      `INSERT INTO donations (
+        user_id, amount, donor_name, whatsapp, proof_url, status, notes, payment_method, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+      RETURNING *`,
+      [
+        user_id || null,
+        Number(amount),
+        finalDonorName,
+        finalPhone || null,
+        proof_url || null,
+        finalStatus,
+        finalNotes,
+        payment_method || 'Transfer Bank BSI',
+        createdAtIso
+      ]
+    );
 
-    if (error) {
-      console.error('[Admin Donations API POST] Database error:', error);
-      return ApiResponses.databaseError(error);
-    }
-
-    return ApiResponses.success(data, 'Transaksi infaq manual berhasil dicatat');
+    return ApiResponses.success(newDonation, 'Transaksi infaq manual berhasil dicatat', 201);
   } catch (error: any) {
     console.error('[Admin Donations API POST] Server error:', error);
     return ApiResponses.handleUnknown(error);
@@ -159,23 +164,26 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid or missing status (must be pending, approved, or rejected)' }, { status: 400 });
     }
 
-    const { data, error } = await supabaseAdmin
-      .from('donations')
-      .update({
-        status,
-        notes: notes ? notes.trim() : null,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) {
-      console.error('[Admin Donations API PUT] Database error:', error);
-      return ApiResponses.databaseError(error);
+    let updatedDonation;
+    if (notes !== undefined) {
+      updatedDonation = await queryOne(
+        `UPDATE donations 
+         SET status = $1, notes = $2, updated_at = NOW() 
+         WHERE id = $3 
+         RETURNING *`,
+        [status, notes ? notes.trim() : null, id]
+      );
+    } else {
+      updatedDonation = await queryOne(
+        `UPDATE donations 
+         SET status = $1, updated_at = NOW() 
+         WHERE id = $2 
+         RETURNING *`,
+        [status, id]
+      );
     }
 
-    return ApiResponses.success(data, 'Status donasi berhasil diperbarui');
+    return ApiResponses.success(updatedDonation, 'Status donasi berhasil diperbarui');
   } catch (error: any) {
     console.error('[Admin Donations API PUT] Server error:', error);
     return ApiResponses.handleUnknown(error);
@@ -188,7 +196,6 @@ export async function PATCH(request: NextRequest) {
 
 /**
  * DELETE /api/admin/donations
-
  * Delete a donation record
  */
 export async function DELETE(request: NextRequest) {
@@ -210,15 +217,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Missing donation ID' }, { status: 400 });
     }
 
-    const { error } = await supabaseAdmin
-      .from('donations')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      console.error('[Admin Donations API DELETE] Database error:', error);
-      return ApiResponses.databaseError(error);
-    }
+    await query(`DELETE FROM donations WHERE id = $1`, [id]);
 
     return ApiResponses.success(null, 'Catatan donasi berhasil dihapus');
   } catch (error: any) {
