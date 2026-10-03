@@ -68,7 +68,8 @@ export default function InfaqDonasiPage() {
       if (res.ok) {
         const data = await res.json();
         if (data.success) {
-          setDonations(data.data || []);
+          const list = Array.isArray(data.data) ? data.data : (Array.isArray(data.data?.rows) ? data.data.rows : []);
+          setDonations(list);
         }
       }
     } catch (err) {
@@ -181,15 +182,33 @@ export default function InfaqDonasiPage() {
     }
   };
 
-  const formatIDR = (num: number) => {
+  const formatIDR = (num: any) => {
+    const val = Number(num) || 0;
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
       currency: 'IDR',
-      minimumFractionDigits: 0
-    }).format(num);
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(val);
   };
 
-  if (loading && donations.length === 0) {
+  const formatDateSafe = (dateStr?: string) => {
+    if (!dateStr) return '-';
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return '-';
+      return d.toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        timeZone: 'Asia/Jakarta'
+      });
+    } catch {
+      return String(dateStr);
+    }
+  };
+
+  if (loading && (!donations || donations.length === 0)) {
     return (
       <div className="min-h-screen bg-[#F8FAF9] py-20 flex items-center justify-center">
         <div className="text-center">
@@ -199,6 +218,10 @@ export default function InfaqDonasiPage() {
       </div>
     );
   }
+
+  const approvedTotal = (donations || [])
+    .filter(d => d.status === 'approved')
+    .reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
 
   return (
     <div className="min-h-screen bg-[#F8FAF9] py-12 px-4 sm:px-6 lg:px-8 font-sans">
@@ -235,7 +258,7 @@ export default function InfaqDonasiPage() {
               <div>
                 <p className="text-xs text-emerald-250 font-bold uppercase tracking-wider">Total Donasi Ukhti</p>
                 <p className="text-lg font-black mt-0.5">
-                  {formatIDR(donations.filter(d => d.status === 'approved').reduce((sum, d) => sum + d.amount, 0))}
+                  {formatIDR(approvedTotal)}
                 </p>
               </div>
             </div>
@@ -411,7 +434,7 @@ export default function InfaqDonasiPage() {
                           <p className="text-xs text-gray-450 mt-1 flex items-center gap-1.5">
                             <span>Atas nama: {don.donor_name}</span>
                             <span className="w-1 h-1 rounded-full bg-gray-300" />
-                            <span>{new Date(don.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' })}</span>
+                            <span>{formatDateSafe(don.created_at)}</span>
                           </p>
                           {don.notes && (
                             <p className="text-xs text-gray-550 mt-2 bg-gray-50 p-2.5 rounded-lg border border-gray-100 max-w-lg">

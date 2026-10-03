@@ -3,6 +3,9 @@ import { getCurrentUser } from '@/lib/auth';
 import { ApiResponses } from '@/lib/api-responses';
 import { query, queryOne } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 /**
  * GET /api/alumni/donations/my
  * Get logged-in user's donation history
@@ -14,8 +17,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const donations = await query(
-      `SELECT * FROM donations WHERE user_id = $1 ORDER BY created_at DESC`,
+    const { rows: donations } = await query(
+      `SELECT id, user_id, amount, donor_name, whatsapp, proof_url, status, notes, payment_method, created_at, updated_at
+       FROM donations 
+       WHERE user_id = $1 
+       ORDER BY created_at DESC`,
       [user.id]
     );
 
