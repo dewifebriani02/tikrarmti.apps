@@ -1276,7 +1276,10 @@ function SPStatusBadge({ summary }: { summary: any }) {
     );
   }
   
-  if (summary.is_blacklisted) {
+  const isBlacklist = summary.is_blacklisted === true || summary.is_blacklisted === 'true' || summary.sp_type === 'blacklist';
+  const level = Number(summary.sp_level) || 1;
+
+  if (isBlacklist) {
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-rose-600 text-white text-[10px] font-bold uppercase tracking-tight shadow-sm border border-rose-700" title={summary.reason || 'Blacklisted'}>
         <Ban className="w-2.5 h-2.5" />
@@ -1303,7 +1306,7 @@ function SPStatusBadge({ summary }: { summary: any }) {
     );
   }
 
-  if (summary.sp_level === 3) {
+  if (level === 3) {
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-red-600 text-white text-[10px] font-extrabold uppercase tracking-tight shadow-sm border border-red-700 ring-2 ring-red-200" title={`SP 3 di Pekan ${summary.week_number || '-'}${summary.reason ? `: ${summary.reason}` : ''}`}>
         <AlertTriangle className="w-2.5 h-2.5" />
@@ -1312,7 +1315,7 @@ function SPStatusBadge({ summary }: { summary: any }) {
     );
   }
 
-  if (summary.sp_level === 2) {
+  if (level === 2) {
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500 text-white text-[10px] font-extrabold uppercase tracking-tight shadow-sm border border-amber-600 ring-2 ring-amber-200" title={`SP 2 di Pekan ${summary.week_number || '-'}${summary.reason ? `: ${summary.reason}` : ''}`}>
         <AlertTriangle className="w-2.5 h-2.5" />
@@ -1321,7 +1324,7 @@ function SPStatusBadge({ summary }: { summary: any }) {
     );
   }
 
-  if (summary.sp_level === 1) {
+  if (level === 1) {
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-yellow-400 text-yellow-950 text-[10px] font-extrabold uppercase tracking-tight shadow-sm border border-yellow-500 ring-2 ring-yellow-200" title={`SP 1 di Pekan ${summary.week_number || '-'}${summary.reason ? `: ${summary.reason}` : ''}`}>
         <AlertTriangle className="w-2.5 h-2.5" />
@@ -2830,9 +2833,9 @@ function WeekBubble({ week }: any) {
   if (!week) return <div className="w-5 h-5 rounded-full bg-gray-50 border border-gray-100 mx-auto" />;
   const pct = (week.total_blocks && week.total_blocks > 0) ? (week.completed_blocks / week.total_blocks) * 100 : 0;
   const hasSP = Boolean(week.sp_info);
-  const spLevel = week.sp_info?.sp_level;
+  const isBlacklist = week.sp_info?.is_blacklisted === true || week.sp_info?.is_blacklisted === 'true' || week.sp_info?.sp_type === 'blacklist';
+  const spLevel = Number(week.sp_info?.sp_level) || 1;
   const spType = week.sp_info?.sp_type;
-  const isBlacklist = week.sp_info?.is_blacklisted;
 
   return (
     <div className="relative inline-flex flex-col items-center justify-center group/bubble">
@@ -2880,9 +2883,9 @@ function WeekBubbleJurnal({ week }: any) {
   if (!week) return <div className="w-5 h-5 rounded-full bg-gray-50 border border-gray-100 mx-auto" />;
   const pct = (week.total_blocks && week.total_blocks > 0) ? (week.completed_blocks / week.total_blocks) * 100 : 0;
   const hasSP = Boolean(week.sp_info);
-  const spLevel = week.sp_info?.sp_level;
+  const isBlacklist = week.sp_info?.is_blacklisted === true || week.sp_info?.is_blacklisted === 'true' || week.sp_info?.sp_type === 'blacklist';
+  const spLevel = Number(week.sp_info?.sp_level) || 1;
   const spType = week.sp_info?.sp_type;
-  const isBlacklist = week.sp_info?.is_blacklisted;
 
   return (
     <div className="relative inline-flex flex-col items-center justify-center group/bubble">

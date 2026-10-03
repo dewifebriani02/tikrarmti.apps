@@ -631,11 +631,11 @@ export async function GET(request: Request) {
           const spKey = `${userId}-${week.week_number}`;
           const spForWeek = spByUserAndWeek.get(spKey);
           week.sp_info = spForWeek ? {
-            sp_level: spForWeek.sp_level,
+            sp_level: parseInt(spForWeek.sp_level || '1', 10),
             status: spForWeek.status,
             issued_at: spForWeek.issued_at,
             reason: spForWeek.reason,
-            is_blacklisted: spForWeek.is_blacklisted,
+            is_blacklisted: spForWeek.is_blacklisted === true || spForWeek.is_blacklisted === 'true' || spForWeek.sp_type === 'blacklist',
             sp_type: spForWeek.sp_type,
           } : null;
 
@@ -658,11 +658,11 @@ export async function GET(request: Request) {
             is_completed: false,
             blocks: [],
             sp_info: spForWeek ? {
-              sp_level: spForWeek.sp_level,
+              sp_level: parseInt(spForWeek.sp_level || '1', 10),
               status: spForWeek.status,
               issued_at: spForWeek.issued_at,
               reason: spForWeek.reason,
-              is_blacklisted: spForWeek.is_blacklisted,
+              is_blacklisted: spForWeek.is_blacklisted === true || spForWeek.is_blacklisted === 'true' || spForWeek.sp_type === 'blacklist',
             } : null,
             entries: [],
           });
@@ -671,9 +671,11 @@ export async function GET(request: Request) {
 
       const userSPRecords = spByUser.get(userId) || [];
       const latestSP = userSPRecords.length > 0
-        ? userSPRecords.reduce((latest: any, current: any) =>
-          current.sp_level > latest.sp_level ? current : latest
-        )
+        ? userSPRecords.reduce((latest: any, current: any) => {
+            const curLvl = parseInt(current.sp_level || '0', 10);
+            const latLvl = parseInt(latest.sp_level || '0', 10);
+            return curLvl > latLvl ? current : latest;
+          })
         : null;
 
       return {
@@ -712,11 +714,11 @@ export async function GET(request: Request) {
           pekan: calculateWeekFromBlok(r.blok),
         })),
         sp_summary: latestSP ? {
-          sp_level: latestSP.sp_level,
-          week_number: latestSP.week_number,
+          sp_level: parseInt(latestSP.sp_level || '1', 10),
+          week_number: parseInt(latestSP.week_number || '1', 10),
           issued_at: latestSP.issued_at,
           reason: latestSP.reason,
-          is_blacklisted: latestSP.is_blacklisted,
+          is_blacklisted: latestSP.is_blacklisted === true || latestSP.is_blacklisted === 'true' || latestSP.sp_type === 'blacklist',
           sp_type: latestSP.sp_type,
           total_active_sp: userSPRecords.length,
         } : null,
