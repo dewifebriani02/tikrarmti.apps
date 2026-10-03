@@ -470,11 +470,16 @@ export async function GET(request: Request) {
 
     const uniqueBloks = Array.from(allBloks).sort();
 
-    // Get global blacklist count for stats
+    // Get global blacklist count and active SP count for stats
     const { count: globalBlacklistCount } = await supabase
       .from('users')
       .select('id', { count: 'exact', head: true })
       .eq('is_blacklisted', true);
+
+    const { rows: spStatsRows } = await import('@/lib/db').then(m => m.query(
+      `SELECT COUNT(DISTINCT thalibah_id) as total_sp_thalibah FROM surat_peringatan WHERE status = 'active'`
+    )).catch(() => ({ rows: [{ total_sp_thalibah: 0 }] }));
+    const totalSPCount = parseInt(spStatsRows[0]?.total_sp_thalibah || '0', 10);
 
     const stats = {
       total_active_thalibah: totalCount || 0,
@@ -482,6 +487,7 @@ export async function GET(request: Request) {
       total_dropout: dropoutCount || 0,
       total_resign: resignCount || 0,
       total_blacklist: globalBlacklistCount || 0,
+      total_sp: totalSPCount || 0,
       overall_avg_progress: combinedEntries.length > 0
         ? Math.round(combinedEntries.reduce((acc: number, curr: any) => acc + (curr.summary?.completion_percentage_target || 0), 0) / combinedEntries.length)
         : 0

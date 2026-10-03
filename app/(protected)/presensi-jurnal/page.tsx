@@ -301,12 +301,15 @@ function PresensiJurnalContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isLoading: authLoading } = useAuth();
-  const [activeTab, setActiveTab] = useState<'presensi' | 'jurnal' | 'blacklist' | 'dropout' | 'halaqah' | 'kurikulum'>('jurnal');
+  const [activeTab, setActiveTab] = useState<'presensi' | 'jurnal' | 'sp' | 'blacklist' | 'dropout' | 'halaqah' | 'kurikulum'>('jurnal');
   const [rekapChatModalOpen, setRekapChatModalOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [dataLoading, setDataLoading] = useState(false);
   const [jurnalEntries, setJurnalEntries] = useState<JurnalUserEntry[]>([]);
   const [tashihEntries, setTashihEntries] = useState<TashihEntry[]>([]);
+  const [spEntries, setSpEntries] = useState<any[]>([]);
+  const [spStats, setSpStats] = useState<any>(null);
+  const [spLevelFilter, setSpLevelFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   
   useEffect(() => {
@@ -328,6 +331,7 @@ function PresensiJurnalContent() {
       total_dropout: number;
       total_resign: number;
       total_blacklist: number;
+      total_sp?: number;
       overall_avg_progress: number;
     };
   } | null>(null);
@@ -435,8 +439,8 @@ function PresensiJurnalContent() {
 
   useEffect(() => {
     const tab = searchParams.get('tab');
-    if (tab === 'jurnal' || tab === 'presensi' || tab === 'blacklist' || tab === 'dropout' || tab === 'halaqah' || tab === 'kurikulum') {
-      setActiveTab(tab as 'presensi' | 'jurnal' | 'blacklist' | 'dropout' | 'halaqah' | 'kurikulum');
+    if (tab === 'jurnal' || tab === 'presensi' || tab === 'sp' || tab === 'blacklist' || tab === 'dropout' || tab === 'halaqah' || tab === 'kurikulum') {
+      setActiveTab(tab as 'presensi' | 'jurnal' | 'sp' | 'blacklist' | 'dropout' | 'halaqah' | 'kurikulum');
     }
   }, [searchParams]);
 
@@ -475,7 +479,7 @@ function PresensiJurnalContent() {
         loadMuallimah();
       }
     }
-  }, [user, authLoading, activeTab, selectedBlok, currentPage, rowsPerPage, selectedBatchId]);
+  }, [user, authLoading, activeTab, selectedBlok, spLevelFilter, currentPage, rowsPerPage, selectedBatchId]);
 
   // Debounced search
   useEffect(() => {
@@ -515,7 +519,34 @@ function PresensiJurnalContent() {
       
       const batchParam = selectedBatchId ? `&batch_id=${selectedBatchId}` : '';
       
-      if (activeTab === 'jurnal' || activeTab === 'dropout' || activeTab === 'kurikulum') {
+      if (activeTab === 'sp') {
+        const levelParam = spLevelFilter !== 'all' ? `&sp_level=${spLevelFilter}` : '';
+        const response = await fetch(`/api/musyrifah/sp?${pageParam}${limitParam}${searchParam}${batchParam}${levelParam}`);
+        if (response.ok) {
+          const result = await response.json();
+          const entries = result.data?.entries || [];
+          const meta = result.data?.meta || null;
+          const stats = result.data?.stats || null;
+          
+          setSpEntries(entries);
+          setSpStats(stats);
+          setPagination({
+            totalCount: meta?.totalCount ?? entries.length,
+            page: meta?.page ?? currentPage,
+            limit: meta?.limit ?? rowsPerPage,
+            totalPages: meta?.totalPages ?? 1,
+            stats: {
+              total_active_thalibah: pagination?.stats?.total_active_thalibah || 0,
+              total_approved_thalibah: pagination?.stats?.total_approved_thalibah || 0,
+              total_dropout: pagination?.stats?.total_dropout || 0,
+              total_resign: pagination?.stats?.total_resign || 0,
+              total_blacklist: pagination?.stats?.total_blacklist || 0,
+              total_sp: stats?.total_sp ?? entries.length,
+              overall_avg_progress: pagination?.stats?.overall_avg_progress || 0,
+            }
+          });
+        }
+      } else if (activeTab === 'jurnal' || activeTab === 'dropout' || activeTab === 'kurikulum') {
         const typeParam = activeTab === 'dropout' ? '&status=dropout&is_dropout=true' : '';
         const response = await fetch(`/api/musyrifah/jurnal?blok=${selectedBlok}${pageParam}${typeParam}${limitParam}${searchParam}${batchParam}`);
         if (response.ok) {
@@ -631,9 +662,9 @@ function PresensiJurnalContent() {
       </div>
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 relative z-20">
         {/* KPI Cards */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 mb-6">
           {/* Total Thalibah (Approved) Card */}
-          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between flex-1 min-w-[160px] transition-all duration-300 hover:shadow-md hover:-translate-y-1 group">
+          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between transition-all duration-300 hover:shadow-md hover:-translate-y-1 group">
             <div className="space-y-1">
               <p className="text-xs sm:text-sm font-bold text-gray-500 tracking-tight group-hover:text-gray-900 transition-colors">
                 Total Thalibah
@@ -647,8 +678,34 @@ function PresensiJurnalContent() {
             </div>
           </div>
 
+          {/* Total SP Aktif Card */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('sp');
+              setCurrentPage(1);
+              router.push('/presensi-jurnal?tab=sp', { scroll: false });
+            }}
+            className={cn(
+              "bg-white p-4 sm:p-5 rounded-2xl border shadow-sm flex items-center justify-between transition-all duration-300 hover:shadow-md hover:-translate-y-1 group text-left cursor-pointer",
+              activeTab === 'sp' ? "border-amber-400 ring-2 ring-amber-400/20 bg-amber-50/20" : "border-gray-100 hover:border-amber-200"
+            )}
+          >
+            <div className="space-y-1">
+              <p className="text-xs sm:text-sm font-bold text-gray-500 tracking-tight group-hover:text-amber-800 transition-colors">
+                Total SP Aktif
+              </p>
+              <h3 className="text-2xl sm:text-3xl font-black text-amber-600 tracking-tight">
+                {pagination?.stats?.total_sp ?? spStats?.total_sp ?? 0}
+              </h3>
+            </div>
+            <div className="p-3 sm:p-4 rounded-xl text-white bg-amber-500 shadow-lg shadow-amber-200 transition-transform duration-300 group-hover:scale-110">
+              <AlertTriangle className="h-5 w-5 sm:h-6 sm:w-6" />
+            </div>
+          </button>
+
           {/* Total Blacklist Card */}
-          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between flex-1 min-w-[160px] transition-all duration-300 hover:shadow-md hover:-translate-y-1 group">
+          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between transition-all duration-300 hover:shadow-md hover:-translate-y-1 group">
             <div className="space-y-1">
               <p className="text-xs sm:text-sm font-bold text-gray-500 tracking-tight group-hover:text-gray-900 transition-colors">
                 Total Blacklist
@@ -663,7 +720,7 @@ function PresensiJurnalContent() {
           </div>
 
           {/* Total Dropout Card */}
-          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between flex-1 min-w-[160px] transition-all duration-300 hover:shadow-md hover:-translate-y-1 group">
+          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between transition-all duration-300 hover:shadow-md hover:-translate-y-1 group">
             <div className="space-y-1">
               <p className="text-xs sm:text-sm font-bold text-gray-500 tracking-tight group-hover:text-gray-900 transition-colors">
                 Total Dropout
@@ -678,10 +735,10 @@ function PresensiJurnalContent() {
           </div>
 
           {/* Total Mengundurkan Diri Card */}
-          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between flex-1 min-w-[160px] transition-all duration-300 hover:shadow-md hover:-translate-y-1 group">
+          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between transition-all duration-300 hover:shadow-md hover:-translate-y-1 group col-span-2 lg:col-span-1">
             <div className="space-y-1">
               <p className="text-xs sm:text-sm font-bold text-gray-500 tracking-tight group-hover:text-gray-900 transition-colors">
-                Total Mengundurkan Diri
+                Total Resign
               </p>
               <h3 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">
                 {pagination?.stats?.total_resign || 0}
@@ -761,6 +818,31 @@ function PresensiJurnalContent() {
             <UserCheck className="w-4 h-4" />
             <span className="hidden lg:inline">Presensi (Tashih)</span>
             <span className="lg:hidden">Tashih</span>
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab('sp');
+              setCurrentPage(1);
+              router.push('/presensi-jurnal?tab=sp', { scroll: false });
+            }}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl font-bold text-sm transition-all duration-300 whitespace-nowrap relative",
+              activeTab === 'sp'
+                ? "bg-amber-600 text-white shadow-lg shadow-amber-600/20"
+                : "text-gray-500 hover:text-amber-600 hover:bg-amber-50"
+            )}
+          >
+            <AlertTriangle className="w-4 h-4" />
+            <span className="hidden lg:inline">Surat Peringatan (SP)</span>
+            <span className="lg:hidden">SP</span>
+            {(pagination?.stats?.total_sp ?? spStats?.total_sp ?? 0) > 0 && (
+              <span className={cn(
+                "px-1.5 py-0.2 text-[10px] font-black rounded-full ml-1",
+                activeTab === 'sp' ? "bg-white text-amber-700" : "bg-amber-100 text-amber-700"
+              )}>
+                {pagination?.stats?.total_sp ?? spStats?.total_sp}
+              </span>
+            )}
           </button>
           <button
             onClick={() => {
@@ -849,22 +931,43 @@ function PresensiJurnalContent() {
                 </select>
               </div>
 
-              <div className="flex flex-col gap-1.5 flex-1 lg:flex-initial">
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Filter Blok</label>
-                <select
-                  value={selectedBlok}
-                  onChange={(e) => {
-                    setSelectedBlok(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  className="bg-white border-0 shadow-sm rounded-xl px-4 py-2.5 text-sm font-semibold text-gray-700 min-w-[140px] focus:ring-2 focus:ring-green-900/20 transition-all cursor-pointer outline-none"
-                >
-                  <option value="all">Semua Blok</option>
-                  {availableBloks.map(b => (
-                    <option key={b} value={b}>Blok {b}</option>
-                  ))}
-                </select>
-              </div>
+              {activeTab === 'sp' ? (
+                <div className="flex flex-col gap-1.5 flex-1 lg:flex-initial min-w-[170px]">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Tingkat SP</label>
+                  <select
+                    value={spLevelFilter}
+                    onChange={(e) => {
+                      setSpLevelFilter(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="bg-amber-50 border border-amber-200 text-amber-900 shadow-sm rounded-xl px-4 py-2.5 text-sm font-bold w-full focus:ring-2 focus:ring-amber-500/20 transition-all cursor-pointer outline-none"
+                  >
+                    <option value="all">Semua Level ({spStats?.total_sp ?? pagination?.stats?.total_sp ?? 0})</option>
+                    <option value="1">SP 1 ({spStats?.count_sp1 ?? 0})</option>
+                    <option value="2">SP 2 ({spStats?.count_sp2 ?? 0})</option>
+                    <option value="3">SP 3 ({spStats?.count_sp3 ?? 0})</option>
+                    <option value="4">DO Sementara ({spStats?.count_do ?? 0})</option>
+                    <option value="5">Blacklist ({spStats?.count_blacklist ?? 0})</option>
+                  </select>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-1.5 flex-1 lg:flex-initial">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Filter Blok</label>
+                  <select
+                    value={selectedBlok}
+                    onChange={(e) => {
+                      setSelectedBlok(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="bg-white border-0 shadow-sm rounded-xl px-4 py-2.5 text-sm font-semibold text-gray-700 min-w-[140px] focus:ring-2 focus:ring-green-900/20 transition-all cursor-pointer outline-none"
+                  >
+                    <option value="all">Semua Blok</option>
+                    {availableBloks.map(b => (
+                      <option key={b} value={b}>Blok {b}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {activeTab === 'jurnal' && (
                 <div className="flex flex-col gap-1.5 flex-1 lg:flex-initial">
@@ -913,6 +1016,24 @@ function PresensiJurnalContent() {
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                   <HalaqahSummaryTab batchId={selectedBatchId} />
                 </div>
+              ) : activeTab === 'sp' ? (
+                <SPTabSimple
+                  selectedBatchId={selectedBatchId}
+                  entries={spEntries}
+                  stats={spStats}
+                  levelFilter={spLevelFilter}
+                  onLevelFilterChange={(lvl) => {
+                    setSpLevelFilter(lvl);
+                    setCurrentPage(1);
+                  }}
+                  onRefresh={loadData}
+                  onPageChange={setCurrentPage}
+                  pagination={pagination}
+                  onIssueSP={(user: any, week: number) => {
+                    setSpTarget({ user, weekNumber: week });
+                    setIsIssueSPModalOpen(true);
+                  }}
+                />
               ) : activeTab === 'dropout' ? (
                 <JurnalTabSimple
                   selectedBatchId={selectedBatchId}
@@ -1217,6 +1338,581 @@ function SPStatusBadge({ summary }: { summary: any }) {
 }
 
 // --- sub components ---
+
+interface SPTabProps {
+  selectedBatchId: string;
+  entries: any[];
+  stats: any;
+  levelFilter: string;
+  onLevelFilterChange: (lvl: string) => void;
+  onRefresh: () => void;
+  pagination: any;
+  onPageChange: (page: number) => void;
+  onIssueSP?: (user: any, week: number) => void;
+}
+
+function SPTabSimple({
+  selectedBatchId,
+  entries,
+  stats,
+  levelFilter,
+  onLevelFilterChange,
+  onRefresh,
+  pagination,
+  onPageChange,
+  onIssueSP
+}: SPTabProps) {
+  const [selectedSPModal, setSelectedSPModal] = useState<any | null>(null);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+
+  const getReasonLabel = (reason: string) => {
+    switch (reason) {
+      case 'tidak_lapor_jurnal': return 'Tidak Lapor Jurnal (Ghaib)';
+      case 'tidak_lapor_tashih': return 'Tidak Lapor Tashih';
+      case 'laporan_tidak_lengkap': return 'Laporan Tidak Lengkap';
+      case 'pelanggaran_adab': return 'Pelanggaran Adab/Etika';
+      default: return reason || 'Tidak Memenuhi Target Evaluasi';
+    }
+  };
+
+  const getCleanPhone = (phone?: string) => {
+    if (!phone) return '';
+    let p = phone.replace(/[^0-9]/g, '');
+    if (p.startsWith('0')) p = '62' + p.substring(1);
+    return p;
+  };
+
+  const generateWAText = (entry: any) => {
+    const name = entry.full_name || entry.nama_kunyah || 'Ukhti';
+    const level = entry.sp_level;
+    const week = entry.week_number;
+    const reasonText = getReasonLabel(entry.reason);
+    
+    let text = `*SURAT PERINGATAN (SP ${level}) - MARKAZ TIKRAR*\n\n`;
+    text += `Assalamu’alaikum warahmatullah wabarakatuh, Ukhti *${name}*.\n\n`;
+    text += `Semoga Ukhti selalu dalam lindungan Allah ﷻ. Kami menginformasikan bahwa berdasarkan hasil evaluasi kedisiplinan pada *Pekan ${week}*, Ukhti menerima *Surat Peringatan ke-${level} (SP${level})* dengan rincian:\n\n`;
+    text += `📌 *Alasan:* ${reasonText}\n`;
+    if (entry.notes) {
+      text += `📝 *Catatan:* ${entry.notes}\n`;
+    }
+    text += `\n`;
+
+    if (level === 1) {
+      text += `Mohon Ukhti segera menuntaskan kewajiban laporan harian & setoran tashih agar hafalan tetap terjaga dan mutqin.\n\n`;
+    } else if (level === 2) {
+      text += `⚠️ Ini adalah *Peringatan Kedua (SP2)*. Mohon tingkatkan komitmen dan kedisiplinan agar tidak berlanjut ke SP3 (Drop Out).\n\n`;
+    } else if (level >= 3) {
+      if (entry.sp_type === 'permanent_do') {
+        text += `🛑 Mengingat ini adalah SP3, status Ukhti dinyatakan *Drop Out Permanen* dari program ini.\n\n`;
+      } else {
+        text += `🛑 Mengingat ini adalah SP3, status Ukhti dinyatakan *Drop Out Sementara*. Ukhti dapat mendaftar kembali di batch berikutnya.\n\n`;
+      }
+    }
+
+    text += `Jazakumullahu khayran wa barakallahu feekum.\n_Admin & Musyrifah Markaz Tikrar_`;
+    return text;
+  };
+
+  const handleSendWA = (entry: any) => {
+    const phone = getCleanPhone(entry.whatsapp);
+    const text = generateWAText(entry);
+    
+    navigator.clipboard.writeText(text);
+    toast.success('Format Pesan SP disalin ke clipboard!');
+
+    if (phone) {
+      const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+      window.open(url, '_blank');
+    } else {
+      toast('Nomor WhatsApp tidak tersedia, pesan telah disalin.', { icon: '📋' });
+    }
+  };
+
+  const handleCancelSP = async (entry: any) => {
+    const name = entry.full_name || 'Thalibah ini';
+    if (!window.confirm(`Apakah Ukhti yakin ingin mencabut / membatalkan Surat Peringatan (SP ${entry.sp_level}) untuk ${name}?`)) {
+      return;
+    }
+
+    try {
+      setActionLoadingId(entry.id);
+      const res = await fetch(`/api/musyrifah/sp?id=${entry.id}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        toast.success(`SP untuk ${name} berhasil dibatalkan`);
+        onRefresh();
+      } else {
+        const err = await res.json();
+        toast.error(err.error?.message || err.error || 'Gagal membatalkan SP');
+      }
+    } catch (e) {
+      toast.error('Terjadi kesalahan saat membatalkan SP');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const filterChips = [
+    { key: 'all', label: 'Semua SP', count: stats?.total_sp ?? entries.length, color: 'bg-gray-100 text-gray-700 hover:bg-gray-200' },
+    { key: '1', label: 'SP 1', count: stats?.count_sp1 ?? 0, color: 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border-yellow-300' },
+    { key: '2', label: 'SP 2', count: stats?.count_sp2 ?? 0, color: 'bg-amber-100 text-amber-800 hover:bg-amber-200 border-amber-300' },
+    { key: '3', label: 'SP 3', count: stats?.count_sp3 ?? 0, color: 'bg-rose-100 text-rose-800 hover:bg-rose-200 border-rose-300' },
+    { key: '4', label: 'DO Sementara', count: stats?.count_do ?? 0, color: 'bg-purple-100 text-purple-800 hover:bg-purple-200 border-purple-300' },
+    { key: '5', label: 'Blacklist', count: stats?.count_blacklist ?? 0, color: 'bg-red-950 text-white hover:bg-red-900 border-red-900' },
+  ];
+
+  return (
+    <div className="space-y-6">
+      {/* Quick Level Filter Badges */}
+      <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-bold text-gray-400 uppercase tracking-wider mr-1">Filter Tingkat:</span>
+          {filterChips.map(chip => {
+            const isActive = levelFilter === chip.key;
+            return (
+              <button
+                key={chip.key}
+                type="button"
+                onClick={() => onLevelFilterChange(chip.key)}
+                className={cn(
+                  "px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border",
+                  isActive
+                    ? "bg-green-900 text-white border-green-900 shadow-md shadow-green-900/10 scale-105"
+                    : `${chip.color} border-transparent`
+                )}
+              >
+                <span>{chip.label}</span>
+                <span className={cn(
+                  "px-1.5 py-0.2 rounded-full text-[10px] font-black",
+                  isActive ? "bg-white/20 text-white" : "bg-black/10 text-inherit"
+                )}>
+                  {chip.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="text-xs text-gray-500 font-semibold">
+          Menampilkan <strong className="text-gray-900">{entries.length}</strong> dari <strong className="text-gray-900">{pagination?.totalCount || entries.length}</strong> thalibah bersurat peringatan
+        </div>
+      </div>
+
+      {/* Main Content List / Table */}
+      {entries.length === 0 ? (
+        <div className="bg-white rounded-3xl p-16 text-center shadow-xl border border-gray-100">
+          <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-100">
+            <CheckCircle className="w-10 h-10" />
+          </div>
+          <h3 className="text-xl font-black text-gray-900 mb-1">Alhamdulillah, Tidak Ada Surat Peringatan</h3>
+          <p className="text-gray-500 text-sm max-w-md mx-auto">
+            {levelFilter !== 'all'
+              ? `Tidak ditemukan thalibah dengan filter tingkat SP ini pada batch yang dipilih.`
+              : `Seluruh thalibah pada batch ini disiplin dan belum memiliki catatan Surat Peringatan aktif.`}
+          </p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-3xl shadow-xl shadow-green-900/5 border border-gray-100 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-gray-50/80 border-b border-gray-100 text-[11px] font-black text-gray-400 uppercase tracking-wider">
+                  <th className="py-4 px-6">Thalibah</th>
+                  <th className="py-4 px-4 text-center">Tingkat SP & Pekan</th>
+                  <th className="py-4 px-6">Alasan & Catatan</th>
+                  <th className="py-4 px-4">Diterbitkan</th>
+                  <th className="py-4 px-4 text-center">Status</th>
+                  <th className="py-4 px-6 text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 text-sm">
+                {entries.map((entry) => {
+                  const level = entry.sp_level || 1;
+                  const isDo = entry.sp_type?.includes('do') || level >= 4;
+                  const isBlacklist = entry.is_blacklisted || entry.sp_type === 'blacklist';
+                  const phoneClean = getCleanPhone(entry.whatsapp);
+
+                  return (
+                    <tr key={entry.id} className="hover:bg-amber-50/20 transition-colors group">
+                      {/* Thalibah Info */}
+                      <td className="py-4 px-6">
+                        <div className="flex items-center gap-3">
+                          <div className={cn(
+                            "w-10 h-10 rounded-2xl flex items-center justify-center font-black text-sm shadow-sm flex-shrink-0 text-white",
+                            isBlacklist
+                              ? "bg-red-950"
+                              : isDo
+                              ? "bg-purple-700"
+                              : level === 3
+                              ? "bg-rose-600"
+                              : level === 2
+                              ? "bg-amber-600"
+                              : "bg-yellow-500 text-yellow-950"
+                          )}>
+                            {(entry.full_name || 'T').charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-gray-900 group-hover:text-green-950 transition-colors truncate">
+                                {entry.full_name || 'Nama Tidak Tersedia'}
+                              </span>
+                              {entry.nama_kunyah && (
+                                <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-extrabold border border-emerald-100 whitespace-nowrap">
+                                  {entry.nama_kunyah}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 mt-0.5">
+                              {entry.whatsapp && (
+                                <a
+                                  href={`https://wa.me/${phoneClean}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-green-700 hover:text-green-800 font-semibold hover:underline flex items-center gap-1"
+                                  title="Chat WhatsApp"
+                                >
+                                  <span>📱 {entry.whatsapp}</span>
+                                </a>
+                              )}
+                              {entry.confirmed_chosen_juz && (
+                                <span className="text-gray-400 font-medium">
+                                  Juz {entry.confirmed_chosen_juz}
+                                </span>
+                              )}
+                              {entry.halaqah_name && (
+                                <span className="text-gray-400 font-medium">
+                                  • {entry.halaqah_name}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Tingkat SP & Pekan */}
+                      <td className="py-4 px-4 text-center">
+                        <div className="inline-flex flex-col items-center gap-1">
+                          <span className={cn(
+                            "px-3 py-1 rounded-xl text-xs font-black uppercase tracking-tight shadow-sm border flex items-center gap-1",
+                            isBlacklist
+                              ? "bg-red-950 text-white border-red-900"
+                              : isDo
+                              ? "bg-purple-700 text-white border-purple-800"
+                              : level === 3
+                              ? "bg-rose-600 text-white border-rose-700"
+                              : level === 2
+                              ? "bg-amber-500 text-white border-amber-600"
+                              : "bg-yellow-400 text-yellow-950 border-yellow-500"
+                          )}>
+                            <AlertTriangle className="w-3 h-3" />
+                            {isBlacklist ? 'BLACKLIST' : isDo ? 'DROP OUT' : `SP ${level}`}
+                          </span>
+                          <span className="text-[11px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md">
+                            Pekan {entry.week_number || '-'}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Alasan & Catatan */}
+                      <td className="py-4 px-6 max-w-xs">
+                        <div className="space-y-1">
+                          <p className="font-bold text-gray-800 text-xs sm:text-sm">
+                            {getReasonLabel(entry.reason)}
+                          </p>
+                          {entry.notes && (
+                            <p className="text-xs text-gray-500 line-clamp-2 italic bg-gray-50 p-1.5 rounded-lg border border-gray-100">
+                              "{entry.notes}"
+                            </p>
+                          )}
+                          {entry.udzur_type && (
+                            <div className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+                              <span>Udzur: {entry.udzur_type}</span>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Diterbitkan */}
+                      <td className="py-4 px-4">
+                        <div className="space-y-0.5">
+                          <p className="text-xs font-bold text-gray-800">
+                            {entry.issued_at
+                              ? new Date(entry.issued_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+                              : '-'}
+                          </p>
+                          <p className="text-[11px] text-gray-400 font-medium truncate max-w-[140px]">
+                            Oleh: {entry.issued_by_name || 'Admin/Musyrifah'}
+                          </p>
+                        </div>
+                      </td>
+
+                      {/* Status */}
+                      <td className="py-4 px-4 text-center">
+                        <span className={cn(
+                          "px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wide border",
+                          entry.status === 'active'
+                            ? "bg-amber-50 text-amber-800 border-amber-200"
+                            : entry.status === 'resolved'
+                            ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                            : "bg-gray-100 text-gray-600 border-gray-200"
+                        )}>
+                          {entry.status === 'active' ? 'Aktif' : entry.status === 'resolved' ? 'Selesai' : 'Dibatalkan'}
+                        </span>
+                      </td>
+
+                      {/* Actions */}
+                      <td className="py-4 px-6 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {/* Send WhatsApp Warning */}
+                          <button
+                            type="button"
+                            onClick={() => handleSendWA(entry)}
+                            className="p-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition-all active:scale-95 shadow-sm border border-emerald-100"
+                            title="Kirim / Salin Pesan Peringatan WhatsApp"
+                          >
+                            <MessageSquare className="w-4 h-4" />
+                          </button>
+
+                          {/* View Official Letter */}
+                          <button
+                            type="button"
+                            onClick={() => setSelectedSPModal(entry)}
+                            className="p-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-all active:scale-95 shadow-sm border border-indigo-100"
+                            title="Lihat Surat Peringatan Resmi"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+
+                          {/* Cancel / Revoke SP */}
+                          <button
+                            type="button"
+                            disabled={actionLoadingId === entry.id}
+                            onClick={() => handleCancelSP(entry)}
+                            className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 transition-all active:scale-95 shadow-sm border border-rose-100 disabled:opacity-50"
+                            title="Batalkan / Cabut Surat Peringatan"
+                          >
+                            {actionLoadingId === entry.id ? (
+                              <div className="w-4 h-4 border-2 border-rose-600 border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          {pagination && pagination.totalPages > 1 && (
+            <div className="p-4 border-t border-gray-100 bg-gray-50/50 flex justify-between items-center">
+              <span className="text-xs text-gray-500 font-semibold">
+                Halaman {pagination.page} dari {pagination.totalPages}
+              </span>
+              <Pagination
+                currentPage={pagination.page}
+                totalPages={pagination.totalPages}
+                onPageChange={onPageChange}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Official Surat Peringatan Preview Modal */}
+      {selectedSPModal && (
+        <SuratPeringatanDetailModal
+          entry={selectedSPModal}
+          onClose={() => setSelectedSPModal(null)}
+          onSendWA={() => handleSendWA(selectedSPModal)}
+        />
+      )}
+    </div>
+  );
+}
+
+function SuratPeringatanDetailModal({
+  entry,
+  onClose,
+  onSendWA
+}: {
+  entry: any;
+  onClose: () => void;
+  onSendWA: () => void;
+}) {
+  const level = entry.sp_level || 1;
+  const isDo = entry.sp_type?.includes('do') || level >= 4;
+  const isBlacklist = entry.is_blacklisted || entry.sp_type === 'blacklist';
+  const spNumber = `SP/${level}/MTI/${entry.batch_name?.replace(/[^a-zA-Z0-9]/g, '') || 'B3'}/${entry.week_number || 1}/${(entry.id || '0000').slice(0, 5).toUpperCase()}`;
+
+  const handleCopyLetter = () => {
+    const text = `SURAT PERINGATAN RESMI MARKAZ TIKRAR\nNomor: ${spNumber}\n\nKepada: ${entry.full_name || 'Thalibah'}\nTingkat: SP ${level} (Pekan ${entry.week_number})\nAlasan: ${entry.reason}\nCatatan: ${entry.notes || '-'}\nTanggal: ${new Date(entry.issued_at || Date.now()).toLocaleDateString('id-ID')}\n\nMarkaz Tikrar Indonesia`;
+    navigator.clipboard.writeText(text);
+    toast.success('Ringkasan surat disalin!');
+  };
+
+  return (
+    <div className="fixed inset-0 bg-green-950/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4 animate-fadeIn">
+      <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-2xl overflow-hidden border border-white flex flex-col max-h-[90vh] animate-fadeInScale">
+        {/* Header Modal */}
+        <div className={cn(
+          "p-6 text-white flex justify-between items-center",
+          isBlacklist
+            ? "bg-gradient-to-r from-red-950 to-neutral-900"
+            : isDo
+            ? "bg-gradient-to-r from-purple-900 to-indigo-950"
+            : level === 3
+            ? "bg-gradient-to-r from-rose-800 to-red-900"
+            : level === 2
+            ? "bg-gradient-to-r from-amber-700 to-orange-800"
+            : "bg-gradient-to-r from-yellow-600 to-amber-700"
+        )}>
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-white/10 rounded-2xl backdrop-blur-md">
+              <AlertTriangle className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h3 className="text-lg font-black tracking-tight">
+                {isBlacklist ? 'Surat Blacklist' : isDo ? 'Surat Drop Out' : `Surat Peringatan ke-${level} (SP${level})`}
+              </h3>
+              <p className="text-white/80 text-xs font-medium">
+                No: {spNumber}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-white/20 rounded-full transition-colors text-white"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Letter Body Preview */}
+        <div className="p-6 sm:p-8 overflow-y-auto space-y-6 bg-amber-50/10">
+          {/* Official Letterhead */}
+          <div className="text-center border-b-2 border-gray-200 pb-4">
+            <h2 className="text-lg sm:text-xl font-black text-green-950 tracking-wider">
+              MARKAZ TIKRAR INDONESIA
+            </h2>
+            <p className="text-xs text-gray-500 font-semibold uppercase tracking-widest mt-0.5">
+              Sistem Pembinaan Disiplin & Evaluasi Tahfidz
+            </p>
+          </div>
+
+          {/* Thalibah Details Box */}
+          <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-3">
+            <div className="grid grid-cols-2 gap-4 text-xs">
+              <div>
+                <span className="text-gray-400 font-bold uppercase tracking-wider block">Nama Thalibah</span>
+                <span className="text-gray-900 font-black text-sm">{entry.full_name || '-'}</span>
+                {entry.nama_kunyah && (
+                  <span className="text-emerald-700 font-semibold block text-xs">({entry.nama_kunyah})</span>
+                )}
+              </div>
+              <div>
+                <span className="text-gray-400 font-bold uppercase tracking-wider block">Target Juz & Halaqah</span>
+                <span className="text-gray-800 font-bold">Juz {entry.confirmed_chosen_juz || '-'}</span>
+                <span className="text-gray-500 block text-[11px]">{entry.halaqah_name || 'Halaqah Tashih'}</span>
+              </div>
+              <div>
+                <span className="text-gray-400 font-bold uppercase tracking-wider block">Pekan Evaluasi</span>
+                <span className="text-gray-900 font-extrabold text-sm">Pekan {entry.week_number || '-'}</span>
+              </div>
+              <div>
+                <span className="text-gray-400 font-bold uppercase tracking-wider block">Tanggal Dikeluarkan</span>
+                <span className="text-gray-800 font-bold">
+                  {entry.issued_at
+                    ? new Date(entry.issued_at).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+                    : '-'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Reason & Content */}
+          <div className="space-y-3 text-xs sm:text-sm text-gray-700 leading-relaxed">
+            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200">
+              <span className="text-amber-900 font-bold block mb-1">
+                ⚠️ Uraian Pelanggaran / Indikasi:
+              </span>
+              <p className="text-amber-950 font-semibold">
+                {entry.reason === 'tidak_lapor_jurnal' ? 'Tidak Lapor Jurnal Harian (Ghaib)' :
+                 entry.reason === 'tidak_lapor_tashih' ? 'Tidak Menghadiri / Melaporkan Tashih' :
+                 entry.reason === 'laporan_tidak_lengkap' ? 'Laporan Jurnal / Tashih Tidak Lengkap' :
+                 entry.reason}
+              </p>
+              {entry.notes && (
+                <p className="text-amber-800 mt-2 text-xs italic bg-white/60 p-2 rounded-xl">
+                  Catatan: {entry.notes}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2 text-gray-600">
+              <p className="font-semibold text-gray-800">Ketentuan & Tindak Lanjut:</p>
+              <ul className="list-disc pl-5 space-y-1 text-xs">
+                <li>Thalibah diwajibkan segera mengonfirmasi alasan udzur atau segera melengkapi kekurangan laporan pekanan kepada Musyrifah.</li>
+                <li>Akumulasi 3 kali Surat Peringatan (SP 3) akan berkonsekuensi pada status <strong>Drop Out (DO)</strong> dari program Markaz Tikrar.</li>
+                <li>Kedisiplinan dan istiqomah adalah syarat mutlak keberhasilan hafalan Al-Qur'an.</li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Signature info */}
+          <div className="flex justify-end pt-4 border-t border-gray-100 text-xs">
+            <div className="text-center space-y-8">
+              <p className="text-gray-500 font-medium">
+                Penerbit Peringatan,
+              </p>
+              <div>
+                <p className="font-black text-gray-900">
+                  {entry.issued_by_name || 'Admin & Tim Kedisiplinan MTI'}
+                </p>
+                <p className="text-[10px] text-gray-400 font-semibold uppercase">
+                  Markaz Tikrar Indonesia
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer Actions */}
+        <div className="p-4 sm:p-6 bg-gray-50 border-t border-gray-100 flex flex-wrap gap-3 justify-end items-center">
+          <button
+            type="button"
+            onClick={handleCopyLetter}
+            className="px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-700 font-bold text-xs hover:bg-gray-100 transition-all flex items-center gap-2"
+          >
+            <Copy className="w-4 h-4" />
+            <span>Salin Ringkasan</span>
+          </button>
+          
+          <button
+            type="button"
+            onClick={onSendWA}
+            className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-900/10 transition-all flex items-center gap-2 active:scale-95"
+          >
+            <MessageSquare className="w-4 h-4" />
+            <span>Kirim via WhatsApp</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2.5 rounded-xl bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold text-xs transition-all"
+          >
+            Tutup
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface TashihTabProps {
   selectedBatchId: string;
