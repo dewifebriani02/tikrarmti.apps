@@ -1217,6 +1217,7 @@ function PresensiJurnalContent() {
         {isIssueSPModalOpen && spTarget && (
           <IssueSPModal 
             target={spTarget}
+            batchId={selectedBatchId}
             onClose={() => {
               setIsIssueSPModalOpen(false);
               setSpTarget(null);
@@ -3173,7 +3174,7 @@ function InputRecordModal({ target, onClose, onSuccess, muallimahList }: any) {
     </div>
   );
 }
-function IssueSPModal({ target, onClose, onSuccess }: { target: any, onClose: () => void, onSuccess: () => void }) {
+function IssueSPModal({ target, batchId, onClose, onSuccess }: { target: any, batchId?: string, onClose: () => void, onSuccess: () => void }) {
   const [loading, setLoading] = useState(false);
   
   // Sequential logic based on thalibah's latest SP level
@@ -3223,28 +3224,36 @@ function IssueSPModal({ target, onClose, onSuccess }: { target: any, onClose: ()
     e.preventDefault();
     setLoading(true);
     try {
+      const targetUserId = target.user?.id || target.user?.user_id || target.user_id || target.id;
+      if (!targetUserId) {
+        toast.error('Data thalibah tidak valid (ID tidak ditemukan)');
+        setLoading(false);
+        return;
+      }
+
       const response = await fetch('/api/musyrifah/sp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          user_id: target.user.id,
+          user_id: targetUserId,
+          batch_id: batchId || null,
           sp_level: spLevel,
-          week_number: target.weekNumber,
+          week_number: Number(target.weekNumber || 1),
           reason: reason === 'lainnya' ? customReason : reason,
           sp_type: spLevel === 3 ? (spType === 'standard' ? null : spType) : null,
           status: 'active'
         })
       });
       
-      if (response.ok) {
-        toast.success('SP Berhasil Terbit');
+      const result = await response.json().catch(() => null);
+      if (response.ok && result?.success !== false) {
+        toast.success(`Surat Peringatan (SP ${spLevel}) Berhasil Diterbitkan`);
         onSuccess();
       } else {
-        const result = await response.json();
-        toast.error(result.error?.message || result.error || 'Gagal menerbitkan SP');
+        toast.error(result?.error?.message || result?.error || 'Gagal menerbitkan SP');
       }
     } catch (error) {
-      toast.error('Terjadi kesalahan sistem');
+      toast.error('Terjadi kesalahan sistem saat menerbitkan SP');
     } finally {
       setLoading(false);
     }

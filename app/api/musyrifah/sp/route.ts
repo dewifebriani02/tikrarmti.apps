@@ -16,6 +16,7 @@ const createSPSchema = z.object({
   reason: z.string().min(1),
   notes: z.string().optional(),
   status: z.string().optional().default('active'),
+  is_blacklisted: z.boolean().optional(),
 });
 
 // Validation schema for updating SP
@@ -73,12 +74,12 @@ export async function GET(request: Request) {
 
     if (spLevel && spLevel !== 'all') {
       whereConditions.push(`sp.sp_level = $${paramIndex++}`);
-      queryParams.push(parseInt(spLevel, 10));
+      queryParams.push(String(spLevel));
     }
 
     if (weekNumber && weekNumber !== 'all') {
       whereConditions.push(`sp.week_number = $${paramIndex++}`);
-      queryParams.push(parseInt(weekNumber, 10));
+      queryParams.push(String(weekNumber));
     }
 
     if (search.trim()) {
@@ -149,20 +150,27 @@ export async function GET(request: Request) {
 
     const { rows: spRecords } = await query(dataQuery, [...queryParams, limit, offset]);
 
-    // Calculate aggregated stats
+    // Calculate aggregated stats with proper type casting
+    let statsBatchCondition = '';
+    let statsParams: any[] = [];
+    if (batchId && batchId !== 'all') {
+      statsBatchCondition = ' AND batch_id = $1';
+      statsParams.push(batchId);
+    }
+
     const statsQuery = `
       SELECT 
         COUNT(*) as total_sp,
         COUNT(DISTINCT thalibah_id) as total_thalibah_sp,
-        COUNT(*) FILTER (WHERE sp_level = 1) as count_sp1,
-        COUNT(*) FILTER (WHERE sp_level = 2) as count_sp2,
-        COUNT(*) FILTER (WHERE sp_level = 3) as count_sp3,
-        COUNT(*) FILTER (WHERE sp_type LIKE '%do%' OR sp_type = 'temporary_do' OR sp_type = 'permanent_do') as count_do,
-        COUNT(*) FILTER (WHERE is_blacklisted = true) as count_blacklist
+        COUNT(*) FILTER (WHERE sp_level = '1' OR sp_level = 'SP1') as count_sp1,
+        COUNT(*) FILTER (WHERE sp_level = '2' OR sp_level = 'SP2') as count_sp2,
+        COUNT(*) FILTER (WHERE sp_level = '3' OR sp_level = 'SP3') as count_sp3,
+        COUNT(*) FILTER (WHERE sp_type LIKE '%do%' OR sp_type = 'temporary_do' OR sp_type = 'permanent_do' OR sp_level = '4') as count_do,
+        COUNT(*) FILTER (WHERE is_blacklisted = 'true' OR sp_type = 'blacklist' OR sp_level = '5') as count_blacklist
       FROM surat_peringatan
-      WHERE status = 'active'
+      WHERE status = 'active' ${statsBatchCondition}
     `;
-    const { rows: statsRows } = await query(statsQuery);
+    const { rows: statsRows } = await query(statsQuery, statsParams);
     const statsData = statsRows[0] || {};
 
     const stats = {
@@ -181,13 +189,13 @@ export async function GET(request: Request) {
         thalibah_id: r.thalibah_id,
         batch_id: r.batch_id,
         batch_name: r.batch_name,
-        week_number: r.week_number,
-        sp_level: r.sp_level,
+        week_number: parseInt(r.week_number || '1', 10),
+        sp_level: parseInt(r.sp_level || '1', 10),
         sp_type: r.sp_type,
         reason: r.reason,
         udzur_type: r.udzur_type,
         udzur_notes: r.udzur_notes,
-        is_blacklisted: r.is_blacklisted,
+        is_blacklisted: r.is_blacklisted === 'true' || r.is_blacklisted === true,
         status: r.status,
         issued_at: r.issued_at,
         issued_by_name: r.issued_by_name,
@@ -246,8 +254,19 @@ export async function POST(request: Request) {
     // Resolve active batch if not supplied
     let batchId = validatedData.batch_id;
     if (!batchId) {
-      const { rows: batchRows } = await query(`SELECT id FROM batches WHERE is_active = true LIMIT 1`);
-      batchId = batchRows[0]?.id || null;
+      // First try from user's daftar_ulang
+      const { rows: duRows } = await query(
+        `SELECT batch_id FROM daftar_ulang WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`,
+        [targetUserId]
+      );
+      if (duRows.length > 0 && duRows[0].batch_id) {
+        batchId = duRows[0].batch_id;
+      } else {
+        const { rows: batchRows } = await query(
+          `SELECT id FROM batches WHERE status IN ('open', 'ongoing') ORDER BY created_at DESC LIMIT 1`
+        );
+        batchId = batchRows[0]?.id || null;
+      }
     }
 
     // Determine SP level if not explicitly provided
@@ -256,44 +275,62 @@ export async function POST(request: Request) {
       const { rows: existingSPRows } = await query(
         `SELECT sp_level FROM surat_peringatan 
          WHERE thalibah_id = $1 AND status = 'active' 
-         ORDER BY sp_level DESC LIMIT 1`,
+         ORDER BY CAST(NULLIF(regexp_replace(sp_level, '[^0-9]', '', 'g'), '') AS INTEGER) DESC NULLS LAST LIMIT 1`,
         [targetUserId]
       );
-      const currentHighest = existingSPRows[0]?.sp_level || 0;
+      const currentHighest = parseInt(existingSPRows[0]?.sp_level || '0', 10) || 0;
       spLevel = Math.min(currentHighest + 1, 3);
     }
+
+    const isBlacklist = validatedData.sp_type === 'blacklist' || validatedData.is_blacklisted === true;
 
     // Insert SP record
     const { rows: insertedRows } = await query(
       `INSERT INTO surat_peringatan (
-        thalibah_id, batch_id, week_number, sp_level, sp_type, reason, notes, issued_by, status, issued_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+        thalibah_id, batch_id, week_number, sp_level, sp_type, reason, notes, issued_by, status, is_blacklisted, issued_at, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW(), NOW())
       RETURNING *`,
       [
         targetUserId,
         batchId,
-        validatedData.week_number,
-        spLevel,
+        String(validatedData.week_number),
+        String(spLevel),
         validatedData.sp_type || null,
         validatedData.reason,
         validatedData.notes || null,
         context.userId,
-        validatedData.status || 'active'
+        validatedData.status || 'active',
+        isBlacklist ? 'true' : 'false'
       ]
     );
 
     const newSP = insertedRows[0];
 
-    // If SP3 with DO or Blacklist, handle user flags if needed
-    if (spLevel === 3) {
-      if (validatedData.sp_type === 'permanent_do' || validatedData.sp_type === 'temporary_do') {
-        // Can optionally log to sp_history
+    // If SP3 with DO or Blacklist, handle user flags and sp_history if applicable
+    if (spLevel === 3 || isBlacklist) {
+      if (batchId && (validatedData.sp_type === 'permanent_do' || validatedData.sp_type === 'temporary_do' || isBlacklist)) {
         await query(
           `INSERT INTO sp_history (
-            thalibah_id, batch_id, final_action, total_sp_count, action_taken_by, notes
-          ) VALUES ($1, $2, $3, 3, $4, $5)`,
-          [targetUserId, batchId, validatedData.sp_type, context.userId, validatedData.notes || 'Diterbitkan via SP3']
-        ).catch(() => {});
+            thalibah_id, batch_id, final_action, reason, notes, created_by, created_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+          [
+            targetUserId, 
+            batchId, 
+            validatedData.sp_type || 'sp3', 
+            validatedData.reason, 
+            validatedData.notes || 'Diterbitkan via SP3', 
+            context.userId
+          ]
+        ).catch((err) => console.error('[SP History Insert Error]', err));
+      }
+
+      if (isBlacklist) {
+        await query(
+          `UPDATE users 
+           SET is_blacklisted = true, blacklist_reason = $1, blacklisted_at = NOW(), blacklist_by = $2 
+           WHERE id = $3`,
+          [validatedData.reason || 'Diterbitkan Blacklist via SP', context.email || 'Admin', targetUserId]
+        ).catch((err) => console.error('[User Blacklist Update Error]', err));
       }
     }
 
@@ -352,7 +389,7 @@ export async function PUT(request: Request) {
     }
     if (validatedData.is_blacklisted !== undefined) {
       updates.push(`is_blacklisted = $${valIdx++}`);
-      values.push(validatedData.is_blacklisted);
+      values.push(validatedData.is_blacklisted ? 'true' : 'false');
     }
 
     const updateQuery = `
