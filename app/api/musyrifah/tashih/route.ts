@@ -335,6 +335,30 @@ export async function GET(request: Request) {
       });
     }
 
+    // Fetch active SP records for users
+    let spRecords: any[] = [];
+    if (userIds.length > 0) {
+      const { rows: spRows } = await import('@/lib/db').then(m => m.query(
+        `SELECT thalibah_id, sp_level, week_number, status, issued_at, reason, is_blacklisted, sp_type
+         FROM surat_peringatan
+         WHERE status = 'active' AND thalibah_id = ANY($1::uuid[])`,
+        [userIds]
+      ));
+      spRecords = spRows;
+    }
+
+    const spByUserAndWeek = new Map();
+    const spByUser = new Map();
+    spRecords?.forEach((sp: any) => {
+      if (!spByUser.has(sp.thalibah_id)) {
+        spByUser.set(sp.thalibah_id, []);
+      }
+      spByUser.get(sp.thalibah_id).push(sp);
+      
+      const key = `${sp.thalibah_id}-${sp.week_number}`;
+      spByUserAndWeek.set(key, sp);
+    });
+
     // Build combined entries with weekly status
     const combinedEntries = userIds.map((userId: string) => {
       const daftarUlang = daftarUlangMap.get(userId);
@@ -358,7 +382,47 @@ export async function GET(request: Request) {
           });
           return hasTashih;
         }).length;
+
+        weeklyStatus.forEach((week: any) => {
+          const spKey = `${userId}-${week.week_number}`;
+          const spForWeek = spByUserAndWeek.get(spKey);
+          week.sp_info = spForWeek ? {
+            sp_level: spForWeek.sp_level,
+            status: spForWeek.status,
+            issued_at: spForWeek.issued_at,
+            reason: spForWeek.reason,
+            is_blacklisted: spForWeek.is_blacklisted,
+            sp_type: spForWeek.sp_type,
+          } : null;
+        });
+      } else {
+        for (let week = 1; week <= 10; week++) {
+          const spKey = `${userId}-${week}`;
+          const spForWeek = spByUserAndWeek.get(spKey);
+          weeklyStatus.push({
+            week_number: week,
+            total_blocks: 0,
+            completed_blocks: 0,
+            is_completed: false,
+            blocks: [],
+            sp_info: spForWeek ? {
+              sp_level: spForWeek.sp_level,
+              status: spForWeek.status,
+              issued_at: spForWeek.issued_at,
+              reason: spForWeek.reason,
+              is_blacklisted: spForWeek.is_blacklisted,
+              sp_type: spForWeek.sp_type,
+            } : null,
+          });
+        }
       }
+
+      const userSPRecords = spByUser.get(userId) || [];
+      const latestSP = userSPRecords.length > 0
+        ? userSPRecords.reduce((latest: any, current: any) =>
+          current.sp_level > latest.sp_level ? current : latest
+        )
+        : null;
 
       return {
         user_id: userId,
@@ -392,6 +456,15 @@ export async function GET(request: Request) {
           blok: latestTashih.blok,
         } : null,
         tashih_records: userTashihRecords,
+        sp_summary: latestSP ? {
+          sp_level: latestSP.sp_level,
+          week_number: latestSP.week_number,
+          issued_at: latestSP.issued_at,
+          reason: latestSP.reason,
+          is_blacklisted: latestSP.is_blacklisted,
+          sp_type: latestSP.sp_type,
+          total_active_sp: userSPRecords.length,
+        } : null,
       };
     });
 

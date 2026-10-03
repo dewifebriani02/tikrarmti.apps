@@ -1145,11 +1145,18 @@ function EffectHandler({ onOpenModal }: { onOpenModal: (detail: any) => void }) 
 }
 
 function SPStatusBadge({ summary }: { summary: any }) {
-  if (!summary) return null;
+  if (!summary) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-100">
+        <CheckCircle className="w-2.5 h-2.5" />
+        Aktif
+      </span>
+    );
+  }
   
   if (summary.is_blacklisted) {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-rose-600 text-white text-[10px] font-bold uppercase tracking-tighter shadow-sm border border-rose-700">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-rose-600 text-white text-[10px] font-bold uppercase tracking-tight shadow-sm border border-rose-700" title={summary.reason || 'Blacklisted'}>
         <Ban className="w-2.5 h-2.5" />
         Blacklisted
       </span>
@@ -1158,50 +1165,55 @@ function SPStatusBadge({ summary }: { summary: any }) {
 
   if (summary.sp_type === 'permanent_do') {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-orange-700 text-white text-[10px] font-bold uppercase tracking-tighter shadow-sm border border-orange-800">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-orange-700 text-white text-[10px] font-bold uppercase tracking-tight shadow-sm border border-orange-800" title={summary.reason || 'DO Permanen'}>
         <Shield className="w-2.5 h-2.5" />
-        DO Permanen
+        DO Perm{summary.week_number ? ` (P${summary.week_number})` : ''}
       </span>
     );
   }
 
   if (summary.sp_type === 'temporary_do') {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-orange-600 text-white text-[10px] font-bold uppercase tracking-tighter shadow-sm border border-orange-700">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-orange-600 text-white text-[10px] font-bold uppercase tracking-tight shadow-sm border border-orange-700" title={summary.reason || 'DO Sementara'}>
         <Shield className="w-2.5 h-2.5" />
-        DO Sementara
+        DO Sem{summary.week_number ? ` (P${summary.week_number})` : ''}
       </span>
     );
   }
 
   if (summary.sp_level === 3) {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-red-600 text-white text-[10px] font-bold uppercase tracking-tighter shadow-sm border border-red-700">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-red-600 text-white text-[10px] font-extrabold uppercase tracking-tight shadow-sm border border-red-700 ring-2 ring-red-200" title={`SP 3 di Pekan ${summary.week_number || '-'}${summary.reason ? `: ${summary.reason}` : ''}`}>
         <AlertTriangle className="w-2.5 h-2.5" />
-        SP 3
+        SP 3{summary.week_number ? ` (P${summary.week_number})` : ''}
       </span>
     );
   }
 
   if (summary.sp_level === 2) {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500 text-white text-[10px] font-bold uppercase tracking-tighter shadow-sm border border-amber-600">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500 text-white text-[10px] font-extrabold uppercase tracking-tight shadow-sm border border-amber-600 ring-2 ring-amber-200" title={`SP 2 di Pekan ${summary.week_number || '-'}${summary.reason ? `: ${summary.reason}` : ''}`}>
         <AlertTriangle className="w-2.5 h-2.5" />
-        SP 2
+        SP 2{summary.week_number ? ` (P${summary.week_number})` : ''}
       </span>
     );
   }
 
   if (summary.sp_level === 1) {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-yellow-400 text-yellow-900 text-[10px] font-bold uppercase tracking-tighter shadow-sm border border-yellow-500">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-yellow-400 text-yellow-950 text-[10px] font-extrabold uppercase tracking-tight shadow-sm border border-yellow-500 ring-2 ring-yellow-200" title={`SP 1 di Pekan ${summary.week_number || '-'}${summary.reason ? `: ${summary.reason}` : ''}`}>
         <AlertTriangle className="w-2.5 h-2.5" />
-        SP 1
+        SP 1{summary.week_number ? ` (P${summary.week_number})` : ''}
       </span>
     );
   }
 
-  return null;
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-100">
+      <CheckCircle className="w-2.5 h-2.5" />
+      Aktif
+    </span>
+  );
 }
 
 // --- sub components ---
@@ -1339,15 +1351,23 @@ function TashihTabSimple({ selectedBatchId, entries, currentWeek, onRefresh, onS
                       </div>
                     </div>
                   </td>
-                  {allWeeks.map(p => (
-                    <td key={p} className="px-4 py-5 text-center border-l border-gray-50/50">
-                      <WeekBubble week={entry.weekly_status.find((w: any) => w.week_number === p)} />
-                    </td>
-                  ))}
+                  {allWeeks.map(p => {
+                    const wObj = entry.weekly_status?.find((w: any) => w.week_number === p);
+                    const weekWithSP = wObj ? {
+                      ...wObj,
+                      sp_info: wObj.sp_info || (entry.sp_summary?.week_number === p ? entry.sp_summary : null)
+                    } : (entry.sp_summary?.week_number === p ? { week_number: p, total_blocks: 0, completed_blocks: 0, sp_info: entry.sp_summary } : null);
+
+                    return (
+                      <td key={p} className="px-4 py-5 text-center border-l border-gray-50/50">
+                        <WeekBubble week={weekWithSP} />
+                      </td>
+                    );
+                  })}
                   <td className="px-6 py-5 text-right">
                     <div className="flex items-center justify-end gap-2">
                         <button 
-                          onClick={() => onIssueSP(entry.user, currentWeek)}
+                          onClick={() => onIssueSP({ ...entry.user, sp_summary: entry.sp_summary }, currentWeek)}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-600 hover:text-white transition-all shadow-sm font-bold text-[10px] uppercase tracking-wider"
                           title="Terbitkan Surat Peringatan (SP)"
                         >
@@ -1372,12 +1392,12 @@ function TashihTabSimple({ selectedBatchId, entries, currentWeek, onRefresh, onS
                         </button>
                         <button 
                            onClick={() => toggleRow(entry.user_id)} 
-                           className={cn(
+                          className={cn(
                               "flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all shadow-sm border font-bold text-[10px] uppercase tracking-wider",
                               expandedRows.has(entry.user_id)
                                  ? "bg-green-600 text-white border-green-700"
                                  : "bg-green-50 text-green-700 border-green-200 hover:bg-green-600 hover:text-white"
-                           )}
+                          )}
                         >
                           {expandedRows.has(entry.user_id) ? <ChevronDown className="w-4 h-4 rotate-180" /> : <Eye className="w-3.5 h-3.5" />}
                           <span>{expandedRows.has(entry.user_id) ? 'Tutup' : 'Lihat'}</span>
@@ -1392,7 +1412,17 @@ function TashihTabSimple({ selectedBatchId, entries, currentWeek, onRefresh, onS
                         {entry.weekly_status.slice(0, 10).map((week: any) => (
                           <div key={week.week_number} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
                              <div className="flex justify-between items-center mb-4 border-b border-gray-50 pb-2">
-                                <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Pekan {week.week_number}</h4>
+                                <div className="flex items-center gap-1.5">
+                                  <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Pekan {week.week_number}</h4>
+                                  {week.sp_info && (
+                                    <span className={cn(
+                                      "px-1.5 py-0.5 rounded text-[8px] font-black uppercase text-white shadow-xs",
+                                      week.sp_info.sp_level === 3 ? "bg-red-600" : week.sp_info.sp_level === 2 ? "bg-amber-500" : "bg-yellow-500"
+                                    )} title={`SP ${week.sp_info.sp_level}: ${week.sp_info.reason || ''}`}>
+                                      SP {week.sp_info.sp_level}
+                                    </span>
+                                  )}
+                                </div>
                                 <span className="text-[10px] font-bold text-green-700">{week.completed_blocks}/4</span>
                              </div>
                              <div className="grid grid-cols-4 gap-2">
@@ -1955,15 +1985,23 @@ Tetap semangat untuk pekan-pekan berikutnya!
                       </div>
                     </div>
                   </td>
-                  {allWeeks.map(p => (
-                    <td key={p} className="px-4 py-5 text-center border-l border-gray-50/50">
-                      <WeekBubbleJurnal week={entry.weekly_status.find((w: any) => w.week_number === p)} />
-                    </td>
-                  ))}
+                  {allWeeks.map(p => {
+                    const wObj = entry.weekly_status?.find((w: any) => w.week_number === p);
+                    const weekWithSP = wObj ? {
+                      ...wObj,
+                      sp_info: wObj.sp_info || (entry.sp_summary?.week_number === p ? entry.sp_summary : null)
+                    } : (entry.sp_summary?.week_number === p ? { week_number: p, total_blocks: 0, completed_blocks: 0, sp_info: entry.sp_summary } : null);
+
+                    return (
+                      <td key={p} className="px-4 py-5 text-center border-l border-gray-50/50">
+                        <WeekBubbleJurnal week={weekWithSP} />
+                      </td>
+                    );
+                  })}
                   <td className="px-6 py-5 text-right">
                     <div className="flex items-center justify-end gap-2">
                         <button 
-                          onClick={() => onIssueSP(entry.user, currentWeek)}
+                          onClick={() => onIssueSP({ ...entry.user, sp_summary: entry.sp_summary }, currentWeek)}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-600 hover:text-white transition-all shadow-sm font-bold text-[10px] uppercase tracking-wider"
                           title="Terbitkan Surat Peringatan (SP)"
                         >
@@ -2012,8 +2050,18 @@ Tetap semangat untuk pekan-pekan berikutnya!
                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
                             {entry.weekly_status.map((week: any) => (
                                <div key={week.week_number} className="space-y-3">
-                                  <div className="border-b border-gray-50 pb-2">
-                                     <span className="text-[10px] font-bold text-gray-400 uppercase">Pekan {week.week_number}</span>
+                                  <div className="flex justify-between items-center border-b border-gray-50 pb-2">
+                                     <div className="flex items-center gap-1.5">
+                                       <span className="text-[10px] font-bold text-gray-400 uppercase">Pekan {week.week_number}</span>
+                                       {week.sp_info && (
+                                         <span className={cn(
+                                           "px-1.5 py-0.5 rounded text-[8px] font-black uppercase text-white shadow-xs",
+                                           week.sp_info.sp_level === 3 ? "bg-red-600" : week.sp_info.sp_level === 2 ? "bg-amber-500" : "bg-yellow-500"
+                                         )} title={`SP ${week.sp_info.sp_level}: ${week.sp_info.reason || ''}`}>
+                                           SP {week.sp_info.sp_level}
+                                         </span>
+                                       )}
+                                     </div>
                                   </div>
                                   <div className="grid grid-cols-4 gap-2">
                                      {week.blocks.map((block: any, blockIdx: number) => {
@@ -2083,44 +2131,100 @@ Tetap semangat untuk pekan-pekan berikutnya!
 
 function WeekBubble({ week }: any) {
   if (!week) return <div className="w-5 h-5 rounded-full bg-gray-50 border border-gray-100 mx-auto" />;
-  const pct = (week.completed_blocks / week.total_blocks) * 100;
+  const pct = (week.total_blocks && week.total_blocks > 0) ? (week.completed_blocks / week.total_blocks) * 100 : 0;
+  const hasSP = Boolean(week.sp_info);
+  const spLevel = week.sp_info?.sp_level;
+  const spType = week.sp_info?.sp_type;
+  const isBlacklist = week.sp_info?.is_blacklisted;
+
   return (
-    <div 
-      className={cn(
-        "relative w-5 h-5 rounded-full mx-auto overflow-hidden border",
-        pct === 0 
-          ? "bg-red-500 border-red-600" 
-          : pct === 100 
-            ? "bg-green-600 border-green-700" 
-            : "border-yellow-500 shadow-sm"
+    <div className="relative inline-flex flex-col items-center justify-center group/bubble">
+      <div 
+        className={cn(
+          "relative w-5 h-5 rounded-full mx-auto overflow-hidden border transition-all group-hover/bubble:scale-110",
+          hasSP ? "ring-2 ring-rose-500 ring-offset-1 shadow-md" : "",
+          pct === 0 
+            ? "bg-red-500 border-red-600" 
+            : pct === 100 
+              ? "bg-green-600 border-green-700" 
+              : "border-yellow-500 shadow-sm"
+        )}
+        style={pct > 0 && pct < 100 ? { 
+          background: `conic-gradient(#16a34a 0% ${pct}%, #facc15 ${pct}% 100%)` 
+        } : {}}
+      >
+        {week.is_completed && <div className="absolute inset-0 flex items-center justify-center"><CheckCircle className="w-3.5 h-3.5 text-white shadow-sm" /></div>}
+      </div>
+
+      {hasSP && (
+        <span 
+          className={cn(
+            "mt-1 px-1 py-0.5 rounded text-[8px] font-black leading-none uppercase tracking-tighter shadow-xs border whitespace-nowrap cursor-help",
+            isBlacklist
+              ? "bg-rose-700 text-white border-rose-800"
+              : spType?.includes('do')
+                ? "bg-orange-700 text-white border-orange-800"
+                : spLevel === 3
+                  ? "bg-red-600 text-white border-red-700 animate-pulse"
+                  : spLevel === 2
+                    ? "bg-amber-500 text-white border-amber-600"
+                    : "bg-yellow-400 text-yellow-950 border-yellow-500"
+          )}
+          title={`Pekan ${week.week_number}: ${isBlacklist ? 'Blacklist' : spType?.includes('do') ? 'Dropout (DO)' : `Dapat SP ${spLevel}`}${week.sp_info?.reason ? ` - ${week.sp_info.reason}` : ''}`}
+        >
+          {isBlacklist ? 'BL' : spType?.includes('do') ? 'DO' : `SP${spLevel}`}
+        </span>
       )}
-      style={pct > 0 && pct < 100 ? { 
-        background: `conic-gradient(#16a34a 0% ${pct}%, #facc15 ${pct}% 100%)` 
-      } : {}}
-    >
-      {week.is_completed && <div className="absolute inset-0 flex items-center justify-center"><CheckCircle className="w-3.5 h-3.5 text-white shadow-sm" /></div>}
     </div>
   );
 }
 
 function WeekBubbleJurnal({ week }: any) {
   if (!week) return <div className="w-5 h-5 rounded-full bg-gray-50 border border-gray-100 mx-auto" />;
-  const pct = (week.completed_blocks / week.total_blocks) * 100;
+  const pct = (week.total_blocks && week.total_blocks > 0) ? (week.completed_blocks / week.total_blocks) * 100 : 0;
+  const hasSP = Boolean(week.sp_info);
+  const spLevel = week.sp_info?.sp_level;
+  const spType = week.sp_info?.sp_type;
+  const isBlacklist = week.sp_info?.is_blacklisted;
+
   return (
-    <div 
-      className={cn(
-        "relative w-5 h-5 rounded-full mx-auto overflow-hidden border",
-        pct === 0 
-          ? "bg-red-500 border-red-600" 
-          : pct === 100 
-            ? "bg-green-600 border-green-700" 
-            : "border-yellow-500 shadow-sm"
+    <div className="relative inline-flex flex-col items-center justify-center group/bubble">
+      <div 
+        className={cn(
+          "relative w-5 h-5 rounded-full mx-auto overflow-hidden border transition-all group-hover/bubble:scale-110",
+          hasSP ? "ring-2 ring-rose-500 ring-offset-1 shadow-md" : "",
+          pct === 0 
+            ? "bg-red-500 border-red-600" 
+            : pct === 100 
+              ? "bg-green-600 border-green-700" 
+              : "border-yellow-500 shadow-sm"
+        )}
+        style={pct > 0 && pct < 100 ? { 
+          background: `conic-gradient(#16a34a 0% ${pct}%, #facc15 ${pct}% 100%)` 
+        } : {}}
+      >
+        {week.is_completed && <div className="absolute inset-0 flex items-center justify-center"><CheckCircle className="w-3.5 h-3.5 text-white shadow-sm" /></div>}
+      </div>
+
+      {hasSP && (
+        <span 
+          className={cn(
+            "mt-1 px-1 py-0.5 rounded text-[8px] font-black leading-none uppercase tracking-tighter shadow-xs border whitespace-nowrap cursor-help",
+            isBlacklist
+              ? "bg-rose-700 text-white border-rose-800"
+              : spType?.includes('do')
+                ? "bg-orange-700 text-white border-orange-800"
+                : spLevel === 3
+                  ? "bg-red-600 text-white border-red-700 animate-pulse"
+                  : spLevel === 2
+                    ? "bg-amber-500 text-white border-amber-600"
+                    : "bg-yellow-400 text-yellow-950 border-yellow-500"
+          )}
+          title={`Pekan ${week.week_number}: ${isBlacklist ? 'Blacklist' : spType?.includes('do') ? 'Dropout (DO)' : `Dapat SP ${spLevel}`}${week.sp_info?.reason ? ` - ${week.sp_info.reason}` : ''}`}
+        >
+          {isBlacklist ? 'BL' : spType?.includes('do') ? 'DO' : `SP${spLevel}`}
+        </span>
       )}
-      style={pct > 0 && pct < 100 ? { 
-        background: `conic-gradient(#16a34a 0% ${pct}%, #facc15 ${pct}% 100%)` 
-      } : {}}
-    >
-      {week.is_completed && <div className="absolute inset-0 flex items-center justify-center"><CheckCircle className="w-3.5 h-3.5 text-white shadow-sm" /></div>}
     </div>
   );
 }
