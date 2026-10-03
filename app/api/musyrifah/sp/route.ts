@@ -17,6 +17,7 @@ const createSPSchema = z.object({
   notes: z.string().optional(),
   status: z.string().optional().default('active'),
   is_blacklisted: z.boolean().optional(),
+  issued_at: z.string().optional().nullable(),
 });
 
 // Validation schema for updating SP
@@ -293,12 +294,13 @@ export async function POST(request: Request) {
     }
 
     const isBlacklist = validatedData.sp_type === 'blacklist' || validatedData.is_blacklisted === true;
+    const customIssuedAt = validatedData.issued_at ? new Date(validatedData.issued_at).toISOString() : null;
 
     // Insert SP record
     const { rows: insertedRows } = await query(
       `INSERT INTO surat_peringatan (
         thalibah_id, batch_id, week_number, sp_level, sp_type, reason, notes, issued_by, status, is_blacklisted, issued_at, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW(), NOW())
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, COALESCE($11::timestamptz, NOW()), NOW(), NOW())
       RETURNING *`,
       [
         targetUserId,
@@ -310,7 +312,8 @@ export async function POST(request: Request) {
         validatedData.notes || null,
         context.userId,
         validatedData.status || 'active',
-        isBlacklist ? 'true' : 'false'
+        isBlacklist ? 'true' : 'false',
+        customIssuedAt
       ]
     );
 

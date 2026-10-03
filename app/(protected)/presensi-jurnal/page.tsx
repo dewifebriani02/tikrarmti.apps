@@ -3188,6 +3188,8 @@ function IssueSPModal({ target, batchId, onClose, onSuccess }: { target: any, ba
   const initialLevel = latestLevel < 3 ? latestLevel + 1 : 3;
   
   const [spLevel, setSpLevel] = useState(initialLevel);
+  const [weekNumber, setWeekNumber] = useState<number>(Number(target.weekNumber || 1));
+  const [issueDate, setIssueDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [reason, setReason] = useState('tidak_lapor_jurnal');
   const [customReason, setCustomReason] = useState('');
   const [spType, setSpType] = useState<string>('standard');
@@ -3206,7 +3208,7 @@ function IssueSPModal({ target, batchId, onClose, onSuccess }: { target: any, ba
   const generateWAPreview = () => {
     const reasonText = getReasonText();
     const name = target.user?.full_name || 'Ukhti';
-    const week = target.weekNumber;
+    const week = weekNumber;
     
     let base = `*Surat Peringatan ${spLevel} (SP${spLevel})*\n\nAssalamu’alaikum warahmatullah wabarakatuh, Ukhti *${name}*.\n\nSemoga Ukhti selalu dalam keadaan sehat dan dalam lindungan Allah ﷻ. Kami menyadari bahwa setiap proses memiliki tantangan tersendiri, namun kedisiplinan adalah kunci utama dalam keberhasilan program ini.\n\ndengan ini kami sampaikan *Surat Peringatan ke-${spLevel}* dikarenakan: \n👉 *${reasonText}* (pada Pekan ${week}).\n\n`;
     
@@ -3244,7 +3246,8 @@ function IssueSPModal({ target, batchId, onClose, onSuccess }: { target: any, ba
           user_id: targetUserId,
           batch_id: batchId || null,
           sp_level: spLevel,
-          week_number: Number(target.weekNumber || 1),
+          week_number: Number(weekNumber || 1),
+          issued_at: issueDate ? new Date(issueDate).toISOString() : new Date().toISOString(),
           reason: reason === 'lainnya' ? customReason : reason,
           sp_type: spLevel === 3 ? (spType === 'standard' ? null : spType) : null,
           status: 'active'
@@ -3298,38 +3301,62 @@ function IssueSPModal({ target, batchId, onClose, onSuccess }: { target: any, ba
         </div>
         
         {/* Modern Form Body */}
-        <form onSubmit={handleSubmit} className="p-8 space-y-8 overflow-y-auto scrollbar-hide flex-1">
+        <form onSubmit={handleSubmit} className="p-8 space-y-6 overflow-y-auto scrollbar-hide flex-1">
           {/* SP Level Selector */}
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div className="flex justify-between items-end px-1">
               <label className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em]">Level Peringatan</label>
-              <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2.5 py-1 rounded-full border border-rose-100">Progressive Sequence</span>
+              <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2.5 py-1 rounded-full border border-rose-100">Pilih Bebas / Bertahap</span>
             </div>
             <div className="grid grid-cols-3 gap-3">
               {[1, 2, 3].map(level => {
-                const isDisabled = level > latestLevel + 1;
                 const isActive = spLevel === level;
                 return (
                   <button 
                     key={level} 
                     type="button" 
-                    onClick={() => !isDisabled && setSpLevel(level)}
-                    disabled={isDisabled}
+                    onClick={() => setSpLevel(level)}
                     className={cn(
-                      "group relative py-4 rounded-2xl font-black transition-all duration-300 border-2 flex flex-col items-center gap-1",
+                      "group relative py-3.5 rounded-2xl font-black transition-all duration-300 border-2 flex flex-col items-center gap-0.5",
                       isActive 
                         ? "bg-rose-600 border-rose-600 text-white shadow-[0_12px_24px_-8px_rgba(225,29,72,0.4)] ring-4 ring-rose-600/10" 
-                        : isDisabled
-                          ? "bg-gray-50 border-gray-100 text-gray-200 cursor-not-allowed opacity-50 shadow-inner"
-                          : "bg-white border-gray-100 text-gray-400 hover:border-rose-200 hover:text-rose-600 hover:shadow-lg active:scale-95"
+                        : "bg-white border-gray-100 text-gray-500 hover:border-rose-200 hover:text-rose-600 hover:shadow-md active:scale-95"
                     )}
                   >
-                    <span className="text-xs opacity-50 uppercase tracking-tighter">Level</span>
-                    <span className="text-xl leading-none">{level}</span>
-                    {isDisabled && <Lock className="w-3.5 h-3.5 absolute top-2 right-2 opacity-30" />}
+                    <span className="text-[10px] opacity-60 uppercase tracking-tighter">Level</span>
+                    <span className="text-xl leading-none font-black">{level}</span>
                   </button>
                 );
               })}
+            </div>
+          </div>
+
+          {/* Pekan & Tanggal Terbit Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] px-1">Pekan Pelanggaran</label>
+              <div className="relative group">
+                <select 
+                  value={weekNumber} 
+                  onChange={e => setWeekNumber(Number(e.target.value))}
+                  className="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl px-4 py-3.5 text-sm font-bold shadow-inner focus:ring-4 focus:ring-rose-600/10 focus:border-rose-200 transition-all outline-none appearance-none cursor-pointer text-gray-800"
+                >
+                  {Array.from({ length: 30 }, (_, i) => i + 1).map(w => (
+                    <option key={w} value={w}>Pekan {w}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] px-1">Tanggal Terbit SP</label>
+              <input 
+                type="date"
+                value={issueDate}
+                onChange={e => setIssueDate(e.target.value)}
+                className="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl px-4 py-3.5 text-sm font-bold shadow-inner focus:ring-4 focus:ring-rose-600/10 focus:border-rose-200 transition-all outline-none cursor-pointer text-gray-800"
+              />
             </div>
           </div>
 
@@ -3372,13 +3399,13 @@ function IssueSPModal({ target, batchId, onClose, onSuccess }: { target: any, ba
             </div>
           )}
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             <label className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] px-1">Justifikasi & Alasan</label>
             <div className="relative group">
               <select 
                 value={reason} 
                 onChange={e => setReason(e.target.value)}
-                className="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl p-4 text-sm font-bold shadow-inner focus:ring-4 focus:ring-rose-600/10 focus:border-rose-200 transition-all outline-none appearance-none cursor-pointer"
+                className="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl p-4 text-sm font-bold shadow-inner focus:ring-4 focus:ring-rose-600/10 focus:border-rose-200 transition-all outline-none appearance-none cursor-pointer text-gray-800"
               >
                 <option value="tidak_lapor_jurnal">⚠️ Tidak Lapor Jurnal (Ghaib)</option>
                 <option value="tidak_lapor_tashih">🎤 Tidak Lapor Tashih</option>
