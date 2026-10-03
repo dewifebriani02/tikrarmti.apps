@@ -478,9 +478,12 @@ export async function GET(request: Request) {
       .select('id', { count: 'exact', head: true })
       .eq('is_blacklisted', true);
 
-    const { rows: spStatsRows } = await import('@/lib/db').then(m => m.query(
-      `SELECT COUNT(DISTINCT thalibah_id) as total_sp_thalibah FROM surat_peringatan WHERE status = 'active'`
-    )).catch(() => ({ rows: [{ total_sp_thalibah: 0 }] }));
+    const spQuery = activeBatchId && activeBatchId !== 'all'
+      ? { text: `SELECT COUNT(DISTINCT thalibah_id) as total_sp_thalibah FROM surat_peringatan WHERE status = 'active' AND batch_id = $1`, params: [activeBatchId] }
+      : { text: `SELECT COUNT(DISTINCT thalibah_id) as total_sp_thalibah FROM surat_peringatan WHERE status = 'active'`, params: [] };
+
+    const { rows: spStatsRows } = await import('@/lib/db').then(m => m.query(spQuery.text, spQuery.params))
+      .catch(() => ({ rows: [{ total_sp_thalibah: 0 }] }));
     const totalSPCount = parseInt(spStatsRows[0]?.total_sp_thalibah || '0', 10);
 
     const stats = {

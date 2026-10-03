@@ -517,7 +517,7 @@ function PresensiJurnalContent() {
       const limitParam = `&limit=${rowsPerPage}`;
       const pageParam = `&page=${currentPage}`;
       
-      const batchParam = selectedBatchId ? `&batch_id=${selectedBatchId}` : '';
+      const batchParam = selectedBatchId && selectedBatchId !== 'all' ? `&batch_id=${selectedBatchId}` : '';
       
       if (activeTab === 'sp') {
         const levelParam = spLevelFilter !== 'all' ? `&sp_level=${spLevelFilter}` : '';
@@ -683,6 +683,7 @@ function PresensiJurnalContent() {
             type="button"
             onClick={() => {
               setActiveTab('sp');
+              setSpLevelFilter('all');
               setCurrentPage(1);
               router.push('/presensi-jurnal?tab=sp', { scroll: false });
             }}
@@ -822,6 +823,7 @@ function PresensiJurnalContent() {
           <button
             onClick={() => {
               setActiveTab('sp');
+              setSpLevelFilter('all');
               setCurrentPage(1);
               router.push('/presensi-jurnal?tab=sp', { scroll: false });
             }}
@@ -906,6 +908,7 @@ function PresensiJurnalContent() {
                   }}
                   className="bg-green-50 border border-green-100 shadow-sm rounded-xl px-4 py-2.5 text-sm font-bold text-green-900 w-full focus:ring-2 focus:ring-green-900/20 transition-all cursor-pointer outline-none"
                 >
+                  <option value="all">Semua Batch</option>
                   {batchList.map(b => (
                     <option key={b.id} value={b.id}>
                       {b.name} {b.status === 'open' ? '(Aktif)' : b.status === 'closed' ? '(Selesai)' : `(${b.status})`}
