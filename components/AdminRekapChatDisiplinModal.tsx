@@ -297,51 +297,53 @@ export function AdminRekapChatDisiplinModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-5xl max-h-[92vh] overflow-hidden flex flex-col p-0 rounded-3xl border-0 shadow-2xl bg-[#F8FAF9]">
+      <DialogContent className="w-[96vw] sm:w-full max-w-5xl h-[92vh] sm:h-auto sm:max-h-[90vh] flex flex-col p-0 rounded-2xl sm:rounded-3xl border-0 shadow-2xl bg-[#F8FAF9] overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-emerald-950 via-emerald-900 to-emerald-800 p-6 text-white relative flex-shrink-0">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-emerald-300">
-                <MessageSquare className="w-6 h-6" />
+        <div className="bg-gradient-to-r from-emerald-950 via-emerald-900 to-teal-900 p-4 sm:p-6 text-white relative flex-shrink-0">
+          <div className="flex flex-col gap-3">
+            {/* Top row: Title + Batch Selector */}
+            <div className="flex items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 sm:gap-3">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-emerald-300 flex-shrink-0 shadow-inner">
+                  <MessageSquare className="w-5 h-5 sm:w-6 sm:h-6" />
+                </div>
+                <div>
+                  <DialogTitle className="text-base sm:text-2xl font-black text-white leading-tight tracking-tight">
+                    Rekap Chat Evaluasi Pekanan
+                  </DialogTitle>
+                  <DialogDescription className="text-emerald-200/90 text-[11px] sm:text-xs mt-0.5 leading-snug line-clamp-2 sm:line-clamp-none">
+                    Format otomatis WhatsApp untuk Tashih, SP1, SP2, DO, Pemutihan, & Blacklist.
+                  </DialogDescription>
+                </div>
               </div>
-              <div>
-                <DialogTitle className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-                  Template Rekap Chat Evaluasi Pekanan
-                </DialogTitle>
-                <DialogDescription className="text-emerald-200 text-xs sm:text-sm mt-0.5">
-                  Format pesan WhatsApp otomatis untuk rekap mingguan Tashih, SP1, SP2, DO, Pemutihan, & Blacklist.
-                </DialogDescription>
-              </div>
+
+              {/* Batch Selector */}
+              {batches.length > 0 && (
+                <div className="flex-shrink-0">
+                  <select
+                    value={selectedBatchId}
+                    onChange={(e) => setSelectedBatchId(e.target.value)}
+                    className="bg-black/30 hover:bg-black/40 text-white text-[11px] sm:text-xs font-bold rounded-xl px-2.5 sm:px-3 py-1.5 sm:py-2 border border-white/20 focus:outline-none focus:ring-2 focus:ring-emerald-400 cursor-pointer max-w-[120px] sm:max-w-[180px] truncate"
+                  >
+                    {batches.map((b) => (
+                      <option key={b.id} value={b.id} className="text-gray-900 bg-white">
+                        {b.name} {b.is_active ? '★' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
 
-            {/* Batch Selector */}
-            <div className="flex items-center gap-2">
-              <select
-                value={selectedBatchId}
-                onChange={(e) => setSelectedBatchId(e.target.value)}
-                className="bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-xl px-3 py-2 border border-white/20 focus:outline-none focus:ring-2 focus:ring-emerald-400"
-              >
-                {batches.map((b) => (
-                  <option key={b.id} value={b.id} className="text-gray-900 bg-white">
-                    {b.name} {b.is_active ? '(Aktif)' : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Action Toolbar */}
-          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-white/15">
-            {/* View Switcher */}
-            <div className="flex bg-black/20 p-1 rounded-xl border border-white/10">
+            {/* Middle Row: View Switcher Tabs (Segmented) */}
+            <div className="grid grid-cols-2 gap-1 bg-black/25 p-1 rounded-xl sm:rounded-2xl border border-white/10 w-full">
               <button
                 type="button"
                 onClick={() => setActiveViewMode('editor')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                className={`py-2 px-3 rounded-lg sm:rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
                   activeViewMode === 'editor'
-                    ? 'bg-white text-emerald-950 shadow-md'
-                    : 'text-emerald-100 hover:bg-white/10'
+                    ? 'bg-white text-emerald-950 shadow-md transform scale-[1.01]'
+                    : 'text-emerald-100/90 hover:bg-white/10 hover:text-white'
                 }`}
               >
                 <Layers className="w-3.5 h-3.5" /> Editor Interaktif
@@ -349,161 +351,177 @@ export function AdminRekapChatDisiplinModal({
               <button
                 type="button"
                 onClick={() => setActiveViewMode('raw_preview')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                className={`py-2 px-3 rounded-lg sm:rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
                   activeViewMode === 'raw_preview'
-                    ? 'bg-white text-emerald-950 shadow-md'
-                    : 'text-emerald-100 hover:bg-white/10'
+                    ? 'bg-white text-emerald-950 shadow-md transform scale-[1.01]'
+                    : 'text-emerald-100/90 hover:bg-white/10 hover:text-white'
                 }`}
               >
-                <MessageSquare className="w-3.5 h-3.5" /> Pratinjau Teks WhatsApp
+                <MessageSquare className="w-3.5 h-3.5" /> Pratinjau Teks WA
               </button>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex items-center gap-2">
+            {/* Bottom Row: Action Buttons */}
+            <div className="grid grid-cols-2 sm:flex sm:items-center sm:justify-end gap-2 pt-1 border-t border-white/10">
               <Button
+                type="button"
                 size="sm"
                 variant="outline"
                 onClick={() => fetchData(selectedBatchId)}
                 disabled={loading}
-                className="bg-white/10 hover:bg-white/20 text-white border-white/20 rounded-xl text-xs font-bold h-9"
+                className="bg-white/10 hover:bg-white/20 text-white border-white/20 rounded-xl text-xs font-bold h-9 sm:h-9 w-full sm:w-auto"
               >
                 <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
                 Muat Ulang
               </Button>
 
               <Button
+                type="button"
                 size="sm"
                 onClick={handleSave}
                 disabled={saving || loading}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold h-9 shadow-lg shadow-emerald-950/30"
+                className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold h-9 sm:h-9 w-full sm:w-auto shadow-md shadow-emerald-950/40"
               >
                 <Save className="w-3.5 h-3.5 mr-1.5" />
                 {saving ? 'Menyimpan...' : 'Simpan Data'}
               </Button>
 
               <Button
+                type="button"
                 size="sm"
                 onClick={() => handleCopyChat()}
-                className="bg-amber-500 hover:bg-amber-400 text-emerald-950 rounded-xl text-xs font-black h-9 shadow-lg shadow-amber-900/30"
+                className="col-span-2 sm:col-span-1 bg-amber-400 hover:bg-amber-300 text-emerald-950 rounded-xl text-xs font-black h-9 sm:h-9 w-full sm:w-auto shadow-md shadow-amber-950/30 flex items-center justify-center"
               >
                 {copied ? <Check className="w-4 h-4 mr-1.5 text-emerald-900" /> : <Copy className="w-3.5 h-3.5 mr-1.5" />}
-                {copied ? 'Tersalin!' : 'Salin Semua Format Chat'}
+                {copied ? 'Tersalin!' : 'Salin Format Semua Pekan'}
               </Button>
             </div>
           </div>
         </div>
 
         {/* Content Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-3.5 sm:p-6 space-y-4 sm:space-y-6">
           {activeViewMode === 'editor' ? (
-            <div className="space-y-6">
-              {/* Week Selector Chips */}
-              <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin">
-                <span className="text-xs font-bold text-gray-500 flex-shrink-0 flex items-center gap-1">
-                  <Calendar className="w-3.5 h-3.5" /> Filter Pekan:
+            <div className="space-y-4 sm:space-y-6">
+              {/* Week Selector Filter Chips */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 scrollbar-thin">
+                <span className="text-[11px] font-bold text-gray-500 flex-shrink-0 flex items-center gap-1 pl-1">
+                  <Calendar className="w-3 h-3 text-emerald-700" /> Pekan:
                 </span>
                 <button
                   type="button"
                   onClick={() => setSelectedWeekFilter('all')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex-shrink-0 ${
+                  className={`px-3 py-1.5 rounded-xl text-[11px] sm:text-xs font-bold transition-all flex-shrink-0 ${
                     selectedWeekFilter === 'all'
                       ? 'bg-emerald-800 text-white shadow-sm'
                       : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
                   }`}
                 >
-                  Semua Pekan (1-14)
+                  Semua (1-14)
                 </button>
                 {weeks.map((w) => (
                   <button
                     key={w.week_number}
                     type="button"
                     onClick={() => setSelectedWeekFilter(w.week_number)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex-shrink-0 ${
+                    className={`px-2.5 py-1.5 rounded-xl text-[11px] sm:text-xs font-bold transition-all flex-shrink-0 ${
                       selectedWeekFilter === w.week_number
                         ? 'bg-emerald-800 text-white shadow-sm'
                         : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
                     }`}
                   >
-                    Pekan {w.week_number}
-                    {w.special_status ? ` (${w.special_status})` : ''}
+                    P{w.week_number}
+                    {w.special_status ? ` • ${w.special_status}` : ''}
                   </button>
                 ))}
               </div>
 
               {/* Quick Add Form */}
-              <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-col sm:flex-row gap-3 items-center">
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <span className="text-xs font-bold text-gray-500 flex-shrink-0">Tambah Entri ke:</span>
-                  <select
-                    value={activeWeekForInput}
-                    onChange={(e) => setActiveWeekForInput(Number(e.target.value))}
-                    className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  >
-                    {weeks.map((w) => (
-                      <option key={w.week_number} value={w.week_number}>
-                        Pekan {w.week_number}
-                      </option>
-                    ))}
-                  </select>
+              <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-gray-200/80 shadow-sm space-y-2.5">
+                <div className="text-[11px] font-extrabold text-gray-500 flex items-center gap-1 uppercase tracking-wider">
+                  <Plus className="w-3 h-3 text-emerald-600" /> Tambah Pelanggaran / Catatan Cepat
                 </div>
 
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <select
-                    value={inputCategory}
-                    onChange={(e) => setInputCategory(e.target.value as any)}
-                    className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  >
-                    <option value="sp1">🔺 SP1</option>
-                    <option value="sp2">🔺🔺 SP2</option>
-                    <option value="do">🚫 DO</option>
-                    <option value="blacklist">❌ Blacklist</option>
-                  </select>
-                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div className="col-span-1">
+                    <select
+                      value={activeWeekForInput}
+                      onChange={(e) => setActiveWeekForInput(Number(e.target.value))}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-2.5 py-2 text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 h-9"
+                    >
+                      {weeks.map((w) => (
+                        <option key={w.week_number} value={w.week_number}>
+                          Pekan {w.week_number}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                <div className="flex-1 flex gap-2 w-full">
-                  <Input
-                    placeholder="Ketik nama thalibah lalu tekan Enter / Tambah..."
-                    value={inputName}
-                    onChange={(e) => setInputName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleAddName(activeWeekForInput, inputCategory, inputName);
-                      }
-                    }}
-                    className="h-10 rounded-xl text-xs font-semibold"
-                  />
-                  <Button
-                    type="button"
-                    onClick={() => handleAddName(activeWeekForInput, inputCategory, inputName)}
-                    className="bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold px-4"
-                  >
-                    <Plus className="w-4 h-4 mr-1" /> Tambah
-                  </Button>
+                  <div className="col-span-1">
+                    <select
+                      value={inputCategory}
+                      onChange={(e) => setInputCategory(e.target.value as any)}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-2.5 py-2 text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 h-9"
+                    >
+                      <option value="sp1">🔺 SP1</option>
+                      <option value="sp2">🔺🔺 SP2</option>
+                      <option value="do">🚫 DO</option>
+                      <option value="blacklist">❌ Blacklist</option>
+                    </select>
+                  </div>
+
+                  <div className="col-span-2 flex gap-1.5">
+                    <Input
+                      placeholder="Nama thalibah lalu Enter..."
+                      value={inputName}
+                      onChange={(e) => setInputName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddName(activeWeekForInput, inputCategory, inputName);
+                        }
+                      }}
+                      className="h-9 rounded-xl text-xs font-semibold flex-1"
+                    />
+                    <Button
+                      type="button"
+                      onClick={() => handleAddName(activeWeekForInput, inputCategory, inputName)}
+                      className="bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold px-3.5 h-9 flex-shrink-0"
+                    >
+                      <Plus className="w-3.5 h-3.5 mr-0.5" /> Tambah
+                    </Button>
+                  </div>
                 </div>
               </div>
 
               {/* Weekly Cards Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4">
                 {filteredWeeks.map((week) => {
-                  const isWeek1 = week.week_number === 1;
-                  const isWeek6 = week.week_number === 6;
+                  const hasEntries =
+                    Boolean(week.special_status) ||
+                    (week.blacklist_names && week.blacklist_names.length > 0) ||
+                    (week.do_names && week.do_names.length > 0) ||
+                    (week.sp1_names && week.sp1_names.length > 0) ||
+                    (week.sp2_names && week.sp2_names.length > 0);
 
                   return (
                     <div
                       key={week.week_number}
-                      className="bg-white rounded-2xl border border-gray-200/80 p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between relative overflow-hidden group"
+                      className="bg-white rounded-2xl border border-gray-200/90 p-4 sm:p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between relative overflow-hidden"
                     >
-                      <div className="space-y-4">
+                      <div className="space-y-3 sm:space-y-3.5">
                         {/* Card Header */}
-                        <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+                        <div className="flex items-center justify-between pb-2.5 border-b border-gray-100">
                           <div className="flex items-center gap-2">
-                            <span className="text-base font-black text-gray-900 flex items-center gap-1.5">
-                              🧱 Pekan {week.week_number === 1 ? '1' : `ke ${week.week_number}`}
+                            <span className="text-sm sm:text-base font-black text-gray-900 flex items-center gap-1.5">
+                              🧱 Pekan {week.week_number}
                             </span>
                             {week.special_status && (
-                              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-extrabold border ${
+                                week.special_status === 'Tashih'
+                                  ? 'bg-blue-50 text-blue-800 border-blue-200'
+                                  : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                              }`}>
                                 {week.special_status}
                               </span>
                             )}
@@ -520,59 +538,96 @@ export function AdminRekapChatDisiplinModal({
                           </Button>
                         </div>
 
-                        {/* Special Status Selector / Override */}
-                        <div className="flex items-center gap-2 text-xs">
-                          <span className="text-gray-400 font-semibold text-[11px]">Status Khusus:</span>
-                          <div className="flex gap-1.5 flex-wrap">
-                            <button
-                              type="button"
-                              onClick={() => handleUpdateSpecialStatus(week.week_number, week.special_status === 'Tashih' ? '' : 'Tashih')}
-                              className={`px-2 py-0.5 rounded-lg text-[11px] font-bold border transition-all ${
-                                week.special_status === 'Tashih'
-                                  ? 'bg-blue-600 text-white border-blue-600'
-                                  : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-blue-50'
-                              }`}
-                            >
-                              Tashih
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleUpdateSpecialStatus(week.week_number, week.special_status === 'Pemutihan' ? '' : 'Pemutihan')}
-                              className={`px-2 py-0.5 rounded-lg text-[11px] font-bold border transition-all ${
-                                week.special_status === 'Pemutihan'
-                                  ? 'bg-emerald-600 text-white border-emerald-600'
-                                  : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-emerald-50'
-                              }`}
-                            >
-                              Pemutihan
-                            </button>
+                        {/* Special Status Selector / Segmented Tabs */}
+                        <div className="bg-gray-50/80 p-2 rounded-xl border border-gray-200/70 space-y-1.5">
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="text-gray-500 font-bold">Status Pekan:</span>
                             {week.special_status && (
                               <button
                                 type="button"
                                 onClick={() => handleUpdateSpecialStatus(week.week_number, '')}
-                                className="text-gray-400 hover:text-rose-500 text-[10px] underline ml-1"
+                                className="text-rose-600 hover:text-rose-700 text-[10px] font-bold underline"
                               >
-                                Hapus
+                                Reset Normal
                               </button>
                             )}
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateSpecialStatus(week.week_number, '')}
+                              className={`py-1.5 px-2 rounded-lg text-[11px] font-bold border transition-all text-center ${
+                                !week.special_status
+                                  ? 'bg-white text-gray-800 border-gray-300 shadow-sm font-black'
+                                  : 'bg-transparent text-gray-500 border-transparent hover:bg-gray-200/60'
+                              }`}
+                            >
+                              Normal
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleUpdateSpecialStatus(
+                                  week.week_number,
+                                  week.special_status === 'Tashih' ? '' : 'Tashih'
+                                )
+                              }
+                              className={`py-1.5 px-2 rounded-lg text-[11px] font-bold border transition-all text-center ${
+                                week.special_status === 'Tashih'
+                                  ? 'bg-blue-600 text-white border-blue-600 shadow-sm font-black'
+                                  : 'bg-white text-blue-700 border-blue-200 hover:bg-blue-50'
+                              }`}
+                            >
+                              📘 Tashih
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleUpdateSpecialStatus(
+                                  week.week_number,
+                                  week.special_status === 'Pemutihan' ? '' : 'Pemutihan'
+                                )
+                              }
+                              className={`py-1.5 px-2 rounded-lg text-[11px] font-bold border transition-all text-center ${
+                                week.special_status === 'Pemutihan'
+                                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm font-black'
+                                  : 'bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50'
+                              }`}
+                            >
+                              🌿 Pemutihan
+                            </button>
                           </div>
                         </div>
 
                         {/* Blacklist Section */}
                         {week.blacklist_names && week.blacklist_names.length > 0 && (
-                          <div className="bg-red-50/60 p-3 rounded-xl border border-red-100 space-y-1.5">
-                            <div className="text-xs font-black text-red-800 flex items-center gap-1.5">
-                              <Ban className="w-3.5 h-3.5 text-red-600" />
-                              ❌ Blacklist ({week.blacklist_names.length})
+                          <div className="bg-red-50/70 p-2.5 sm:p-3 rounded-xl border border-red-100 space-y-1.5">
+                            <div className="text-[11px] sm:text-xs font-black text-red-800 flex items-center justify-between">
+                              <span className="flex items-center gap-1.5">
+                                <Ban className="w-3.5 h-3.5 text-red-600" />
+                                ❌ Blacklist
+                              </span>
+                              <span className="text-[10px] font-extrabold bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full">
+                                {week.blacklist_names.length}
+                              </span>
                             </div>
-                            <div className="space-y-1 pl-1">
+                            <div className="space-y-1">
                               {week.blacklist_names.map((name, idx) => (
-                                <div key={idx} className="flex items-center justify-between text-xs text-gray-800 font-semibold bg-white px-2.5 py-1 rounded-lg border border-red-100 shadow-2xl">
-                                  <span>{week.blacklist_names.length === 1 ? name : `${idx + 1}. ${name}`}</span>
+                                <div
+                                  key={idx}
+                                  className="flex items-center justify-between text-xs text-gray-900 font-semibold bg-white px-2.5 py-1.5 rounded-lg border border-red-100 shadow-xs"
+                                >
+                                  <span className="truncate pr-2">
+                                    {week.blacklist_names.length === 1 ? name : `${idx + 1}. ${name}`}
+                                  </span>
                                   <button
                                     type="button"
                                     onClick={() => handleRemoveName(week.week_number, 'blacklist', idx)}
-                                    className="text-gray-400 hover:text-red-600 ml-2"
+                                    className="text-gray-400 hover:text-red-600 p-1 hover:bg-red-50 rounded-md transition-colors flex-shrink-0"
+                                    title="Hapus"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
@@ -584,19 +639,30 @@ export function AdminRekapChatDisiplinModal({
 
                         {/* DO Section */}
                         {week.do_names && week.do_names.length > 0 && (
-                          <div className="bg-rose-50/60 p-3 rounded-xl border border-rose-100 space-y-1.5">
-                            <div className="text-xs font-black text-rose-800 flex items-center gap-1.5">
-                              <UserX className="w-3.5 h-3.5 text-rose-600" />
-                              🚫 DO ({week.do_names.length})
+                          <div className="bg-rose-50/70 p-2.5 sm:p-3 rounded-xl border border-rose-100 space-y-1.5">
+                            <div className="text-[11px] sm:text-xs font-black text-rose-800 flex items-center justify-between">
+                              <span className="flex items-center gap-1.5">
+                                <UserX className="w-3.5 h-3.5 text-rose-600" />
+                                🚫 DO
+                              </span>
+                              <span className="text-[10px] font-extrabold bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded-full">
+                                {week.do_names.length}
+                              </span>
                             </div>
-                            <div className="space-y-1 pl-1">
+                            <div className="space-y-1">
                               {week.do_names.map((name, idx) => (
-                                <div key={idx} className="flex items-center justify-between text-xs text-gray-800 font-semibold bg-white px-2.5 py-1 rounded-lg border border-rose-100 shadow-2xl">
-                                  <span>{week.do_names.length === 1 ? name : `${idx + 1}. ${name}`}</span>
+                                <div
+                                  key={idx}
+                                  className="flex items-center justify-between text-xs text-gray-900 font-semibold bg-white px-2.5 py-1.5 rounded-lg border border-rose-100 shadow-xs"
+                                >
+                                  <span className="truncate pr-2">
+                                    {week.do_names.length === 1 ? name : `${idx + 1}. ${name}`}
+                                  </span>
                                   <button
                                     type="button"
                                     onClick={() => handleRemoveName(week.week_number, 'do', idx)}
-                                    className="text-gray-400 hover:text-rose-600 ml-2"
+                                    className="text-gray-400 hover:text-rose-600 p-1 hover:bg-rose-50 rounded-md transition-colors flex-shrink-0"
+                                    title="Hapus"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
@@ -608,19 +674,30 @@ export function AdminRekapChatDisiplinModal({
 
                         {/* SP1 Section */}
                         {week.sp1_names && week.sp1_names.length > 0 && (
-                          <div className="bg-amber-50/60 p-3 rounded-xl border border-amber-100 space-y-1.5">
-                            <div className="text-xs font-black text-amber-800 flex items-center gap-1.5">
-                              <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
-                              🔺 SP1 ({week.sp1_names.length})
+                          <div className="bg-amber-50/70 p-2.5 sm:p-3 rounded-xl border border-amber-100 space-y-1.5">
+                            <div className="text-[11px] sm:text-xs font-black text-amber-800 flex items-center justify-between">
+                              <span className="flex items-center gap-1.5">
+                                <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                                🔺 SP1
+                              </span>
+                              <span className="text-[10px] font-extrabold bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded-full">
+                                {week.sp1_names.length}
+                              </span>
                             </div>
-                            <div className="space-y-1 pl-1">
+                            <div className="space-y-1">
                               {week.sp1_names.map((name, idx) => (
-                                <div key={idx} className="flex items-center justify-between text-xs text-gray-800 font-semibold bg-white px-2.5 py-1 rounded-lg border border-amber-100 shadow-2xl">
-                                  <span>{week.sp1_names.length === 1 ? name : `${idx + 1}. ${name}`}</span>
+                                <div
+                                  key={idx}
+                                  className="flex items-center justify-between text-xs text-gray-900 font-semibold bg-white px-2.5 py-1.5 rounded-lg border border-amber-100 shadow-xs"
+                                >
+                                  <span className="truncate pr-2">
+                                    {week.sp1_names.length === 1 ? name : `${idx + 1}. ${name}`}
+                                  </span>
                                   <button
                                     type="button"
                                     onClick={() => handleRemoveName(week.week_number, 'sp1', idx)}
-                                    className="text-gray-400 hover:text-amber-600 ml-2"
+                                    className="text-gray-400 hover:text-amber-600 p-1 hover:bg-amber-50 rounded-md transition-colors flex-shrink-0"
+                                    title="Hapus"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
@@ -632,19 +709,30 @@ export function AdminRekapChatDisiplinModal({
 
                         {/* SP2 Section */}
                         {week.sp2_names && week.sp2_names.length > 0 && (
-                          <div className="bg-orange-50/60 p-3 rounded-xl border border-orange-100 space-y-1.5">
-                            <div className="text-xs font-black text-orange-800 flex items-center gap-1.5">
-                              <AlertTriangle className="w-3.5 h-3.5 text-orange-600" />
-                              🔺🔺 SP2 ({week.sp2_names.length})
+                          <div className="bg-orange-50/70 p-2.5 sm:p-3 rounded-xl border border-orange-100 space-y-1.5">
+                            <div className="text-[11px] sm:text-xs font-black text-orange-800 flex items-center justify-between">
+                              <span className="flex items-center gap-1.5">
+                                <AlertTriangle className="w-3.5 h-3.5 text-orange-600" />
+                                🔺🔺 SP2
+                              </span>
+                              <span className="text-[10px] font-extrabold bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded-full">
+                                {week.sp2_names.length}
+                              </span>
                             </div>
-                            <div className="space-y-1 pl-1">
+                            <div className="space-y-1">
                               {week.sp2_names.map((name, idx) => (
-                                <div key={idx} className="flex items-center justify-between text-xs text-gray-800 font-semibold bg-white px-2.5 py-1 rounded-lg border border-orange-100 shadow-2xl">
-                                  <span>{week.sp2_names.length === 1 ? name : `${idx + 1}. ${name}`}</span>
+                                <div
+                                  key={idx}
+                                  className="flex items-center justify-between text-xs text-gray-900 font-semibold bg-white px-2.5 py-1.5 rounded-lg border border-orange-100 shadow-xs"
+                                >
+                                  <span className="truncate pr-2">
+                                    {week.sp2_names.length === 1 ? name : `${idx + 1}. ${name}`}
+                                  </span>
                                   <button
                                     type="button"
                                     onClick={() => handleRemoveName(week.week_number, 'sp2', idx)}
-                                    className="text-gray-400 hover:text-orange-600 ml-2"
+                                    className="text-gray-400 hover:text-orange-600 p-1 hover:bg-orange-50 rounded-md transition-colors flex-shrink-0"
+                                    title="Hapus"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
@@ -655,15 +743,11 @@ export function AdminRekapChatDisiplinModal({
                         )}
 
                         {/* Empty state for week without entries */}
-                        {!week.special_status &&
-                          (!week.blacklist_names || week.blacklist_names.length === 0) &&
-                          (!week.do_names || week.do_names.length === 0) &&
-                          (!week.sp1_names || week.sp1_names.length === 0) &&
-                          (!week.sp2_names || week.sp2_names.length === 0) && (
-                            <div className="py-4 text-center text-xs text-gray-400 italic bg-gray-50/50 rounded-xl border border-dashed border-gray-200">
-                              Belum ada catatan SP / DO di pekan ini
-                            </div>
-                          )}
+                        {!hasEntries && (
+                          <div className="py-3 text-center text-xs text-gray-400 italic bg-gray-50/60 rounded-xl border border-dashed border-gray-200">
+                            Belum ada catatan SP / DO di pekan ini
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -672,9 +756,9 @@ export function AdminRekapChatDisiplinModal({
             </div>
           ) : (
             /* Raw Text & Live Preview */
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="text-xs font-bold text-gray-700 flex items-center gap-2">
+            <div className="space-y-3 sm:space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="text-xs font-extrabold text-gray-700 flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
                   Pratinjau Teks Siap Kirim WhatsApp:
                 </div>
@@ -687,14 +771,14 @@ export function AdminRekapChatDisiplinModal({
                       setRawTextOverride(formatEvaluationToChat(weeks));
                       toast.success('Pratinjau di-reset sesuai data editor!');
                     }}
-                    className="text-xs h-8 rounded-xl font-bold"
+                    className="text-xs h-8 rounded-xl font-bold flex-1 sm:flex-initial"
                   >
                     Reset Sesuai Editor
                   </Button>
                   <Button
                     size="sm"
                     onClick={() => handleCopyChat(rawTextOverride)}
-                    className="bg-emerald-700 hover:bg-emerald-800 text-white text-xs h-8 rounded-xl font-bold"
+                    className="bg-emerald-700 hover:bg-emerald-800 text-white text-xs h-8 rounded-xl font-bold flex-1 sm:flex-initial"
                   >
                     <Copy className="w-3.5 h-3.5 mr-1" /> Salin Teks
                   </Button>
@@ -702,14 +786,14 @@ export function AdminRekapChatDisiplinModal({
               </div>
 
               {/* Chat Bubble Container */}
-              <div className="bg-[#ECE5DD] p-4 sm:p-6 rounded-3xl border border-[#DAD2C8] shadow-inner relative">
-                <div className="max-w-xl mx-auto bg-white p-5 rounded-2xl shadow-md border border-gray-200/80 font-mono text-xs sm:text-sm text-gray-900 leading-relaxed whitespace-pre-wrap select-all">
+              <div className="bg-[#ECE5DD] p-3 sm:p-6 rounded-2xl sm:rounded-3xl border border-[#DAD2C8] shadow-inner relative">
+                <div className="max-w-xl mx-auto bg-white p-3.5 sm:p-5 rounded-2xl shadow-md border border-gray-200/80 font-mono text-xs sm:text-sm text-gray-900 leading-relaxed whitespace-pre-wrap select-all">
                   {rawTextOverride}
                 </div>
               </div>
 
               {/* Editable Textarea */}
-              <div className="space-y-1.5 pt-2">
+              <div className="space-y-1.5 pt-1">
                 <label className="text-xs font-bold text-gray-600 block">
                   Edit Teks Manual Langsung (Opsional):
                 </label>
@@ -719,8 +803,8 @@ export function AdminRekapChatDisiplinModal({
                     setRawTextOverride(e.target.value);
                     setIsManualOverride(true);
                   }}
-                  rows={12}
-                  className="font-mono text-xs bg-white rounded-2xl border-gray-200 p-4 leading-relaxed focus:border-emerald-500"
+                  rows={10}
+                  className="font-mono text-xs bg-white rounded-2xl border-gray-200 p-3 sm:p-4 leading-relaxed focus:border-emerald-500"
                 />
               </div>
             </div>
