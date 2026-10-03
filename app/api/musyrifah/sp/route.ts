@@ -73,8 +73,14 @@ export async function GET(request: Request) {
     }
 
     if (spLevel && spLevel !== 'all') {
-      whereConditions.push(`sp.sp_level = $${paramIndex++}`);
-      queryParams.push(String(spLevel));
+      if (spLevel === '4') {
+        whereConditions.push(`(sp.sp_type LIKE '%do%' OR sp.sp_type = 'temporary_do' OR sp.sp_type = 'permanent_do' OR sp.sp_level = '4')`);
+      } else if (spLevel === '5') {
+        whereConditions.push(`(sp.is_blacklisted = 'true' OR sp.sp_type = 'blacklist' OR sp.sp_level = '5')`);
+      } else {
+        whereConditions.push(`(sp.sp_level = $${paramIndex++} OR sp.sp_level = $${paramIndex++})`);
+        queryParams.push(String(spLevel), `SP${spLevel}`);
+      }
     }
 
     if (weekNumber && weekNumber !== 'all') {
@@ -141,7 +147,7 @@ export async function GET(request: Request) {
       LEFT JOIN batches b ON b.id = sp.batch_id
       LEFT JOIN users admin_issued ON admin_issued.id = sp.issued_by
       LEFT JOIN users admin_reviewed ON admin_reviewed.id = sp.reviewed_by
-      LEFT JOIN daftar_ulang du ON du.user_id = sp.thalibah_id AND (sp.batch_id IS NULL OR du.batch_id = sp.batch_id)
+      LEFT JOIN daftar_ulang_submissions du ON du.user_id = sp.thalibah_id AND (sp.batch_id IS NULL OR du.batch_id = sp.batch_id)
       LEFT JOIN halaqah h ON h.id = du.tashih_halaqah_id
       ${whereClause}
       ORDER BY sp.issued_at DESC
@@ -202,6 +208,10 @@ export async function GET(request: Request) {
         reviewed_at: r.reviewed_at,
         reviewed_by_name: r.reviewed_by_name,
         notes: r.notes,
+        full_name: r.full_name,
+        nama_kunyah: r.nama_kunyah,
+        whatsapp: r.whatsapp,
+        email: r.email,
         user: {
           id: r.user_id,
           full_name: r.full_name,
@@ -254,9 +264,9 @@ export async function POST(request: Request) {
     // Resolve active batch if not supplied
     let batchId = validatedData.batch_id;
     if (!batchId) {
-      // First try from user's daftar_ulang
+      // First try from user's daftar_ulang_submissions
       const { rows: duRows } = await query(
-        `SELECT batch_id FROM daftar_ulang WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`,
+        `SELECT batch_id FROM daftar_ulang_submissions WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`,
         [targetUserId]
       );
       if (duRows.length > 0 && duRows[0].batch_id) {
