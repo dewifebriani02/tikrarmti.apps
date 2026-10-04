@@ -59,8 +59,175 @@ export function TikrarTable({
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-      <div className="overflow-x-auto">
+    <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      {/* Mobile Card List View (< md) */}
+      <div className="block md:hidden divide-y divide-gray-100">
+        {tikrar.length === 0 ? (
+          <div className="px-4 py-10 text-center text-gray-500 font-medium text-sm">
+            Tidak ada pendaftaran Tikrar ditemukan.
+          </div>
+        ) : (
+          tikrar.map((t) => {
+            const waUrl = getWhatsAppUrl(t);
+            const hasDaftarUlang = ((t as any).daftar_ulang_submissions?.some((du: any) => du.status === 'submitted' || du.status === 'approved'));
+
+            return (
+              <div 
+                key={t.id} 
+                className={cn(
+                  "p-4 transition-colors space-y-3",
+                  hasDaftarUlang ? "bg-green-50/20" : "bg-white"
+                )}
+              >
+                {/* Header: Name, Badges, and Daftar Ulang */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <button
+                        onClick={() => onAction('review', t)}
+                        className="text-sm font-bold text-blue-600 hover:text-blue-800 text-left"
+                      >
+                        {t.full_name || t.user?.full_name || 'Hamba Allah'}
+                      </button>
+                      {t.isAlumni ? (
+                        <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-purple-50 text-purple-700 border border-purple-100 select-none">
+                          Alumni
+                        </span>
+                      ) : (
+                        <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-gray-50 text-gray-400 border border-gray-100 select-none">
+                          Baru
+                        </span>
+                      )}
+                      {t.isDuplicate && (
+                        <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-red-50 text-red-600 border border-red-100 select-none">
+                          Ganda
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500 truncate mt-0.5">{t.user?.email || '-'}</p>
+                  </div>
+
+                  {/* Daftar Ulang Pill */}
+                  <div className="flex-shrink-0">
+                    {hasDaftarUlang ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 rounded-full px-2 py-0.5 select-none">
+                        <CheckCircle className="h-3 w-3" />
+                        DAFTAR ULANG
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-gray-500 bg-gray-50 border border-gray-200 rounded-full px-2 py-0.5 select-none">
+                        BELUM DU
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Key Details Grid */}
+                <div className="grid grid-cols-2 gap-2 text-xs bg-gray-50/70 p-2.5 rounded-xl border border-gray-100">
+                  <div>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tight block">Juz & Waktu</span>
+                    <span className="font-bold text-gray-800">Juz {t.chosen_juz || '-'}</span>
+                    <span className="text-[10px] text-gray-500 block truncate">{t.main_time_slot || '-'}</span>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tight block">Nilai VN / Status</span>
+                    <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                      {t.oral_total_score !== null && t.oral_total_score !== undefined && !isNaN(Number(t.oral_total_score)) ? (
+                        <span className={cn(
+                          "font-black text-xs",
+                          Number(t.oral_total_score) >= 80 ? "text-emerald-600" : "text-red-600"
+                        )}>
+                          Score {Number(t.oral_total_score).toFixed(0)}
+                        </span>
+                      ) : t.oral_submission_url || t.oral_submitted_at ? (
+                        <span className="inline-flex items-center gap-0.5 text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-100 rounded px-1 py-0.5">
+                          <Mic className="h-2.5 w-2.5 text-emerald-600" />
+                          ✓ VN
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-gray-300 font-bold italic">Belum VN</span>
+                      )}
+
+                      <span className={cn(
+                        "px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border",
+                        t.selection_status === 'selected' ? "bg-blue-50 text-blue-700 border-blue-100" :
+                        t.selection_status === 'not_selected' ? "bg-orange-50 text-orange-700 border-orange-100" :
+                        "bg-gray-100 text-gray-600 border-gray-200"
+                      )}>
+                        {t.selection_status}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tight block">Tgl Daftar</span>
+                    <span className="text-gray-700 font-medium">
+                      {t.submission_date ? new Date(t.submission_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) : '-'}
+                    </span>
+                    <span className="text-[10px] text-gray-400 ml-1">
+                      {t.submission_date ? new Date(t.submission_date).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : ''}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tight block">Infaq / Kader</span>
+                    {t.ready_for_team === 'ready' ? (
+                      <span className="text-[10px] font-semibold text-emerald-700">Siap Kader</span>
+                    ) : t.ready_for_team === 'infaq' ? (
+                      <span className="text-[10px] font-semibold text-blue-700">Infaq Rutin</span>
+                    ) : (
+                      <span className="text-[10px] text-gray-500">{t.infaq_amount || '-'}</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Card Action Buttons */}
+                <div className="flex items-center gap-1.5 pt-1">
+                  {waUrl && (
+                    <a 
+                      href={waUrl}
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="flex-1 py-1.5 px-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-semibold text-xs flex items-center justify-center gap-1 transition-colors border border-emerald-100"
+                    >
+                      <MessageSquare className="h-3.5 w-3.5" />
+                      <span>WA</span>
+                    </a>
+                  )}
+
+                  <button
+                    onClick={() => onAction('review', t)}
+                    className="flex-1 py-1.5 px-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-xs flex items-center justify-center gap-1 transition-colors border border-blue-100"
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                    <span>Detail</span>
+                  </button>
+
+                  <button
+                    onClick={() => onAction('edit', t)}
+                    className="p-1.5 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-700 font-semibold text-xs transition-colors border border-gray-200"
+                    title="Edit"
+                  >
+                    <Edit className="h-3.5 w-3.5" />
+                  </button>
+
+                  <button
+                    onClick={() => onAction('delete', t)}
+                    className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 font-semibold text-xs transition-colors border border-red-100"
+                    title="Hapus"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Desktop Table View (>= md) */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-gray-50/50 border-b border-gray-100">

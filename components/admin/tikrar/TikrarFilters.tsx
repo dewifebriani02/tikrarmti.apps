@@ -49,36 +49,36 @@ export function TikrarFilters({ onFilterChange, onRefresh, isLoading, batches, d
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6">
-      <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+    <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 p-3 sm:p-4 mb-4 sm:mb-6">
+      <div className="flex flex-col gap-3">
         {/* Search Input */}
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+        <div className="relative w-full">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
             type="text"
             placeholder="Cari Nama, Email, atau WhatsApp..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600 transition-all text-sm font-medium"
+            className="w-full pl-9 pr-8 py-2 sm:py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600 transition-all text-xs sm:text-sm font-medium"
           />
           {search && (
             <button
               onClick={() => setSearch('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
             >
-              <X className="h-4 w-4" />
+              <X className="h-3.5 w-3.5" />
             </button>
           )}
         </div>
 
         {/* Filters */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Award className="h-4 w-4 text-gray-500" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-2 bg-gray-50/70 border border-gray-200 rounded-xl px-2.5 py-1 sm:py-1.5 focus-within:ring-2 focus-within:ring-green-600/20 focus-within:border-green-600">
+            <Award className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-500 flex-shrink-0" />
             <select
               value={batchId}
               onChange={(e) => setBatchId(e.target.value)}
-              className="px-3 py-2.5 rounded-xl border border-gray-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600 bg-white cursor-pointer"
+              className="w-full bg-transparent text-xs sm:text-sm font-medium focus:outline-none cursor-pointer py-1 text-gray-800"
             >
               <option value="all">Semua Batch</option>
               {batches.map((b) => (
@@ -90,7 +90,7 @@ export function TikrarFilters({ onFilterChange, onRefresh, isLoading, batches, d
           <select
             value={selectionStatus}
             onChange={(e) => setSelectionStatus(e.target.value)}
-            className="px-3 py-2.5 rounded-xl border border-gray-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600 bg-white cursor-pointer"
+            className="px-3 py-2 sm:py-2.5 rounded-xl border border-gray-200 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600 bg-white cursor-pointer text-gray-800"
           >
             <option value="all">Semua Seleksi</option>
             <option value="pending">Pending Seleksi</option>
@@ -102,31 +102,33 @@ export function TikrarFilters({ onFilterChange, onRefresh, isLoading, batches, d
           <select
             value={daftarUlangStatus}
             onChange={(e) => setDaftarUlangStatus(e.target.value)}
-            className="px-3 py-2.5 rounded-xl border border-gray-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600 bg-white cursor-pointer"
+            className="px-3 py-2 sm:py-2.5 rounded-xl border border-gray-200 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600 bg-white cursor-pointer text-gray-800 sm:col-span-2 lg:col-span-1"
           >
             <option value="all">Semua Daftar Ulang</option>
             <option value="submitted">Sudah Daftar Ulang</option>
             <option value="none">Belum Daftar Ulang</option>
           </select>
 
-          <button
-            onClick={onRefresh}
-            disabled={isLoading}
-            className="p-2.5 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-600 disabled:opacity-50 transition-all flex items-center gap-2"
-            title="Refresh Data"
-          >
-            <RefreshCw className={cn("h-5 w-5", isLoading && "animate-spin")} />
-            <span className="lg:hidden text-sm font-medium">Refresh</span>
-          </button>
-
-          {(search || batchId !== 'all' || status !== 'all' || selectionStatus !== 'all' || daftarUlangStatus !== 'all') && (
+          <div className="flex items-center gap-2 sm:col-span-2 lg:col-span-1 justify-between sm:justify-start">
             <button
-              onClick={handleClear}
-              className="text-sm font-medium text-red-600 hover:text-red-700 px-2"
+              onClick={onRefresh}
+              disabled={isLoading}
+              className="px-3 py-2 sm:py-2 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-700 disabled:opacity-50 transition-all flex items-center gap-1.5 text-xs sm:text-sm font-semibold active:scale-95 shadow-sm"
+              title="Refresh Data"
             >
-              Reset
+              <RefreshCw className={cn("h-3.5 w-3.5 sm:h-4 sm:w-4", isLoading && "animate-spin")} />
+              <span>Refresh</span>
             </button>
-          )}
+
+            {(search || batchId !== 'all' || status !== 'all' || selectionStatus !== 'all' || daftarUlangStatus !== 'all') && (
+              <button
+                onClick={handleClear}
+                className="text-xs sm:text-sm font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 px-3 py-2 rounded-xl transition-all"
+              >
+                Reset Filter
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

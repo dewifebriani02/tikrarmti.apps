@@ -61,26 +61,26 @@ export function TikrarReviewModal({ isOpen, onClose, reviewData, onRefresh, user
 
   return (
     <div className="fixed z-50 inset-0 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+      <div className="flex items-center justify-center min-h-screen p-2.5 sm:p-0 text-center sm:block">
         <div className="fixed inset-0 bg-gray-500/75 transition-opacity backdrop-blur-sm" onClick={onClose}></div>
         <span className="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
 
-        <div className="inline-block align-bottom bg-white rounded-3xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full max-h-[90vh] overflow-y-auto border border-gray-100">
-          <div className="bg-white px-6 pt-6 pb-6">
-            <div className="flex items-center justify-between mb-8">
+        <div className="inline-block align-bottom bg-white rounded-2xl sm:rounded-3xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full max-h-[92vh] overflow-y-auto border border-gray-100 w-full">
+          <div className="bg-white p-4 sm:p-6">
+            <div className="flex items-center justify-between mb-4 sm:mb-8">
               <div>
-                <h3 className="text-2xl font-black text-gray-900 tracking-tight">Review Pendaftaran Tikrar</h3>
-                <p className="text-sm font-medium text-gray-500 mt-1">Lakukan penilaian komprehensif untuk thalibah ini.</p>
+                <h3 className="text-lg sm:text-2xl font-black text-gray-900 tracking-tight">Review Pendaftaran Tikrar</h3>
+                <p className="text-xs sm:text-sm font-medium text-gray-500 mt-0.5 sm:mt-1">Lakukan penilaian komprehensif untuk thalibah ini.</p>
               </div>
               <button
                 onClick={onClose}
-                className="p-2 rounded-xl bg-gray-50 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all"
+                className="p-1.5 sm:p-2 rounded-xl bg-gray-50 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all"
               >
-                <X className="h-6 w-6" />
+                <X className="h-5 w-5 sm:h-6 sm:w-6" />
               </button>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-8">
               {/* Left Column: Profile & Details */}
               <div className="lg:col-span-2 space-y-6">
                 {/* Profile Section */}
@@ -361,36 +361,36 @@ export function TikrarBulkConfirmModal({
 
   return (
     <div className="fixed z-[60] inset-0 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+      <div className="flex items-center justify-center min-h-screen p-3 sm:p-0 text-center sm:block">
         <div className="fixed inset-0 bg-gray-500/75 transition-opacity backdrop-blur-sm" onClick={onClose}></div>
         <span className="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
 
-        <div className="inline-block align-bottom bg-white rounded-3xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-gray-100">
-          <div className="bg-white px-6 pt-6 pb-6">
-            <div className="flex items-center gap-4 mb-6">
-              <div className={`flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-2xl ${action === 'approve' ? 'bg-emerald-100' : 'bg-red-100'}`}>
+        <div className="inline-block align-bottom bg-white rounded-2xl sm:rounded-3xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-gray-100 w-full">
+          <div className="bg-white p-4 sm:p-6">
+            <div className="flex items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
+              <div className={`flex-shrink-0 flex items-center justify-center h-10 w-10 sm:h-12 sm:w-12 rounded-xl sm:rounded-2xl ${action === 'approve' ? 'bg-emerald-100' : 'bg-red-100'}`}>
                 {action === 'approve' ? (
-                  <CheckCircle className="h-6 w-6 text-emerald-600" />
+                  <CheckCircle className="h-5 w-5 sm:h-6 sm:w-6 text-emerald-600" />
                 ) : (
-                  <XCircle className="h-6 w-6 text-red-600" />
+                  <XCircle className="h-5 w-5 sm:h-6 sm:w-6 text-red-600" />
                 )}
               </div>
               <div>
-                <h3 className="text-lg font-black text-gray-900 tracking-tight">
+                <h3 className="text-base sm:text-lg font-black text-gray-900 tracking-tight">
                   Bulk {action === 'approve' ? 'Approve' : 'Reject'} Applications
                 </h3>
-                <p className="text-sm font-medium text-gray-500">
+                <p className="text-xs sm:text-sm font-medium text-gray-500">
                   Konfirmasi tindakan massal untuk {count} thalibah.
                 </p>
               </div>
             </div>
 
-            <div className="bg-gray-50 rounded-2xl p-4 mb-6 text-sm text-gray-600 font-medium leading-relaxed">
+            <div className="bg-gray-50 rounded-xl sm:rounded-2xl p-3.5 sm:p-4 mb-4 sm:mb-6 text-xs sm:text-sm text-gray-600 font-medium leading-relaxed">
               Ukhti akan melakukan <strong>{action === 'approve' ? 'Persetujuan' : 'Penolakan'}</strong> secara massal. Tindakan ini tidak dapat dibatalkan. Pastikan data sudah sesuai.
             </div>
 
             {action === 'reject' && (
-              <div className="mb-6">
+              <div className="mb-4 sm:mb-6">
                 <label className="block text-[10px] font-black text-gray-400 uppercase tracking-wider mb-2">
                   Alasan Penolakan (Opsional)
                 </label>
@@ -398,7 +398,7 @@ export function TikrarBulkConfirmModal({
                   rows={3}
                   value={rejectionReason}
                   onChange={(e) => setRejectionReason(e.target.value)}
-                  className="w-full px-4 py-3 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all text-sm font-medium"
+                  className="w-full px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all text-xs sm:text-sm font-medium"
                   placeholder="Berikan alasan penolakan untuk thalibah..."
                 />
               </div>
@@ -408,7 +408,7 @@ export function TikrarBulkConfirmModal({
               <button
                 onClick={onConfirm}
                 disabled={isProcessing}
-                className={`flex-1 py-3 px-4 rounded-2xl font-black text-sm uppercase tracking-widest text-white transition-all shadow-lg active:scale-95 disabled:opacity-50 ${
+                className={`flex-1 py-2.5 sm:py-3 px-4 rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm uppercase tracking-widest text-white transition-all shadow-lg active:scale-95 disabled:opacity-50 ${
                   action === 'approve' 
                     ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200' 
                     : 'bg-red-600 hover:bg-red-700 shadow-red-200'
@@ -419,7 +419,7 @@ export function TikrarBulkConfirmModal({
               <button
                 onClick={onClose}
                 disabled={isProcessing}
-                className="flex-1 py-3 px-4 rounded-2xl font-black text-sm uppercase tracking-widest text-gray-600 bg-gray-50 hover:bg-gray-100 transition-all active:scale-95"
+                className="flex-1 py-2.5 sm:py-3 px-4 rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm uppercase tracking-widest text-gray-600 bg-gray-50 hover:bg-gray-100 transition-all active:scale-95"
               >
                 Batal
               </button>
@@ -447,25 +447,25 @@ export function TikrarUnapproveModal({ isOpen, onClose, onConfirm, data, isProce
 
   return (
     <div className="fixed z-[60] inset-0 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+      <div className="flex items-center justify-center min-h-screen p-3 sm:p-0 text-center sm:block">
         <div className="fixed inset-0 bg-gray-500/75 transition-opacity backdrop-blur-sm" onClick={onClose}></div>
         <span className="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
 
-        <div className="inline-block align-bottom bg-white rounded-3xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-gray-100">
-          <div className="bg-white px-6 pt-6 pb-6">
-            <div className="flex items-center gap-4 mb-6">
-              <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-2xl bg-orange-100">
-                <Undo2 className="h-6 w-6 text-orange-600" />
+        <div className="inline-block align-bottom bg-white rounded-2xl sm:rounded-3xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-gray-100 w-full">
+          <div className="bg-white p-4 sm:p-6">
+            <div className="flex items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
+              <div className="flex-shrink-0 flex items-center justify-center h-10 w-10 sm:h-12 sm:w-12 rounded-xl sm:rounded-2xl bg-orange-100">
+                <Undo2 className="h-5 w-5 sm:h-6 sm:w-6 text-orange-600" />
               </div>
               <div>
-                <h3 className="text-lg font-black text-gray-900 tracking-tight">Batalkan Persetujuan</h3>
-                <p className="text-sm font-medium text-gray-500">
+                <h3 className="text-base sm:text-lg font-black text-gray-900 tracking-tight">Batalkan Persetujuan</h3>
+                <p className="text-xs sm:text-sm font-medium text-gray-500">
                   Membatalkan pendaftaran untuk "{data.full_name || data.user?.full_name}"
                 </p>
               </div>
             </div>
 
-            <div className="mb-6">
+            <div className="mb-4 sm:mb-6">
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-wider mb-2">
                 Alasan Pembatalan <span className="text-red-500">*</span>
               </label>
@@ -473,7 +473,7 @@ export function TikrarUnapproveModal({ isOpen, onClose, onConfirm, data, isProce
                 rows={3}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                className="w-full px-4 py-3 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all text-sm font-medium"
+                className="w-full px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all text-xs sm:text-sm font-medium"
                 placeholder="Berikan alasan pembatalan..."
                 required
               />
