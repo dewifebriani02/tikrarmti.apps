@@ -625,45 +625,45 @@ function PresensiJurnalContent() {
       <Toaster position="top-right" />
       
       {/* Header Section */}
-      <div className="bg-white border-b border-gray-100 mb-8 sticky top-0 z-20 shadow-sm">
-        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div className="flex items-center gap-4">
+      <div className="bg-white border border-gray-100 rounded-2xl mb-6 shadow-sm overflow-hidden">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
+            <div className="flex items-center gap-3 sm:gap-4">
               <button
                 onClick={() => router.push('/dashboard')}
-                className="p-2.5 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-all border border-transparent hover:border-gray-200"
+                className="p-2 sm:p-2.5 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-all border border-gray-100 hover:border-gray-200 flex-shrink-0"
                 title="Kembali ke Dashboard"
               >
-                <ArrowLeft className="h-5 w-5" />
+                <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
               </button>
               <div>
-                <div className="flex items-center gap-2 text-[10px] font-bold text-green-600 uppercase tracking-[0.2em] mb-1">
+                <div className="flex items-center gap-1.5 text-[10px] font-bold text-green-600 uppercase tracking-[0.2em] mb-0.5">
                   <ShieldCheck className="h-3 w-3" />
                   <span>Musyrifah Console</span>
                 </div>
-                <h1 className="text-2xl font-black text-gray-900 tracking-tight flex items-center gap-3">
-                  Monitoring Presensi & Jurnal
-                  <span className="px-2 py-0.5 rounded-lg bg-green-50 text-green-700 text-xs font-bold border border-green-100">
+                <h1 className="text-lg sm:text-2xl font-black text-gray-900 tracking-tight flex items-center gap-2">
+                  <span>Presensi & Jurnal</span>
+                  <span className="px-2 py-0.5 rounded-lg bg-green-50 text-green-700 text-[10px] sm:text-xs font-bold border border-green-100 whitespace-nowrap">
                     Console v2.0
                   </span>
                 </h1>
               </div>
             </div>
 
-            <div className="flex items-center gap-2.5 w-full md:w-auto justify-end">
+            <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
               <button
                 onClick={() => setRekapChatModalOpen(true)}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white font-bold text-xs sm:text-sm shadow-md shadow-green-900/10 hover:shadow-lg transition-all active:scale-95"
+                className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white font-bold text-xs sm:text-sm shadow-md shadow-green-900/10 hover:shadow-lg transition-all active:scale-95"
                 title="Buka Template Rekap Chat WhatsApp Evaluasi Pekanan"
               >
-                <MessageSquare className="w-4 h-4" />
+                <MessageSquare className="w-4 h-4 flex-shrink-0" />
                 <span>📋 Template Rekap Chat WA</span>
               </button>
             </div>
           </div>
         </div>
       </div>
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 relative z-20">
+      <div className="max-w-[1600px] mx-auto relative z-10">
         {/* KPI Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 mb-6">
           {/* Total Thalibah (Approved) Card */}
@@ -754,7 +754,8 @@ function PresensiJurnalContent() {
           </div>
         </div>
 
-        <div className="flex p-1.5 bg-white shadow-xl shadow-green-900/5 rounded-2xl mb-8 w-full overflow-x-auto hide-scrollbar">
+        {/* Navigation Tabs - Smooth Horizontal Scroll on Mobile */}
+        <div className="flex p-1 sm:p-1.5 bg-white shadow-sm border border-gray-100 rounded-xl sm:rounded-2xl mb-5 sm:mb-6 w-full overflow-x-auto hide-scrollbar gap-1">
           <button
             onClick={() => {
               setActiveTab('kurikulum');
@@ -762,15 +763,14 @@ function PresensiJurnalContent() {
               router.push('/presensi-jurnal?tab=kurikulum', { scroll: false });
             }}
             className={cn(
-              "flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl font-bold text-sm transition-all duration-300 whitespace-nowrap",
+              "flex-shrink-0 sm:flex-1 flex items-center justify-center gap-1.5 py-2 sm:py-2.5 px-3 rounded-lg sm:rounded-xl font-bold text-xs sm:text-sm transition-all duration-300 whitespace-nowrap",
               activeTab === 'kurikulum'
-                ? "bg-amber-600 text-white shadow-lg shadow-amber-600/20"
+                ? "bg-amber-600 text-white shadow-md shadow-amber-600/20"
                 : "text-gray-500 hover:text-amber-600 hover:bg-amber-50"
             )}
           >
-            <FileText className="w-4 h-4" />
-            <span className="hidden sm:inline">Kurikulum</span>
-            <span className="sm:hidden">Kurikulum</span>
+            <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+            <span>Kurikulum</span>
           </button>
           <button
             onClick={() => {
@@ -779,15 +779,15 @@ function PresensiJurnalContent() {
               router.push('/presensi-jurnal?tab=halaqah', { scroll: false });
             }}
             className={cn(
-              "flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl font-bold text-sm transition-all duration-300 whitespace-nowrap",
+              "flex-shrink-0 sm:flex-1 flex items-center justify-center gap-1.5 py-2 sm:py-2.5 px-3 rounded-lg sm:rounded-xl font-bold text-xs sm:text-sm transition-all duration-300 whitespace-nowrap",
               activeTab === 'halaqah'
-                ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20"
+                ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
                 : "text-gray-500 hover:text-indigo-600 hover:bg-indigo-50"
             )}
           >
-            <LayoutList className="w-4 h-4" />
-            <span className="hidden lg:inline">Per Kelas Halaqah</span>
-            <span className="lg:hidden">Halaqah</span>
+            <LayoutList className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+            <span className="hidden sm:inline">Per Kelas Halaqah</span>
+            <span className="sm:hidden">Halaqah</span>
           </button>
           <button
             onClick={() => {
@@ -796,13 +796,13 @@ function PresensiJurnalContent() {
               router.push('/presensi-jurnal?tab=jurnal', { scroll: false });
             }}
             className={cn(
-              "flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl font-bold text-sm transition-all duration-300 whitespace-nowrap",
+              "flex-shrink-0 sm:flex-1 flex items-center justify-center gap-1.5 py-2 sm:py-2.5 px-3 rounded-lg sm:rounded-xl font-bold text-xs sm:text-sm transition-all duration-300 whitespace-nowrap",
               activeTab === 'jurnal'
-                ? "bg-green-900 text-white shadow-lg shadow-green-900/20"
+                ? "bg-green-900 text-white shadow-md shadow-green-900/20"
                 : "text-gray-500 hover:text-green-900 hover:bg-green-50"
             )}
           >
-            <BookOpen className="w-4 h-4" />
+            <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
             <span className="hidden sm:inline">Jurnal Harian</span>
             <span className="sm:hidden">Jurnal</span>
           </button>
@@ -813,15 +813,15 @@ function PresensiJurnalContent() {
               router.push('/presensi-jurnal?tab=presensi', { scroll: false });
             }}
             className={cn(
-              "flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl font-bold text-sm transition-all duration-300 whitespace-nowrap",
+              "flex-shrink-0 sm:flex-1 flex items-center justify-center gap-1.5 py-2 sm:py-2.5 px-3 rounded-lg sm:rounded-xl font-bold text-xs sm:text-sm transition-all duration-300 whitespace-nowrap",
               activeTab === 'presensi'
-                ? "bg-green-900 text-white shadow-lg shadow-green-900/20"
+                ? "bg-green-900 text-white shadow-md shadow-green-900/20"
                 : "text-gray-500 hover:text-green-900 hover:bg-green-50"
             )}
           >
-            <UserCheck className="w-4 h-4" />
-            <span className="hidden lg:inline">Presensi (Tashih)</span>
-            <span className="lg:hidden">Tashih</span>
+            <UserCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+            <span className="hidden sm:inline">Presensi (Tashih)</span>
+            <span className="sm:hidden">Tashih</span>
           </button>
           <button
             onClick={() => {
@@ -831,15 +831,15 @@ function PresensiJurnalContent() {
               router.push('/presensi-jurnal?tab=sp', { scroll: false });
             }}
             className={cn(
-              "flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl font-bold text-sm transition-all duration-300 whitespace-nowrap relative",
+              "flex-shrink-0 sm:flex-1 flex items-center justify-center gap-1.5 py-2 sm:py-2.5 px-3 rounded-lg sm:rounded-xl font-bold text-xs sm:text-sm transition-all duration-300 whitespace-nowrap relative",
               activeTab === 'sp'
-                ? "bg-amber-600 text-white shadow-lg shadow-amber-600/20"
+                ? "bg-amber-600 text-white shadow-md shadow-amber-600/20"
                 : "text-gray-500 hover:text-amber-600 hover:bg-amber-50"
             )}
           >
-            <AlertTriangle className="w-4 h-4" />
-            <span className="hidden lg:inline">Surat Peringatan (SP)</span>
-            <span className="lg:hidden">SP</span>
+            <AlertTriangle className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+            <span className="hidden sm:inline">Surat Peringatan (SP)</span>
+            <span className="sm:hidden">SP</span>
             {(pagination?.stats?.total_sp ?? spStats?.total_sp ?? 0) > 0 && (
               <span className={cn(
                 "px-1.5 py-0.2 text-[10px] font-black rounded-full ml-1",
@@ -855,15 +855,14 @@ function PresensiJurnalContent() {
               router.push('/presensi-jurnal?tab=blacklist', { scroll: false });
             }}
             className={cn(
-              "flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl font-bold text-sm transition-all duration-300 whitespace-nowrap",
+              "flex-shrink-0 sm:flex-1 flex items-center justify-center gap-1.5 py-2 sm:py-2.5 px-3 rounded-lg sm:rounded-xl font-bold text-xs sm:text-sm transition-all duration-300 whitespace-nowrap",
               activeTab === 'blacklist'
-                ? "bg-rose-700 text-white shadow-lg shadow-rose-900/20"
+                ? "bg-rose-700 text-white shadow-md shadow-rose-900/20"
                 : "text-gray-500 hover:text-rose-700 hover:bg-rose-50"
             )}
           >
-            <Ban className="w-4 h-4" />
-            <span className="hidden sm:inline">Blacklist</span>
-            <span className="sm:hidden">Blacklist</span>
+            <Ban className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+            <span>Blacklist</span>
           </button>
           <button
             onClick={() => {
@@ -871,13 +870,13 @@ function PresensiJurnalContent() {
               router.push('/presensi-jurnal?tab=dropout', { scroll: false });
             }}
             className={cn(
-              "flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl font-bold text-sm transition-all duration-300 whitespace-nowrap",
+              "flex-shrink-0 sm:flex-1 flex items-center justify-center gap-1.5 py-2 sm:py-2.5 px-3 rounded-lg sm:rounded-xl font-bold text-xs sm:text-sm transition-all duration-300 whitespace-nowrap",
               activeTab === 'dropout'
-                ? "bg-orange-700 text-white shadow-lg shadow-orange-900/20"
+                ? "bg-orange-700 text-white shadow-md shadow-orange-900/20"
                 : "text-gray-500 hover:text-orange-700 hover:bg-orange-50"
             )}
           >
-            <Shield className="w-4 h-4" />
+            <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
             <span className="hidden sm:inline">DO & Resign</span>
             <span className="sm:hidden">DO/Resign</span>
           </button>
@@ -885,23 +884,25 @@ function PresensiJurnalContent() {
 
         {/* Filter & Search Headers (Only for non-halaqah/kurikulum tabs) */}
         {activeTab !== 'halaqah' && activeTab !== 'kurikulum' && (
-          <div className="flex flex-col md:flex-row gap-4 mb-8 justify-between items-end">
-            <div className="flex flex-wrap gap-3 items-end w-full lg:w-auto">
-              <div className="flex flex-col gap-1.5 flex-1 lg:flex-initial lg:min-w-[300px]">
+          <div className="bg-white p-3.5 sm:p-5 rounded-2xl border border-gray-100 shadow-sm mb-6">
+            <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2.5 sm:gap-3 items-end">
+              {/* Cari Thalibah - Full width on mobile */}
+              <div className="col-span-2 sm:flex-1 sm:min-w-[240px] flex flex-col gap-1">
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Cari Thalibah</label>
                 <div className="relative group">
-                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-green-900 transition-colors" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-green-900 transition-colors" />
                   <input
                     type="text"
                     placeholder="Nama Thalibah atau Kunyah..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="bg-white border-0 shadow-sm rounded-xl pl-10 pr-4 py-2.5 text-sm font-semibold text-gray-700 w-full focus:ring-2 focus:ring-green-900/20 transition-all outline-none"
+                    className="bg-gray-50/80 border border-gray-100 rounded-xl pl-9 pr-3 py-2 text-xs sm:text-sm font-semibold text-gray-700 w-full focus:ring-2 focus:ring-green-900/20 focus:bg-white transition-all outline-none"
                   />
                 </div>
               </div>
 
-              <div className="flex flex-col gap-1.5 flex-1 lg:flex-initial lg:min-w-[180px]">
+              {/* Batch - col-span-1 on mobile */}
+              <div className="col-span-1 sm:min-w-[170px] flex flex-col gap-1">
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Batch</label>
                 <select
                   value={selectedBatchId}
@@ -909,7 +910,7 @@ function PresensiJurnalContent() {
                     setSelectedBatchId(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className="bg-green-50 border border-green-100 shadow-sm rounded-xl px-4 py-2.5 text-sm font-bold text-green-900 w-full focus:ring-2 focus:ring-green-900/20 transition-all cursor-pointer outline-none"
+                  className="bg-green-50/80 border border-green-200 text-green-900 rounded-xl px-3 py-2 text-xs sm:text-sm font-bold w-full focus:ring-2 focus:ring-green-900/20 transition-all cursor-pointer outline-none"
                 >
                   <option value="all">Semua Batch</option>
                   {batchList.map(b => (
@@ -920,7 +921,8 @@ function PresensiJurnalContent() {
                 </select>
               </div>
               
-              <div className="flex flex-col gap-1.5 flex-1 lg:flex-initial lg:min-w-[120px]">
+              {/* Tampilkan - col-span-1 on mobile */}
+              <div className="col-span-1 sm:min-w-[110px] flex flex-col gap-1">
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Tampilkan</label>
                 <select
                   value={rowsPerPage}
@@ -928,7 +930,7 @@ function PresensiJurnalContent() {
                     setRowsPerPage(Number(e.target.value));
                     setCurrentPage(1);
                   }}
-                  className="bg-white border-0 shadow-sm rounded-xl px-4 py-2.5 text-sm font-semibold text-gray-700 w-full focus:ring-2 focus:ring-green-900/20 transition-all outline-none appearance-none cursor-pointer"
+                  className="bg-gray-50/80 border border-gray-100 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-gray-700 w-full focus:ring-2 focus:ring-green-900/20 focus:bg-white transition-all outline-none cursor-pointer"
                 >
                   <option value={10}>10 Baris</option>
                   <option value={20}>20 Baris</option>
@@ -937,8 +939,9 @@ function PresensiJurnalContent() {
                 </select>
               </div>
 
+              {/* Tingkat SP / Filter Blok */}
               {activeTab === 'sp' ? (
-                <div className="flex flex-col gap-1.5 flex-1 lg:flex-initial min-w-[170px]">
+                <div className="col-span-2 sm:col-span-1 sm:min-w-[160px] flex flex-col gap-1">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Tingkat SP</label>
                   <select
                     value={spLevelFilter}
@@ -946,7 +949,7 @@ function PresensiJurnalContent() {
                       setSpLevelFilter(e.target.value);
                       setCurrentPage(1);
                     }}
-                    className="bg-amber-50 border border-amber-200 text-amber-900 shadow-sm rounded-xl px-4 py-2.5 text-sm font-bold w-full focus:ring-2 focus:ring-amber-500/20 transition-all cursor-pointer outline-none"
+                    className="bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-3 py-2 text-xs sm:text-sm font-bold w-full focus:ring-2 focus:ring-amber-500/20 transition-all cursor-pointer outline-none"
                   >
                     <option value="all">Semua Level ({spStats?.total_sp ?? pagination?.stats?.total_sp ?? 0})</option>
                     <option value="1">SP 1 ({spStats?.count_sp1 ?? 0})</option>
@@ -957,7 +960,7 @@ function PresensiJurnalContent() {
                   </select>
                 </div>
               ) : (
-                <div className="flex flex-col gap-1.5 flex-1 lg:flex-initial">
+                <div className="col-span-1 sm:min-w-[140px] flex flex-col gap-1">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Filter Blok</label>
                   <select
                     value={selectedBlok}
@@ -965,7 +968,7 @@ function PresensiJurnalContent() {
                       setSelectedBlok(e.target.value);
                       setCurrentPage(1);
                     }}
-                    className="bg-white border-0 shadow-sm rounded-xl px-4 py-2.5 text-sm font-semibold text-gray-700 min-w-[140px] focus:ring-2 focus:ring-green-900/20 transition-all cursor-pointer outline-none"
+                    className="bg-gray-50/80 border border-gray-100 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-gray-700 w-full focus:ring-2 focus:ring-green-900/20 transition-all cursor-pointer outline-none"
                   >
                     <option value="all">Semua Blok</option>
                     {availableBloks.map(b => (
@@ -976,34 +979,39 @@ function PresensiJurnalContent() {
               )}
 
               {activeTab === 'jurnal' && (
-                <div className="flex flex-col gap-1.5 flex-1 lg:flex-initial">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Pekan Aktif (Remind)</label>
-                  <div className="flex items-center bg-green-50 border border-green-100 shadow-sm rounded-xl h-[42px] overflow-hidden">
+                <div className="col-span-1 sm:min-w-[140px] flex flex-col gap-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Pekan Aktif</label>
+                  <div className="flex items-center bg-green-50 border border-green-100 rounded-xl h-[38px] overflow-hidden">
                     <button
                       type="button"
                       onClick={() => setCurrentWeek(w => Math.max(1, w - 1))}
-                      className="px-2.5 h-full text-green-700 hover:bg-green-100 transition-colors text-lg font-bold leading-none"
+                      className="px-2 h-full text-green-700 hover:bg-green-100 transition-colors text-base font-bold"
                       title="Pekan sebelumnya"
                     >‹</button>
-                    <span className="px-3 text-sm font-bold text-green-900 min-w-[80px] text-center">
+                    <span className="flex-1 text-xs font-bold text-green-900 text-center">
                       Pekan {currentWeek}
                     </span>
                     <button
                       type="button"
                       onClick={() => setCurrentWeek(w => w + 1)}
-                      className="px-2.5 h-full text-green-700 hover:bg-green-100 transition-colors text-lg font-bold leading-none"
+                      className="px-2 h-full text-green-700 hover:bg-green-100 transition-colors text-base font-bold"
                       title="Pekan berikutnya"
                     >›</button>
                   </div>
                 </div>
               )}
-              <button 
-                onClick={loadData}
-                className="p-2.5 bg-white text-gray-500 rounded-xl shadow-sm hover:text-green-900 hover:bg-green-50 transition-all group"
-                title="Refresh Data"
-              >
-                <ArrowUpDown className={cn("w-5 h-5 transition-transform duration-500", dataLoading && "rotate-180")} />
-              </button>
+
+              {/* Refresh Button */}
+              <div className="col-span-2 sm:col-span-1 flex justify-end">
+                <button 
+                  onClick={loadData}
+                  className="w-full sm:w-auto p-2 sm:p-2.5 bg-gray-50 hover:bg-green-50 text-gray-600 hover:text-green-900 border border-gray-200 rounded-xl transition-all flex items-center justify-center gap-1.5"
+                  title="Refresh Data"
+                >
+                  <ArrowUpDown className={cn("w-4 h-4 transition-transform duration-500", dataLoading && "rotate-180")} />
+                  <span className="sm:hidden text-xs font-bold">Refresh Data</span>
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -1480,16 +1488,15 @@ function SPTabSimple({
     { key: '1', label: 'SP 1', count: stats?.count_sp1 ?? 0, color: 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border-yellow-300' },
     { key: '2', label: 'SP 2', count: stats?.count_sp2 ?? 0, color: 'bg-amber-100 text-amber-800 hover:bg-amber-200 border-amber-300' },
     { key: '3', label: 'SP 3', count: stats?.count_sp3 ?? 0, color: 'bg-rose-100 text-rose-800 hover:bg-rose-200 border-rose-300' },
-    { key: '4', label: 'DO Sementara', count: stats?.count_do ?? 0, color: 'bg-purple-100 text-purple-800 hover:bg-purple-200 border-purple-300' },
     { key: '5', label: 'Blacklist', count: stats?.count_blacklist ?? 0, color: 'bg-red-950 text-white hover:bg-red-900 border-red-900' },
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Quick Level Filter Badges */}
-      <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-bold text-gray-400 uppercase tracking-wider mr-1">Filter Tingkat:</span>
+      <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar pb-1 sm:pb-0">
+          <span className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-wider mr-1 flex-shrink-0">Tingkat:</span>
           {filterChips.map(chip => {
             const isActive = levelFilter === chip.key;
             return (
@@ -1498,7 +1505,7 @@ function SPTabSimple({
                 type="button"
                 onClick={() => onLevelFilterChange(chip.key)}
                 className={cn(
-                  "px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border",
+                  "px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border flex-shrink-0 whitespace-nowrap",
                   isActive
                     ? "bg-green-900 text-white border-green-900 shadow-md shadow-green-900/10 scale-105"
                     : `${chip.color} border-transparent`
@@ -1516,245 +1523,374 @@ function SPTabSimple({
           })}
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3">
           {onOpenAutoEvaluate && (
             <button
               type="button"
               onClick={onOpenAutoEvaluate}
-              className="px-4 py-2 bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 hover:from-amber-600 hover:to-amber-800 text-white font-black text-xs rounded-xl shadow-md shadow-amber-500/20 transition-all flex items-center gap-2 scale-100 hover:scale-[1.02] active:scale-95"
+              className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 hover:from-amber-600 hover:to-amber-800 text-white font-black text-xs rounded-xl shadow-md shadow-amber-500/20 transition-all flex items-center justify-center gap-2 scale-100 hover:scale-[1.02] active:scale-95"
             >
               <Zap className="w-3.5 h-3.5 text-amber-100 animate-pulse" />
               <span>Auto-Evaluasi & Terbitkan SP</span>
             </button>
           )}
 
-          <div className="text-xs text-gray-500 font-semibold">
-            Menampilkan <strong className="text-gray-900">{entries.length}</strong> dari <strong className="text-gray-900">{pagination?.totalCount || entries.length}</strong> thalibah bersurat peringatan
+          <div className="text-[11px] sm:text-xs text-gray-500 font-semibold text-center sm:text-right">
+            Menampilkan <strong className="text-gray-900">{entries.length}</strong> dari <strong className="text-gray-900">{pagination?.totalCount || entries.length}</strong> thalibah
           </div>
         </div>
       </div>
 
       {/* Main Content List / Table */}
       {entries.length === 0 ? (
-        <div className="bg-white rounded-3xl p-16 text-center shadow-xl border border-gray-100">
-          <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-100">
-            <CheckCircle className="w-10 h-10" />
+        <div className="bg-white rounded-3xl p-10 sm:p-16 text-center shadow-xl border border-gray-100">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-100">
+            <CheckCircle className="w-8 h-8 sm:w-10 sm:h-10" />
           </div>
-          <h3 className="text-xl font-black text-gray-900 mb-1">Alhamdulillah, Tidak Ada Surat Peringatan</h3>
-          <p className="text-gray-500 text-sm max-w-md mx-auto">
+          <h3 className="text-lg sm:text-xl font-black text-gray-900 mb-1">Alhamdulillah, Tidak Ada Surat Peringatan</h3>
+          <p className="text-gray-500 text-xs sm:text-sm max-w-md mx-auto">
             {levelFilter !== 'all'
               ? `Tidak ditemukan thalibah dengan filter tingkat SP ini pada batch yang dipilih.`
               : `Seluruh thalibah pada batch ini disiplin dan belum memiliki catatan Surat Peringatan aktif.`}
           </p>
         </div>
       ) : (
-        <div className="bg-white rounded-3xl shadow-xl shadow-green-900/5 border border-gray-100 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-gray-50/80 border-b border-gray-100 text-[11px] font-black text-gray-400 uppercase tracking-wider">
-                  <th className="py-4 px-6">Thalibah</th>
-                  <th className="py-4 px-4 text-center">Tingkat SP & Pekan</th>
-                  <th className="py-4 px-6">Alasan & Catatan</th>
-                  <th className="py-4 px-4">Diterbitkan</th>
-                  <th className="py-4 px-4 text-center">Status</th>
-                  <th className="py-4 px-6 text-right">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 text-sm">
-                {entries.map((entry) => {
-                  const level = entry.sp_level || 1;
-                  const isDo = entry.sp_type?.includes('do') || level >= 4;
-                  const isBlacklist = entry.is_blacklisted || entry.sp_type === 'blacklist';
-                  const phoneClean = getCleanPhone(entry.whatsapp);
+        <>
+          {/* MOBILE VIEW: Responsive Cards (block lg:hidden) */}
+          <div className="block lg:hidden space-y-3">
+            {entries.map((entry) => {
+              const level = entry.sp_level || 1;
+              const isDo = entry.sp_type?.includes('do') || level >= 4;
+              const isBlacklist = entry.is_blacklisted || entry.sp_type === 'blacklist';
+              const phoneClean = getCleanPhone(entry.whatsapp);
 
-                  return (
-                    <tr key={entry.id} className="hover:bg-amber-50/20 transition-colors group">
-                      {/* Thalibah Info */}
-                      <td className="py-4 px-6">
-                        <div className="flex items-center gap-3">
-                          <div className={cn(
-                            "w-10 h-10 rounded-2xl flex items-center justify-center font-black text-sm shadow-sm flex-shrink-0 text-white",
-                            isBlacklist
-                              ? "bg-red-950"
-                              : isDo
-                              ? "bg-purple-700"
-                              : level === 3
-                              ? "bg-rose-600"
-                              : level === 2
-                              ? "bg-amber-600"
-                              : "bg-yellow-500 text-yellow-950"
-                          )}>
-                            {(entry.full_name || 'T').charAt(0).toUpperCase()}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-gray-900 group-hover:text-green-950 transition-colors truncate">
-                                {entry.full_name || 'Nama Tidak Tersedia'}
-                              </span>
-                              {entry.nama_kunyah && (
-                                <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-extrabold border border-emerald-100 whitespace-nowrap">
-                                  {entry.nama_kunyah}
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 mt-0.5">
-                              {entry.whatsapp && (
-                                <a
-                                  href={`https://wa.me/${phoneClean}`}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="text-green-700 hover:text-green-800 font-semibold hover:underline flex items-center gap-1"
-                                  title="Chat WhatsApp"
-                                >
-                                  <span>📱 {entry.whatsapp}</span>
-                                </a>
-                              )}
-                              {entry.confirmed_chosen_juz && (
-                                <span className="text-gray-400 font-medium">
-                                  Juz {entry.confirmed_chosen_juz}
-                                </span>
-                              )}
-                              {entry.halaqah_name && (
-                                <span className="text-gray-400 font-medium">
-                                  • {entry.halaqah_name}
-                                </span>
-                              )}
-                            </div>
-                          </div>
+              return (
+                <div key={entry.id} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm space-y-3">
+                  {/* Top Bar: Name & SP Level Badge */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className={cn(
+                        "w-9 h-9 rounded-xl flex items-center justify-center font-black text-xs shadow-sm flex-shrink-0 text-white",
+                        isBlacklist
+                          ? "bg-red-950"
+                          : isDo
+                          ? "bg-purple-700"
+                          : level === 3
+                          ? "bg-rose-600"
+                          : level === 2
+                          ? "bg-amber-600"
+                          : "bg-yellow-500 text-yellow-950"
+                      )}>
+                        {(entry.full_name || 'T').charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-bold text-gray-900 text-sm truncate">
+                          {entry.full_name || 'Nama Tidak Tersedia'}
                         </div>
-                      </td>
-
-                      {/* Tingkat SP & Pekan */}
-                      <td className="py-4 px-4 text-center">
-                        <div className="inline-flex flex-col items-center gap-1">
-                          <span className={cn(
-                            "px-3 py-1 rounded-xl text-xs font-black uppercase tracking-tight shadow-sm border flex items-center gap-1",
-                            isBlacklist
-                              ? "bg-red-950 text-white border-red-900"
-                              : isDo
-                              ? "bg-purple-700 text-white border-purple-800"
-                              : level === 3
-                              ? "bg-rose-600 text-white border-rose-700"
-                              : level === 2
-                              ? "bg-amber-500 text-white border-amber-600"
-                              : "bg-yellow-400 text-yellow-950 border-yellow-500"
-                          )}>
-                            <AlertTriangle className="w-3 h-3" />
-                            {isBlacklist ? 'BLACKLIST' : isDo ? 'DROP OUT' : `SP ${level}`}
-                          </span>
-                          <span className="text-[11px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md">
-                            Pekan {entry.week_number || '-'}
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* Alasan & Catatan */}
-                      <td className="py-4 px-6 max-w-xs">
-                        <div className="space-y-1">
-                          <p className="font-bold text-gray-800 text-xs sm:text-sm">
-                            {getReasonLabel(entry.reason)}
-                          </p>
-                          {entry.notes && (
-                            <p className="text-xs text-gray-500 line-clamp-2 italic bg-gray-50 p-1.5 rounded-lg border border-gray-100">
-                              "{entry.notes}"
-                            </p>
+                        <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-gray-500">
+                          {entry.confirmed_chosen_juz && (
+                            <span>Juz {entry.confirmed_chosen_juz}</span>
                           )}
-                          {entry.udzur_type && (
-                            <div className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
-                              <span>Udzur: {entry.udzur_type}</span>
-                            </div>
+                          {entry.halaqah_name && (
+                            <span>• {entry.halaqah_name}</span>
                           )}
                         </div>
-                      </td>
+                      </div>
+                    </div>
 
-                      {/* Diterbitkan */}
-                      <td className="py-4 px-4">
-                        <div className="space-y-0.5">
-                          <p className="text-xs font-bold text-gray-800">
-                            {entry.issued_at
-                              ? new Date(entry.issued_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
-                              : '-'}
-                          </p>
-                          <p className="text-[11px] text-gray-400 font-medium truncate max-w-[140px]">
-                            Oleh: {entry.issued_by_name || 'Admin/Musyrifah'}
-                          </p>
-                        </div>
-                      </td>
+                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                      <span className={cn(
+                        "px-2.5 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-tight shadow-xs border flex items-center gap-1",
+                        isBlacklist
+                          ? "bg-red-950 text-white border-red-900"
+                          : isDo
+                          ? "bg-purple-700 text-white border-purple-800"
+                          : level === 3
+                          ? "bg-rose-600 text-white border-rose-700"
+                          : level === 2
+                          ? "bg-amber-500 text-white border-amber-600"
+                          : "bg-yellow-400 text-yellow-950 border-yellow-500"
+                      )}>
+                        <AlertTriangle className="w-2.5 h-2.5" />
+                        {isBlacklist ? 'BLACKLIST' : isDo ? 'DROP OUT' : `SP ${level}`}
+                      </span>
+                      <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-1.5 py-0.2 rounded">
+                        Pekan {entry.week_number || '-'}
+                      </span>
+                    </div>
+                  </div>
 
-                      {/* Status */}
-                      <td className="py-4 px-4 text-center">
-                        <span className={cn(
-                          "px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wide border",
-                          entry.status === 'active'
-                            ? "bg-amber-50 text-amber-800 border-amber-200"
-                            : entry.status === 'resolved'
-                            ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                            : "bg-gray-100 text-gray-600 border-gray-200"
-                        )}>
-                          {entry.status === 'active' ? 'Aktif' : entry.status === 'resolved' ? 'Selesai' : 'Dibatalkan'}
-                        </span>
-                      </td>
+                  {/* Reason & Notes */}
+                  <div className="bg-gray-50/80 rounded-xl p-2.5 border border-gray-100 space-y-1">
+                    <p className="font-bold text-gray-800 text-xs">
+                      {getReasonLabel(entry.reason)}
+                    </p>
+                    {entry.notes && (
+                      <p className="text-[11px] text-gray-600 italic">
+                        "{entry.notes}"
+                      </p>
+                    )}
+                  </div>
 
-                      {/* Actions */}
-                      <td className="py-4 px-6 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {/* Send WhatsApp Warning */}
-                          <button
-                            type="button"
-                            onClick={() => handleSendWA(entry)}
-                            className="p-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition-all active:scale-95 shadow-sm border border-emerald-100"
-                            title="Kirim / Salin Pesan Peringatan WhatsApp"
-                          >
-                            <MessageSquare className="w-4 h-4" />
-                          </button>
+                  {/* Footer & Action Buttons */}
+                  <div className="flex items-center justify-between pt-1 border-t border-gray-50 text-xs">
+                    <span className={cn(
+                      "px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase border",
+                      entry.status === 'active'
+                        ? "bg-amber-50 text-amber-800 border-amber-200"
+                        : "bg-gray-100 text-gray-600 border-gray-200"
+                    )}>
+                      {entry.status === 'active' ? 'Aktif' : 'Selesai'}
+                    </span>
 
-                          {/* View Official Letter */}
-                          <button
-                            type="button"
-                            onClick={() => setSelectedSPModal(entry)}
-                            className="p-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-all active:scale-95 shadow-sm border border-indigo-100"
-                            title="Lihat Surat Peringatan Resmi"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleSendWA(entry)}
+                        className="px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs flex items-center gap-1 border border-emerald-200"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        <span>Kirim WA</span>
+                      </button>
 
-                          {/* Cancel / Revoke SP */}
-                          <button
-                            type="button"
-                            disabled={actionLoadingId === entry.id}
-                            onClick={() => handleCancelSP(entry)}
-                            className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 transition-all active:scale-95 shadow-sm border border-rose-100 disabled:opacity-50"
-                            title="Batalkan / Cabut Surat Peringatan"
-                          >
-                            {actionLoadingId === entry.id ? (
-                              <div className="w-4 h-4 border-2 border-rose-600 border-t-transparent rounded-full animate-spin" />
-                            ) : (
-                              <Trash2 className="w-4 h-4" />
-                            )}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedSPModal(entry)}
+                        className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200"
+                        title="Lihat Surat SP"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={actionLoadingId === entry.id}
+                        onClick={() => handleCancelSP(entry)}
+                        className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 disabled:opacity-50"
+                        title="Batalkan SP"
+                      >
+                        {actionLoadingId === entry.id ? (
+                          <div className="w-3.5 h-3.5 border-2 border-rose-600 border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Trash2 className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
-          {/* Pagination */}
-          {pagination && pagination.totalPages > 1 && (
-            <div className="p-4 border-t border-gray-100 bg-gray-50/50 flex justify-between items-center">
-              <span className="text-xs text-gray-500 font-semibold">
-                Halaman {pagination.page} dari {pagination.totalPages}
-              </span>
-              <Pagination
-                currentPage={pagination.page}
-                totalPages={pagination.totalPages}
-                onPageChange={onPageChange}
-              />
+          {/* DESKTOP VIEW: Table (hidden lg:block) */}
+          <div className="hidden lg:block bg-white rounded-3xl shadow-xl shadow-green-900/5 border border-gray-100 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-gray-50/80 border-b border-gray-100 text-[11px] font-black text-gray-400 uppercase tracking-wider">
+                    <th className="py-4 px-6">Thalibah</th>
+                    <th className="py-4 px-4 text-center">Tingkat SP & Pekan</th>
+                    <th className="py-4 px-6">Alasan & Catatan</th>
+                    <th className="py-4 px-4">Diterbitkan</th>
+                    <th className="py-4 px-4 text-center">Status</th>
+                    <th className="py-4 px-6 text-right">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 text-sm">
+                  {entries.map((entry) => {
+                    const level = entry.sp_level || 1;
+                    const isDo = entry.sp_type?.includes('do') || level >= 4;
+                    const isBlacklist = entry.is_blacklisted || entry.sp_type === 'blacklist';
+                    const phoneClean = getCleanPhone(entry.whatsapp);
+
+                    return (
+                      <tr key={entry.id} className="hover:bg-amber-50/20 transition-colors group">
+                        {/* Thalibah Info */}
+                        <td className="py-4 px-6">
+                          <div className="flex items-center gap-3">
+                            <div className={cn(
+                              "w-10 h-10 rounded-2xl flex items-center justify-center font-black text-sm shadow-sm flex-shrink-0 text-white",
+                              isBlacklist
+                                ? "bg-red-950"
+                                : isDo
+                                ? "bg-purple-700"
+                                : level === 3
+                                ? "bg-rose-600"
+                                : level === 2
+                                ? "bg-amber-600"
+                                : "bg-yellow-500 text-yellow-950"
+                            )}>
+                              {(entry.full_name || 'T').charAt(0).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-gray-900 group-hover:text-green-950 transition-colors truncate">
+                                  {entry.full_name || 'Nama Tidak Tersedia'}
+                                </span>
+                                {entry.nama_kunyah && (
+                                  <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-extrabold border border-emerald-100 whitespace-nowrap">
+                                    {entry.nama_kunyah}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 mt-0.5">
+                                {entry.whatsapp && (
+                                  <a
+                                    href={`https://wa.me/${phoneClean}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-green-700 hover:text-green-800 font-semibold hover:underline flex items-center gap-1"
+                                    title="Chat WhatsApp"
+                                  >
+                                    <span>📱 {entry.whatsapp}</span>
+                                  </a>
+                                )}
+                                {entry.confirmed_chosen_juz && (
+                                  <span className="text-gray-400 font-medium">
+                                    Juz {entry.confirmed_chosen_juz}
+                                  </span>
+                                )}
+                                {entry.halaqah_name && (
+                                  <span className="text-gray-400 font-medium">
+                                    • {entry.halaqah_name}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Tingkat SP & Pekan */}
+                        <td className="py-4 px-4 text-center">
+                          <div className="inline-flex flex-col items-center gap-1">
+                            <span className={cn(
+                              "px-3 py-1 rounded-xl text-xs font-black uppercase tracking-tight shadow-sm border flex items-center gap-1",
+                              isBlacklist
+                                ? "bg-red-950 text-white border-red-900"
+                                : isDo
+                                ? "bg-purple-700 text-white border-purple-800"
+                                : level === 3
+                                ? "bg-rose-600 text-white border-rose-700"
+                                : level === 2
+                                ? "bg-amber-500 text-white border-amber-600"
+                                : "bg-yellow-400 text-yellow-950 border-yellow-500"
+                            )}>
+                              <AlertTriangle className="w-3 h-3" />
+                              {isBlacklist ? 'BLACKLIST' : isDo ? 'DROP OUT' : `SP ${level}`}
+                            </span>
+                            <span className="text-[11px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md">
+                              Pekan {entry.week_number || '-'}
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Alasan & Catatan */}
+                        <td className="py-4 px-6 max-w-xs">
+                          <div className="space-y-1">
+                            <p className="font-bold text-gray-800 text-xs sm:text-sm">
+                              {getReasonLabel(entry.reason)}
+                            </p>
+                            {entry.notes && (
+                              <p className="text-xs text-gray-500 line-clamp-2 italic bg-gray-50 p-1.5 rounded-lg border border-gray-100">
+                                "{entry.notes}"
+                              </p>
+                            )}
+                            {entry.udzur_type && (
+                              <div className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+                                <span>Udzur: {entry.udzur_type}</span>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Diterbitkan */}
+                        <td className="py-4 px-4">
+                          <div className="space-y-0.5">
+                            <p className="text-xs font-bold text-gray-800">
+                              {entry.issued_at
+                                ? new Date(entry.issued_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+                                : '-'}
+                            </p>
+                            <p className="text-[11px] text-gray-400 font-medium truncate max-w-[140px]">
+                              Oleh: {entry.issued_by_name || 'Admin/Musyrifah'}
+                            </p>
+                          </div>
+                        </td>
+
+                        {/* Status */}
+                        <td className="py-4 px-4 text-center">
+                          <span className={cn(
+                            "px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wide border",
+                            entry.status === 'active'
+                              ? "bg-amber-50 text-amber-800 border-amber-200"
+                              : entry.status === 'resolved'
+                              ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                              : "bg-gray-100 text-gray-600 border-gray-200"
+                          )}>
+                            {entry.status === 'active' ? 'Aktif' : entry.status === 'resolved' ? 'Selesai' : 'Dibatalkan'}
+                          </span>
+                        </td>
+
+                        {/* Actions */}
+                        <td className="py-4 px-6 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            {/* Send WhatsApp Warning */}
+                            <button
+                              type="button"
+                              onClick={() => handleSendWA(entry)}
+                              className="p-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition-all active:scale-95 shadow-sm border border-emerald-100"
+                              title="Kirim / Salin Pesan Peringatan WhatsApp"
+                            >
+                              <MessageSquare className="w-4 h-4" />
+                            </button>
+
+                            {/* View Official Letter */}
+                            <button
+                              type="button"
+                              onClick={() => setSelectedSPModal(entry)}
+                              className="p-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-all active:scale-95 shadow-sm border border-indigo-100"
+                              title="Lihat Surat Peringatan Resmi"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+
+                            {/* Cancel / Revoke SP */}
+                            <button
+                              type="button"
+                              disabled={actionLoadingId === entry.id}
+                              onClick={() => handleCancelSP(entry)}
+                              className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 transition-all active:scale-95 shadow-sm border border-rose-100 disabled:opacity-50"
+                              title="Batalkan / Cabut Surat Peringatan"
+                            >
+                              {actionLoadingId === entry.id ? (
+                                <div className="w-4 h-4 border-2 border-rose-600 border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <Trash2 className="w-4 h-4" />
+                              )}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-          )}
+          </div>
+        </>
+      )}
+
+      {/* Pagination */}
+      {pagination && pagination.totalPages > 1 && (
+        <div className="p-4 border-t border-gray-100 bg-gray-50/50 flex justify-between items-center rounded-2xl bg-white shadow-sm border">
+          <span className="text-xs text-gray-500 font-semibold">
+            Halaman {pagination.page} dari {pagination.totalPages}
+          </span>
+          <Pagination
+            currentPage={pagination.page}
+            totalPages={pagination.totalPages}
+            onPageChange={onPageChange}
+          />
         </div>
       )}
 
