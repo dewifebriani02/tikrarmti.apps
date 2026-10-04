@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Loader2, Info } from 'lucide-react'
+import { Loader2, Info, Ban } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { useAllRegistrations } from '@/hooks/useRegistrations'
@@ -219,6 +219,22 @@ export default function JurnalHarianPage() {
 
   if (registrationsLoading || jurnalStatusLoading || isLoadingJuz) {
     return <div className="flex justify-center items-center py-24"><Loader2 className="h-10 w-10 animate-spin text-green-900" /></div>
+  }
+
+  if ((user as any)?.is_blacklisted) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-16 text-center animate-fadeInUp">
+        <div className="bg-red-50 border border-red-200 rounded-3xl p-8 shadow-sm">
+          <div className="w-16 h-16 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-red-200 shadow-inner">
+            <Ban className="w-8 h-8" />
+          </div>
+          <h2 className="text-xl font-black text-gray-900 mb-2">Akun Dinonaktifkan (Blacklist)</h2>
+          <p className="text-gray-600 text-sm max-w-md mx-auto leading-relaxed">
+            Afwan Ukhti, akun Ukhti saat ini berada dalam status Blacklist. Akses pengisian jurnal harian dan aktivitas pembelajaran telah dinonaktifkan. Silakan hubungi admin jika membutuhkan bantuan.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   const completedBlocks = jurnalStatus?.summary?.completed_blocks || 0

@@ -58,22 +58,32 @@ export async function saveJurnalRecord(data: JurnalFormData) {
          b.first_week_start_date as b_first_week_start_date,
          b.start_date as b_start_date,
          du.status as du_status, 
-         du.confirmed_chosen_juz
-       FROM pendaftaran_tikrar_tahfidz p
-       JOIN batches b ON p.batch_id = b.id
-       LEFT JOIN daftar_ulang_submissions du ON du.user_id = p.user_id AND du.batch_id = p.batch_id
-       WHERE p.user_id = $1
-         ${batchFilter}
-         AND p.status IN ('approved', 'selected', 'registered')
+         du.confirmed_chosen_juz,
+         u.is_blacklisted,
+         u.blacklist_reason,
+         u.blacklist_notes
+       FROM users u
+       LEFT JOIN pendaftaran_tikrar_tahfidz p ON p.user_id = u.id ${batchFilter} AND p.status IN ('approved', 'selected', 'registered')
+       LEFT JOIN batches b ON p.batch_id = b.id
+       LEFT JOIN daftar_ulang_submissions du ON du.user_id = u.id AND du.batch_id = p.batch_id
+       WHERE u.id = $1
        ORDER BY (b.status = 'open' OR b.status = 'ongoing') DESC, p.created_at DESC
        LIMIT 1`,
       queryParams
     );
 
     const reg = registrations?.[0];
+
+    // Check if user is blacklisted
+    if (reg?.is_blacklisted) {
+      return { 
+        success: false, 
+        error: 'Afwan Ukhti, akun Ukhti sedang dalam status Blacklist. Akses pengisian jurnal harian dinonaktifkan.' 
+      };
+    }
     
     // Check if user is registered/approved
-    if (!reg) {
+    if (!reg || !reg.id) {
       return { 
         success: false, 
         error: 'Afwan Ukhti, akun ini belum terdaftar untuk batch aktif. Jurnal hanya bisa diisi oleh thalibah yang terdaftar resmi.' 
