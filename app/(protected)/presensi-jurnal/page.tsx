@@ -44,13 +44,15 @@ import {
   ArrowLeft,
   LayoutList,
   Copy,
-  ClipboardCheck
+  ClipboardCheck,
+  Zap
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { parseBlokField } from '@/lib/blok';
 import { HalaqahSummaryTab } from './components/HalaqahSummaryTab';
 import { KurikulumTab } from './components/KurikulumTab';
 import { AdminRekapChatDisiplinModal } from '@/components/AdminRekapChatDisiplinModal';
+import { AutoEvaluateSPModal } from '@/components/AutoEvaluateSPModal';
 
 function Pagination({ 
   currentPage, 
@@ -345,6 +347,7 @@ function PresensiJurnalContent() {
   
   const [isInputModalOpen, setIsInputModalOpen] = useState(false);
   const [isIssueSPModalOpen, setIsIssueSPModalOpen] = useState(false);
+  const [isAutoEvaluateModalOpen, setIsAutoEvaluateModalOpen] = useState(false);
   const [spTarget, setSpTarget] = useState<{
     user: any;
     weekNumber: number;
@@ -1036,6 +1039,7 @@ function PresensiJurnalContent() {
                     setSpTarget({ user, weekNumber: week });
                     setIsIssueSPModalOpen(true);
                   }}
+                  onOpenAutoEvaluate={() => setIsAutoEvaluateModalOpen(true)}
                 />
               ) : activeTab === 'dropout' ? (
                 <JurnalTabSimple
@@ -1233,6 +1237,15 @@ function PresensiJurnalContent() {
           />
         )}
 
+        {/* Auto Evaluate SP Modal */}
+        <AutoEvaluateSPModal
+          isOpen={isAutoEvaluateModalOpen}
+          onClose={() => setIsAutoEvaluateModalOpen(false)}
+          batchId={selectedBatchId}
+          defaultWeek={currentWeek > 1 ? currentWeek - 1 : 7}
+          onSuccess={loadData}
+        />
+
         {/* WhatsApp Weekly Evaluation Rekap Chat Modal */}
         <AdminRekapChatDisiplinModal
           isOpen={rekapChatModalOpen}
@@ -1356,6 +1369,7 @@ interface SPTabProps {
   pagination: any;
   onPageChange: (page: number) => void;
   onIssueSP?: (user: any, week: number) => void;
+  onOpenAutoEvaluate?: () => void;
 }
 
 function SPTabSimple({
@@ -1367,7 +1381,8 @@ function SPTabSimple({
   onRefresh,
   pagination,
   onPageChange,
-  onIssueSP
+  onIssueSP,
+  onOpenAutoEvaluate
 }: SPTabProps) {
   const [selectedSPModal, setSelectedSPModal] = useState<any | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
@@ -1501,8 +1516,21 @@ function SPTabSimple({
           })}
         </div>
 
-        <div className="text-xs text-gray-500 font-semibold">
-          Menampilkan <strong className="text-gray-900">{entries.length}</strong> dari <strong className="text-gray-900">{pagination?.totalCount || entries.length}</strong> thalibah bersurat peringatan
+        <div className="flex items-center gap-3">
+          {onOpenAutoEvaluate && (
+            <button
+              type="button"
+              onClick={onOpenAutoEvaluate}
+              className="px-4 py-2 bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 hover:from-amber-600 hover:to-amber-800 text-white font-black text-xs rounded-xl shadow-md shadow-amber-500/20 transition-all flex items-center gap-2 scale-100 hover:scale-[1.02] active:scale-95"
+            >
+              <Zap className="w-3.5 h-3.5 text-amber-100 animate-pulse" />
+              <span>Auto-Evaluasi & Terbitkan SP</span>
+            </button>
+          )}
+
+          <div className="text-xs text-gray-500 font-semibold">
+            Menampilkan <strong className="text-gray-900">{entries.length}</strong> dari <strong className="text-gray-900">{pagination?.totalCount || entries.length}</strong> thalibah bersurat peringatan
+          </div>
         </div>
       </div>
 
