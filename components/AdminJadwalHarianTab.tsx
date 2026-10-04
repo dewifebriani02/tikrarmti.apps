@@ -392,38 +392,38 @@ export default function AdminJadwalHarianTab() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Program Selector */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 rounded-xl sm:rounded-2xl border border-gray-100 bg-white p-1.5 sm:p-3 shadow-sm">
         <button
           type="button"
           onClick={() => setProgramTab('tikrar')}
-          className={`flex min-h-[72px] items-center justify-center gap-3 rounded-xl px-5 py-4 text-base font-bold transition-all ${
+          className={`flex min-h-[46px] sm:min-h-[72px] items-center justify-center gap-2 sm:gap-3 rounded-lg sm:rounded-xl px-2 sm:px-5 py-2 sm:py-4 text-xs sm:text-base font-bold transition-all ${
             programTab === 'tikrar'
-              ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20'
+              ? 'bg-emerald-600 text-white shadow-md sm:shadow-lg shadow-emerald-600/20'
               : 'bg-gray-50 text-gray-600 hover:bg-emerald-50 hover:text-emerald-700'
           }`}
         >
-          <BookOpen className="h-5 w-5" />
-          Tikrar Tahfidz
+          <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
+          <span>Tikrar Tahfidz</span>
         </button>
         <button
           type="button"
           onClick={() => setProgramTab('pra_tikrar')}
-          className={`flex min-h-[72px] items-center justify-center gap-3 rounded-xl px-5 py-4 text-base font-bold transition-all ${
+          className={`flex min-h-[46px] sm:min-h-[72px] items-center justify-center gap-2 sm:gap-3 rounded-lg sm:rounded-xl px-2 sm:px-5 py-2 sm:py-4 text-xs sm:text-base font-bold transition-all ${
             programTab === 'pra_tikrar'
-              ? 'bg-fuchsia-700 text-white shadow-lg shadow-fuchsia-700/20'
+              ? 'bg-fuchsia-700 text-white shadow-md sm:shadow-lg shadow-fuchsia-700/20'
               : 'bg-gray-50 text-gray-600 hover:bg-fuchsia-50 hover:text-fuchsia-700'
           }`}
         >
-          <BookOpen className="h-5 w-5" />
-          Pra Tikrar Tahfidz
+          <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
+          <span>Pra Tikrar Tahfidz</span>
         </button>
       </div>
 
       {/* Day Selector */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-        <div className="flex flex-wrap gap-2">
+      <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 p-2 sm:p-4">
+        <div className="grid grid-cols-4 sm:flex sm:flex-wrap gap-1.5 sm:gap-2">
           {DAYS.map((day) => {
             const isTikrar = programTab === 'tikrar';
             const count = halaqahs.filter(h => 
@@ -435,14 +435,14 @@ export default function AdminJadwalHarianTab() {
               <button
                 key={day.id}
                 onClick={() => setActiveDay(day.id)}
-                className={`flex-1 min-w-[80px] py-2 px-3 flex flex-col items-center justify-center rounded-xl transition-all ${
+                className={`w-full sm:flex-1 sm:min-w-[80px] py-1.5 sm:py-2 px-1 sm:px-3 flex flex-col items-center justify-center rounded-lg sm:rounded-xl transition-all ${
                   activeDay === day.id
                     ? 'bg-green-600 text-white shadow-md shadow-green-600/20'
                     : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
                 }`}
               >
-                <span className="text-sm font-semibold">{day.name}</span>
-                <span className={`text-[10px] leading-tight font-medium ${activeDay === day.id ? 'text-green-100' : 'text-gray-400'}`}>
+                <span className="text-xs sm:text-sm font-bold">{day.name}</span>
+                <span className={`text-[9px] sm:text-[10px] leading-tight font-medium ${activeDay === day.id ? 'text-green-100' : 'text-gray-400'}`}>
                   {count} Kelas
                 </span>
               </button>
@@ -452,12 +452,12 @@ export default function AdminJadwalHarianTab() {
       </div>
 
       {/* Action Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
         <div>
-          <h2 className="text-xl font-bold text-gray-900">
+          <h2 className="text-base sm:text-xl font-bold text-gray-900">
             Jadwal Kelas: {DAYS.find(d => d.id === activeDay)?.name}
           </h2>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-xs sm:text-sm text-gray-500 mt-0.5 sm:mt-1">
             {isUserStaff 
               ? `Menampilkan kelas ${programTab === 'tikrar' ? 'Tikrar Tahfidz' : 'Pra Tikrar Tahfidz'} untuk batch ${activeBatchName || '...'}`
               : `Menampilkan jadwal ${programTab === 'tikrar' ? 'Tikrar Tahfidz' : 'Pra Tikrar Tahfidz'} Ukhti untuk batch ${activeBatchName || '...'}`
@@ -466,62 +466,59 @@ export default function AdminJadwalHarianTab() {
         </div>
         
         {isUserStaff && (
-          <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+          <div className="grid grid-cols-2 sm:flex sm:flex-row items-center gap-2 sm:gap-3 w-full sm:w-auto">
             <button
               onClick={() => handleDownloadPoster(programTab)}
               disabled={isLoading || activeProgramHalaqahs.length === 0 || generatingPoster !== null || activeDay === 0}
-              className={`flex items-center justify-center gap-2 px-5 py-2.5 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl transition-all shadow-sm w-full sm:w-auto ${
+              className={`flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs sm:text-sm font-semibold rounded-xl transition-all shadow-sm w-full sm:w-auto ${
                 programTab === 'tikrar'
                   ? 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/20'
                   : 'bg-fuchsia-700 hover:bg-fuchsia-800 shadow-fuchsia-700/20'
               }`}
             >
               {generatingPoster === programTab ? (
-                <div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                <div className="h-3.5 w-3.5 sm:h-4 sm:w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
               ) : (
-                <ImageIcon className="h-4 w-4" />
+                <ImageIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               )}
               Poster {programTab === 'tikrar' ? 'Tikrar' : 'Pra-Tikrar'}
             </button>
             <button
               onClick={handleCopyRekapan}
               disabled={isLoading || activeProgramHalaqahs.length === 0 || activeDay === 0}
-              className="flex items-center justify-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl transition-all shadow-sm shadow-amber-500/20 w-full sm:w-auto"
+              className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs sm:text-sm font-semibold rounded-xl transition-all shadow-sm shadow-amber-500/20 w-full sm:w-auto"
             >
-              <Copy className="h-4 w-4" />
-              Copy Rekapan Harian
+              <Copy className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              Copy Rekapan
             </button>
           </div>
         )}
       </div>
 
       {/* Search, sort, and page-size controls */}
-      <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex flex-col gap-2.5 sm:gap-3 rounded-xl sm:rounded-2xl border border-gray-100 bg-white p-3 sm:p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
         <div className="relative w-full lg:max-w-xl">
-          <Search className="absolute left-3 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
             type="search"
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
             placeholder="Cari kelas, mu'allimah, juz, Zoom, atau nama thalibah..."
-            className="w-full rounded-xl border border-gray-200 py-2.5 pl-10 pr-10 text-sm font-medium outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/15"
+            className="w-full rounded-xl border border-gray-200 py-2 pl-9 pr-9 text-xs sm:text-sm font-medium outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/15"
           />
           {searchQuery && (
             <button
               type="button"
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
               aria-label="Hapus pencarian"
             >
-              <X className="h-4 w-4" />
+              <X className="h-3.5 w-3.5" />
             </button>
           )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="text-xs font-semibold uppercase tracking-wide text-gray-500" htmlFor="schedule-sort">
-            Urutkan
-          </label>
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2">
           <select
             id="schedule-sort"
             value={`${sortField}-${sortOrder}`}
@@ -530,10 +527,10 @@ export default function AdminJadwalHarianTab() {
               setSortField(field);
               setSortOrder(order);
             }}
-            className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold text-gray-700 outline-none focus:border-emerald-500"
+            className="w-full sm:w-auto rounded-xl border border-gray-200 bg-white px-2.5 sm:px-3 py-2 text-xs sm:text-sm font-semibold text-gray-700 outline-none focus:border-emerald-500"
           >
-            <option value="time-asc">Waktu paling awal</option>
-            <option value="time-desc">Waktu paling akhir</option>
+            <option value="time-asc">Waktu awal</option>
+            <option value="time-desc">Waktu akhir</option>
             <option value="class-asc">Kelas A–Z</option>
             <option value="class-desc">Kelas Z–A</option>
             <option value="muallimah-asc">Mu'allimah A–Z</option>
@@ -546,7 +543,7 @@ export default function AdminJadwalHarianTab() {
               value={itemsPerPage}
               onChange={(event) => setItemsPerPage(Number(event.target.value))}
               aria-label="Jumlah jadwal per halaman"
-              className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold text-gray-700 outline-none focus:border-emerald-500"
+              className="w-full sm:w-auto rounded-xl border border-gray-200 bg-white px-2.5 sm:px-3 py-2 text-xs sm:text-sm font-semibold text-gray-700 outline-none focus:border-emerald-500"
             >
               <option value={10}>10 / halaman</option>
               <option value={20}>20 / halaman</option>
@@ -606,7 +603,8 @@ export default function AdminJadwalHarianTab() {
         </div>
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="overflow-x-auto">
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-sm text-gray-600">
               <thead className="bg-gray-50/50 text-gray-500 font-medium border-b border-gray-100">
                 <tr>
@@ -843,30 +841,223 @@ export default function AdminJadwalHarianTab() {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Cards View */}
+          <div className="block md:hidden divide-y divide-gray-100">
+            {paginatedHalaqahs.map((halaqah, index) => {
+              const dateForTemplate = getNextDateForDay(activeDay);
+              const overallIndex = activeDay === 0 
+                ? index + 1 
+                : (currentPage - 1) * itemsPerPage + index + 1;
+                
+              // Calculate if it's libur this week
+              const classDay = halaqah.day_of_week || 1;
+              const todayDayOfWeek = new Date().getDay() === 0 ? 7 : new Date().getDay();
+              let daysToAdd = classDay - todayDayOfWeek;
+              if (daysToAdd < 0) daysToAdd += 7;
+              const classDate = new Date();
+              classDate.setDate(new Date().getDate() + daysToAdd);
+              const classDateString = `${classDate.getFullYear()}-${String(classDate.getMonth() + 1).padStart(2, '0')}-${String(classDate.getDate()).padStart(2, '0')}`;
+              const isLibur = (halaqah as any).libur_date === classDateString;
+
+              return (
+                <div key={halaqah.id} className={`p-3.5 space-y-2.5 transition-colors ${isLibur ? 'bg-red-50/40' : 'hover:bg-gray-50/40'}`}>
+                  {/* Top Header: Index, Time, Day, Badge */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-gray-100 text-gray-500 font-bold text-[11px] flex items-center justify-center shrink-0">
+                        {overallIndex}
+                      </span>
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-gray-900">
+                        <Clock className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                        <span>{formatTimeShort(halaqah.start_time)} - {formatTimeShort(halaqah.end_time)} WIB</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      {(searchQuery || activeDay === 0) && (
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
+                          {DAYS.find(d => d.id === halaqah.day_of_week)?.name || '-'}
+                        </span>
+                      )}
+                      <span className={`px-2 py-0.5 text-[9px] font-bold rounded-full ${
+                        halaqah.class_type === 'pra_tahfidz' 
+                          ? 'bg-emerald-100 text-emerald-700' 
+                          : 'bg-green-100 text-green-700'
+                      }`}>
+                        {halaqah.class_type === 'pra_tahfidz' ? 'PRA TIKRAR' : 'TIKRAR'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Class Name & Juz / Libur */}
+                  <div>
+                    <div className={`font-bold text-sm leading-snug ${isLibur ? 'text-gray-500 line-through decoration-red-400 decoration-2' : 'text-gray-900'}`}>
+                      {halaqah.name}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                      {isLibur && (
+                        <span className="px-2 py-0.5 text-[9px] font-black uppercase tracking-wider rounded-full bg-red-600 text-white shadow-sm flex items-center gap-1 animate-pulse">
+                          <AlertCircle className="w-2.5 h-2.5" /> LIBUR PEKAN INI
+                        </span>
+                      )}
+                      {halaqah.preferred_juz && (
+                        <span className="px-2 py-0.5 text-[10px] font-semibold bg-amber-50 text-amber-700 rounded-full border border-amber-100">
+                          Juz {halaqah.preferred_juz}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Muallimah, Mentors, and Zoom info */}
+                  <div className="bg-gray-50/80 rounded-xl p-2.5 space-y-1.5 border border-gray-100 text-xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 font-medium text-gray-800 truncate">
+                        {halaqah.muallimah?.whatsapp ? (
+                          <a href={`https://wa.me/${halaqah.muallimah.whatsapp.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="text-emerald-500 hover:text-emerald-600 shrink-0" title="Hubungi Mu'allimah via WhatsApp">
+                            <MessageCircle className="h-4 w-4" />
+                          </a>
+                        ) : (
+                          <MessageCircle className="h-4 w-4 text-gray-300 shrink-0" />
+                        )}
+                        <span className="truncate">{halaqah.muallimah?.full_name || 'Muallimah belum ada'}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setStudentListHalaqah(halaqah)}
+                        className="inline-flex items-center gap-1 bg-white px-2 py-1 rounded-full border border-gray-200 text-[11px] font-bold text-gray-700 hover:bg-emerald-50 shrink-0"
+                      >
+                        <Users className="h-3 w-3 text-gray-400" />
+                        <span>{halaqah.activeCount ?? halaqah.students?.length ?? 0} Thalibah</span>
+                      </button>
+                    </div>
+
+                    {halaqah.mentors && halaqah.mentors.filter((m: any) => m.user?.full_name !== halaqah.muallimah?.full_name).length > 0 && (
+                      <div className="flex flex-wrap gap-1 pt-1 border-t border-gray-200/50">
+                        {halaqah.mentors
+                          .filter((m: any) => m.user?.full_name !== halaqah.muallimah?.full_name)
+                          .map((m: any, idx: number) => (
+                            <span key={idx} className="font-semibold text-emerald-700 text-[10px] bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100/50 flex items-center gap-1">
+                              {m.user?.whatsapp && (
+                                <a href={`https://wa.me/${m.user.whatsapp.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer">
+                                  <MessageCircle className="h-3 w-3 text-emerald-600" />
+                                </a>
+                              )}
+                              {m.user?.full_name?.split(' ')[0]} ({m.role})
+                            </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {halaqah.zoom_name && (
+                      <div className="pt-1.5 border-t border-gray-200/60 flex flex-wrap items-center justify-between gap-1 text-[11px]">
+                        <a 
+                          href={halaqah.zoom_link} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 font-semibold text-blue-600 hover:underline"
+                        >
+                          <Video className="h-3.5 w-3.5" />
+                          {halaqah.zoom_name}
+                        </a>
+                        {halaqah.zoom_meeting_id && (
+                          <span className="text-gray-500 text-[10px]">
+                            ID: {halaqah.zoom_meeting_id} {halaqah.zoom_passcode && `| Pass: ${halaqah.zoom_passcode}`}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Actions: Template Chat and Poster */}
+                  <div className="flex items-center justify-end gap-2 pt-0.5">
+                    <details className="relative group">
+                      <summary className="list-none cursor-pointer inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg border border-emerald-100 transition-colors">
+                        <FileText className="h-3.5 w-3.5" />
+                        Template Chat
+                        <ChevronDown className="h-3 w-3 opacity-70" />
+                      </summary>
+                      <div 
+                        className="fixed inset-0 z-40 hidden group-open:block"
+                        onClick={(e) => {
+                          const details = e.currentTarget.parentElement;
+                          if (details) details.removeAttribute('open');
+                        }}
+                      />
+                      <div className="absolute right-0 top-full mt-1.5 w-48 bg-white border border-gray-100 rounded-xl shadow-xl z-50 p-1.5 hidden group-open:flex flex-col gap-1">
+                        <button
+                          onClick={() => {
+                            copyToClipboard(generateHalaqahReminder(halaqah, dateForTemplate), 'Reminder Kelas berhasil disalin!');
+                            const details = document.activeElement?.closest('details');
+                            if (details) details.removeAttribute('open');
+                          }}
+                          className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 rounded-lg transition-colors text-left"
+                        >
+                          <Copy className="h-3.5 w-3.5 shrink-0" />
+                          <span>Reminder Kelas</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            copyToClipboard(generateLaporanKelas(halaqah, dateForTemplate, userName), 'Berita Acara berhasil disalin!');
+                            const details = document.activeElement?.closest('details');
+                            if (details) details.removeAttribute('open');
+                          }}
+                          className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 rounded-lg transition-colors text-left"
+                        >
+                          <FileText className="h-3.5 w-3.5 shrink-0" />
+                          <span>Berita Acara (BA)</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            copyToClipboard(generateMuallimahReminder(halaqah, dateForTemplate), 'Reminder Muallimah berhasil disalin!');
+                            const details = document.activeElement?.closest('details');
+                            if (details) details.removeAttribute('open');
+                          }}
+                          className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-purple-50 hover:text-purple-700 rounded-lg transition-colors text-left"
+                        >
+                          <Copy className="h-3.5 w-3.5 shrink-0" />
+                          <span>Reminder Muallimah</span>
+                        </button>
+                      </div>
+                    </details>
+
+                    <button
+                      onClick={() => handleDownloadTerimaKasih(halaqah.muallimah?.full_name || '')}
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors border border-amber-100 shrink-0"
+                    >
+                      <ImageIcon className="h-3.5 w-3.5" />
+                      Poster
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
           {activeDay !== 0 && (
-            <div className="flex flex-col gap-3 border-t border-gray-100 bg-gray-50/60 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm font-medium text-gray-500">
+            <div className="flex flex-col gap-2.5 border-t border-gray-100 bg-gray-50/60 px-4 sm:px-6 py-3 sm:py-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs sm:text-sm font-medium text-gray-500 text-center sm:text-left">
                 Menampilkan {((currentPage - 1) * itemsPerPage) + 1}–{Math.min(currentPage * itemsPerPage, filteredAndSortedHalaqahs.length)} dari {filteredAndSortedHalaqahs.length} jadwal
               </p>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between sm:justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setCurrentPage(page => Math.max(1, page - 1))}
                   disabled={currentPage === 1}
-                  className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  <ChevronLeft className="h-4 w-4" /> Sebelumnya
+                  <ChevronLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Prev
                 </button>
-                <span className="min-w-[110px] text-center text-sm font-semibold text-gray-600">
-                  Halaman {currentPage} dari {totalPages}
+                <span className="min-w-[90px] sm:min-w-[110px] text-center text-xs sm:text-sm font-semibold text-gray-600">
+                  Hal {currentPage} / {totalPages}
                 </span>
                 <button
                   type="button"
                   onClick={() => setCurrentPage(page => Math.min(totalPages, page + 1))}
                   disabled={currentPage === totalPages}
-                  className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  Selanjutnya <ChevronRight className="h-4 w-4" />
+                  Next <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 </button>
               </div>
             </div>
