@@ -337,34 +337,34 @@ export function KurikulumTab({ currentWeek }: KurikulumTabProps = {}) {
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
-      <div className="bg-white p-6 border border-gray-100 rounded-2xl shadow-sm relative overflow-hidden">
+      <div className="bg-white p-4 sm:p-6 border border-gray-100 rounded-2xl shadow-sm relative overflow-hidden">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-amber-50 text-amber-600 rounded-xl">
-              <Calendar className="w-6 h-6" />
+            <div className="p-2.5 sm:p-3 bg-amber-50 text-amber-600 rounded-xl shrink-0">
+              <Calendar className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
             <div>
-              <h2 className="text-xl font-black text-gray-900">Kurikulum Hari Ini</h2>
-              <p className="text-sm text-gray-500">Buat jurnal harian & poster untuk disalin ke grup kelas</p>
+              <h2 className="text-lg sm:text-xl font-black text-gray-900">Kurikulum Hari Ini</h2>
+              <p className="text-xs sm:text-sm text-gray-500">Buat jurnal harian & poster untuk disalin ke grup kelas</p>
             </div>
           </div>
           
           {!isLibur && (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
               <button
                 onClick={handleDownloadPoster}
                 disabled={isDownloading}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors font-bold text-sm shadow-sm disabled:opacity-70"
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors font-bold text-xs sm:text-sm shadow-sm disabled:opacity-70"
               >
-                {isDownloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                {isDownloading ? 'Memproses...' : 'Download Poster'}
+                {isDownloading ? <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" /> : <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+                <span>{isDownloading ? 'Memproses...' : 'Download Poster'}</span>
               </button>
               <button
                 onClick={handleCopy}
-                className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-xl hover:bg-amber-600 transition-colors font-bold text-sm shadow-sm"
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-amber-500 text-white rounded-xl hover:bg-amber-600 transition-colors font-bold text-xs sm:text-sm shadow-sm"
               >
-                {isCopied ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                Copy Text
+                {isCopied ? <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Copy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+                <span>Copy Text</span>
               </button>
             </div>
           )}
@@ -372,31 +372,31 @@ export function KurikulumTab({ currentWeek }: KurikulumTabProps = {}) {
 
 
         {/* Date Navigator - inline: pekan + tanggal + hari sejajar */}
-        <div className="flex items-center gap-3 mb-6 bg-gray-50 rounded-2xl px-3 py-2 border border-gray-100 shadow-inner">
+        <div className="flex items-center gap-1.5 sm:gap-3 mb-6 bg-gray-50 rounded-2xl px-2 sm:px-3 py-2 border border-gray-100 shadow-inner">
           <button
             onClick={handlePrevDay}
-            className="p-2 rounded-xl text-gray-500 hover:text-amber-600 hover:bg-white transition-all shadow-sm border border-transparent hover:border-gray-200 flex-shrink-0"
+            className="p-1.5 sm:p-2 rounded-xl text-gray-500 hover:text-amber-600 hover:bg-white transition-all shadow-sm border border-transparent hover:border-gray-200 flex-shrink-0"
           >
-            <ChevronLeft className="w-5 h-5" />
+            <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
 
-          <div className="flex-1 flex items-center justify-center gap-2 flex-wrap">
-            <span className="px-3 py-1 rounded-lg bg-amber-50 text-amber-700 text-xs font-bold border border-amber-100 flex-shrink-0">
-              {selectedPekan === 11 ? 'Pekan 11 (Murajaah)' : `Pekan ${selectedPekan}`}
+          <div className="flex-1 flex items-center justify-center gap-1.5 sm:gap-2 flex-wrap">
+            <span className="px-2 sm:px-3 py-0.5 sm:py-1 rounded-lg bg-amber-50 text-amber-700 text-[10px] sm:text-xs font-bold border border-amber-100 flex-shrink-0">
+              {selectedPekan === 11 ? 'P11 (Murajaah)' : `Pekan ${selectedPekan}`}
             </span>
-            <span className="text-sm font-black text-gray-900 tracking-wide text-center">
+            <span className="text-xs sm:text-sm font-black text-gray-900 tracking-wide text-center">
               {navDateStr}
             </span>
-            <span className="px-3 py-1 rounded-lg bg-gray-100 text-gray-700 text-xs font-bold border border-gray-200 flex-shrink-0">
+            <span className="px-2 sm:px-3 py-0.5 sm:py-1 rounded-lg bg-gray-100 text-gray-700 text-[10px] sm:text-xs font-bold border border-gray-200 flex-shrink-0">
               {selectedHari}
             </span>
           </div>
 
           <button
             onClick={handleNextDay}
-            className="p-2 rounded-xl text-gray-500 hover:text-amber-600 hover:bg-white transition-all shadow-sm border border-transparent hover:border-gray-200 flex-shrink-0"
+            className="p-1.5 sm:p-2 rounded-xl text-gray-500 hover:text-amber-600 hover:bg-white transition-all shadow-sm border border-transparent hover:border-gray-200 flex-shrink-0"
           >
-            <ChevronRight className="w-5 h-5" />
+            <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
         </div>
 
@@ -413,10 +413,10 @@ export function KurikulumTab({ currentWeek }: KurikulumTabProps = {}) {
             <textarea
               value={generatedText}
               onChange={(e) => setGeneratedText(e.target.value)}
-              className="w-full h-[500px] p-6 bg-[#fdfbf7] border border-[#e8e4d9] rounded-2xl text-sm text-gray-800 font-mono leading-relaxed focus:ring-2 focus:ring-amber-500/20 resize-y shadow-inner"
+              className="w-full h-[380px] sm:h-[500px] p-4 sm:p-6 bg-[#fdfbf7] border border-[#e8e4d9] rounded-2xl text-xs sm:text-sm text-gray-800 font-mono leading-relaxed focus:ring-2 focus:ring-amber-500/20 resize-y shadow-inner"
               placeholder="Template kurikulum..."
             />
-            <p className="text-xs text-gray-400 mt-2 text-right">
+            <p className="text-[10px] sm:text-xs text-gray-400 mt-2 text-right">
               *Ukhti dapat mengedit teks di atas sebelum menyalinnya.
             </p>
           </div>

@@ -1027,7 +1027,7 @@ function PresensiJurnalContent() {
               {activeTab === 'kurikulum' ? (
                 <KurikulumTab currentWeek={currentWeek} />
               ) : activeTab === 'halaqah' ? (
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-2.5 sm:p-6">
                   <HalaqahSummaryTab batchId={selectedBatchId} />
                 </div>
               ) : activeTab === 'sp' ? (
@@ -2116,14 +2116,197 @@ function TashihTabSimple({ selectedBatchId, entries, currentWeek, onRefresh, onS
       <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
         <UserCheck className="w-10 h-10 text-gray-300" />
       </div>
-      <h3 className="text-xl font-bold text-gray-900 mb-2">{emptyMessage?.title || 'Belum Ada Data Tashih'}</h3>
       <p className="text-gray-500 max-w-sm mx-auto">{emptyMessage?.description || 'Thalibah Ukhti belum memiliki catatan tashih.'}</p>
     </div>
   );
 
   return (
     <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
-      <div className="overflow-x-auto">
+      {/* Mobile Card View (< lg) */}
+      <div className="lg:hidden p-3 space-y-3">
+        {entries.map((entry: any) => (
+          <div key={entry.user_id} className="bg-white rounded-2xl p-3.5 border border-gray-100 shadow-sm space-y-3">
+            {/* Header: User avatar + Full Name + Kunyah + WhatsApp + Juz */}
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-green-100 to-emerald-100 flex items-center justify-center text-green-900 font-bold shrink-0 text-sm">
+                  {entry.user?.full_name?.charAt(0) || 'T'}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-bold text-gray-900 truncate">{entry.user?.full_name}</div>
+                  <div className="text-[10px] text-gray-400 font-medium truncate">
+                    {entry.user?.nama_kunyah ? `${entry.user.nama_kunyah} • ` : ''}{entry.user?.whatsapp || '-'}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-100">
+                  Juz {entry.confirmed_chosen_juz || '-'}
+                </span>
+                <SPStatusBadge summary={entry.sp_summary} />
+              </div>
+            </div>
+
+            {/* Progress Bar & Percentages */}
+            <div className="bg-gray-50/70 p-2.5 rounded-xl border border-gray-100 space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Progress Target</span>
+                <span className={cn(
+                  "font-black text-xs",
+                  (entry.summary?.completion_percentage_target || 0) >= 100 ? "text-emerald-700" :
+                  (entry.summary?.completion_percentage_target || 0) >= 70 ? "text-amber-600" : "text-rose-600"
+                )}>
+                  {entry.summary?.completion_percentage_target || 0}% <span className="text-[10px] font-normal text-gray-400">(Total: {entry.summary?.completion_percentage || 0}%)</span>
+                </span>
+              </div>
+              <div className="h-2 bg-gray-200/70 rounded-full overflow-hidden">
+                <div 
+                  className={cn(
+                    "h-full transition-all duration-700",
+                    (entry.summary?.completion_percentage_target || 0) >= 100 ? "bg-emerald-500" :
+                    (entry.summary?.completion_percentage_target || 0) >= 70 ? "bg-amber-400" : "bg-rose-500"
+                  )} 
+                  style={{ width: `${Math.min(100, entry.summary?.completion_percentage_target || 0)}%` }} 
+                />
+              </div>
+            </div>
+
+            {/* Weekly Status Bubbles on Mobile (horizontal scrollable row) */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-0.5 hide-scrollbar">
+              {allWeeks.map(p => {
+                const wObj = entry.weekly_status?.find((w: any) => w.week_number === p);
+                const weekWithSP = wObj ? {
+                  ...wObj,
+                  sp_info: wObj.sp_info || (entry.sp_summary?.week_number === p ? entry.sp_summary : null)
+                } : (entry.sp_summary?.week_number === p ? { week_number: p, total_blocks: 0, completed_blocks: 0, sp_info: entry.sp_summary } : null);
+
+                return (
+                  <div key={p} className="flex flex-col items-center shrink-0">
+                    <span className="text-[9px] font-bold text-gray-400 mb-0.5">P{p}</span>
+                    <WeekBubble week={weekWithSP} />
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Mobile Actions Toolbar */}
+            <div className="flex items-center gap-1.5 pt-1 border-t border-gray-50 flex-wrap">
+              {entry.user?.whatsapp && (
+                <button 
+                  onClick={() => {
+                    const phone = entry.user.whatsapp.replace(/[^0-9]/g, '').replace(/^0/, '62');
+                    const message = `Assalamu'alaikum Warahmatullahi Wabarakatuh, Ukhti *${entry.user.full_name}*.\n\nSemoga Ukhti selalu dalam penjagaan Allah ﷻ. Aamiin.\n\nSekadar menyapa dan bersilaturahmi terkait pembinaan Tilawah/Tahfizh Ukhti di Tikrar MTI.\n\nSangat senang jika kita bisa ngobrol sejenak.\n\nJazaakumullah khayran.\nBarakallahu fiikum.`;
+                    window.open(`https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`, '_blank');
+                  }}
+                  className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-600 hover:text-white transition-all text-[10px] font-bold"
+                >
+                  <MessageSquare className="w-3 h-3" />
+                  <span>Chat</span>
+                </button>
+              )}
+              <button 
+                onClick={() => onIssueSP({ ...entry.user, sp_summary: entry.sp_summary }, currentWeek)}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-600 hover:text-white transition-all font-bold text-[10px]"
+              >
+                <AlertTriangle className="w-3 h-3" />
+                <span>SP</span>
+              </button>
+              <button
+                onClick={() => onDropout(entry.user_id, selectedBatchId || '', entry.user?.full_name || 'Thalibah')}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-orange-50 text-orange-700 border border-orange-200 hover:bg-orange-700 hover:text-white transition-all font-bold text-[10px]"
+              >
+                <Shield className="w-3 h-3" />
+                <span>DO</span>
+              </button>
+              <button
+                onClick={() => onResign(entry.user_id, selectedBatchId || '', entry.user?.full_name || 'Thalibah')}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-700 hover:text-white transition-all font-bold text-[10px]"
+              >
+                <ClipboardList className="w-3 h-3" />
+                <span>Resign</span>
+              </button>
+              <button 
+                onClick={() => toggleRow(entry.user_id)} 
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg transition-all border font-bold text-[10px]",
+                  expandedRows.has(entry.user_id)
+                    ? "bg-green-600 text-white border-green-700"
+                    : "bg-green-50 text-green-700 border-green-200 hover:bg-green-600 hover:text-white"
+                )}
+              >
+                {expandedRows.has(entry.user_id) ? <ChevronDown className="w-3.5 h-3.5 rotate-180" /> : <Eye className="w-3 h-3" />}
+                <span>{expandedRows.has(entry.user_id) ? 'Tutup' : 'Lihat'}</span>
+              </button>
+            </div>
+
+            {/* Expanded weekly blocks on mobile */}
+            {expandedRows.has(entry.user_id) && (
+              <div className="pt-2 border-t border-gray-100 space-y-2.5">
+                {entry.weekly_status.slice(0, 10).map((week: any) => (
+                  <div key={week.week_number} className="bg-gray-50/70 rounded-xl p-2.5 border border-gray-100">
+                    <div className="flex justify-between items-center mb-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-bold text-gray-500 uppercase">Pekan {week.week_number}</span>
+                        {week.sp_info && (
+                          <span className={cn(
+                            "px-1.5 py-0.2 rounded text-[8px] font-black uppercase text-white",
+                            week.sp_info.sp_level === 3 ? "bg-red-600" : week.sp_info.sp_level === 2 ? "bg-amber-500" : "bg-yellow-500"
+                          )}>
+                            SP {week.sp_info.sp_level}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[10px] font-bold text-green-700">{week.completed_blocks}/4</span>
+                    </div>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {week.blocks.map((block: any, blockIdx: number) => {
+                        const todayDay = new Date().getDay() || 7;
+                        const currentWeekNum = entry.summary?.current_week || 1;
+                        const isLocked = !block.is_completed && (week.week_number > currentWeekNum || (week.week_number === currentWeekNum && todayDay < (blockIdx + 1)));
+
+                        return (
+                          <button 
+                            key={block.block_code} 
+                            disabled={isLocked}
+                            onClick={() => {
+                              if (isLocked) return;
+                              const records = entry.tashih_records ? entry.tashih_records.filter((r: any) => {
+                                const bloks = parseBlokField(r.blok);
+                                return bloks.includes(block.block_code);
+                              }) : [];
+                              if (block.is_completed) {
+                                onShowRecords(entry.user, block.block_code, records);
+                              } else {
+                                window.dispatchEvent(new CustomEvent('open-input-modal', { detail: { user: entry.user, blockCode: block.block_code, type: 'presensi' } }));
+                              }
+                            }}
+                            className={cn(
+                              "p-1.5 rounded-lg border text-center transition-all flex flex-col items-center justify-center min-h-[42px] font-bold shadow-xs",
+                              block.is_completed 
+                                ? "bg-green-600 border-green-700 text-white" 
+                                : isLocked
+                                  ? "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed"
+                                  : block.tashih_count > 0
+                                    ? "bg-yellow-400 border-yellow-500 text-yellow-950"
+                                    : "bg-red-500 border-red-600 text-white"
+                            )}
+                          >
+                            <div className="text-[10px] font-bold">{block.block_code.split('H')[1]}</div>
+                            <div className="text-[7px] uppercase">{block.is_completed ? 'Sudah' : (isLocked ? 'Lock' : 'Input')}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop Table View (>= lg) */}
+      <div className="hidden lg:block overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-100">
           <thead>
             <tr className="bg-gray-50/50">
@@ -2205,12 +2388,12 @@ function TashihTabSimple({ selectedBatchId, entries, currentWeek, onRefresh, onS
                       </div>
                       <div className="w-16 h-2 bg-gray-100 rounded-full overflow-hidden shadow-inner border border-gray-200/50">
                         <div 
-                           className={cn(
-                              "h-full transition-all duration-700",
-                              (entry.summary?.completion_percentage_target || 0) >= 100 ? "bg-emerald-500" :
-                              (entry.summary?.completion_percentage_target || 0) >= 70 ? "bg-amber-400" : "bg-rose-500"
-                           )} 
-                           style={{ width: `${entry.summary?.completion_percentage_target || 0}%` }} 
+                            className={cn(
+                               "h-full transition-all duration-700",
+                               (entry.summary?.completion_percentage_target || 0) >= 100 ? "bg-emerald-500" :
+                               (entry.summary?.completion_percentage_target || 0) >= 70 ? "bg-amber-400" : "bg-rose-500"
+                            )} 
+                            style={{ width: `${entry.summary?.completion_percentage_target || 0}%` }} 
                         />
                       </div>
                       <div className="text-[10px] font-medium text-gray-400 italic">
@@ -2343,7 +2526,7 @@ function TashihTabSimple({ selectedBatchId, entries, currentWeek, onRefresh, onS
         </table>
       </div>
       {(pagination?.totalCount > 0) && (
-        <div className="px-6 py-4 bg-gray-50/30 border-t border-gray-100">
+        <div className="px-4 sm:px-6 py-3.5 sm:py-4 bg-gray-50/30 border-t border-gray-100">
           <Pagination 
             currentPage={pagination.page}
             totalPages={pagination.totalPages}
@@ -2682,17 +2865,17 @@ Tetap semangat untuk pekan-pekan berikutnya!
   return (
     <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
       {/* Reminder Chat Template Button */}
-      <div className="px-6 py-4 bg-emerald-50/50 border-b border-emerald-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+      <div className="px-4 sm:px-6 py-3.5 sm:py-4 bg-emerald-50/50 border-b border-emerald-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
           <p className="text-xs font-bold text-emerald-800">📋 Template Chat Mingguan</p>
           <p className="text-[10px] text-emerald-600 mt-0.5">Salin template WA untuk reminder yang belum tuntas, dan apresiasi untuk yang sudah 100%.</p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap sm:flex-nowrap">
           <button
             onClick={generateReminderChat}
             disabled={isGeneratingReminder}
             className={cn(
-              "flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm border whitespace-nowrap",
+              "flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm border whitespace-nowrap",
               isGeneratingReminder ? "opacity-50 cursor-not-allowed bg-gray-100 text-gray-500 border-gray-200" :
               reminderCopied
                 ? "bg-amber-600 text-white border-amber-700"
@@ -2701,16 +2884,16 @@ Tetap semangat untuk pekan-pekan berikutnya!
           >
             {isGeneratingReminder ? (
               <>
-                <div className="w-4 h-4 rounded-full border-2 border-amber-600 border-t-transparent animate-spin"></div>
-                Memuat Data...
+                <div className="w-3.5 h-3.5 rounded-full border-2 border-amber-600 border-t-transparent animate-spin"></div>
+                <span>Memuat...</span>
               </>
             ) : reminderCopied ? (
               <>
-                <Check className="w-4 h-4" /> Tersalin!
+                <Check className="w-3.5 h-3.5" /> <span>Tersalin!</span>
               </>
             ) : (
               <>
-                <Copy className="w-4 h-4" /> Copy Reminder (&lt; 100%)
+                <Copy className="w-3.5 h-3.5" /> <span>Copy Reminder (&lt;100%)</span>
               </>
             )}
           </button>
@@ -2719,7 +2902,7 @@ Tetap semangat untuk pekan-pekan berikutnya!
             onClick={generateAppreciationChat}
             disabled={isGeneratingAppreciation}
             className={cn(
-              "flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm border whitespace-nowrap",
+              "flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm border whitespace-nowrap",
               isGeneratingAppreciation ? "opacity-50 cursor-not-allowed bg-gray-100 text-gray-500 border-gray-200" :
               appreciationCopied
                 ? "bg-emerald-600 text-white border-emerald-700"
@@ -2728,22 +2911,219 @@ Tetap semangat untuk pekan-pekan berikutnya!
           >
             {isGeneratingAppreciation ? (
               <>
-                <div className="w-4 h-4 rounded-full border-2 border-emerald-600 border-t-transparent animate-spin"></div>
-                Memuat Data...
+                <div className="w-3.5 h-3.5 rounded-full border-2 border-emerald-600 border-t-transparent animate-spin"></div>
+                <span>Memuat...</span>
               </>
             ) : appreciationCopied ? (
               <>
-                <Check className="w-4 h-4" /> Tersalin!
+                <Check className="w-3.5 h-3.5" /> <span>Tersalin!</span>
               </>
             ) : (
               <>
-                <Copy className="w-4 h-4" /> Copy Apresiasi (100%)
+                <Copy className="w-3.5 h-3.5" /> <span>Copy Apresiasi (100%)</span>
               </>
             )}
           </button>
         </div>
       </div>
-      <div className="overflow-x-auto">
+
+      {/* Mobile Card View (< lg) */}
+      <div className="lg:hidden p-3 space-y-3">
+        {entries.map((entry: any) => (
+          <div key={entry.user_id} className="bg-white rounded-2xl p-3.5 border border-gray-100 shadow-sm space-y-3">
+            {/* Header: User avatar + Full Name + Kunyah + WhatsApp + Juz */}
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-green-100 to-emerald-100 flex items-center justify-center text-green-900 font-bold shrink-0 text-sm">
+                  {entry.user?.full_name?.charAt(0) || 'T'}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-bold text-gray-900 truncate">{entry.user?.full_name}</div>
+                  <div className="text-[10px] text-gray-400 font-medium truncate">
+                    {entry.user?.nama_kunyah ? `${entry.user.nama_kunyah} • ` : ''}{entry.user?.whatsapp || '-'}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-100">
+                  Juz {entry.confirmed_chosen_juz || '-'}
+                </span>
+                <SPStatusBadge summary={entry.sp_summary} />
+              </div>
+            </div>
+
+            {/* Progress Bar & Percentages */}
+            <div className="bg-gray-50/70 p-2.5 rounded-xl border border-gray-100 space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Progress Target</span>
+                <span className={cn(
+                  "font-black text-xs",
+                  (entry.summary?.completion_percentage_target || 0) >= 100 ? "text-emerald-700" :
+                  (entry.summary?.completion_percentage_target || 0) >= 70 ? "text-amber-600" : "text-rose-600"
+                )}>
+                  {entry.summary?.completion_percentage_target || 0}% <span className="text-[10px] font-normal text-gray-400">(Total: {entry.summary?.completion_percentage || 0}%)</span>
+                </span>
+              </div>
+              <div className="h-2 bg-gray-200/70 rounded-full overflow-hidden">
+                <div 
+                  className={cn(
+                    "h-full transition-all duration-700",
+                    (entry.summary?.completion_percentage_target || 0) >= 100 ? "bg-emerald-500" :
+                    (entry.summary?.completion_percentage_target || 0) >= 70 ? "bg-amber-400" : "bg-rose-500"
+                  )} 
+                  style={{ width: `${Math.min(100, entry.summary?.completion_percentage_target || 0)}%` }} 
+                />
+              </div>
+            </div>
+
+            {/* Weekly Status Bubbles on Mobile (horizontal scrollable row) */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-0.5 hide-scrollbar">
+              {allWeeks.map(p => {
+                const wObj = entry.weekly_status?.find((w: any) => w.week_number === p);
+                const weekWithSP = wObj ? {
+                  ...wObj,
+                  sp_info: wObj.sp_info || (entry.sp_summary?.week_number === p ? entry.sp_summary : null)
+                } : (entry.sp_summary?.week_number === p ? { week_number: p, total_blocks: 0, completed_blocks: 0, sp_info: entry.sp_summary } : null);
+
+                return (
+                  <div key={p} className="flex flex-col items-center shrink-0">
+                    <span className="text-[9px] font-bold text-gray-400 mb-0.5">P{p}</span>
+                    <WeekBubbleJurnal week={weekWithSP} />
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Mobile Actions Toolbar */}
+            <div className="flex items-center gap-1.5 pt-1 border-t border-gray-50 flex-wrap">
+              {entry.user?.whatsapp && entry.summary?.completed_blocks < entry.summary?.total_blocks && (
+                <button 
+                  onClick={() => {
+                    const missingBlocks: string[] = [];
+                    entry.weekly_status.forEach((w: any) => {
+                      if (w.week_number !== currentWeek) return;
+                      w.blocks.forEach((b: any) => {
+                        if (!b.is_completed) missingBlocks.push(b.block_code);
+                      });
+                    });
+
+                    if (missingBlocks.length === 0) {
+                      toast.error('Semua blok pada pekan aktif sudah dilaporkan');
+                      return;
+                    }
+
+                    const phone = entry.user.whatsapp.replace(/[^0-9]/g, '').replace(/^0/, '62');
+                    const message = `Assalamu'alaikum Warahmatullahi Wabarakatuh, Ukhti *${entry.user.full_name}*.\n\nSemoga Ukhti selalu dalam penjagaan Allah ﷻ. Aamiin.\n\nSekadar mengingatkan untuk laporan *Jurnal Harian Tikrar*.\n\nBerdasarkan data hari ini, beberapa blok berikut pada pekan aktif *belum dilaporkan* (Pekan ${currentWeek}):\n👉 *${missingBlocks.slice(0, 15).join(', ')}${missingBlocks.length > 15 ? ' ...' : ''}*\n\nMohon segera dilengkapi ya Ukhti, karena batas waktu laporan adalah setiap *Ahad pukul 24.00 WIB*.\n\nJazaakumullah khayran.\nBarakallahu fiikum.`;
+                    
+                    window.open(`https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`, '_blank');
+                  }}
+                  className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-600 hover:text-white transition-all text-[10px] font-bold"
+                >
+                  <MessageSquare className="w-3 h-3" />
+                  <span>Chat</span>
+                </button>
+              )}
+              <button 
+                onClick={() => onIssueSP({ ...entry.user, sp_summary: entry.sp_summary }, currentWeek)}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-600 hover:text-white transition-all font-bold text-[10px]"
+              >
+                <AlertTriangle className="w-3 h-3" />
+                <span>SP</span>
+              </button>
+              <button
+                onClick={() => onDropout(entry.user_id, selectedBatchId || '', entry.user?.full_name || 'Thalibah')}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-orange-50 text-orange-700 border border-orange-200 hover:bg-orange-700 hover:text-white transition-all font-bold text-[10px]"
+              >
+                <Shield className="w-3 h-3" />
+                <span>DO</span>
+              </button>
+              <button
+                onClick={() => onResign(entry.user_id, selectedBatchId || '', entry.user?.full_name || 'Thalibah')}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-700 hover:text-white transition-all font-bold text-[10px]"
+              >
+                <ClipboardList className="w-3 h-3" />
+                <span>Resign</span>
+              </button>
+              <button 
+                onClick={() => toggleRow(entry.user_id)} 
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg transition-all border font-bold text-[10px]",
+                  expandedRows.has(entry.user_id)
+                    ? "bg-green-600 text-white border-green-700"
+                    : "bg-green-50 text-green-700 border-green-200 hover:bg-green-600 hover:text-white"
+                )}
+              >
+                {expandedRows.has(entry.user_id) ? <ChevronDown className="w-3.5 h-3.5 rotate-180" /> : <Eye className="w-3 h-3" />}
+                <span>{expandedRows.has(entry.user_id) ? 'Tutup' : 'Lihat'}</span>
+              </button>
+            </div>
+
+            {/* Expanded weekly blocks on mobile */}
+            {expandedRows.has(entry.user_id) && (
+              <div className="pt-2 border-t border-gray-100 space-y-2.5">
+                {entry.weekly_status.map((week: any) => (
+                  <div key={week.week_number} className="bg-gray-50/70 rounded-xl p-2.5 border border-gray-100">
+                    <div className="flex justify-between items-center mb-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-bold text-gray-500 uppercase">Pekan {week.week_number}</span>
+                        {week.sp_info && (
+                          <span className={cn(
+                            "px-1.5 py-0.2 rounded text-[8px] font-black uppercase text-white",
+                            week.sp_info.sp_level === 3 ? "bg-red-600" : week.sp_info.sp_level === 2 ? "bg-amber-500" : "bg-yellow-500"
+                          )}>
+                            SP {week.sp_info.sp_level}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {week.blocks.map((block: any, blockIdx: number) => {
+                        const todayDay = new Date().getDay() || 7;
+                        const currentWeekNum = entry.summary?.current_week || 1;
+                        const isLocked = !block.is_completed && (week.week_number > currentWeekNum || (week.week_number === currentWeekNum && todayDay < (blockIdx + 1)));
+
+                        return (
+                          <button 
+                            key={block.block_code} 
+                            disabled={isLocked}
+                            onClick={() => {
+                              if (isLocked) return;
+                              const records = entry.jurnal_records ? entry.jurnal_records.filter((r: any) => {
+                                return parseBlokField(r.blok).includes(block.block_code);
+                              }) : [];
+                              if (block.is_completed) {
+                                onShowRecords(entry.user, block.block_code, records);
+                              } else {
+                                window.dispatchEvent(new CustomEvent('open-input-modal', { detail: { user: entry.user, blockCode: block.block_code, type: 'jurnal' } }));
+                              }
+                            }}
+                            className={cn(
+                              "p-1.5 rounded-lg border text-center transition-all flex flex-col items-center justify-center min-h-[42px] font-bold shadow-xs",
+                              block.is_completed 
+                                ? "bg-green-600 border-green-700 text-white" 
+                                : isLocked
+                                  ? "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed"
+                                  : block.jurnal_count > 0
+                                    ? "bg-yellow-400 border-yellow-500 text-yellow-950"
+                                    : "bg-red-500 border-red-600 text-white"
+                            )}
+                          >
+                            <div className="text-[10px] font-bold">{block.block_code.split('H')[1]}</div>
+                            <div className="text-[7px] uppercase">{block.is_completed ? 'Sudah' : (isLocked ? 'Lock' : 'Input')}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop Table View (>= lg) */}
+      <div className="hidden lg:block overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-100">
           <thead>
             <tr className="bg-gray-50/50">
@@ -2894,10 +3274,10 @@ Tetap semangat untuk pekan-pekan berikutnya!
                         <button 
                            onClick={() => toggleRow(entry.user_id)} 
                           className={cn(
-                             "flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all shadow-sm border font-bold text-[10px] uppercase tracking-wider",
-                             expandedRows.has(entry.user_id)
-                                ? "bg-green-600 text-white border-green-700"
-                                : "bg-green-50 text-green-700 border-green-200 hover:bg-green-600 hover:text-white"
+                              "flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all shadow-sm border font-bold text-[10px] uppercase tracking-wider",
+                              expandedRows.has(entry.user_id)
+                                 ? "bg-green-600 text-white border-green-700"
+                                 : "bg-green-50 text-green-700 border-green-200 hover:bg-green-600 hover:text-white"
                           )}
                        >
                          {expandedRows.has(entry.user_id) ? <ChevronDown className="w-4 h-4 rotate-180" /> : <Eye className="w-3.5 h-3.5" />}
@@ -2981,7 +3361,7 @@ Tetap semangat untuk pekan-pekan berikutnya!
         </table>
       </div>
       {(pagination?.totalCount > 0) && (
-        <div className="px-6 py-4 bg-gray-50/30 border-t border-gray-100">
+        <div className="px-4 sm:px-6 py-3.5 sm:py-4 bg-gray-50/30 border-t border-gray-100">
           <Pagination 
             currentPage={pagination.page}
             totalPages={pagination.totalPages}
@@ -2992,6 +3372,7 @@ Tetap semangat untuk pekan-pekan berikutnya!
           </div>
         </div>
       )}
+
     </div>
   );
 }
