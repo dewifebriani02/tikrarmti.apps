@@ -1223,55 +1223,56 @@ export function HalaqahManagementTab() {
 
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-end gap-4">
-        <div className="flex flex-wrap gap-2">
+    <div className="space-y-4 sm:space-y-6">
+      {/* Header Actions */}
+      <div className="flex flex-col md:flex-row md:items-center justify-end gap-3">
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
           <button
             onClick={() => setShowAssignThalibahModal(true)}
             disabled={!selectedBatch}
-            className="px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all font-bold text-sm shadow-sm shadow-blue-600/10 active:scale-95 duration-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-3 sm:px-4 py-2 sm:py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all font-bold text-xs sm:text-sm shadow-sm shadow-blue-600/10 active:scale-95 duration-200 flex items-center justify-center gap-1.5 sm:gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <UserPlus className="w-4 h-4" />
-            Assign Thalibah
+            <UserPlus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <span>Assign Thalibah</span>
           </button>
           <button
             onClick={() => setShowManualCreateModal(true)}
             disabled={!selectedBatch}
-            className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all font-bold text-sm shadow-sm shadow-indigo-600/10 active:scale-95 duration-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-3 sm:px-4 py-2 sm:py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all font-bold text-xs sm:text-sm shadow-sm shadow-indigo-600/10 active:scale-95 duration-200 flex items-center justify-center gap-1.5 sm:gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <UserPlus className="w-4 h-4" />
-            Add Halaqah
+            <UserPlus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <span>Add Halaqah</span>
           </button>
           <button
             onClick={() => setShowAutoCreateModal(true)}
-            className="px-4 py-2.5 bg-green-900 text-white rounded-xl hover:bg-green-800 transition-all font-bold text-sm shadow-sm shadow-green-900/10 active:scale-95 duration-200 flex items-center gap-2"
+            className="px-3 sm:px-4 py-2 sm:py-2.5 bg-green-900 text-white rounded-xl hover:bg-green-800 transition-all font-bold text-xs sm:text-sm shadow-sm shadow-green-900/10 active:scale-95 duration-200 flex items-center justify-center gap-1.5 sm:gap-2"
           >
-            <Sparkles className="w-4 h-4" />
-            Auto Create
+            <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <span>Auto Create</span>
           </button>
           <button
             onClick={() => setShowScheduleOverlapModal(true)}
-            className="px-4 py-2.5 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-all font-bold text-sm shadow-sm shadow-teal-600/10 active:scale-95 duration-200 flex items-center gap-2"
+            className="px-3 sm:px-4 py-2 sm:py-2.5 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-all font-bold text-xs sm:text-sm shadow-sm shadow-teal-600/10 active:scale-95 duration-200 flex items-center justify-center gap-1.5 sm:gap-2"
           >
-            <Video className="w-4 h-4" />
-            Analisis Zoom
+            <Video className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <span>Analisis Zoom</span>
           </button>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="bg-white border-b border-gray-200 mb-6 px-2 rounded-2xl shadow-sm">
-        <nav className="-mb-px flex space-x-8 overflow-x-auto" aria-label="Tabs">
+      <div className="bg-white border-b border-gray-200 mb-4 sm:mb-6 px-1.5 sm:px-2 rounded-xl sm:rounded-2xl shadow-sm">
+        <nav className="-mb-px flex space-x-2 sm:space-x-8 overflow-x-auto scrollbar-none" aria-label="Tabs">
           <button
             onClick={() => setActiveTab('tikrar_tahfidz')}
             className={`${
               activeTab === 'tikrar_tahfidz'
                 ? 'border-green-600 text-green-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            } whitespace-nowrap py-4 px-4 border-b-2 font-bold text-sm transition-colors`}
+            } whitespace-nowrap py-3 px-3 sm:py-4 sm:px-4 border-b-2 font-bold text-xs sm:text-sm transition-colors`}
           >
-            Halaqah Tikrar Per Juz
+            <span className="hidden sm:inline">Halaqah Tikrar Per Juz</span>
+            <span className="sm:hidden">Tikrar</span>
           </button>
           <button
             onClick={() => setActiveTab('pra_tahfidz')}
@@ -1279,7 +1280,7 @@ export function HalaqahManagementTab() {
               activeTab === 'pra_tahfidz'
                 ? 'border-green-600 text-green-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            } whitespace-nowrap py-4 px-4 border-b-2 font-bold text-sm transition-colors`}
+            } whitespace-nowrap py-3 px-3 sm:py-4 sm:px-4 border-b-2 font-bold text-xs sm:text-sm transition-colors`}
           >
             Pra Tikrar
           </button>
@@ -1289,7 +1290,7 @@ export function HalaqahManagementTab() {
               activeTab === 'tikrar_berbayar'
                 ? 'border-green-600 text-green-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            } whitespace-nowrap py-4 px-4 border-b-2 font-bold text-sm transition-colors`}
+            } whitespace-nowrap py-3 px-3 sm:py-4 sm:px-4 border-b-2 font-bold text-xs sm:text-sm transition-colors`}
           >
             Berbayar
           </button>
@@ -1299,7 +1300,7 @@ export function HalaqahManagementTab() {
               activeTab === 'muallimah'
                 ? 'border-green-600 text-green-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            } whitespace-nowrap py-4 px-4 border-b-2 font-bold text-sm transition-colors`}
+            } whitespace-nowrap py-3 px-3 sm:py-4 sm:px-4 border-b-2 font-bold text-xs sm:text-sm transition-colors`}
           >
             Muallimah
           </button>
@@ -1323,148 +1324,155 @@ export function HalaqahManagementTab() {
       />
 
       {/* Filters */}
-      <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
-        <div className="flex flex-wrap gap-4 items-center">
+      <div className="bg-white border border-gray-100 rounded-2xl p-3.5 sm:p-5 shadow-sm space-y-3">
+        <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center">
           <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-gray-400" />
+            <Filter className="w-4 h-4 text-gray-400 shrink-0" />
             <span className="text-xs font-black uppercase tracking-widest text-gray-400">Filters:</span>
           </div>
 
-          <div className="relative flex-1 min-w-[250px]">
+          <div className="relative flex-1 min-w-0">
             <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search by name, muallimah, program, location..."
+              placeholder="Cari nama, muallimah, juz, jadwal..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-950 focus:border-green-950 transition-all shadow-sm"
+              className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-green-950 focus:border-green-950 transition-all shadow-sm"
             />
           </div>
 
-          <select
-            value={selectedBatch}
-            onChange={(e) => {
-              setSelectedProgram('');
-              setSelectedBatch(e.target.value);
-            }}
-            className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-950 focus:border-green-950 min-w-[200px] transition-all bg-white shadow-sm font-semibold text-gray-700"
-          >
-            <option value="">All Batches {batches.length > 0 && `(${batches.length})`}</option>
-            {batches.map((batch) => (
-              <option key={batch.id} value={batch.id}>
-                {batch.name} ({batch.status})
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={selectedProgram}
-            onChange={(e) => setSelectedProgram(e.target.value)}
-            className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-950 focus:border-green-950 transition-all bg-white shadow-sm font-semibold text-gray-700"
-            disabled={!selectedBatch}
-          >
-            <option value="">All Programs</option>
-            {programs.map((program) => (
-              <option key={program.id} value={program.id}>
-                {program.name}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value)}
-            className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-950 focus:border-green-950 transition-all bg-white shadow-sm font-semibold text-gray-700"
-          >
-            <option value="">All Status</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-            <option value="suspended">Suspended</option>
-          </select>
-
-          <select
-            value={selectedDay}
-            onChange={(e) => setSelectedDay(e.target.value)}
-            className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-950 focus:border-green-950 transition-all bg-white shadow-sm font-semibold text-gray-700"
-          >
-            <option value="">All Days</option>
-            <option value="1">Senin</option>
-            <option value="2">Selasa</option>
-            <option value="3">Rabu</option>
-            <option value="4">Kamis</option>
-            <option value="5">Jumat</option>
-            <option value="6">Sabtu</option>
-            <option value="7">Ahad</option>
-          </select>
-
-          {activeTab === 'tikrar_tahfidz' && (
-            <button
-              type="button"
-              onClick={() => setEmptyOnly(value => !value)}
-              className={`px-4 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm flex items-center gap-2 border ${
-                emptyOnly
-                  ? 'border-orange-300 bg-orange-100 text-orange-800'
-                  : 'border-gray-200 bg-white text-gray-600 hover:bg-orange-50 hover:text-orange-700'
-              }`}
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
+            <select
+              value={selectedBatch}
+              onChange={(e) => {
+                setSelectedProgram('');
+                setSelectedBatch(e.target.value);
+              }}
+              className="w-full sm:w-auto px-2.5 sm:px-3 py-2 border border-gray-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-green-950 focus:border-green-950 transition-all bg-white shadow-sm font-semibold text-gray-700"
             >
-              <Users className="w-4 h-4" />
-              Tanpa Thalibah
+              <option value="">All Batches {batches.length > 0 && `(${batches.length})`}</option>
+              {batches.map((batch) => (
+                <option key={batch.id} value={batch.id}>
+                  {batch.name} ({batch.status})
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={selectedProgram}
+              onChange={(e) => setSelectedProgram(e.target.value)}
+              className="w-full sm:w-auto px-2.5 sm:px-3 py-2 border border-gray-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-green-950 focus:border-green-950 transition-all bg-white shadow-sm font-semibold text-gray-700"
+              disabled={!selectedBatch}
+            >
+              <option value="">All Programs</option>
+              {programs.map((program) => (
+                <option key={program.id} value={program.id}>
+                  {program.name}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value)}
+              className="w-full sm:w-auto px-2.5 sm:px-3 py-2 border border-gray-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-green-950 focus:border-green-950 transition-all bg-white shadow-sm font-semibold text-gray-700"
+            >
+              <option value="">All Status</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="suspended">Suspended</option>
+            </select>
+
+            <select
+              value={selectedDay}
+              onChange={(e) => setSelectedDay(e.target.value)}
+              className="w-full sm:w-auto px-2.5 sm:px-3 py-2 border border-gray-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-green-950 focus:border-green-950 transition-all bg-white shadow-sm font-semibold text-gray-700"
+            >
+              <option value="">Semua Hari</option>
+              <option value="1">Senin</option>
+              <option value="2">Selasa</option>
+              <option value="3">Rabu</option>
+              <option value="4">Kamis</option>
+              <option value="5">Jumat</option>
+              <option value="6">Sabtu</option>
+              <option value="7">Ahad</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Action and Export Buttons */}
+        <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100 items-center justify-between">
+          <div className="flex flex-wrap gap-2 items-center">
+            {activeTab === 'tikrar_tahfidz' && (
+              <button
+                type="button"
+                onClick={() => setEmptyOnly(value => !value)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 border ${
+                  emptyOnly
+                    ? 'border-orange-300 bg-orange-100 text-orange-800'
+                    : 'border-gray-200 bg-white text-gray-600 hover:bg-orange-50 hover:text-orange-700'
+                }`}
+              >
+                <Users className="w-3.5 h-3.5" />
+                Tanpa Thalibah
+              </button>
+            )}
+
+            <button
+              onClick={() => setRefreshTrigger(prev => prev + 1)}
+              className="px-3 py-1.5 border border-gray-200 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-50 transition-all shadow-sm active:scale-95 duration-200 flex items-center gap-1.5"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              Refresh
             </button>
-          )}
+          </div>
 
-          <button
-            onClick={() => setRefreshTrigger(prev => prev + 1)}
-            className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-50 transition-all shadow-sm active:scale-95 duration-200 flex items-center gap-1.5"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            Refresh
-          </button>
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-1.5 w-full sm:w-auto">
+            <button
+              onClick={downloadExcel}
+              disabled={filteredAndSortedHalaqahs.length === 0}
+              className="px-2.5 sm:px-3 py-1.5 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition-all shadow-sm active:scale-95 duration-200 shadow-emerald-600/10 flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Download as Excel (CSV)"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              Excel
+            </button>
 
-          <div className="h-6 w-px bg-gray-200" />
+            <button
+              onClick={downloadPDF}
+              disabled={filteredAndSortedHalaqahs.length === 0}
+              className="px-2.5 sm:px-3 py-1.5 bg-rose-600 text-white rounded-xl text-xs font-bold hover:bg-rose-700 transition-all shadow-sm active:scale-95 duration-200 shadow-rose-600/10 flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Download Halaqah Report (HTML)"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              PDF Halaqah
+            </button>
+            
+            <button
+              onClick={downloadPDFHalaqahThalibah}
+              disabled={filteredAndSortedHalaqahs.length === 0}
+              className="px-2.5 sm:px-3 py-1.5 bg-purple-600 text-white rounded-xl text-xs font-bold hover:bg-purple-700 transition-all shadow-sm active:scale-95 duration-200 shadow-purple-600/10 flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Download PDF List Thalibah per Halaqah"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              PDF Thalibah
+            </button>
 
-          <button
-            onClick={downloadExcel}
-            disabled={filteredAndSortedHalaqahs.length === 0}
-            className="px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-sm active:scale-95 duration-200 shadow-emerald-600/10 flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Download as Excel (CSV)"
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5" />
-            Excel
-          </button>
-
-          <button
-            onClick={downloadPDF}
-            disabled={filteredAndSortedHalaqahs.length === 0}
-            className="px-4 py-2.5 bg-rose-600 text-white rounded-xl text-sm font-bold hover:bg-rose-700 transition-all shadow-sm active:scale-95 duration-200 shadow-rose-600/10 flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Download Halaqah Report (HTML)"
-          >
-            <FileText className="w-3.5 h-3.5" />
-            PDF (Halaqah)
-          </button>
-          
-          <button
-            onClick={downloadPDFHalaqahThalibah}
-            disabled={filteredAndSortedHalaqahs.length === 0}
-            className="px-4 py-2.5 bg-purple-600 text-white rounded-xl text-sm font-bold hover:bg-purple-700 transition-all shadow-sm active:scale-95 duration-200 shadow-purple-600/10 flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Download PDF List Thalibah per Halaqah"
-          >
-            <FileText className="w-3.5 h-3.5" />
-            PDF (Daftar Thalibah)
-          </button>
-
-          <button
-            onClick={downloadPDFJuzThalibah}
-            disabled={filteredAndSortedHalaqahs.length === 0}
-            className="px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-sm active:scale-95 duration-200 shadow-emerald-600/10 flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Download PDF List Thalibah per Juz"
-          >
-            <FileText className="w-3.5 h-3.5" />
-            PDF (Thalibah per Juz)
-          </button>
+            <button
+              onClick={downloadPDFJuzThalibah}
+              disabled={filteredAndSortedHalaqahs.length === 0}
+              className="px-2.5 sm:px-3 py-1.5 bg-teal-600 text-white rounded-xl text-xs font-bold hover:bg-teal-700 transition-all shadow-sm active:scale-95 duration-200 shadow-teal-600/10 flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Download PDF List Thalibah per Juz"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              PDF per Juz
+            </button>
+          </div>
         </div>
 
         {/* Results count */}
-        <div className="mt-3 text-xs font-semibold text-gray-500">
+        <div className="text-[11px] sm:text-xs font-semibold text-gray-500">
           Showing {filteredAndSortedHalaqahs.length} halaqahs
           {filteredAndSortedHalaqahs.length !== tabHalaqahs.length && ` (filtered from ${tabHalaqahs.length} total)`}
         </div>

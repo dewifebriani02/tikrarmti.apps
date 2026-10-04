@@ -55,31 +55,31 @@ export function HalaqahStats({ stats, isLoading }: HalaqahStatsProps) {
   ];
 
   return (
-    <div className="flex overflow-x-auto pb-4 sm:pb-0 sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8 snap-x snap-mandatory scrollbar-none">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 mb-4 sm:mb-6">
       {cards.map((card) => {
         const Icon = card.icon;
         return (
           <div
             key={card.id}
-            className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between transition-all duration-300 hover:shadow-md hover:-translate-y-1 group flex-shrink-0 w-[78vw] sm:w-auto snap-start"
+            className="bg-white p-3.5 sm:p-5 rounded-xl sm:rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 group min-w-0"
           >
-            <div className="space-y-1">
-              <p className="text-sm font-bold text-gray-500 tracking-tight group-hover:text-gray-900 transition-colors">
+            <div className="space-y-0.5 sm:space-y-1 min-w-0">
+              <p className="text-xs sm:text-sm font-bold text-gray-500 tracking-tight group-hover:text-gray-900 transition-colors truncate">
                 {card.label}
               </p>
               {isLoading ? (
-                <div className="h-8 w-24 bg-gray-200 animate-pulse rounded"></div>
+                <div className="h-6 sm:h-8 w-16 sm:w-24 bg-gray-200 animate-pulse rounded"></div>
               ) : (
-                <h3 className="text-3xl font-black text-gray-900 tracking-tight">
-                  {card.value}
+                <h3 className="text-xl sm:text-3xl font-black text-gray-900 tracking-tight">
+                  {typeof card.value === 'number' ? card.value.toLocaleString() : card.value}
                 </h3>
               )}
             </div>
             <div className={cn(
-              "p-3 sm:p-4 rounded-xl text-white shadow-lg transition-transform duration-300 group-hover:scale-110",
+              "p-2.5 sm:p-3.5 rounded-lg sm:rounded-xl text-white shadow-sm sm:shadow-lg transition-transform duration-300 group-hover:scale-110 flex-shrink-0 ml-2",
               card.color
             )}>
-              <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
+              <Icon className="h-4 w-4 sm:h-6 sm:w-6" />
             </div>
           </div>
         );
