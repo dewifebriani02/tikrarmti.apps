@@ -122,7 +122,7 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
 
       if (isAdmin) {
         baseItems.push({
-          href: '/admin/halaqah?action=analisis-zoom',
+          href: '/admin/halaqah/analisis-zoom',
           label: 'Analisis Zoom',
           icon: <Video className="h-5 w-5" />,
         });

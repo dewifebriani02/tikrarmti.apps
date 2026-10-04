@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   Users,
   Calendar,
@@ -160,6 +161,7 @@ function QuotaDetailsCell({ halaqah }: { halaqah: Halaqah }) {
 
 export function HalaqahManagementTab() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const actionParam = searchParams?.get('action');
   
   const supabase = createClient();
@@ -199,9 +201,9 @@ export function HalaqahManagementTab() {
 
   useEffect(() => {
     if (actionParam === 'analisis-zoom') {
-      setShowScheduleOverlapModal(true);
+      router.replace('/admin/halaqah/analisis-zoom');
     }
-  }, [actionParam]);
+  }, [actionParam, router]);
 
   useEffect(() => {
     loadData();
@@ -1250,13 +1252,13 @@ export function HalaqahManagementTab() {
             <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             <span>Auto Create</span>
           </button>
-          <button
-            onClick={() => setShowScheduleOverlapModal(true)}
+          <Link
+            href="/admin/halaqah/analisis-zoom"
             className="px-3 sm:px-4 py-2 sm:py-2.5 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-all font-bold text-xs sm:text-sm shadow-sm shadow-teal-600/10 active:scale-95 duration-200 flex items-center justify-center gap-1.5 sm:gap-2"
           >
             <Video className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             <span>Analisis Zoom</span>
-          </button>
+          </Link>
         </div>
       </div>
 
