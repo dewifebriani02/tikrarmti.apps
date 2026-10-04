@@ -160,6 +160,7 @@ export async function evaluateWeeklyJurnalSP({
     JOIN users u ON u.id = du.user_id
     WHERE du.batch_id = $1 
       AND du.status IN ('approved', 'submitted')
+      AND (u.is_blacklisted IS FALSE OR u.is_blacklisted IS NULL)
     ORDER BY u.full_name ASC
   `;
   const { rows: thalibahList } = await query(thalibahSql, [activeBatchId]);
@@ -183,7 +184,9 @@ export async function evaluateWeeklyJurnalSP({
 
   const userIds = thalibahList.map(t => t.user_id);
 
-  // 4. Fetch all journal records for these users
+  const batchStart = new Date(activeBatch.start_date || '2026-08-10');
+
+  // 4. Fetch all journal records for these users strictly for the active batch
   const jurnalSql = `
     SELECT 
       user_id,
@@ -192,8 +195,9 @@ export async function evaluateWeeklyJurnalSP({
       created_at
     FROM jurnal_records
     WHERE user_id = ANY($1)
+      AND (created_at >= $2 OR tanggal_setor >= $2)
   `;
-  const { rows: jurnalRecords } = await query(jurnalSql, [userIds]);
+  const { rows: jurnalRecords } = await query(jurnalSql, [userIds, batchStart.toISOString()]);
 
   // Group journal by user
   const jurnalByUser = new Map<string, any[]>();
@@ -241,24 +245,20 @@ export async function evaluateWeeklyJurnalSP({
     const userJurnals = jurnalByUser.get(thalibah.user_id) || [];
     const userSPs = spByUser.get(thalibah.user_id) || [];
 
-    // Filter journals for target week
-    const weekJurnals = userJurnals.filter(rec => {
-      const week = calculateWeekFromBlok(rec.blok);
-      return week === targetWeek;
-    });
-
-    // Extract unique submitted blocks
-    const submittedBlockCodes = new Set<string>();
-    weekJurnals.forEach(rec => {
-      const cleanBlok = extractCleanBlok(rec.blok);
-      if (cleanBlok) submittedBlockCodes.add(cleanBlok);
-    });
-
     const isPartB = thalibah.confirmed_chosen_juz?.toUpperCase().includes('B') || false;
     const baseOffset = isPartB ? 10 : 0;
     const expectedBlockNumbers = targetWeek + baseOffset;
     const expectedLetters = ['A', 'B', 'C', 'D'];
     const expectedBlocks = expectedLetters.map(l => `H${expectedBlockNumbers}${l}`);
+
+    // Extract unique submitted blocks specifically matching this week's expected blocks
+    const submittedBlockCodes = new Set<string>();
+    userJurnals.forEach(rec => {
+      const cleanBlok = extractCleanBlok(rec.blok);
+      if (cleanBlok && expectedBlocks.includes(cleanBlok)) {
+        submittedBlockCodes.add(cleanBlok);
+      }
+    });
 
     const completedBlocks = Array.from(submittedBlockCodes);
     const missingBlocks = expectedBlocks.filter(b => !submittedBlockCodes.has(b));
@@ -305,9 +305,11 @@ export async function evaluateWeeklyJurnalSP({
       ? `Ghaib pada Pekan ${targetWeek}. Belum menyetor blok ${expectedBlocks.join(', ')}.`
       : `Hanya menyetor ${completedBlocks.join(', ')}. Belum menyetor ${missingBlocks.join(', ')}.`;
 
-    // Check prior active SPs in this batch
-    // Highest previous level among active SPs for previous weeks
-    const priorSPs = userSPs.filter(s => parseInt(String(s.week_number), 10) < targetWeek);
+    // Check prior active SPs in this batch (excluding Pekan 6 if exempt)
+    const priorSPs = userSPs.filter(s => {
+      const w = parseInt(String(s.week_number), 10);
+      return w < targetWeek && w !== 6;
+    });
     const highestPriorLevel = priorSPs.reduce((max, s) => Math.max(max, parseInt(String(s.sp_level || 0), 10)), 0);
     const nextLevel = Math.min(highestPriorLevel + 1, 3);
     const spType = nextLevel === 3 ? 'temporary_do' : null;
