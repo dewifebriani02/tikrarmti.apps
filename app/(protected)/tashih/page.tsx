@@ -250,10 +250,9 @@ export default function TashihPage() {
     if (!block) return
 
     const currentWeekNumber = getCurrentWeekNumber()
-    if (blockWeekNumber > currentWeekNumber) {
-        // Hanya tampilkan info toast - tidak memblokir (window.confirm dinonaktifkan karena
-        // bermasalah di mobile/WebView dan membingungkan santri)
-        toast.info(`Info: Mengisi Tashih Pekan ${blockWeekNumber} lebih awal dari jadwal.`)
+    if (!isAdmin && blockWeekNumber > currentWeekNumber) {
+      toast.info(`Tashih Pekan ${blockWeekNumber} belum dibuka. Jadwal Tashih angkatan saat ini masih Pekan ke-${currentWeekNumber}.`)
+      return
     }
 
     if (block.is_completed && block.tashih_date) {
