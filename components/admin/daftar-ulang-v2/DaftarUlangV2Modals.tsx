@@ -43,19 +43,19 @@ export function DetailModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
-        <div className="flex justify-between items-center p-6 border-b border-gray-100">
-          <h3 className="text-xl font-black text-gray-900 tracking-tight">Detail Daftar Ulang</h3>
+    <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-2.5 sm:p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[92vh] overflow-hidden flex flex-col shadow-2xl">
+        <div className="flex justify-between items-center p-4 sm:p-6 border-b border-gray-100">
+          <h3 className="text-lg sm:text-xl font-black text-gray-900 tracking-tight">Detail Daftar Ulang</h3>
           <button
             onClick={onClose}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
+            className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="p-6 overflow-y-auto space-y-8 bg-gray-50/50">
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-6 bg-gray-50/50">
           
           {/* Thalibah Info */}
           <section>

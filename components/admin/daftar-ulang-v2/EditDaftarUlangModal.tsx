@@ -92,19 +92,19 @@ export function EditDaftarUlangModal({ submission, onClose, onSaved }: EditDafta
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl flex flex-col max-h-[90vh]">
-        <div className="flex items-center justify-between p-6 border-b border-gray-100 shrink-0">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-gray-900/50 backdrop-blur-sm overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl flex flex-col max-h-[92vh]">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-100 shrink-0">
           <div>
-            <h3 className="text-lg font-bold text-gray-900">Edit Data Daftar Ulang</h3>
-            <p className="text-sm text-gray-500 mt-1">Mengubah data milik {submission.user?.full_name}</p>
+            <h3 className="text-base sm:text-lg font-bold text-gray-900">Edit Data Daftar Ulang</h3>
+            <p className="text-xs sm:text-sm text-gray-500 mt-0.5 sm:mt-1">Mengubah data milik {submission.user?.full_name}</p>
           </div>
-          <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors">
+          <button onClick={onClose} className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="p-6 overflow-y-auto">
+        <div className="p-4 sm:p-6 overflow-y-auto">
           <form id="edit-form" onSubmit={handleSubmit} className="space-y-6">
             
             {/* Konfirmasi Data Section */}
