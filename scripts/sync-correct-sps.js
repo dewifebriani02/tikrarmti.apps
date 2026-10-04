@@ -9,9 +9,9 @@ async function run() {
   try {
     const batchId = '2478b493-1b6b-412a-a05f-6193db815a43';
 
-    // 1. Delete Week 6 SPs because Week 6 is exempt from SP due to system error
-    const delWeek6 = await pool.query('DELETE FROM surat_peringatan WHERE batch_id = $1 AND (week_number = $2 OR week_number = $3)', [batchId, '6', 6]);
-    console.log(`Deleted Week 6 SPs (${delWeek6.rowCount} rows).`);
+    // 1. Delete Week 5 SPs because Week 5 is exempt from SP due to system error
+    const delWeek5 = await pool.query('DELETE FROM surat_peringatan WHERE batch_id = $1 AND (week_number = $2 OR week_number = $3)', [batchId, '5', 5]);
+    console.log(`Deleted Week 5 SPs (${delWeek5.rowCount} rows).`);
 
     // 2. Delete any blacklisted user from surat_peringatan (e.g., Kardina)
     const delBlacklist = await pool.query(`
@@ -21,27 +21,38 @@ async function run() {
     `);
     console.log(`Deleted Blacklisted SPs (${delBlacklist.rowCount} rows).`);
 
-    // 3. Insert SP 1 for Nurdiani in Week 5
-    const nurdianiUserRes = await pool.query("SELECT id, full_name FROM users WHERE full_name ILIKE '%Nurdiani%'");
-    const nurdiani = nurdianiUserRes.rows[0];
+    // 3. Clear Week 6 SPs first to re-insert accurately
+    await pool.query('DELETE FROM surat_peringatan WHERE batch_id = $1 AND (week_number = $2 OR week_number = $3)', [batchId, '6', 6]);
 
-    if (nurdiani) {
-      const checkRes = await pool.query('SELECT id FROM surat_peringatan WHERE batch_id = $1 AND thalibah_id = $2 AND (week_number = $3 OR week_number = $4)', [batchId, nurdiani.id, '5', 5]);
-      if (checkRes.rows.length === 0) {
+    // 4. Insert SP 1 for the 6 thalibahs who did not complete Week 6:
+    // earlyta arsyfa khoirina (0/4), Farida (3/4), Izzatu Dini (0/4), Lina Wartabone (0/4), Nurdiani (0/4), Zainab Binti yusri (0/4)
+    const week6Incomplete = [
+      { name: 'earlyta arsyfa khoirina', reason: 'tidak_lapor_jurnal', notes: 'Ghaib pada Pekan 6. Belum menyetor blok H6A, H6B, H6C, H6D.' },
+      { name: 'Farida', reason: 'laporan_tidak_lengkap', notes: 'Hanya menyetor H16A, H16B, H16C. Belum menyetor H16D.' },
+      { name: 'Izzatu Dini', reason: 'tidak_lapor_jurnal', notes: 'Ghaib pada Pekan 6. Belum menyetor blok H6A, H6B, H6C, H6D.' },
+      { name: 'Lina Wartabone', reason: 'tidak_lapor_jurnal', notes: 'Ghaib pada Pekan 6. Belum menyetor blok H6A, H6B, H6C, H6D.' },
+      { name: 'Nurdiani', reason: 'tidak_lapor_jurnal', notes: 'Ghaib pada Pekan 6. Belum menyetor blok H6A, H6B, H6C, H6D.' },
+      { name: 'Zainab Binti yusri', reason: 'tidak_lapor_jurnal', notes: 'Ghaib pada Pekan 6. Belum menyetor blok H6A, H6B, H6C, H6D.' }
+    ];
+
+    for (const item of week6Incomplete) {
+      const uRes = await pool.query('SELECT id, full_name FROM users WHERE full_name ILIKE $1', [`%${item.name}%`]);
+      const user = uRes.rows[0];
+      if (user) {
         await pool.query(`
           INSERT INTO surat_peringatan (
             thalibah_id, batch_id, week_number, sp_level, reason, status, notes, created_at, updated_at
           ) VALUES (
-            $1, $2, '5', 1, 'tidak_lapor_jurnal', 'active', 'Ghaib pada Pekan 5. Belum menyetor blok H5A, H5B, H5C, H5D.', NOW(), NOW()
+            $1, $2, '6', 1, $3, 'active', $4, NOW(), NOW()
           )
-        `, [nurdiani.id, batchId]);
-        console.log(`Inserted SP 1 for ${nurdiani.full_name} in Week 5.`);
+        `, [user.id, batchId, item.reason, item.notes]);
+        console.log(`✅ SP 1 terbit di Pekan 6 untuk: ${user.full_name}`);
       } else {
-        console.log(`SP 1 for ${nurdiani.full_name} in Week 5 already exists.`);
+        console.warn(`⚠️ User not found for: ${item.name}`);
       }
     }
 
-    // 4. Check all active SPs
+    // 5. Check all active SPs
     const spRes = await pool.query(`
       SELECT sp.id, u.full_name, sp.week_number, sp.sp_level, sp.status, sp.notes 
       FROM surat_peringatan sp 

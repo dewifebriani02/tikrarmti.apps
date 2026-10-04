@@ -305,10 +305,10 @@ export async function evaluateWeeklyJurnalSP({
       ? `Ghaib pada Pekan ${targetWeek}. Belum menyetor blok ${expectedBlocks.join(', ')}.`
       : `Hanya menyetor ${completedBlocks.join(', ')}. Belum menyetor ${missingBlocks.join(', ')}.`;
 
-    // Check prior active SPs in this batch (excluding Pekan 6 if exempt)
+    // Check prior active SPs in this batch (excluding Pekan 5 which is exempt due to system error)
     const priorSPs = userSPs.filter(s => {
       const w = parseInt(String(s.week_number), 10);
-      return w < targetWeek && w !== 6;
+      return w < targetWeek && w !== 5;
     });
     const highestPriorLevel = priorSPs.reduce((max, s) => Math.max(max, parseInt(String(s.sp_level || 0), 10)), 0);
     const nextLevel = Math.min(highestPriorLevel + 1, 3);
