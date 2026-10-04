@@ -55,7 +55,7 @@ export function MuallimahV2Stats({ stats, isLoading, onCardClick, activeFilter }
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
       {cards.map((card) => {
         const isActive = activeFilter === card.id;
         return (
@@ -63,21 +63,21 @@ export function MuallimahV2Stats({ stats, isLoading, onCardClick, activeFilter }
             key={card.id}
             onClick={() => onCardClick?.(card.id)}
             className={cn(
-              "bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between transition-all w-full text-left",
+              "bg-white p-3.5 sm:p-5 rounded-2xl shadow-xs border border-gray-100 flex items-center justify-between transition-all w-full text-left group",
               isActive ? card.activeRing : "hover:border-gray-300 hover:shadow-md",
               "focus:outline-none focus:ring-offset-2"
             )}
           >
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-gray-500">{card.label}</p>
+            <div className="space-y-0.5 sm:space-y-1 min-w-0 flex-1">
+              <p className="text-[11px] sm:text-xs font-bold text-gray-500 truncate">{card.label}</p>
               {isLoading ? (
-                <div className="h-8 w-16 bg-gray-200 rounded animate-pulse" />
+                <div className="h-6 sm:h-8 w-12 sm:w-16 bg-gray-200 rounded animate-pulse" />
               ) : (
-                <p className="text-3xl font-black text-gray-900">{card.value || 0}</p>
+                <p className="text-xl sm:text-3xl font-black text-gray-900 leading-none">{card.value || 0}</p>
               )}
             </div>
-            <div className={cn("p-4 rounded-xl text-white shadow-lg", card.color)}>
-              <card.icon className="h-6 w-6" />
+            <div className={cn("p-2 sm:p-3.5 rounded-xl text-white shadow-md shrink-0 ml-2", card.color)}>
+              <card.icon className="h-4 w-4 sm:h-6 sm:w-6" />
             </div>
           </button>
         );
