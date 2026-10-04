@@ -136,7 +136,6 @@ export async function evaluateWeeklyJurnalSP({
 
   if (activeBatch.first_week_start_date) {
     const startDate = new Date(activeBatch.first_week_start_date);
-    startDate.setDate(startDate.getDate() + 7); // Jurnal week 1 is +7 days after tashih
     const now = new Date();
     const diffWeeks = Math.floor((now.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
     calculatedCurrentWeek = Math.max(1, Math.min(diffWeeks + 1, 10));
