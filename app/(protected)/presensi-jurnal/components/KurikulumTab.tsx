@@ -192,7 +192,7 @@ export function KurikulumTab({ currentWeek }: KurikulumTabProps = {}) {
            rabthString = '(belum ada)';
         } else {
            murojaahString = getFormat(absoluteIndex - 1);
-           const rabthEnd = absoluteIndex - 2;
+           const rabthEnd = absoluteIndex - 1;
            const rabthStart = Math.max(1, rabthEnd - 10 + 1);
 
            if (rabthStart === rabthEnd) {
