@@ -950,20 +950,27 @@ export default function AdminJadwalHarianTab() {
                     )}
 
                     {halaqah.zoom_name && (
-                      <div className="pt-1.5 border-t border-gray-200/60 flex flex-wrap items-center justify-between gap-1 text-[11px]">
-                        <a 
-                          href={halaqah.zoom_link} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1 font-semibold text-blue-600 hover:underline"
-                        >
-                          <Video className="h-3.5 w-3.5" />
-                          {halaqah.zoom_name}
-                        </a>
-                        {halaqah.zoom_meeting_id && (
-                          <span className="text-gray-500 text-[10px]">
-                            ID: {halaqah.zoom_meeting_id} {halaqah.zoom_passcode && `| Pass: ${halaqah.zoom_passcode}`}
-                          </span>
+                      <div className="pt-1.5 border-t border-gray-200/60 flex flex-col gap-0.5 text-[11px]">
+                        <div className="flex flex-wrap items-center justify-between gap-1">
+                          <a 
+                            href={halaqah.zoom_link} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 font-semibold text-blue-600 hover:underline"
+                          >
+                            <Video className="h-3.5 w-3.5" />
+                            {halaqah.zoom_name}
+                          </a>
+                          {halaqah.zoom_meeting_id && (
+                            <span className="text-gray-500 text-[10px]">
+                              ID: {halaqah.zoom_meeting_id} {halaqah.zoom_passcode && `| Pass: ${halaqah.zoom_passcode}`}
+                            </span>
+                          )}
+                        </div>
+                        {halaqah.zoom_claim_host && isUserStaff && (
+                          <div className="text-[11px] text-gray-500 font-medium pl-5 leading-tight">
+                            Claim Host: <span className="font-bold text-gray-700">{halaqah.zoom_claim_host}</span>
+                          </div>
                         )}
                       </div>
                     )}
