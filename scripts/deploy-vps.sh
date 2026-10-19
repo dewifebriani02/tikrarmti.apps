@@ -52,12 +52,11 @@ fi
 
 # 5. Set Permissions, Install Dependencies & Restart Services
 echo ""
-echo "Step 5: Installing Dependencies & Restarting Services on VPS..."
+echo "Step 5: Installing Dependencies & Reloading Services on VPS..."
 ssh ${VPS_USER}@${VPS_HOST} "
   cd ${REMOTE_PATH}
-  npm install --legacy-peer-deps
-  npm run build
-  pm2 restart markaztikrar-app || pm2 start npm --name 'markaztikrar-app' -- start -- -p ${APP_PORT}
+  npm install --omit=dev --legacy-peer-deps
+  pm2 reload markaztikrar-app || pm2 restart markaztikrar-app || pm2 start npm --name 'markaztikrar-app' --max-memory-restart 500M -- start -- -p ${APP_PORT}
   pm2 save
 "
 
