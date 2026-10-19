@@ -220,6 +220,11 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
         icon: <BookOpen className="h-5 w-5" />,
       });
       baseItems.push({
+        href: '/sit-in',
+        label: 'Sit-In Kelas',
+        icon: <ArrowRightLeft className="h-5 w-5 text-rose-600" />,
+      });
+      baseItems.push({
         href: '/pendaftaran/muallimah',
         label: 'Daftar Muallimah',
         icon: <GraduationCap className="h-5 w-5 text-green-600" />,

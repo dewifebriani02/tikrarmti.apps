@@ -34,7 +34,8 @@ import {
   Trophy,
   Layers,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  ArrowRightLeft
 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog'
@@ -51,6 +52,7 @@ import { SWRLoadingFallback, SWRErrorFallback } from '@/lib/swr/providers'
 import { cn } from '@/lib/utils'
 import { isStaff } from '@/lib/roles'
 import { FinalExamPortalModal } from '@/components/dashboard/FinalExamPortalModal'
+import { SitInModal } from '@/components/dashboard/SitInModal'
 import { GroupLinks } from '@/components/dashboard/GroupLinks'
 import { UserJadwalHarian } from '@/components/dashboard/UserJadwalHarian'
 
@@ -141,8 +143,15 @@ export default function DashboardContent() {
   
   const [activitiesPage, setActivitiesPage] = useState(1)
   const [examModalOpen, setExamModalOpen] = useState(false)
+  const [isSitInModalOpen, setIsSitInModalOpen] = useState(false)
   const [expandedHalaqahId, setExpandedHalaqahId] = useState<string | null>(null)
   const activitiesPerPage = 5
+
+  useEffect(() => {
+    if (searchParams.get('sit_in') === 'true' || searchParams.get('sitin') === 'true') {
+      setIsSitInModalOpen(true)
+    }
+  }, [searchParams])
 
   const [hasMuallimahReg, setHasMuallimahReg] = useState(false)
   const [isFrozen, setIsFrozen] = useState<boolean>(false)
@@ -1190,12 +1199,13 @@ export default function DashboardContent() {
           )}
         </div>
 
-        <div className="grid grid-cols-4 gap-1.5 sm:gap-6 w-full">
+        <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4 lg:gap-6 w-full">
           {(() => {
             const menuItems = [
               { label: 'Perjalanan Saya', icon: Clock, color: 'blue', href: '/perjalanan-saya' },
               { label: 'Catatan Tashih', icon: ClipboardList, color: 'emerald', href: '/tashih' },
               { label: 'Jurnal Harian', icon: BookOpen, color: 'indigo', href: '/jurnal-harian' },
+              { label: 'Sit-In Kelas', icon: ArrowRightLeft, color: 'rose', href: '/sit-in' },
               { label: 'Ujian Pekanan', icon: Calendar, color: 'amber', href: '/ujian' },
               { label: 'Ujian Akhir', icon: Award, color: 'blue', href: '#' },
               { label: 'Sertifikat', icon: CheckCircle, color: 'emerald', href: '/kelulusan-sertifikat' },
@@ -1210,23 +1220,28 @@ export default function DashboardContent() {
                     if ((item as any).locked) {
                       e.preventDefault();
                       alert(`Maaf Ukhti, menu ini terkunci.`);
+                    } else if (item.label === 'Sit-In Kelas') {
+                      e.preventDefault();
+                      setIsSitInModalOpen(true);
                     } else if (item.label === 'Ujian Akhir') {
                       e.preventDefault();
                       setExamModalOpen(true);
                     }
                   }}
                   className={cn(
-                    "h-full glass-premium rounded-xl sm:rounded-3xl p-1.5 sm:p-4 border border-white transition-all duration-300 flex flex-col items-center text-center justify-start sm:justify-center min-h-[90px] sm:min-h-0 relative overflow-hidden",
+                    "h-full glass-premium rounded-xl sm:rounded-3xl p-2 sm:p-4 border border-white transition-all duration-300 flex flex-col items-center text-center justify-start sm:justify-center min-h-[95px] sm:min-h-0 relative overflow-hidden",
                     (item as any).locked 
                       ? "opacity-50 grayscale cursor-not-allowed" 
                       : "hover:border-green-100 hover:shadow-xl hover:-translate-y-1 cursor-pointer",
-                    item.label === 'Infaq & Donasi' && "bg-amber-50/90 border-amber-300/80 shadow-md shadow-amber-100/50 hover:border-amber-400"
+                    item.label === 'Infaq & Donasi' && "bg-amber-50/90 border-amber-300/80 shadow-md shadow-amber-100/50 hover:border-amber-400",
+                    item.label === 'Sit-In Kelas' && "bg-rose-50/50 border-rose-200/60 shadow-sm hover:border-rose-300"
                   )}
                 >
                   <div className={cn(
                     "w-10 h-10 sm:w-14 sm:h-14 rounded-lg sm:rounded-2xl flex items-center justify-center mb-1 sm:mb-3 transition-transform duration-300 shadow-sm flex-shrink-0 relative",
                     !(item as any).locked && "group-hover:scale-110",
                     item.label === 'Infaq & Donasi' ? "bg-amber-500 text-white shadow-md shadow-amber-350/50 border border-amber-400/30" :
+                    item.color === 'rose' ? "bg-rose-50 text-rose-600 border border-rose-200/80 shadow-sm shadow-rose-100" :
                     item.color === 'blue' ? "bg-blue-50 text-blue-600 border border-blue-100/50" :
                     item.color === 'emerald' ? "bg-emerald-50 text-emerald-600 border border-emerald-100/50" :
                     item.color === 'indigo' ? "bg-indigo-50 text-indigo-600 border border-indigo-100/50" :
@@ -1242,8 +1257,9 @@ export default function DashboardContent() {
                     )}
                   </div>
                   <h3 className={cn(
-                    "text-[8px] sm:text-xs lg:text-sm font-bold leading-[1.1] w-full px-0.5 break-words",
-                    item.label === 'Infaq & Donasi' ? "text-amber-950" : "text-gray-900"
+                    "text-[9px] sm:text-xs lg:text-sm font-bold leading-[1.1] w-full px-0.5 break-words",
+                    item.label === 'Infaq & Donasi' ? "text-amber-950" : 
+                    item.label === 'Sit-In Kelas' ? "text-rose-950" : "text-gray-900"
                   )}>
                     {item.label}
                   </h3>
@@ -1251,6 +1267,43 @@ export default function DashboardContent() {
               </Link>
             ));
           })()}
+        </div>
+      </div>
+
+      {/* Quick Sit-In Banner Card */}
+      <div className="max-w-6xl mx-auto w-full px-4 md:px-8 mb-6">
+        <div className="bg-gradient-to-r from-rose-50/90 via-pink-50/70 to-indigo-50/80 border border-rose-200/80 rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-rose-500 text-white flex items-center justify-center shadow-md shadow-rose-200 shrink-0">
+              <ArrowRightLeft className="w-5 h-5 sm:w-6 sm:h-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm sm:text-base font-black text-gray-900 tracking-tight">Izin & Sit-In Kelas Pengganti 🌸</h4>
+                <span className="text-[10px] font-bold bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full uppercase">Aktif</span>
+              </div>
+              <p className="text-xs text-gray-600 mt-0.5">
+                Berhalangan hadir di kelas utama pekan ini? Silakan daftar Sit-In di jadwal kelas lain yang masih memiliki kuota kosong.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+            <Button
+              onClick={() => setIsSitInModalOpen(true)}
+              className="w-full sm:w-auto bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl shadow-sm text-xs sm:text-sm transition-all"
+            >
+              <ArrowRightLeft className="w-4 h-4 mr-1.5" />
+              Daftar Sit-In
+            </Button>
+            <Link href="/sit-in" className="hidden sm:inline-flex">
+              <Button
+                variant="outline"
+                className="border-rose-200 text-rose-700 hover:bg-rose-100/50 font-semibold rounded-xl text-xs sm:text-sm"
+              >
+                Lihat Jadwal
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -1372,6 +1425,14 @@ export default function DashboardContent() {
         batchName={registrations[0]?.batch?.name || registrations[0]?.batch_name}
         batchId={registrations[0]?.batch_id}
         isMurajaahCompleted={isMurajaahCompleted}
+      />
+
+      {/* Sit-In Modal */}
+      <SitInModal
+        isOpen={isSitInModalOpen}
+        onClose={() => setIsSitInModalOpen(false)}
+        user={user}
+        activeBatch={selectedBatch || activeBatch}
       />
 
       {/* Thalibah Rank Modal */}
