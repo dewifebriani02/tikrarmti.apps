@@ -62,6 +62,22 @@ interface Question {
   sort_order: number
 }
 
+interface NaikJuzEligibility {
+  is_alumni: boolean
+  previous_juz: string | null
+  previous_batch_name: string | null
+  chosen_juz: string | null
+  is_naik_juz: boolean
+  is_repeating: boolean
+  total_completed: number
+  target_completed: number
+  is_40x_completed: boolean
+  is_warrior_eligible: boolean
+  can_proceed: boolean
+  is_deadline_strict: boolean
+  deadline_message: string | null
+}
+
 const FALLBACK_QUESTIONS: Record<string, { label: string; description: string | null; warning_text: string | null; is_required: boolean }> = {
   intro_text: {
     label: "Bismillah.. Hayyakillah Ahlan wasahlan kakak-kakak calon hafidzah..",
@@ -237,6 +253,10 @@ export default function ThalibahBatch2Page() {
   const supabase = createClient()
   const [isCreating, setIsCreating] = useState(false)
   const [isAlumni, setIsAlumni] = useState(false)
+  const [naikJuzEligibility, setNaikJuzEligibility] = useState<NaikJuzEligibility | null>(null)
+  const [checkingEligibility, setCheckingEligibility] = useState(false)
+  const [murojaahCommitmentChecked, setMurojaahCommitmentChecked] = useState(false)
+
 
   // Check if user is an alumnus and has not filled in their testimonial
   useEffect(() => {
@@ -393,6 +413,34 @@ export default function ThalibahBatch2Page() {
     questions: ''
   })
 
+  // Check eligibility for naik juz (Murojaah 40X requirement)
+  useEffect(() => {
+    async function checkNaikJuzEligibility() {
+      if (!formData.chosen_juz || !user) {
+        setNaikJuzEligibility(null)
+        return
+      }
+      setCheckingEligibility(true)
+      try {
+        const batchParam = activeBatchData?.id ? '&batch_id=' + encodeURIComponent(activeBatchData.id) : ''
+        const res = await fetch('/api/alumni/murojaah-40x/eligibility-naik-juz?chosen_juz=' + encodeURIComponent(formData.chosen_juz) + batchParam)
+        if (res.ok) {
+          const json = await res.json()
+          if (json.success && json.data) {
+            setNaikJuzEligibility(json.data)
+          }
+        }
+      } catch (err) {
+        console.error('Error checking naik juz eligibility:', err)
+      } finally {
+        setCheckingEligibility(false)
+      }
+    }
+
+    checkNaikJuzEligibility()
+  }, [formData.chosen_juz, activeBatchData?.id, user])
+
+
   // Auto-save to localStorage
   useEffect(() => {
     if (isMounted && typeof window !== 'undefined') {
@@ -548,6 +596,12 @@ export default function ThalibahBatch2Page() {
       const qChosenJuz = getQuestionMeta('chosen_juz')
       if (qChosenJuz.is_active && qChosenJuz.is_required && !formData.chosen_juz) {
         newErrors.chosen_juz = 'Pilih salah satu pilihan juz'
+      } else if (naikJuzEligibility?.is_alumni && naikJuzEligibility.is_naik_juz && !naikJuzEligibility.is_40x_completed) {
+        if (naikJuzEligibility.is_deadline_strict) {
+          newErrors.chosen_juz = 'Syarat naik juz belum terpenuhi: Murojaah 40X untuk juz sebelumnya wajib diselesaikan tuntas (40 putaran) mulai Batch 4 ke atas.'
+        } else if (!murojaahCommitmentChecked) {
+          newErrors.murojaah_commitment = 'Ukhti wajib menyetujui komitmen menyelesaikan Murojaah 40X sebelum pembukaan Batch 4.'
+        }
       }
       
       const qTravel = getQuestionMeta('no_travel_plans')
@@ -1157,6 +1211,117 @@ export default function ThalibahBatch2Page() {
             </Select>
             {errors.chosen_juz && (
               <p className="text-red-500 text-sm font-medium">{errors.chosen_juz}</p>
+            )}
+
+            {/* Status & Banner Validasi Naik Juz (Murojaah 40X) */}
+            {checkingEligibility && (
+              <div className="flex items-center space-x-2 text-xs text-muted-foreground py-1">
+                <div className="w-3.5 h-3.5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                <span>Memeriksa kelayakan syarat naik juz (Murojaah 40X)...</span>
+              </div>
+            )}
+
+            {!checkingEligibility && naikJuzEligibility?.is_alumni && (
+              <div className="mt-2 space-y-2">
+                {/* Kasus 1: Naik Juz & Sudah Tuntas 40X */}
+                {naikJuzEligibility.is_naik_juz && naikJuzEligibility.is_40x_completed && (
+                  <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-900 text-sm">
+                    <div className="flex items-center space-x-2 font-semibold">
+                      <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                      <span>Syarat Naik Juz Terpenuhi!</span>
+                      {naikJuzEligibility.is_warrior_eligible && (
+                        <span className="ml-auto inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                          🏆 Murojaah Warrior
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-1 text-xs sm:text-sm text-emerald-800">
+                      Alhamdulillah! Ukhti telah menuntaskan Murojaah 40X untuk juz sebelumnya ({naikJuzEligibility.previous_juz}) sebanyak <strong>{naikJuzEligibility.total_completed}/40 putaran</strong>. Ukhti memenuhi syarat untuk melanjutkan ke <strong>{formData.chosen_juz}</strong>.
+                    </p>
+                  </div>
+                )}
+
+                {/* Kasus 2: Naik Juz & Belum Tuntas 40X, tapi SEBELUM Batch 4 (Boleh Dicicil dengan Komitmen) */}
+                {naikJuzEligibility.is_naik_juz && !naikJuzEligibility.is_40x_completed && !naikJuzEligibility.is_deadline_strict && (
+                  <div className="p-4 bg-amber-50 border border-amber-300 rounded-lg text-amber-950 text-sm space-y-3">
+                    <div className="flex items-center space-x-2 font-semibold text-amber-900">
+                      <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+                      <span>Catatan Syarat Naik Juz (Murojaah 40X)</span>
+                    </div>
+                    <p className="text-xs sm:text-sm text-amber-900">
+                      Ukhti mendaftar naik juz dari <strong>{naikJuzEligibility.previous_juz}</strong> ke <strong>{formData.chosen_juz}</strong>. Progres Murojaah 40X Ukhti saat ini tercatat <strong>{naikJuzEligibility.total_completed} dari 40 putaran</strong>.
+                    </p>
+                    <p className="text-xs sm:text-sm text-amber-800 bg-amber-100/60 p-2.5 rounded border border-amber-200">
+                      💡 <strong>Aturan Program:</strong> Murojaah 40X adalah syarat wajib naik juz, namun dapat dicicil dan wajib tuntas sebelum pembukaan <strong>Batch 4</strong>. Ukhti dapat melanjutkan pendaftaran ini dengan menyetujui komitmen di bawah.
+                    </p>
+
+                    <div className="flex items-start space-x-3 p-3 bg-white/80 border border-amber-300 rounded-md">
+                      <Checkbox
+                        id="murojaah_commitment"
+                        checked={murojaahCommitmentChecked}
+                        onCheckedChange={(checked) => {
+                          setMurojaahCommitmentChecked(!!checked)
+                          if (errors.murojaah_commitment) {
+                            setErrors(prev => ({ ...prev, murojaah_commitment: '' }))
+                          }
+                        }}
+                        className="mt-0.5"
+                      />
+                      <Label htmlFor="murojaah_commitment" className="text-xs sm:text-sm font-medium text-amber-950 cursor-pointer">
+                        Saya memahami bahwa Murojaah 40X adalah syarat wajib naik juz dan berkomitmen menuntaskan sisa {40 - naikJuzEligibility.total_completed} putaran di Ruang Alumni sebelum pembukaan Batch 4.
+                      </Label>
+                    </div>
+                    {errors.murojaah_commitment && (
+                      <p className="text-red-500 text-xs sm:text-sm font-medium">{errors.murojaah_commitment}</p>
+                    )}
+
+                    <div>
+                      <a
+                        href="/alumni"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center text-xs text-amber-800 underline font-medium hover:text-amber-950"
+                      >
+                        Buka Ruang Alumni untuk mencatat putaran Murojaah 40X <ExternalLink className="w-3 h-3 ml-1" />
+                      </a>
+                    </div>
+                  </div>
+                )}
+
+                {/* Kasus 3: Naik Juz & Belum Tuntas 40X di BATCH 4 KE ATAS (Hard Block) */}
+                {naikJuzEligibility.is_naik_juz && !naikJuzEligibility.is_40x_completed && naikJuzEligibility.is_deadline_strict && (
+                  <div className="p-4 bg-red-50 border border-red-300 rounded-lg text-red-950 text-sm space-y-2">
+                    <div className="flex items-center space-x-2 font-semibold text-red-900">
+                      <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                      <span>Belum Memenuhi Syarat Naik Juz (Wajib Tuntas 40X Mulai Batch 4)</span>
+                    </div>
+                    <p className="text-xs sm:text-sm text-red-900">
+                      Pendaftaran Batch 4 ke atas mewajibkan penyelesaian tuntas 40 putaran Murojaah 40X untuk juz sebelumnya (<strong>{naikJuzEligibility.previous_juz}</strong>) sebelum dapat naik ke <strong>{formData.chosen_juz}</strong>.
+                    </p>
+                    <p className="text-xs sm:text-sm text-red-800">
+                      Progres tercatat: <strong>{naikJuzEligibility.total_completed}/40 putaran</strong> (kurang {40 - naikJuzEligibility.total_completed} putaran lagi).
+                    </p>
+                    <div className="pt-1">
+                      <a
+                        href="/alumni"
+                        className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700 transition"
+                      >
+                        Tuntaskan Putaran di Ruang Alumni <ChevronRight className="w-3.5 h-3.5 ml-1" />
+                      </a>
+                    </div>
+                  </div>
+                )}
+
+                {/* Kasus 4: Mengulang Juz Yang Sama */}
+                {naikJuzEligibility.is_repeating && (
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-900 text-xs sm:text-sm flex items-start space-x-2">
+                    <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      Ukhti memilih untuk mengulang juz <strong>{formData.chosen_juz}</strong> (sama dengan {naikJuzEligibility.previous_batch_name}). Murojaah 40X sangat dianjurkan untuk memperkokoh hafalan, namun bukan syarat wajib untuk mengulang juz yang sama.
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         )}

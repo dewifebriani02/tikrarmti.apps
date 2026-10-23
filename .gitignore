@@ -99,6 +99,7 @@ build/
 backups/
 *.dump
 *.sql
+!supabase/migrations/*.sql
 *.tar.gz
 scripts/users_with_passwords.json
 test_proper.js
@@ -106,5 +107,3 @@ test_proper.js
 # Local uploads
 public/uploads/*
 !public/uploads/.gitkeep
-
-

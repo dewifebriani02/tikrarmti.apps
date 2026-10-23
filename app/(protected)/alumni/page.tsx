@@ -16,6 +16,8 @@ import {
   Send
 } from 'lucide-react';
 import Link from 'next/link';
+import { Murojaah40xTab } from '@/components/alumni/Murojaah40xTab';
+
 
 // Import from components/ui/button
 import { Button as UIButton } from "@/components/ui/button";
@@ -38,6 +40,8 @@ export default function AlumniPage() {
   const [loading, setLoading] = useState(true);
   const [isAlumni, setIsAlumni] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [activeTab, setActiveTab] = useState<'murojaah' | 'testimoni'>('murojaah');
+
 
   // Testimonial States
   const [testimonial, setTestimonial] = useState<Testimonial | null>(null);
@@ -189,8 +193,38 @@ export default function AlumniPage() {
           </div>
         </div>
 
-        {/* Testimonial Section Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Alumni Sub-Tabs: Murojaah 40X vs Testimoni */}
+        <div className="flex items-center gap-2 mb-8 bg-gray-100 p-1.5 rounded-2xl max-w-sm">
+          <button
+            type="button"
+            onClick={() => setActiveTab('murojaah')}
+            className={`flex-1 py-2.5 px-4 rounded-xl font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 ${
+              activeTab === 'murojaah'
+                ? 'bg-white text-emerald-900 shadow-sm border border-gray-200/60'
+                : 'text-gray-500 hover:text-gray-900'
+            }`}
+          >
+            <BookOpen className="w-4 h-4 text-emerald-700" />
+            <span>Murojaah 40X</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('testimoni')}
+            className={`flex-1 py-2.5 px-4 rounded-xl font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 ${
+              activeTab === 'testimoni'
+                ? 'bg-white text-emerald-900 shadow-sm border border-gray-200/60'
+                : 'text-gray-500 hover:text-gray-900'
+            }`}
+          >
+            <MessageSquare className="w-4 h-4 text-emerald-700" />
+            <span>Testimoni</span>
+          </button>
+        </div>
+
+        {activeTab === 'murojaah' ? (
+          <Murojaah40xTab isAlumni={isAlumni} />
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Form Column */}
           <div className="lg:col-span-2">
             <Card className="border-0 shadow-lg rounded-2xl overflow-hidden bg-white">
@@ -479,6 +513,7 @@ export default function AlumniPage() {
             </Card>
           </div>
         </div>
+        )}
       </div>
     </div>
   );

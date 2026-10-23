@@ -561,3 +561,55 @@ export interface FAQCategory {
   created_at: string;
   updated_at: string;
 }
+
+// =====================================================
+// Murojaah 40X & Badges Types
+// =====================================================
+
+export type MurojaahMethod = 'pasangan' | 'tarteel' | 'sholat' | 'aktifitas_lain';
+export type MurojaahSegment = 'primary' | 'part_a_optional';
+
+export interface Murojaah40xProgress {
+  id: string;
+  user_id: string;
+  batch_id: string;
+  juz_code: string;
+  is_part_b: boolean;
+  include_part_a: boolean;
+  started_at: string;
+  completed_at?: string | null;
+  total_completed: number;
+  is_warrior_eligible: boolean;
+  created_at: string;
+  updated_at: string;
+  user?: User;
+  batch?: Batch;
+}
+
+export interface Murojaah40xLog {
+  id: string;
+  progress_id: string;
+  user_id: string;
+  round_number: number;
+  juz_segment: MurojaahSegment;
+  completed_at: string;
+  methods: MurojaahMethod[];
+  notes?: string | null;
+  created_at: string;
+}
+
+export interface UserBadge {
+  id: string;
+  user_id: string;
+  badge_code: string;
+  badge_name: string;
+  description?: string;
+  icon_url?: string;
+  awarded_at: string;
+  metadata?: {
+    days_taken?: number;
+    juz?: string;
+    batch?: string;
+    [key: string]: any;
+  };
+}
