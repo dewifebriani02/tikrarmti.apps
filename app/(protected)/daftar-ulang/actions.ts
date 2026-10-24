@@ -409,11 +409,7 @@ export async function submitDaftarUlang(
         newRoles.push('thalibah')
       }
       
-      // Add muallimah role if pengabdian choice is muallimah
-      if (data.pengabdian_choice === 'muallimah' && !newRoles.includes('muallimah')) {
-        newRoles.push('muallimah')
-      }
-      
+      // Never grant staff roles from form input — the muallimah role is assigned by admin
       // Remove legacy roles
       newRoles = newRoles.filter(role => role !== 'waiting_reregistration' && role !== 'user')
 
