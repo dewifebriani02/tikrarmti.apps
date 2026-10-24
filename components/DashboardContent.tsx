@@ -35,7 +35,8 @@ import {
   Layers,
   ChevronDown,
   ChevronUp,
-  ArrowRightLeft
+  ArrowRightLeft,
+  RotateCcw
 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog'
@@ -1207,10 +1208,11 @@ export default function DashboardContent() {
               { label: 'Jurnal Harian', icon: BookOpen, color: 'indigo', href: '/jurnal-harian' },
               { label: 'Sit-In Kelas', icon: ArrowRightLeft, color: 'rose', href: '/sit-in' },
               { label: 'Ujian Pekanan', icon: Calendar, color: 'amber', href: '/ujian' },
+              { label: "Muraja'ah 40x", icon: RotateCcw, color: 'teal', href: '/murojaah' },
               { label: 'Ujian Akhir', icon: Award, color: 'blue', href: '#' },
               { label: 'Sertifikat', icon: CheckCircle, color: 'emerald', href: '/kelulusan-sertifikat' },
-              { label: 'Infaq & Donasi', icon: Wallet, color: 'amber', href: '/infaq-donasi' },
               { label: 'Alumni', icon: GraduationCap, color: 'purple', href: '/alumni' },
+              { label: 'Infaq & Donasi', icon: Wallet, color: 'amber', href: '/infaq-donasi' },
             ];
 
             return menuItems.map((item, i) => (
@@ -1243,6 +1245,7 @@ export default function DashboardContent() {
                     item.label === 'Infaq & Donasi' ? "bg-amber-500 text-white shadow-md shadow-amber-350/50 border border-amber-400/30" :
                     item.color === 'rose' ? "bg-rose-50 text-rose-600 border border-rose-200/80 shadow-sm shadow-rose-100" :
                     item.color === 'blue' ? "bg-blue-50 text-blue-600 border border-blue-100/50" :
+                    item.color === 'teal' ? "bg-teal-50 text-teal-600 border border-teal-100/50" :
                     item.color === 'emerald' ? "bg-emerald-50 text-emerald-600 border border-emerald-100/50" :
                     item.color === 'indigo' ? "bg-indigo-50 text-indigo-600 border border-indigo-100/50" :
                     item.color === 'amber' ? "bg-amber-50 text-amber-600 border border-amber-100/50" :

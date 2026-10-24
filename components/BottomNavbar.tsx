@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Compass, BookOpen, FileText, Users } from 'lucide-react';
+import { Home, Compass, BookOpen, FileText, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function BottomNavbar() {
@@ -32,14 +32,15 @@ export default function BottomNavbar() {
       href: '/tashih',
     },
     {
-      label: 'Alumni',
-      icon: Users,
-      href: '/alumni',
+      label: 'Murajaah',
+      icon: RotateCcw,
+      href: '/murojaah',
     },
   ];
 
   const isActive = (href: string) => {
     if (href === '/dashboard') return pathname === '/dashboard';
+    if (href === '/murojaah') return pathname.startsWith('/murojaah') || pathname.startsWith('/murajaah');
     return pathname.startsWith(href);
   };
 

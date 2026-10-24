@@ -50,6 +50,8 @@ export default function AuthenticatedLayout({ children, title }: AuthenticatedLa
       '/tashih': 'Tashih Bacaan',
       '/perjalanan-saya': 'Perjalanan Saya',
       '/ujian': 'Ujian',
+      '/murojaah': "Muraja'ah 40x",
+      '/murajaah': "Muraja'ah 40x",
       '/alumni': 'Ruang Alumni',
       '/statistik': 'Statistik',
       '/infaq-donasi': 'Infaq & Donasi',

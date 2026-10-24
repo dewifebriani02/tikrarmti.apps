@@ -12,14 +12,15 @@ import {
   Clock, 
   CheckCircle, 
   AlertCircle, 
-  BookOpen,
-  Send
+  Send,
+  Users,
+  Search,
+  MapPin,
+  GraduationCap,
+  Sparkles,
+  ArrowRight
 } from 'lucide-react';
 import Link from 'next/link';
-import { Murojaah40xTab } from '@/components/alumni/Murojaah40xTab';
-
-
-// Import from components/ui/button
 import { Button as UIButton } from "@/components/ui/button";
 
 interface Testimonial {
@@ -40,8 +41,7 @@ export default function AlumniPage() {
   const [loading, setLoading] = useState(true);
   const [isAlumni, setIsAlumni] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [activeTab, setActiveTab] = useState<'murojaah' | 'testimoni'>('murojaah');
-
+  const [activeTab, setActiveTab] = useState<'testimoni' | 'database'>('testimoni');
 
   // Testimonial States
   const [testimonial, setTestimonial] = useState<Testimonial | null>(null);
@@ -150,27 +150,27 @@ export default function AlumniPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAF9] py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-5xl mx-auto">
+    <div className="min-h-screen bg-[#F8FAF9] py-8 sm:py-12 px-4 sm:px-6 lg:px-8 pb-24 xl:pb-12">
+      <div className="max-w-5xl mx-auto space-y-8">
         {/* Banner Header */}
-        <div className="bg-gradient-to-r from-emerald-850 to-emerald-700 bg-emerald-900 rounded-3xl p-8 sm:p-10 text-white shadow-xl mb-10 overflow-hidden relative">
-          <div className="absolute right-0 top-0 translate-x-10 -translate-y-10 w-44 h-44 rounded-full bg-emerald-800/30 blur-2xl" />
+        <div className="bg-gradient-to-r from-emerald-900 via-teal-900 to-emerald-800 rounded-3xl p-6 sm:p-10 text-white shadow-xl overflow-hidden relative">
+          <div className="absolute right-0 top-0 translate-x-10 -translate-y-10 w-44 h-44 rounded-full bg-emerald-500/10 blur-2xl pointer-events-none" />
           <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div>
-              <span className="bg-emerald-800/60 border border-emerald-600 text-emerald-100 text-xs font-semibold px-3 py-1.5 rounded-full tracking-wide uppercase">
-                Alumni MTI
+              <span className="bg-emerald-800/80 border border-emerald-600/50 text-emerald-100 text-xs font-bold px-3 py-1.5 rounded-full tracking-wide uppercase">
+                Ruang Alumni MTI
               </span>
-              <h1 className="text-3xl sm:text-4xl font-extrabold mt-3 tracking-tight">Barakallahu Fiikum, Ukhti!</h1>
+              <h1 className="text-2xl sm:text-4xl font-extrabold mt-3 tracking-tight">Barakallahu Fiikum, Ukhti!</h1>
               <p className="text-emerald-100/90 text-sm sm:text-base mt-2 max-w-xl leading-relaxed">
-                Selamat atas kelulusan Ukhti di program MTI. Halaman ini adalah wadah silaturahmi dan pengisian testimoni ulasan Ukhti.
+                Selamat atas kelulusan Ukhti di program MTI. Halaman ini adalah wadah silaturahmi, pengisian testimoni ulasan, dan jejaring alumni.
               </p>
             </div>
-            <div className="bg-white/10 backdrop-blur-md border border-white/20 p-5 rounded-2xl flex items-center gap-4">
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 p-4 sm:p-5 rounded-2xl flex items-center gap-4 shrink-0">
               <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-white">
                 <MessageSquare className="w-6 h-6 animate-pulse" />
               </div>
               <div>
-                <p className="text-xs text-emerald-250 font-bold uppercase tracking-wider">Status Testimoni</p>
+                <p className="text-xs text-emerald-200 font-bold uppercase tracking-wider">Status Testimoni</p>
                 <div className="flex items-center gap-2 mt-1">
                   {testimonial ? (
                     testimonial.is_approved ? (
@@ -193,20 +193,26 @@ export default function AlumniPage() {
           </div>
         </div>
 
-        {/* Alumni Sub-Tabs: Murojaah 40X vs Testimoni */}
-        <div className="flex items-center gap-2 mb-8 bg-gray-100 p-1.5 rounded-2xl max-w-sm">
-          <button
-            type="button"
-            onClick={() => setActiveTab('murojaah')}
-            className={`flex-1 py-2.5 px-4 rounded-xl font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 ${
-              activeTab === 'murojaah'
-                ? 'bg-white text-emerald-900 shadow-sm border border-gray-200/60'
-                : 'text-gray-500 hover:text-gray-900'
-            }`}
-          >
-            <BookOpen className="w-4 h-4 text-emerald-700" />
-            <span>Murojaah 40X</span>
-          </button>
+        {/* Quick Link to Muroja'ah 40x */}
+        <div className="bg-emerald-50/70 border border-emerald-100 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
+              <Sparkles className="w-5 h-5 text-yellow-300" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-emerald-950">Sedang mencari Program Muraja'ah 40x?</h4>
+              <p className="text-xs text-emerald-800">Muraja'ah kini memiliki halaman tersendiri untuk kemudahan tracking hafalan.</p>
+            </div>
+          </div>
+          <Link href="/murojaah">
+            <UIButton size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold gap-1.5 w-full sm:w-auto">
+              Buka Muraja'ah 40x <ArrowRight className="w-3.5 h-3.5" />
+            </UIButton>
+          </Link>
+        </div>
+
+        {/* Alumni Sub-Tabs: Testimoni vs Database Alumni */}
+        <div className="flex items-center gap-2 bg-gray-100 p-1.5 rounded-2xl max-w-md">
           <button
             type="button"
             onClick={() => setActiveTab('testimoni')}
@@ -217,302 +223,385 @@ export default function AlumniPage() {
             }`}
           >
             <MessageSquare className="w-4 h-4 text-emerald-700" />
-            <span>Testimoni</span>
+            <span>Testimoni Alumni</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('database')}
+            className={`flex-1 py-2.5 px-4 rounded-xl font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 ${
+              activeTab === 'database'
+                ? 'bg-white text-emerald-900 shadow-sm border border-gray-200/60'
+                : 'text-gray-500 hover:text-gray-900'
+            }`}
+          >
+            <Users className="w-4 h-4 text-emerald-700" />
+            <span>Database Alumni</span>
+            <span className="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded-full">
+              Segera Hadir
+            </span>
           </button>
         </div>
 
-        {activeTab === 'murojaah' ? (
-          <Murojaah40xTab isAlumni={isAlumni} />
-        ) : (
+        {activeTab === 'testimoni' ? (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Form Column */}
-          <div className="lg:col-span-2">
-            <Card className="border-0 shadow-lg rounded-2xl overflow-hidden bg-white">
-              <CardHeader className="border-b border-gray-50 pb-6 p-6 sm:p-8">
-                <CardTitle className="text-xl font-bold text-gray-900">
-                  {testimonial && !isEditingTestimonial ? 'Testimoni Ukhti' : 'Tulis Testimoni'}
-                </CardTitle>
-                <CardDescription>
-                  Berikan umpan balik jujur mengenai pengalaman belajar Ukhti di MTI untuk memotivasi calon hafidzah lainnya.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-6 sm:p-8">
-                {testimonial && !isEditingTestimonial ? (
-                  /* Show testimonial summary */
-                  <div className="space-y-6">
-                    <div className="bg-[#F8FAF9] border border-gray-100 rounded-2xl p-6 relative">
-                      <div className="flex items-center gap-1.5 mb-4">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <Star
-                            key={star}
-                            className={`w-6 h-6 ${
-                              star <= testimonial.rating
-                                ? 'text-amber-400 fill-amber-400'
-                                : 'text-gray-200'
-                            }`}
-                          />
-                        ))}
-                      </div>
-                      <p className="text-gray-700 italic leading-relaxed text-base">
-                        "{testimonial.content}"
-                      </p>
-                      <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between text-xs text-gray-550">
-                        <span>Dikirim pada: {new Date(testimonial.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' })}</span>
-                        <span className="font-semibold text-emerald-700">
-                          {testimonial.is_approved ? 'Ditampilkan di Landing Page' : 'Sedang direview admin'}
-                        </span>
-                      </div>
-                    </div>
-
-                    {testimonial.is_approved && (
-                      <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 flex gap-3 text-emerald-900 text-sm">
-                        <CheckCircle className="w-5 h-5 text-emerald-750 flex-shrink-0 mt-0.5" />
-                        <p>
-                          Jazakumullahu khairan! Testimoni Ukhti telah disetujui dan saat ini tampil di halaman utama Markaz Tikrar Indonesia.
-                        </p>
-                      </div>
-                    )}
-
-                    {!testimonial.is_approved && (
-                      <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 flex gap-3 text-amber-900 text-sm">
-                        <Clock className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" />
-                        <p>
-                          Testimoni Ukhti sedang menunggu verifikasi admin sebelum ditampilkan di halaman utama. Namun Ukhti tetap dapat melakukan pendaftaran batch baru.
-                        </p>
-                      </div>
-                    )}
-
-                    <UIButton
-                      onClick={() => setIsEditingTestimonial(true)}
-                      variant="outline"
-                      className="border-emerald-800 text-emerald-800 hover:bg-emerald-50/50 rounded-xl px-6 transition-all"
-                    >
-                      Ubah Testimoni
-                    </UIButton>
-                  </div>
-                ) : (
-                  /* Edit/New Form */
-                  <form onSubmit={handleSaveTestimonial} className="space-y-6">
-                    {testimonial && (
-                      <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 flex gap-3 text-amber-900 text-sm">
-                        <AlertCircle className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" />
-                        <p>
-                          <strong>Perhatian:</strong> Mengubah testimoni akan mereset status persetujuan testimoni Ukhti ke <strong>pending (belum disetujui)</strong> untuk dicek ulang oleh admin.
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Star Rating Selector */}
-                    <div className="space-y-2">
-                      <Label className="text-sm font-semibold text-gray-700">Rating Penilaian</Label>
-                      <div className="flex items-center gap-2">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <button
-                            key={star}
-                            type="button"
-                            onClick={() => setTestimonialRating(star)}
-                            onMouseEnter={() => setRatingHover(star)}
-                            onMouseLeave={() => setRatingHover(null)}
-                            className="focus:outline-none transition-transform hover:scale-110"
-                          >
+            {/* Form Column */}
+            <div className="lg:col-span-2">
+              <Card className="border-0 shadow-lg rounded-2xl overflow-hidden bg-white">
+                <CardHeader className="border-b border-gray-50 pb-6 p-6 sm:p-8">
+                  <CardTitle className="text-xl font-bold text-gray-900">
+                    {testimonial && !isEditingTestimonial ? 'Testimoni Ukhti' : 'Tulis Testimoni'}
+                  </CardTitle>
+                  <CardDescription>
+                    Berikan umpan balik jujur mengenai pengalaman belajar Ukhti di MTI untuk memotivasi calon hafidzah lainnya.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-6 sm:p-8">
+                  {testimonial && !isEditingTestimonial ? (
+                    /* Show testimonial summary */
+                    <div className="space-y-6">
+                      <div className="bg-[#F8FAF9] border border-gray-100 rounded-2xl p-6 relative">
+                        <div className="flex items-center gap-1.5 mb-4">
+                          {[1, 2, 3, 4, 5].map((star) => (
                             <Star
-                              className={`w-8 h-8 ${
-                                star <= (ratingHover ?? testimonialRating)
+                              key={star}
+                              className={`w-6 h-6 ${
+                                star <= testimonial.rating
                                   ? 'text-amber-400 fill-amber-400'
                                   : 'text-gray-200'
                               }`}
                             />
-                          </button>
-                        ))}
-                        <span className="text-sm text-gray-550 ml-2 font-medium">
-                          {testimonialRating === 5 ? 'Sangat Puas' : 
-                           testimonialRating === 4 ? 'Puas' : 
-                           testimonialRating === 3 ? 'Cukup Baik' : 
-                           testimonialRating === 2 ? 'Perlu Peningkatan' : 'Kurang'}
-                        </span>
+                          ))}
+                        </div>
+                        <p className="text-gray-700 italic leading-relaxed text-base">
+                          "{testimonial.content}"
+                        </p>
+                        <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
+                          <span>Dikirim pada: {new Date(testimonial.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' })}</span>
+                          <span className="font-semibold text-emerald-700">
+                            {testimonial.is_approved ? 'Ditampilkan di Landing Page' : 'Sedang direview admin'}
+                          </span>
+                        </div>
                       </div>
-                    </div>
 
-                    {/* Content Input */}
-                    <div className="space-y-2">
-                      <Label htmlFor="testimonial" className="text-sm font-semibold text-gray-700">Isi Ulasan Testimoni</Label>
-                      <Textarea
-                        id="testimonial"
-                        placeholder="Ceritakan pengalaman berkesan Ukhti selama menghafal di Markaz Tikrar Indonesia..."
-                        rows={6}
-                        value={testimonialContent}
-                        onChange={(e) => setTestimonialContent(e.target.value)}
-                        className="rounded-xl border-gray-200 focus:border-emerald-500 focus:ring-emerald-500 resize-none text-base"
-                      />
-                      <p className="text-xs text-gray-400 leading-relaxed">
-                        Tuliskan ulasan minimal 10 kata yang menceritakan manfaat nyata yang Ukhti rasakan di MTI.
-                      </p>
-                    </div>
-
-                    <div className="flex gap-4">
-                      <UIButton
-                        type="submit"
-                        disabled={savingTestimonial}
-                        className="bg-emerald-800 hover:bg-emerald-700 text-white rounded-xl px-6 py-6 shadow-lg shadow-emerald-100 flex items-center gap-2"
-                      >
-                        {savingTestimonial ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                            Menyimpan...
-                          </>
-                        ) : (
-                          <>
-                            <Send className="w-4 h-4" />
-                            Kirim Testimoni
-                          </>
-                        )}
-                      </UIButton>
-
-                      {testimonial && (
-                        <UIButton
-                          type="button"
-                          variant="ghost"
-                          onClick={() => {
-                            setIsEditingTestimonial(false);
-                            setTestimonialContent(testimonial.content);
-                            setTestimonialRating(testimonial.rating);
-                          }}
-                          className="text-gray-500 hover:bg-gray-150 rounded-xl"
-                        >
-                          Batal
-                        </UIButton>
+                      {testimonial.is_approved && (
+                        <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 flex gap-3 text-emerald-900 text-sm">
+                          <CheckCircle className="w-5 h-5 text-emerald-700 flex-shrink-0 mt-0.5" />
+                          <p>
+                            Jazakumullahu khairan! Testimoni Ukhti telah disetujui dan saat ini tampil di halaman utama Markaz Tikrar Indonesia.
+                          </p>
+                        </div>
                       )}
+
+                      {!testimonial.is_approved && (
+                        <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 flex gap-3 text-amber-900 text-sm">
+                          <Clock className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" />
+                          <p>
+                            Testimoni Ukhti sedang menunggu verifikasi admin sebelum ditampilkan di halaman utama. Namun Ukhti tetap dapat melakukan pendaftaran batch baru.
+                          </p>
+                        </div>
+                      )}
+
+                      <UIButton
+                        onClick={() => setIsEditingTestimonial(true)}
+                        variant="outline"
+                        className="border-emerald-800 text-emerald-800 hover:bg-emerald-50/50 rounded-xl px-6 transition-all"
+                      >
+                        Ubah Testimoni
+                      </UIButton>
                     </div>
-                  </form>
-                )}
-              </CardContent>
-            </Card>
+                  ) : (
+                    /* Edit/New Form */
+                    <form onSubmit={handleSaveTestimonial} className="space-y-6">
+                      {testimonial && (
+                        <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 flex gap-3 text-amber-900 text-sm">
+                          <AlertCircle className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" />
+                          <p>
+                            <strong>Perhatian:</strong> Mengubah testimoni akan mereset status persetujuan testimoni Ukhti ke <strong>pending (belum disetujui)</strong> untuk dicek ulang oleh admin.
+                          </p>
+                        </div>
+                      )}
 
-            {/* List of all testimonials */}
-            <div className="mt-8 space-y-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                  <MessageSquare className="w-5 h-5 text-emerald-800" />
-                  Daftar Testimoni Alumni MTI
-                </h2>
-                <span className="bg-emerald-100 text-emerald-800 text-xs font-bold px-2.5 py-1 rounded-full">
-                  {allTestimonials.length} Testimoni
-                </span>
-              </div>
+                      {/* Star Rating Selector */}
+                      <div className="space-y-2">
+                        <Label className="text-sm font-semibold text-gray-700">Rating Penilaian</Label>
+                        <div className="flex items-center gap-2">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <button
+                              key={star}
+                              type="button"
+                              onClick={() => setTestimonialRating(star)}
+                              onMouseEnter={() => setRatingHover(star)}
+                              onMouseLeave={() => setRatingHover(null)}
+                              className="focus:outline-none transition-transform hover:scale-110"
+                            >
+                              <Star
+                                className={`w-8 h-8 ${
+                                  star <= (ratingHover ?? testimonialRating)
+                                    ? 'text-amber-400 fill-amber-400'
+                                    : 'text-gray-200'
+                                }`}
+                              />
+                            </button>
+                          ))}
+                          <span className="text-sm text-gray-500 ml-2 font-medium">
+                            {testimonialRating === 5 ? 'Sangat Puas' : 
+                             testimonialRating === 4 ? 'Puas' : 
+                             testimonialRating === 3 ? 'Cukup Baik' : 
+                             testimonialRating === 2 ? 'Perlu Peningkatan' : 'Kurang'}
+                          </span>
+                        </div>
+                      </div>
 
-              {loadingAll ? (
-                <div className="bg-white rounded-2xl p-8 text-center border border-gray-100 shadow-md">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-800 mx-auto mb-2"></div>
-                  <p className="text-sm text-gray-550 font-medium">Memuat daftar testimoni...</p>
+                      {/* Content Input */}
+                      <div className="space-y-2">
+                        <Label htmlFor="testimonial" className="text-sm font-semibold text-gray-700">Isi Ulasan Testimoni</Label>
+                        <Textarea
+                          id="testimonial"
+                          placeholder="Ceritakan pengalaman berkesan Ukhti selama menghafal di Markaz Tikrar Indonesia..."
+                          rows={6}
+                          value={testimonialContent}
+                          onChange={(e) => setTestimonialContent(e.target.value)}
+                          className="rounded-xl border-gray-200 focus:border-emerald-500 focus:ring-emerald-500 resize-none text-base"
+                        />
+                        <p className="text-xs text-gray-400 leading-relaxed">
+                          Tuliskan ulasan minimal 10 kata yang menceritakan manfaat nyata yang Ukhti rasakan di MTI.
+                        </p>
+                      </div>
+
+                      <div className="flex gap-4">
+                        <UIButton
+                          type="submit"
+                          disabled={savingTestimonial}
+                          className="bg-emerald-800 hover:bg-emerald-700 text-white rounded-xl px-6 py-6 shadow-lg shadow-emerald-100 flex items-center gap-2"
+                        >
+                          {savingTestimonial ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                              Menyimpan...
+                            </>
+                          ) : (
+                            <>
+                              <Send className="w-4 h-4" />
+                              Kirim Testimoni
+                            </>
+                          )}
+                        </UIButton>
+
+                        {testimonial && (
+                          <UIButton
+                            type="button"
+                            variant="ghost"
+                            onClick={() => {
+                              setIsEditingTestimonial(false);
+                              setTestimonialContent(testimonial.content);
+                              setTestimonialRating(testimonial.rating);
+                            }}
+                            className="text-gray-500 hover:bg-gray-100 rounded-xl"
+                          >
+                            Batal
+                          </UIButton>
+                        )}
+                      </div>
+                    </form>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* List of all testimonials */}
+              <div className="mt-8 space-y-6">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                    <MessageSquare className="w-5 h-5 text-emerald-800" />
+                    Daftar Testimoni Alumni MTI
+                  </h2>
+                  <span className="bg-emerald-100 text-emerald-800 text-xs font-bold px-2.5 py-1 rounded-full">
+                    {allTestimonials.length} Testimoni
+                  </span>
                 </div>
-              ) : allTestimonials.length === 0 ? (
-                <div className="bg-white rounded-2xl p-8 text-center border border-gray-100 shadow-md text-gray-550 text-sm">
-                  Belum ada testimoni alumni yang disetujui.
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {allTestimonials.map((t) => {
-                    const initials = t.user?.full_name
-                      ? t.user.full_name.substring(0, 2).toUpperCase()
-                      : 'HA';
-                    const locationName = t.user?.kota
-                      ? t.user.kota
-                          .toLowerCase()
-                          .split(' ')
-                          .map(w => w.charAt(0).toUpperCase() + w.slice(1))
-                          .join(' ')
-                      : null;
 
-                    return (
-                      <Card key={t.id} className="border-0 shadow-md rounded-2xl overflow-hidden bg-white hover:shadow-lg transition-all duration-300">
-                        <CardContent className="p-6 space-y-4">
-                          {/* Header: User & Rating */}
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-50">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-50 border border-emerald-100/50 text-emerald-700 flex items-center justify-center font-bold text-sm">
-                                {initials}
-                              </div>
-                              <div>
-                                <h4 className="font-bold text-gray-900 text-sm">{t.user?.full_name || 'Hamba Allah'}</h4>
-                                <div className="flex items-center gap-1.5 text-xs text-gray-400 mt-0.5">
-                                  <span>{new Date(t.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' })}</span>
-                                  {locationName && (
-                                    <>
-                                      <span>•</span>
-                                      <span className="text-emerald-700 font-medium">{locationName}</span>
-                                    </>
-                                  )}
+                {loadingAll ? (
+                  <div className="bg-white rounded-2xl p-8 text-center border border-gray-100 shadow-md">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-800 mx-auto mb-2"></div>
+                    <p className="text-sm text-gray-500 font-medium">Memuat daftar testimoni...</p>
+                  </div>
+                ) : allTestimonials.length === 0 ? (
+                  <div className="bg-white rounded-2xl p-8 text-center border border-gray-100 shadow-md text-gray-500 text-sm">
+                    Belum ada testimoni alumni yang disetujui.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {allTestimonials.map((t) => {
+                      const initials = t.user?.full_name
+                        ? t.user.full_name.substring(0, 2).toUpperCase()
+                        : 'HA';
+                      const locationName = t.user?.kota
+                        ? t.user.kota
+                            .toLowerCase()
+                            .split(' ')
+                            .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+                            .join(' ')
+                        : null;
+
+                      return (
+                        <Card key={t.id} className="border-0 shadow-md rounded-2xl overflow-hidden bg-white hover:shadow-lg transition-all duration-300">
+                          <CardContent className="p-6 space-y-4">
+                            {/* Header: User & Rating */}
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-50">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-50 border border-emerald-100/50 text-emerald-700 flex items-center justify-center font-bold text-sm">
+                                  {initials}
+                                </div>
+                                <div>
+                                  <h4 className="font-bold text-gray-900 text-sm">{t.user?.full_name || 'Hamba Allah'}</h4>
+                                  <div className="flex items-center gap-1.5 text-xs text-gray-400 mt-0.5">
+                                    <span>{new Date(t.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' })}</span>
+                                    {locationName && (
+                                      <>
+                                        <span>•</span>
+                                        <span className="text-emerald-700 font-medium">{locationName}</span>
+                                      </>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
+
+                              <div className="flex items-center gap-0.5">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                  <Star
+                                    key={star}
+                                    className={`w-3.5 h-3.5 ${
+                                      star <= t.rating ? 'text-amber-400 fill-amber-400' : 'text-gray-200'
+                                    }`}
+                                  />
+                                ))}
+                              </div>
                             </div>
 
-                            <div className="flex items-center gap-0.5">
-                              {[1, 2, 3, 4, 5].map((star) => (
-                                <Star
-                                  key={star}
-                                  className={`w-3.5 h-3.5 ${
-                                    star <= t.rating ? 'text-amber-400 fill-amber-400' : 'text-gray-200'
-                                  }`}
-                                />
-                              ))}
-                            </div>
-                          </div>
+                            {/* Content */}
+                            <p className="text-gray-700 text-sm italic leading-relaxed">
+                              "{t.content}"
+                            </p>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
 
-                          {/* Content */}
-                          <p className="text-gray-750 text-sm italic leading-relaxed">
-                            "{t.content}"
-                          </p>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-              )}
+            {/* Benefit/FAQ Column */}
+            <div className="space-y-6">
+              <Card className="border-0 shadow-lg bg-emerald-900 text-white rounded-2xl overflow-hidden">
+                <CardContent className="p-6">
+                  <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
+                    <Star className="w-5 h-5 text-amber-400 fill-amber-400" />
+                    Mengapa Testimoni Penting?
+                  </h3>
+                  <ul className="space-y-3.5 text-emerald-100/90 text-sm leading-relaxed">
+                    <li className="flex gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 mt-2 flex-shrink-0" />
+                      Membantu menyebarkan dakwah Al-Qur'an dengan membagikan kisah inspiratif Ukhti.
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 mt-2 flex-shrink-0" />
+                      Membantu tim manajemen MTI mengevaluasi sistem kurikulum dan pengajaran untuk batch selanjutnya.
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 mt-2 flex-shrink-0" />
+                      Menjadi prasyarat pendaftaran batch berikutnya sebagai bukti komitmen kelulusan alumni.
+                    </li>
+                  </ul>
+                </CardContent>
+              </Card>
+
+              <Card className="border-0 shadow-md rounded-2xl bg-white">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-sm font-bold text-gray-900 uppercase tracking-wide">FAQ Testimoni</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 text-xs text-gray-600 leading-relaxed">
+                  <div>
+                    <h4 className="font-semibold text-gray-800 mb-1">Apakah bisa mengubah testimoni?</h4>
+                    <p>Bisa Ukhti. Ukhti dapat menekan tombol "Ubah Testimoni" kapan saja. Pengubahan ulasan akan di-review kembali oleh admin.</p>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-gray-800 mb-1">Apakah semua testimoni dipublikasi?</h4>
+                    <p>Tidak semua. Admin menyaring testimoni demi menjaga kerapian dan keamanan konten dari hal-hal yang kurang pantas.</p>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
-
-          {/* Benefit/FAQ Column */}
-          <div className="space-y-6">
-            <Card className="border-0 shadow-lg bg-emerald-900 text-white rounded-2xl overflow-hidden">
-              <CardContent className="p-6">
-                <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
-                  <Star className="w-5 h-5 text-amber-400 fill-amber-400" />
-                  Mengapa Testimoni Penting?
-                </h3>
-                <ul className="space-y-3.5 text-emerald-100/90 text-sm leading-relaxed">
-                  <li className="flex gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 mt-2 flex-shrink-0" />
-                    Membantu menyebarkan dakwah Al-Qur'an dengan membagikan kisah inspiratif Ukhti.
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 mt-2 flex-shrink-0" />
-                    Membantu tim manajemen MTI mengevaluasi sistem kurikulum dan pengajaran untuk batch selanjutnya.
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 mt-2 flex-shrink-0" />
-                    Menjadi prasyarat pendaftaran batch berikutnya sebagai bukti komitmen kelulusan alumni.
-                  </li>
-                </ul>
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-md rounded-2xl bg-white">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-sm font-bold text-gray-900 uppercase tracking-wide">FAQ Testimoni</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4 text-xs text-gray-650 leading-relaxed">
-                <div>
-                  <h4 className="font-semibold text-gray-800 mb-1">Apakah bisa mengubah testimoni?</h4>
-                  <p>Bisa Ukhti. Ukhti dapat menekan tombol "Ubah Testimoni" kapan saja. Pengubahan ulasan akan di-review kembali oleh admin.</p>
+        ) : (
+          /* Database Alumni Tab (Roadmap / Segera Hadir) */
+          <div className="space-y-8">
+            <Card className="border-0 shadow-xl rounded-3xl overflow-hidden bg-white">
+              <div className="bg-gradient-to-r from-emerald-800 to-teal-800 text-white p-8 sm:p-12 relative overflow-hidden">
+                <div className="absolute right-0 bottom-0 translate-x-8 translate-y-8 w-60 h-60 rounded-full bg-white/10 blur-2xl" />
+                <div className="relative z-10 max-w-2xl">
+                  <span className="inline-block px-3 py-1 bg-white/20 text-emerald-100 font-bold rounded-full text-xs uppercase tracking-wider mb-3">
+                    Modul Database Alumni • Segera Hadir
+                  </span>
+                  <h2 className="text-2xl sm:text-3xl font-black tracking-tight mb-3">
+                    Direktori & Jejaring Alumni Tikrar MTI
+                  </h2>
+                  <p className="text-emerald-100/90 text-sm sm:text-base leading-relaxed">
+                    Fitur database alumni sedang dalam proses pengembangan untuk menghubungkan para hafidzah alumni Markaz Tikrar Indonesia dari berbagai angkatan dan wilayah.
+                  </p>
                 </div>
-                <div>
-                  <h4 className="font-semibold text-gray-800 mb-1">Apakah semua testimoni dipublikasi?</h4>
-                  <p>Tidak semua. Admin menyaring testimoni demi menjaga kerapian dan keamanan konten dari hal-hal yang kurang pantas.</p>
+              </div>
+
+              <CardContent className="p-6 sm:p-10 space-y-8">
+                {/* Feature preview cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="p-6 rounded-2xl bg-emerald-50/60 border border-emerald-100/80 space-y-3">
+                    <div className="w-12 h-12 rounded-xl bg-emerald-600 text-white flex items-center justify-center">
+                      <Users className="w-6 h-6" />
+                    </div>
+                    <h4 className="font-bold text-gray-900 text-base">Direktori per Angkatan</h4>
+                    <p className="text-xs text-gray-600 leading-relaxed">
+                      Pencarian data wisudawati berdasarkan batch, program hafalan (Juz 29A/B, 28, 30), dan tahun kelulusan.
+                    </p>
+                  </div>
+
+                  <div className="p-6 rounded-2xl bg-teal-50/60 border border-teal-100/80 space-y-3">
+                    <div className="w-12 h-12 rounded-xl bg-teal-600 text-white flex items-center justify-center">
+                      <MapPin className="w-6 h-6" />
+                    </div>
+                    <h4 className="font-bold text-gray-900 text-base">Sebaran Wilayah Alumni</h4>
+                    <p className="text-xs text-gray-600 leading-relaxed">
+                      Peta jejaring alumni per kota/provinsi untuk memudahkan silaturahmi luring, daurah lokal, dan kegiatan sosial.
+                    </p>
+                  </div>
+
+                  <div className="p-6 rounded-2xl bg-blue-50/60 border border-blue-100/80 space-y-3">
+                    <div className="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center">
+                      <GraduationCap className="w-6 h-6" />
+                    </div>
+                    <h4 className="font-bold text-gray-900 text-base">Verifikasi Syahadah</h4>
+                    <p className="text-xs text-gray-600 leading-relaxed">
+                      Nomor sertifikat dan barcode digital resmi untuk membuktikan keaslian syahadah kelulusan santri Tikrar MTI.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Status Notice */}
+                <div className="rounded-2xl border border-gray-200 bg-gray-50/60 p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <h5 className="font-bold text-gray-900 text-sm">Status Kelulusan Ukhti Tersimpan</h5>
+                    <p className="text-xs text-gray-500">
+                      Seluruh riwayat hafalan dan sertifikat kelulusan Ukhti telah tercatat otomatis di server Markaz Tikrar Indonesia.
+                    </p>
+                  </div>
+                  <Link href="/kelulusan-sertifikat">
+                    <UIButton variant="outline" className="border-emerald-700 text-emerald-800 hover:bg-emerald-50 rounded-xl text-xs font-bold shrink-0">
+                      Lihat Syahadah Saya
+                    </UIButton>
+                  </Link>
                 </div>
               </CardContent>
             </Card>
           </div>
-        </div>
         )}
       </div>
     </div>

@@ -139,6 +139,8 @@ export default function GlobalAuthenticatedHeader({
       '/tashih': 'Tashih Bacaan',
       '/perjalanan-saya': 'Perjalanan Saya',
       '/ujian': 'Ujian',
+      '/murojaah': "Muraja'ah 40x",
+      '/murajaah': "Muraja'ah 40x",
       '/alumni': 'Ruang Alumni',
       '/statistik': 'Statistik',
       '/infaq-donasi': 'Infaq & Donasi',
@@ -198,6 +200,8 @@ export default function GlobalAuthenticatedHeader({
       breadcrumbs.push({ label: 'Perjalanan Saya', href: '/perjalanan-saya' });
     } else if (pathname === '/ujian') {
       breadcrumbs.push({ label: 'Ujian', href: '/ujian' });
+    } else if (pathname.startsWith('/murojaah') || pathname.startsWith('/murajaah')) {
+      breadcrumbs.push({ label: "Muraja'ah 40x", href: '/murojaah' });
     } else if (pathname === '/alumni') {
       breadcrumbs.push({ label: 'Ruang Alumni', href: '/alumni' });
     } else if (pathname.startsWith('/statistik')) {
