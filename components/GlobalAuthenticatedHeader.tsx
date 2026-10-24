@@ -138,6 +138,8 @@ export default function GlobalAuthenticatedHeader({
       '/jurnal-harian': 'Jurnal Harian',
       '/tashih': 'Tashih Bacaan',
       '/perjalanan-saya': 'Perjalanan Saya',
+      '/sit-in': 'Sit-In Kelas',
+      '/kelulusan-sertifikat': 'Sertifikat',
       '/ujian': 'Ujian',
       '/murojaah': "Muraja'ah 40x",
       '/murajaah': "Muraja'ah 40x",
@@ -196,6 +198,8 @@ export default function GlobalAuthenticatedHeader({
       breadcrumbs.push({ label: 'Jurnal Harian', href: '/jurnal-harian' });
     } else if (pathname === '/tashih') {
       breadcrumbs.push({ label: 'Tashih Bacaan', href: '/tashih' });
+    } else if (pathname === '/sit-in') {
+      breadcrumbs.push({ label: 'Sit-In Kelas', href: '/sit-in' });
     } else if (pathname === '/perjalanan-saya') {
       breadcrumbs.push({ label: 'Perjalanan Saya', href: '/perjalanan-saya' });
     } else if (pathname === '/ujian') {

@@ -7,22 +7,22 @@ import { useActiveBatch } from '@/hooks/useBatches';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { formatTimeShort } from '@/lib/reminder-generator';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 import { 
   Loader2, 
   Video, 
   CheckCircle2, 
   Copy, 
   AlertCircle, 
-  ArrowLeft, 
   Calendar, 
   Users, 
   Info, 
   Clock, 
   ArrowRightLeft,
-  Sparkles
+  Sparkles,
+  BookOpen
 } from 'lucide-react';
-import Link from 'next/link';
+import { cn } from '@/lib/utils';
 
 const DAYS = ['Ahad', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Ahad'];
 
@@ -230,139 +230,179 @@ export default function SitInPage() {
   const activeZoom = currentSitIn ? registeredZoom[currentSitIn] : null;
 
   return (
-    <div className="min-h-screen bg-gray-50/50 pb-24">
-      {/* Header Banner */}
-      <div className="bg-white border-b border-gray-100 mb-8 sticky top-0 z-20 shadow-sm">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
-          <div className="flex items-center gap-4">
-            <Link
-              href="/dashboard"
-              className="p-2.5 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-all border border-transparent hover:border-gray-200"
-              title="Kembali ke Dashboard"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
-            <div>
-              <div className="flex items-center gap-2 text-[10px] font-bold text-rose-600 uppercase tracking-[0.2em] mb-1">
-                <ArrowRightLeft className="h-3 w-3" />
-                <span>Kelas Pengganti</span>
-              </div>
-              <h1 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight flex items-center gap-3">
-                Sit-In Halaqah
-                <span className="px-2.5 py-0.5 rounded-lg bg-rose-50 text-rose-700 text-xs font-bold border border-rose-100">
-                  {activeBatch?.name || 'Batch Aktif'}
-                </span>
-              </h1>
-            </div>
+    <div className="max-w-2xl mx-auto px-4 py-8 space-y-6 animate-fadeInUp pb-24">
+      {/* 1. Header Halaman (Standar Jurnal Harian) */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-black text-gray-900 tracking-tight flex items-center gap-2">
+              Sit-In Kelas Pengganti
+              <Sparkles className="w-4 h-4 text-amber-500" />
+            </h1>
+            <p className="text-gray-700 text-[10px] font-black uppercase tracking-widest leading-none mt-1">
+              {activeBatch?.name || 'Tikrar Tahfidz MTI'}
+            </p>
           </div>
-        </div>
-      </div>
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-        {/* Info Card */}
-        <div className="bg-gradient-to-r from-rose-500/10 via-pink-500/5 to-purple-500/10 border border-rose-200/60 rounded-2xl p-5 shadow-sm">
-          <div className="flex items-start gap-3.5">
-            <div className="w-9 h-9 rounded-xl bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-rose-200">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-bold text-gray-900 text-sm sm:text-base">Apa itu Sit-In?</h3>
-              <p className="text-xs sm:text-sm text-gray-600 mt-1 leading-relaxed">
-                Sit-In adalah fasilitas bagi Ukhti yang <strong>berhalangan hadir di kelas/halaqah utama pekan ini</strong> untuk menumpang belajar dan menyetor hafalan di jadwal kelas lain yang masih memiliki kuota kosong.
-              </p>
-              <div className="flex flex-wrap gap-2 mt-3 text-[11px] font-semibold text-rose-800">
-                <span className="bg-rose-100/70 px-2.5 py-1 rounded-lg">✨ Berlaku untuk pekan berjalan</span>
-                <span className="bg-rose-100/70 px-2.5 py-1 rounded-lg">📌 Link Zoom langsung aktif saat terdaftar</span>
-                <span className="bg-rose-100/70 px-2.5 py-1 rounded-lg">🔄 Bisa ganti kelas atau batalkan kapan saja</span>
-              </div>
-            </div>
+          <div className="flex items-center gap-1.5 bg-rose-50 border border-rose-200 text-rose-700 px-3 py-1.5 rounded-2xl shadow-sm">
+            <span className="text-xs">🌸</span>
+            <span className="text-xs font-black uppercase tracking-wider">
+              {currentSitIn ? 'Terdaftar' : 'Pekan Berjalan'}
+            </span>
           </div>
         </div>
 
-        {/* Current Active Sit-In Banner (If registered) */}
-        {currentSitIn && (
-          <div className="bg-gradient-to-br from-emerald-900 to-teal-800 text-white rounded-3xl p-6 shadow-xl relative overflow-hidden">
-            <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-              <div className="space-y-2">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/30 text-xs font-bold uppercase tracking-wider">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
+        {/* 2. Hero Status Card (Gradien Hijau Tua Elegan) */}
+        {currentSitIn ? (
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-green-900 to-green-800 p-4 sm:p-5 text-white shadow-lg border border-white/10">
+            <div className="relative z-10 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/30 text-[10px] font-black uppercase tracking-wider">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-300" />
                   Terdaftar Sit-In Pekan Ini
                 </div>
-                <h2 className="text-2xl font-black tracking-tight text-white">
+                <span className="text-[10px] font-bold text-green-200/60 uppercase tracking-widest">
+                  Aktif
+                </span>
+              </div>
+
+              <div>
+                <h2 className="text-base sm:text-lg font-bold text-white tracking-wide">
                   {currentSitInName || activeSitInHalaqah?.name || 'Halaqah Sit-In'}
                 </h2>
                 {activeSitInHalaqah && (
-                  <p className="text-sm text-emerald-100 flex items-center gap-2">
+                  <p className="text-green-100/70 text-xs mt-0.5 flex flex-wrap items-center gap-1.5">
                     <span>{DAYS[activeSitInHalaqah.day_of_week || 1]}</span>
                     <span>•</span>
                     <span>{formatTimeShort(activeSitInHalaqah.start_time)} WIB</span>
                     <span>•</span>
-                    <span>Ustadzah: {activeSitInHalaqah.muallimah?.nama_kunyah || activeSitInHalaqah.muallimah?.full_name || '-'}</span>
+                    <span>Mu'allimah: {activeSitInHalaqah.muallimah?.nama_kunyah || activeSitInHalaqah.muallimah?.full_name || '-'}</span>
                   </p>
                 )}
               </div>
 
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
-                {activeZoom?.url ? (
-                  <>
-                    <Button
-                      onClick={() => window.open(activeZoom.url, '_blank')}
-                      className="bg-white hover:bg-emerald-50 text-emerald-900 font-black shadow-md rounded-xl"
-                    >
-                      <Video className="w-4 h-4 mr-2 text-emerald-600" />
-                      Buka Zoom
-                    </Button>
-                    <Button
-                      onClick={() => handleCopyLink(activeZoom.url!)}
-                      variant="outline"
-                      className="bg-white/10 hover:bg-white/20 text-white border-white/20 rounded-xl"
-                    >
-                      <Copy className="w-4 h-4 mr-1.5" />
-                      Salin Link
-                    </Button>
-                  </>
-                ) : (
-                  <span className="text-xs text-emerald-200 italic bg-white/10 px-3 py-2 rounded-xl">
-                    Link Zoom akan diberikan oleh Musyrifah
-                  </span>
+              <div className="pt-2 border-t border-white/10 flex flex-wrap items-center gap-2">
+                {activeZoom?.url && (
+                  <Button
+                    size="sm"
+                    onClick={() => window.open(activeZoom.url, '_blank')}
+                    className="bg-white hover:bg-emerald-50 text-emerald-950 font-black rounded-xl text-xs shadow-sm"
+                  >
+                    <Video className="w-3.5 h-3.5 mr-1 text-emerald-700" />
+                    Buka Zoom
+                  </Button>
+                )}
+                {activeZoom?.url && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleCopyLink(activeZoom.url!)}
+                    className="bg-white/10 hover:bg-white/20 text-white border-white/20 rounded-xl text-xs font-semibold"
+                  >
+                    <Copy className="w-3.5 h-3.5 mr-1" />
+                    Salin Link
+                  </Button>
                 )}
                 <Button
-                  onClick={handleCancelSitIn}
+                  size="sm"
                   variant="outline"
-                  className="bg-red-500/20 hover:bg-red-500/30 text-red-100 border-red-300/30 rounded-xl font-semibold"
+                  onClick={handleCancelSitIn}
+                  className="bg-red-500/20 hover:bg-red-500/30 text-red-100 border-red-300/30 rounded-xl text-xs font-semibold ml-auto"
                 >
                   Batalkan
                 </Button>
               </div>
+
+              {(activeZoom?.meeting_id || activeZoom?.passcode) && (
+                <div className="pt-1 text-[11px] text-green-100/70 flex flex-wrap gap-3 font-mono">
+                  {activeZoom.meeting_id && (
+                    <span>ID: <strong className="text-white font-mono">{activeZoom.meeting_id}</strong></span>
+                  )}
+                  {activeZoom.passcode && (
+                    <span>Passcode: <strong className="text-white font-mono">{activeZoom.passcode}</strong></span>
+                  )}
+                </div>
+              )}
             </div>
 
-            {(activeZoom?.meeting_id || activeZoom?.passcode) && (
-              <div className="mt-4 pt-4 border-t border-white/10 flex flex-wrap gap-4 text-xs text-emerald-200">
-                {activeZoom.meeting_id && (
-                  <span>Meeting ID: <strong className="text-white font-mono">{activeZoom.meeting_id}</strong></span>
-                )}
-                {activeZoom.passcode && (
-                  <span>Passcode: <strong className="text-white font-mono">{activeZoom.passcode}</strong></span>
-                )}
+            {/* Subtle glow */}
+            <div className="absolute top-0 right-0 -mt-8 -mr-8 w-24 h-24 bg-yellow-400/5 rounded-full blur-2xl" />
+            <div className="absolute bottom-0 left-0 -mb-8 -ml-8 w-24 h-24 bg-green-400/5 rounded-full blur-2xl" />
+          </div>
+        ) : (
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-green-900 to-green-800 p-4 text-white shadow-lg border border-white/10">
+            <div className="relative z-10 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-inner">
+                  <ArrowRightLeft className="w-5 h-5 text-green-200" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-bold text-white tracking-wide">
+                    Status Sit-In Pekan Ini
+                  </h2>
+                  <p className="text-green-100/70 text-[10px] font-black uppercase tracking-tighter">
+                    Belum Terdaftar di Kelas Pengganti
+                  </p>
+                </div>
               </div>
-            )}
+              <div className="text-right">
+                <span className="text-[10px] font-black uppercase tracking-wider bg-white/15 text-green-100 px-2.5 py-1 rounded-lg border border-white/10">
+                  Tersedia {availableHalaqahs.length} Kelas
+                </span>
+              </div>
+            </div>
+
+            {/* Decorative subtle glows */}
+            <div className="absolute top-0 right-0 -mt-8 -mr-8 w-24 h-24 bg-yellow-400/5 rounded-full blur-2xl" />
+            <div className="absolute bottom-0 left-0 -mb-8 -ml-8 w-24 h-24 bg-green-400/5 rounded-full blur-2xl" />
           </div>
         )}
+      </div>
 
-        {/* Day Filter Pills */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
-          <span className="text-xs font-bold text-gray-500 uppercase tracking-wider shrink-0 mr-1">
-            Hari:
+      {/* 3. Banner Edukasi Ringkas (Gaya Banner Jadwal Jurnal Harian) */}
+      <div className="p-3.5 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-100/80 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-sm">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+            <Info className="w-3.5 h-3.5" />
+          </div>
+          <div>
+            <p className="text-xs font-black text-gray-900 leading-tight">
+              Fasilitas Izin & Sit-In Santri
+            </p>
+            <p className="text-[10px] text-gray-500 font-medium mt-0.5">
+              Berhalangan hadir di kelas utama pekan ini? Silakan pilih jadwal kelas pengganti di bawah.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5 self-start sm:self-auto shrink-0">
+          <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100/90 px-2 py-0.5 rounded-md border border-emerald-200">
+            Pekan Berjalan
           </span>
+        </div>
+      </div>
+
+      {/* 4. Filter Hari */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-black uppercase tracking-wider text-gray-500">
+            Pilih Hari Kelas:
+          </span>
+          <span className="text-[10px] text-gray-400 font-bold">
+            {filteredHalaqahs.length} Jadwal
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
           <button
+            type="button"
             onClick={() => setSelectedDay('all')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
+            className={cn(
+              "px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer shadow-sm",
               selectedDay === 'all'
-                ? 'bg-rose-600 text-white shadow-sm'
-                : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
-            }`}
+                ? "bg-green-900 text-white"
+                : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-100"
+            )}
           >
-            Semua Hari ({availableHalaqahs.length})
+            Semua ({availableHalaqahs.length})
           </button>
           {[1, 2, 3, 4, 5, 6, 7].map(dayNum => {
             const count = availableHalaqahs.filter(h => h.day_of_week === dayNum).length;
@@ -370,147 +410,145 @@ export default function SitInPage() {
             return (
               <button
                 key={dayNum}
+                type="button"
                 onClick={() => setSelectedDay(dayNum)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
+                className={cn(
+                  "px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer shadow-sm",
                   selectedDay === dayNum
-                    ? 'bg-rose-600 text-white shadow-sm'
-                    : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
-                }`}
+                    ? "bg-green-900 text-white"
+                    : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-100"
+                )}
               >
                 {DAYS[dayNum]} ({count})
               </button>
             );
           })}
         </div>
+      </div>
 
-        {/* Halaqah List */}
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-16 gap-3">
-            <Loader2 className="w-8 h-8 animate-spin text-rose-500" />
-            <p className="text-xs font-semibold text-gray-500">Memuat kuota kelas halaqah...</p>
-          </div>
-        ) : filteredHalaqahs.length === 0 ? (
-          <div className="text-center py-16 bg-white rounded-2xl border border-gray-200 p-8 space-y-2">
-            <p className="text-base font-bold text-gray-700">Tidak ada jadwal kelas tersedia</p>
-            <p className="text-xs text-gray-500">
-              Belum ada halaqah yang dibuka untuk hari ini atau seluruh kuota sedang penuh.
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredHalaqahs.map(halaqah => {
-              const activeCount = halaqah.activeCount || 0;
-              const maxQuota = halaqah.max_students || 999;
-              const isFull = activeCount >= maxQuota;
-              const isCurrent = currentSitIn === halaqah.id;
-              const zoomInfo = registeredZoom[halaqah.id];
-              const remaining = Math.max(0, maxQuota - activeCount);
+      {/* 5. Daftar Kelas Halaqah (Standar Card Jurnal Harian) */}
+      {loading ? (
+        <div className="flex flex-col items-center justify-center py-16 gap-3">
+          <Loader2 className="w-8 h-8 animate-spin text-green-900" />
+          <p className="text-xs font-semibold text-gray-500">Memuat kuota kelas halaqah...</p>
+        </div>
+      ) : filteredHalaqahs.length === 0 ? (
+        <div className="text-center py-12 bg-white rounded-2xl border border-gray-100 p-8 space-y-2 shadow-sm">
+          <p className="text-sm font-bold text-gray-700">Tidak ada jadwal kelas tersedia</p>
+          <p className="text-xs text-gray-500 max-w-sm mx-auto">
+            Belum ada halaqah yang dibuka untuk hari ini atau seluruh kuota sedang penuh.
+          </p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2.5">
+          {filteredHalaqahs.map(halaqah => {
+            const activeCount = halaqah.activeCount || 0;
+            const maxQuota = halaqah.max_students || 999;
+            const isFull = activeCount >= maxQuota;
+            const isCurrent = currentSitIn === halaqah.id;
+            const zoomInfo = registeredZoom[halaqah.id];
+            const remaining = Math.max(0, maxQuota - activeCount);
 
-              return (
-                <Card 
-                  key={halaqah.id}
-                  className={`rounded-2xl border transition-all overflow-hidden ${
-                    isCurrent 
-                      ? 'ring-2 ring-emerald-500 border-emerald-300 bg-emerald-50/20 shadow-md' 
-                      : isFull 
-                        ? 'bg-gray-50/80 border-gray-200 opacity-60' 
-                        : 'bg-white border-gray-200/80 hover:border-rose-200 hover:shadow-md'
-                  }`}
-                >
-                  <CardContent className="p-5 flex flex-col justify-between h-full space-y-4">
-                    <div>
-                      {/* Top Badges */}
-                      <div className="flex items-center justify-between gap-2 mb-2">
-                        <div className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-700 bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-100">
-                          <Calendar className="w-3.5 h-3.5" />
-                          <span>{DAYS[halaqah.day_of_week || 1]}</span>
-                          <span>•</span>
-                          <span>{formatTimeShort(halaqah.start_time)} WIB</span>
-                        </div>
-                        {isCurrent ? (
-                          <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full border border-emerald-200">
-                            Terdaftar
-                          </span>
-                        ) : isFull ? (
-                          <span className="text-[10px] font-black uppercase tracking-wider bg-red-100 text-red-700 px-2.5 py-1 rounded-full">
-                            Penuh
-                          </span>
-                        ) : (
-                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                            Sisa {remaining} Kursi
-                          </span>
-                        )}
-                      </div>
+            return (
+              <Card 
+                key={halaqah.id}
+                className={cn(
+                  "rounded-2xl border shadow-sm transition-all overflow-hidden p-4",
+                  isCurrent 
+                    ? "ring-1 ring-emerald-400 border-emerald-300 bg-emerald-50/30" 
+                    : isFull 
+                      ? "bg-gray-50/80 border-gray-200 opacity-60" 
+                      : "bg-white border-gray-100 hover:border-green-200"
+                )}
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="space-y-1.5 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                        <Calendar className="w-3 h-3 text-emerald-600" />
+                        <span>{DAYS[halaqah.day_of_week || 1]}</span>
+                        <span>•</span>
+                        <span>{formatTimeShort(halaqah.start_time)} WIB</span>
+                      </span>
 
-                      {/* Halaqah Name */}
-                      <h3 className="font-black text-gray-900 text-base leading-snug">
-                        {halaqah.name}
-                      </h3>
-
-                      {/* Details */}
-                      <div className="mt-2.5 space-y-1 text-xs text-gray-600">
-                        <p className="flex items-center gap-1.5">
-                          <span className="text-gray-400">Pengajar:</span>
-                          <strong className="text-gray-800">
-                            {halaqah.muallimah?.nama_kunyah || halaqah.muallimah?.full_name || 'Menunggu Penugasan'}
-                          </strong>
-                        </p>
-                        <p className="flex items-center gap-1.5">
-                          <span className="text-gray-400">Kapasitas:</span>
-                          <span>{activeCount} / {maxQuota} santri</span>
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Action Button */}
-                    <div className="pt-2 border-t border-gray-100">
                       {isCurrent ? (
-                        <div className="flex items-center gap-2">
-                          {zoomInfo?.url && (
-                            <Button
-                              size="sm"
-                              onClick={() => window.open(zoomInfo.url, '_blank')}
-                              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs"
-                            >
-                              <Video className="w-3.5 h-3.5 mr-1.5" />
-                              Masuk Zoom
-                            </Button>
-                          )}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={handleCancelSitIn}
-                            className="text-red-600 border-red-200 hover:bg-red-50 text-xs font-semibold rounded-xl"
-                          >
-                            Batal
-                          </Button>
-                        </div>
+                        <span className="text-[9px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md border border-emerald-200">
+                          Terdaftar
+                        </span>
+                      ) : isFull ? (
+                        <span className="text-[9px] font-black uppercase tracking-wider bg-gray-200 text-gray-600 px-2 py-0.5 rounded-md">
+                          Penuh
+                        </span>
                       ) : (
-                        <Button
-                          onClick={() => handleRegisterSitIn(halaqah.id)}
-                          disabled={isFull || registeringId === halaqah.id}
-                          className={`w-full rounded-xl font-bold text-xs transition-all ${
-                            isFull 
-                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-                              : 'bg-rose-600 hover:bg-rose-700 text-white shadow-sm'
-                          }`}
-                        >
-                          {registeringId === halaqah.id ? (
-                            <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                          ) : (
-                            <ArrowRightLeft className="w-3.5 h-3.5 mr-1.5" />
-                          )}
-                          {isFull ? 'Kuota Penuh' : 'Daftar Sit-In di Kelas Ini'}
-                        </Button>
+                        <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                          Sisa {remaining} Kursi
+                        </span>
                       )}
                     </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        )}
-      </div>
+
+                    <h3 className="font-bold text-gray-900 text-sm">
+                      {halaqah.name}
+                    </h3>
+
+                    <div className="text-xs text-gray-500 flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <span className="flex items-center gap-1">
+                        <Users className="w-3.5 h-3.5 text-gray-400" />
+                        Mu'allimah: <strong className="text-gray-700 font-semibold">{halaqah.muallimah?.nama_kunyah || halaqah.muallimah?.full_name || 'Menunggu Penugasan'}</strong>
+                      </span>
+                      <span>•</span>
+                      <span>Kapasitas: {activeCount} / {maxQuota} santri</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 self-end sm:self-center shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-100 w-full sm:w-auto">
+                    {isCurrent ? (
+                      <div className="flex items-center gap-2 w-full sm:w-auto">
+                        {zoomInfo?.url && (
+                          <Button
+                            size="sm"
+                            onClick={() => window.open(zoomInfo.url, '_blank')}
+                            className="flex-1 sm:flex-initial bg-green-900 hover:bg-green-800 text-white font-bold rounded-xl text-xs"
+                          >
+                            <Video className="w-3.5 h-3.5 mr-1.5" />
+                            Zoom
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={handleCancelSitIn}
+                          className="text-red-600 border-red-200 hover:bg-red-50 text-xs font-semibold rounded-xl"
+                        >
+                          Batal
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        size="sm"
+                        onClick={() => handleRegisterSitIn(halaqah.id)}
+                        disabled={isFull || registeringId === halaqah.id}
+                        className={cn(
+                          "w-full sm:w-auto rounded-xl font-bold text-xs transition-all",
+                          isFull 
+                            ? "bg-gray-100 text-gray-400 cursor-not-allowed" 
+                            : "bg-green-900 hover:bg-green-800 text-white shadow-sm"
+                        )}
+                      >
+                        {registeringId === halaqah.id ? (
+                          <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                        ) : (
+                          <ArrowRightLeft className="w-3.5 h-3.5 mr-1.5" />
+                        )}
+                        {isFull ? 'Penuh' : 'Daftar'}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
