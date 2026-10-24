@@ -43,11 +43,8 @@ echo "Step 4: Ensuring Production .env.local on VPS..."
 if [ -f ".env.production" ]; then
   echo "Syncing .env.production to VPS .env.local..."
   scp .env.production ${VPS_USER}@${VPS_HOST}:${REMOTE_PATH}/.env.local
-elif [ -f ".env.local" ]; then
-  echo "Syncing local .env.local to VPS..."
-  scp .env.local ${VPS_USER}@${VPS_HOST}:${REMOTE_PATH}/.env.local
 else
-  echo "Preserving existing .env.local on VPS..."
+  echo "Preserving existing .env.local on VPS (preventing local tunnel overwrite)..."
 fi
 
 # 5. Set Permissions, Install Dependencies & Restart Services
