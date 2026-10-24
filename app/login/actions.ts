@@ -1,6 +1,14 @@
 'use server'
 
 import { revalidatePath } from 'next/cache';
+import { headers } from 'next/headers';
+import {
+  authRateLimit,
+  checkRateLimit,
+  getClientIPFromHeaders,
+  loginEmailRateLimit,
+  LOGIN_EMAIL_LIMIT,
+} from '@/lib/rate-limiter';
 import {
   loginWithEmailPassword,
   createSessionToken,
@@ -18,6 +26,19 @@ export async function loginAction(formData: {
 
     if (!cleanEmail || !password) {
       return { success: false, error: 'Email dan password harus diisi' };
+    }
+
+    // Rate limit per IP and per account before touching the password hash
+    const ip = getClientIPFromHeaders(await headers());
+    const [ipRate, emailRate] = await Promise.all([
+      checkRateLimit(`login-ip:${ip}`, authRateLimit, 'loginAction'),
+      checkRateLimit(`login-email:${cleanEmail}`, loginEmailRateLimit, 'loginAction', LOGIN_EMAIL_LIMIT),
+    ]);
+    if (!ipRate.success || !emailRate.success) {
+      return {
+        success: false,
+        error: 'Terlalu banyak percobaan login. Silakan tunggu beberapa menit lalu coba lagi.'
+      };
     }
 
     const authResult = await loginWithEmailPassword(cleanEmail, password);

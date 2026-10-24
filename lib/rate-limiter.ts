@@ -36,6 +36,15 @@ export const authRateLimit = redis ? new Ratelimit({
   analytics: true,
 }) : null;
 
+// Per-account login attempts (keyed by email) — slows down password guessing
+export const LOGIN_EMAIL_LIMIT = { max: 10, windowSec: 15 * 60 };
+export const loginEmailRateLimit = redis ? new Ratelimit({
+  redis: redis,
+  limiter: Ratelimit.slidingWindow(LOGIN_EMAIL_LIMIT.max, `${LOGIN_EMAIL_LIMIT.windowSec} s`),
+  analytics: true,
+  prefix: 'ratelimit:login-email',
+}) : null;
+
 // For general API endpoints
 export const generalApiRateLimit = redis ? new Ratelimit({
   redis: redis,
@@ -57,8 +66,15 @@ function checkInMemoryLimit(
   max: number
 ): { success: boolean; limit: number; remaining: number; reset: number } {
   const now = Date.now();
-  const key = identifier;
+  const key = `${identifier}:${window}:${max}`;
   const record = inMemoryCache.get(key);
+
+  // Keep the fallback map from growing forever
+  if (inMemoryCache.size > 10_000) {
+    inMemoryCache.forEach((v, k) => {
+      if (now - v.timestamp > 60 * 60 * 1000) inMemoryCache.delete(k);
+    });
+  }
 
   if (!record || now - record.timestamp > window * 1000) {
     inMemoryCache.set(key, { count: 1, timestamp: now });
@@ -92,7 +108,8 @@ function checkInMemoryLimit(
 export async function checkRateLimit(
   identifier: string,
   limiter: Ratelimit | null,
-  endpoint?: string
+  endpoint?: string,
+  fallback: { windowSec: number; max: number } = { windowSec: 120, max: 200 }
 ): Promise<{ success: boolean; limit: number; remaining: number; reset: number }> {
   let result;
 
@@ -100,10 +117,9 @@ export async function checkRateLimit(
     // Use Redis rate limiter
     result = await limiter.limit(identifier);
   } else {
-    // Use in-memory fallback
-    const window = 120; // 2-minute window for shared IP tolerance
-    const max = 200; // Generous limit for in-memory mode
-    result = checkInMemoryLimit(identifier, window, max);
+    // In-memory fallback (per process). Defaults are generous for shared IPs;
+    // per-account limits pass their own stricter window.
+    result = checkInMemoryLimit(identifier, fallback.windowSec, fallback.max);
   }
 
   // Log rate limit exceeded events
@@ -126,13 +142,18 @@ export async function checkRateLimit(
 
 // Get client IP from request
 export function getClientIP(request: Request): string {
+  return getClientIPFromHeaders(request.headers);
+}
+
+// Get client IP from a Headers object (e.g. next/headers in server actions)
+export function getClientIPFromHeaders(headers: Headers): string {
   // Try to get IP from various headers
-  const forwarded = request.headers.get("x-forwarded-for");
-  const realIP = request.headers.get("x-real-ip");
-  const ip = request.headers.get("x-client-ip");
+  const forwarded = headers.get("x-forwarded-for");
+  const realIP = headers.get("x-real-ip");
+  const ip = headers.get("x-client-ip");
 
   if (forwarded) {
-    return forwarded.split(",")[0];
+    return forwarded.split(",")[0].trim();
   }
 
   if (realIP) {

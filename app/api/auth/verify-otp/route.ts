@@ -5,6 +5,8 @@ import { logger } from '@/lib/logger-secure';
 import { authRateLimit, checkRateLimit, getClientIP } from '@/lib/rate-limiter';
 
 const MAX_FAILED_ATTEMPTS = 5;
+// Wrong guesses allowed per email per hour across all codes
+const MAX_FAILED_PER_HOUR = 10;
 
 /**
  * Step 2 of password reset: check the OTP and, on success, hand back a
@@ -22,25 +24,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Email dan kode diperlukan' }, { status: 400 });
     }
     const normalizedEmail = email.toLowerCase().trim();
+    const submittedCode = code.replace(/\s/g, '');
 
-    // Atomically consume the code so it can't be used twice
-    const { rows } = await query(
-      `UPDATE password_reset_otps SET used = true, updated_at = NOW()
-        WHERE email = $1 AND code = $2 AND used = false AND expires_at > NOW()
-        RETURNING id`,
-      [normalizedEmail, code.replace(/\s/g, '')]
+    // Per-email cap on wrong guesses across all codes (independent of client IP)
+    const { rows: [failures] } = await query(
+      `SELECT COALESCE(SUM(failed_attempts), 0) AS total
+         FROM password_reset_otps
+        WHERE email = $1 AND created_at > NOW() - INTERVAL '1 hour'`,
+      [normalizedEmail]
+    );
+    if (Number(failures?.total) >= MAX_FAILED_PER_HOUR) {
+      return NextResponse.json({ error: 'Terlalu banyak percobaan. Coba lagi nanti.' }, { status: 429 });
+    }
+
+    // Check-and-count in ONE statement on the active code. The row lock taken by
+    // UPDATE serializes parallel guesses, so no more than MAX_FAILED_ATTEMPTS
+    // wrong guesses can ever be evaluated against a single code.
+    const { rows: attempts } = await query(
+      `UPDATE password_reset_otps
+          SET failed_attempts = failed_attempts + CASE WHEN code = $2 THEN 0 ELSE 1 END,
+              used = CASE WHEN code = $2 THEN true ELSE (failed_attempts + 1 >= $3) END,
+              updated_at = NOW()
+        WHERE email = $1 AND used = false AND expires_at > NOW()
+        RETURNING (code = $2) AS matched, used`,
+      [normalizedEmail, submittedCode, MAX_FAILED_ATTEMPTS]
     );
 
-    if (rows.length === 0) {
-      // Brute-force guard: burn the active code after too many wrong guesses
-      const { rows: [active] } = await query(
-        `UPDATE password_reset_otps SET failed_attempts = failed_attempts + 1,
-                used = (failed_attempts + 1 >= $2), updated_at = NOW()
-          WHERE email = $1 AND used = false AND expires_at > NOW()
-          RETURNING used`,
-        [normalizedEmail, MAX_FAILED_ATTEMPTS]
-      );
-      const locked = active?.used === true;
+    if (!attempts.some((a: { matched: boolean }) => a.matched)) {
+      const locked = attempts.length > 0 && attempts.every((a: { used: boolean }) => a.used);
       return NextResponse.json(
         { error: locked ? 'Terlalu banyak kode salah. Silakan minta kode baru.' : 'Kode tidak valid atau sudah kadaluarsa' },
         { status: 400 }

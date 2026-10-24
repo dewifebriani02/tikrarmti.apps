@@ -7,6 +7,8 @@ import { authRateLimit, checkRateLimit, getClientIP } from '@/lib/rate-limiter';
 
 const OTP_TTL_MINUTES = 15;
 const RESEND_COOLDOWN_SECONDS = 60;
+const MAX_CODES_PER_HOUR = 5;
+const MAX_CODES_PER_DAY = 10;
 
 const GENERIC_RESPONSE = {
   success: true,
@@ -40,14 +42,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(GENERIC_RESPONSE);
     }
 
-    // Per-email cooldown so the endpoint can't be used to spam an inbox
-    const { rows: recent } = await query(
-      `SELECT 1 FROM password_reset_otps
-        WHERE email = $1 AND used = false AND created_at > NOW() - make_interval(secs => $2)
-        LIMIT 1`,
+    // Per-email cooldown and hourly/daily caps, counted over ALL issued codes
+    // (including burned ones) so "burn a code, request a new one" can't be looped.
+    const { rows: [usage] } = await query(
+      `SELECT
+          COUNT(*) FILTER (WHERE created_at > NOW() - make_interval(secs => $2)) AS recent,
+          COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '1 hour') AS last_hour,
+          COUNT(*) AS last_day
+        FROM password_reset_otps
+        WHERE email = $1 AND created_at > NOW() - INTERVAL '1 day'`,
       [normalizedEmail, RESEND_COOLDOWN_SECONDS]
     );
-    if (recent.length > 0) {
+    if (
+      Number(usage?.recent) > 0 ||
+      Number(usage?.last_hour) >= MAX_CODES_PER_HOUR ||
+      Number(usage?.last_day) >= MAX_CODES_PER_DAY
+    ) {
+      logger.info('OTP request throttled for email', { email: maskedEmail });
       return NextResponse.json(GENERIC_RESPONSE);
     }
 
