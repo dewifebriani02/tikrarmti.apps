@@ -209,8 +209,8 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
   return (
     <div className="space-y-8 animate-fadeIn">
       {/* 1. HERO CHALLENGE & BADGE CARD */}
-      <Card className="border border-gray-200/80 shadow-sm rounded-3xl overflow-hidden bg-white relative">
-        <CardContent className="p-6 sm:p-8 space-y-6">
+      <Card className="border border-gray-100 shadow-sm rounded-2xl overflow-hidden bg-white relative">
+        <CardContent className="p-4 sm:p-6 space-y-5">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
@@ -373,9 +373,9 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
       </div>
 
       {/* 4. VISUAL GRID 40 PUTARAN */}
-      <Card className="border-0 shadow-lg rounded-3xl bg-white overflow-hidden">
-        <CardContent className="p-6 sm:p-8">
-          <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-8 lg:grid-cols-10 gap-3">
+      <Card className="border border-gray-100 shadow-sm rounded-2xl bg-white overflow-hidden">
+        <CardContent className="p-4 sm:p-6">
+          <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 gap-2 sm:gap-2.5">
             {Array.from({ length: 40 }, (_, idx) => {
               const roundNum = idx + 1;
               const log = logsMap.get(roundNum);
