@@ -1,9 +1,12 @@
 import { createServerClient } from '@/lib/supabase/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { NextRequest, NextResponse } from 'next/server';
+import { getAuthorizationContext, isUserAdmin } from '@/lib/rbac';
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 interface JoinRequest {
-  thalibah_id: string;
+  thalibah_id?: string;
   enrollment_type?: 'new' | 're_enrollment';
 }
 
@@ -18,15 +21,38 @@ export async function POST(
   const halaqahId = params.id;
 
   try {
-    const body: JoinRequest = await request.json();
-    const { thalibah_id, enrollment_type = 're_enrollment' } = body;
+    const context = await getAuthorizationContext();
+    if (!context) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    // Validate required fields
-    if (!thalibah_id) {
-      return NextResponse.json(
-        { error: 'Missing required field: thalibah_id' },
-        { status: 400 }
-      );
+    if (!UUID_RE.test(halaqahId)) {
+      return NextResponse.json({ error: 'Halaqah not found' }, { status: 404 });
+    }
+
+    const body: JoinRequest = await request.json().catch(() => ({}));
+    const isAdmin = isUserAdmin(context);
+    // Only admin may enroll someone else; everyone else always enrolls themselves
+    const thalibah_id = isAdmin && body.thalibah_id ? body.thalibah_id : context.userId;
+    const enrollment_type = body.enrollment_type === 'new' ? 'new' : 're_enrollment';
+
+    if (!isAdmin) {
+      // Self-join is only allowed into the halaqah chosen in her own daftar ulang
+      const { data: ownSubmission } = await supabaseAdmin
+        .from('daftar_ulang_submissions')
+        .select('id')
+        .eq('user_id', context.userId)
+        .in('status', ['submitted', 'approved'])
+        .or(`ujian_halaqah_id.eq.${halaqahId},tashih_halaqah_id.eq.${halaqahId}`)
+        .limit(1)
+        .maybeSingle();
+
+      if (!ownSubmission) {
+        return NextResponse.json(
+          { error: 'Forbidden - halaqah ini tidak sesuai dengan daftar ulang Anda' },
+          { status: 403 }
+        );
+      }
     }
 
     // Get halaqah details with capacity info

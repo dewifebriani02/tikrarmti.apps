@@ -1,9 +1,12 @@
 import { createServerClient } from '@/lib/supabase/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { NextRequest, NextResponse } from 'next/server';
+import { getAuthorizationContext, isUserAdmin } from '@/lib/rbac';
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 interface LeaveRequest {
-  thalibah_id: string;
+  thalibah_id?: string;
 }
 
 // POST /api/halaqah/[id]/leave - Thalibah leaves halaqah (auto-promotes waitlist)
@@ -17,15 +20,29 @@ export async function POST(
   const halaqahId = params.id;
 
   try {
-    const body: LeaveRequest = await request.json();
-    const { thalibah_id } = body;
+    const context = await getAuthorizationContext();
+    if (!context) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    // Validate required fields
-    if (!thalibah_id) {
-      return NextResponse.json(
-        { error: 'Missing required field: thalibah_id' },
-        { status: 400 }
-      );
+    if (!UUID_RE.test(halaqahId)) {
+      return NextResponse.json({ error: 'Halaqah not found' }, { status: 404 });
+    }
+
+    const body: LeaveRequest = await request.json().catch(() => ({}));
+    // Default to the logged-in thalibah; only admin or this halaqah's muallimah may remove someone else
+    const thalibah_id = body.thalibah_id || context.userId;
+
+    if (thalibah_id !== context.userId && !isUserAdmin(context)) {
+      const { data: halaqah } = await supabaseAdmin
+        .from('halaqah')
+        .select('muallimah_id')
+        .eq('id', halaqahId)
+        .maybeSingle();
+
+      if (!halaqah || halaqah.muallimah_id !== context.userId) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
     }
 
     // Get current enrollment
