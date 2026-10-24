@@ -95,7 +95,8 @@ export async function GET(request: NextRequest) {
 
     // 3. Match user in PostgreSQL database (mti_db)
     const dbUser = await queryOne(
-      `SELECT id, email, full_name, role, roles, avatar_url, is_active, is_blacklisted
+      `SELECT id, email, full_name, role, roles, avatar_url, is_active, is_blacklisted,
+              must_change_password, session_version
        FROM users WHERE LOWER(email) = $1`,
       [email]
     );
@@ -136,6 +137,8 @@ export async function GET(request: NextRequest) {
         full_name: dbUser.full_name || googleUser.name,
         role: dbUser.role,
         roles: dbUser.roles || (dbUser.role ? [dbUser.role] : ['thalibah']),
+        must_change_password: !!dbUser.must_change_password,
+        sv: dbUser.session_version,
       },
       true // Remember me true for Google login
     );

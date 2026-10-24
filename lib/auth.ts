@@ -16,6 +16,8 @@ export interface UserSessionPayload {
   role?: string;
   roles?: string[];
   must_change_password?: boolean;
+  /** users.session_version at issue time; a mismatch means the session was revoked */
+  sv?: number;
   [key: string]: any;
 }
 
@@ -51,6 +53,7 @@ export async function createSessionToken(
   const tokenPayload = {
     ...payload,
     must_change_password: !!payload.must_change_password,
+    sv: Number(payload.sv) || 0,
     session_id: payload.session_id || crypto.randomUUID(),
     iat_ms: payload.iat_ms || nowMs,
   };
@@ -175,12 +178,18 @@ export async function getCurrentUser() {
   const user = await queryOne(
     `SELECT id, email, full_name, role, roles, avatar_url, is_active, is_blacklisted,
             must_change_password, whatsapp, telegram, negara, provinsi, kota, alamat, zona_waktu,
-            tanggal_lahir, tempat_lahir, jenis_kelamin, pekerjaan, alasan_daftar, created_at
+            tanggal_lahir, tempat_lahir, jenis_kelamin, pekerjaan, alasan_daftar, created_at,
+            session_version
      FROM users WHERE id = $1`,
     [latestPayload.sub]
   );
 
   if (!user || user.is_active === false || user.is_blacklisted === true) {
+    return null;
+  }
+
+  // Revoked session: password was changed/reset after this token was issued
+  if ((Number(latestPayload.sv) || 0) !== (Number(user.session_version) || 0)) {
     return null;
   }
 
@@ -194,7 +203,8 @@ export async function loginWithEmailPassword(email: string, plainPassword: strin
   const cleanEmail = email.toLowerCase().trim();
 
   const user = await queryOne(
-    `SELECT id, email, password_hash, full_name, role, roles, is_active, is_blacklisted, must_change_password
+    `SELECT id, email, password_hash, full_name, role, roles, is_active, is_blacklisted, must_change_password,
+            session_version
      FROM users WHERE LOWER(email) = $1`,
     [cleanEmail]
   );
@@ -224,15 +234,18 @@ export async function loginWithEmailPassword(email: string, plainPassword: strin
 }
 
 /**
- * Change user password and clear must_change_password flag
+ * Change user password, clear must_change_password and revoke all existing sessions
+ * (session_version is bumped). Callers that keep the user logged in must issue a new
+ * token with the returned session_version.
  */
 export async function changeUserPassword(userId: string, newPassword: string) {
   const hash = await hashPassword(newPassword);
   const updatedUser = await queryOne(
     `UPDATE users
-     SET password_hash = $1, must_change_password = false, updated_at = NOW()
+     SET password_hash = $1, must_change_password = false,
+         session_version = session_version + 1, updated_at = NOW()
      WHERE id = $2
-     RETURNING id, email, full_name, role, roles, must_change_password`,
+     RETURNING id, email, full_name, role, roles, must_change_password, session_version`,
     [hash, userId]
   );
   return updatedUser;

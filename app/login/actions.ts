@@ -61,6 +61,7 @@ export async function loginAction(formData: {
         role: user.role,
         roles: user.roles || (user.role ? [user.role] : ['thalibah']),
         must_change_password: !!user.must_change_password,
+        sv: user.session_version,
       },
       formData.rememberMe !== false
     );

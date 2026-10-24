@@ -704,7 +704,8 @@ export async function resetUserPassword(userId: string) {
 
     await queryOne(
       `UPDATE users
-       SET password_hash = $1, must_change_password = true, updated_at = NOW()
+       SET password_hash = $1, must_change_password = true,
+           session_version = session_version + 1, updated_at = NOW()
        WHERE id = $2`,
       [newHash, userId]
     );

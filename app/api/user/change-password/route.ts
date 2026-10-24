@@ -89,6 +89,7 @@ export async function POST(request: NextRequest) {
       role: user.role,
       roles: user.roles || (user.role ? [user.role] : ['thalibah']),
       must_change_password: false,
+      sv: updatedUser.session_version,
     });
 
     await setSessionCookie(token, true);

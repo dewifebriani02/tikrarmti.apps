@@ -655,6 +655,8 @@ const pgAuthAdmin = {
         const hash = await bcrypt.hash(updates.password, 12);
         params.push(hash);
         fields.push(`"password_hash" = $${params.length}`);
+        // New password revokes all existing sessions
+        fields.push(`"session_version" = "session_version" + 1`);
       }
       if (updates.user_metadata) {
         params.push(JSON.stringify(updates.user_metadata));
