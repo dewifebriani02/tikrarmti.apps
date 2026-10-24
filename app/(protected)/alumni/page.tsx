@@ -153,37 +153,36 @@ export default function AlumniPage() {
     <div className="min-h-screen bg-[#F8FAF9] py-8 sm:py-12 px-4 sm:px-6 lg:px-8 pb-24 xl:pb-12">
       <div className="max-w-5xl mx-auto space-y-8">
         {/* Banner Header */}
-        <div className="bg-gradient-to-r from-emerald-900 via-teal-900 to-emerald-800 rounded-3xl p-6 sm:p-10 text-white shadow-xl overflow-hidden relative">
-          <div className="absolute right-0 top-0 translate-x-10 -translate-y-10 w-44 h-44 rounded-full bg-emerald-500/10 blur-2xl pointer-events-none" />
-          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="bg-white border border-gray-200/80 rounded-3xl p-6 sm:p-8 shadow-sm overflow-hidden relative">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div>
-              <span className="bg-emerald-800/80 border border-emerald-600/50 text-emerald-100 text-xs font-bold px-3 py-1.5 rounded-full tracking-wide uppercase">
+              <span className="bg-slate-100 text-slate-700 text-xs font-bold px-3 py-1.5 rounded-full tracking-wide uppercase">
                 Ruang Alumni MTI
               </span>
-              <h1 className="text-2xl sm:text-4xl font-extrabold mt-3 tracking-tight">Barakallahu Fiikum, Ukhti!</h1>
-              <p className="text-emerald-100/90 text-sm sm:text-base mt-2 max-w-xl leading-relaxed">
+              <h1 className="text-2xl sm:text-3xl font-black mt-3 tracking-tight text-gray-900">Barakallahu Fiikum, Ukhti!</h1>
+              <p className="text-gray-600 text-sm sm:text-base mt-2 max-w-xl leading-relaxed">
                 Selamat atas kelulusan Ukhti di program MTI. Halaman ini adalah wadah silaturahmi, pengisian testimoni ulasan, dan jejaring alumni.
               </p>
             </div>
-            <div className="bg-white/10 backdrop-blur-md border border-white/20 p-4 sm:p-5 rounded-2xl flex items-center gap-4 shrink-0">
-              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-white">
-                <MessageSquare className="w-6 h-6 animate-pulse" />
+            <div className="bg-gray-50 border border-gray-200/80 p-4 sm:p-5 rounded-2xl flex items-center gap-4 shrink-0">
+              <div className="w-12 h-12 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-center text-emerald-700">
+                <MessageSquare className="w-6 h-6" />
               </div>
               <div>
-                <p className="text-xs text-emerald-200 font-bold uppercase tracking-wider">Status Testimoni</p>
+                <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Status Testimoni</p>
                 <div className="flex items-center gap-2 mt-1">
                   {testimonial ? (
                     testimonial.is_approved ? (
-                      <span className="bg-emerald-500/20 text-emerald-200 text-xs font-medium px-2.5 py-0.5 rounded-full flex items-center gap-1 border border-emerald-500/30">
+                      <span className="bg-emerald-50 text-emerald-700 text-xs font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-1 border border-emerald-200">
                         <CheckCircle className="w-3 h-3" /> Disetujui
                       </span>
                     ) : (
-                      <span className="bg-amber-500/20 text-amber-200 text-xs font-medium px-2.5 py-0.5 rounded-full flex items-center gap-1 border border-amber-500/30">
+                      <span className="bg-amber-50 text-amber-700 text-xs font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-1 border border-amber-200">
                         <Clock className="w-3 h-3 animate-spin" /> Menunggu Review
                       </span>
                     )
                   ) : (
-                    <span className="bg-red-500/20 text-red-200 text-xs font-medium px-2.5 py-0.5 rounded-full flex items-center gap-1 border border-red-500/30">
+                    <span className="bg-rose-50 text-rose-700 text-xs font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-1 border border-rose-200">
                       <AlertCircle className="w-3 h-3" /> Wajib Diisi
                     </span>
                   )}
@@ -492,24 +491,24 @@ export default function AlumniPage() {
 
             {/* Benefit/FAQ Column */}
             <div className="space-y-6">
-              <Card className="border-0 shadow-lg bg-emerald-900 text-white rounded-2xl overflow-hidden">
+              <Card className="border border-amber-200/80 shadow-sm bg-gradient-to-br from-amber-50/70 via-amber-50/30 to-white text-gray-900 rounded-2xl overflow-hidden">
                 <CardContent className="p-6">
-                  <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
-                    <Star className="w-5 h-5 text-amber-400 fill-amber-400" />
+                  <h3 className="text-base font-bold mb-3 flex items-center gap-2 text-gray-900">
+                    <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
                     Mengapa Testimoni Penting?
                   </h3>
-                  <ul className="space-y-3.5 text-emerald-100/90 text-sm leading-relaxed">
+                  <ul className="space-y-3 text-gray-600 text-xs sm:text-sm leading-relaxed">
                     <li className="flex gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 mt-2 flex-shrink-0" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-2 flex-shrink-0" />
                       Membantu menyebarkan dakwah Al-Qur'an dengan membagikan kisah inspiratif Ukhti.
                     </li>
                     <li className="flex gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 mt-2 flex-shrink-0" />
-                      Membantu tim manajemen MTI mengevaluasi sistem kurikulum dan pengajaran untuk batch selanjutnya.
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-2 flex-shrink-0" />
+                      Membantu tim manajemen MTI mengevaluasi sistem kurikulum untuk batch selanjutnya.
                     </li>
                     <li className="flex gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 mt-2 flex-shrink-0" />
-                      Menjadi prasyarat pendaftaran batch berikutnya sebagai bukti komitmen kelulusan alumni.
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-2 flex-shrink-0" />
+                      Menjadi prasyarat pendaftaran batch berikutnya sebagai bukti kelulusan santri.
                     </li>
                   </ul>
                 </CardContent>

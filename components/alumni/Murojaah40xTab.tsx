@@ -209,53 +209,50 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
   return (
     <div className="space-y-8 animate-fadeIn">
       {/* 1. HERO CHALLENGE & BADGE CARD */}
-      <Card className="border-0 shadow-xl rounded-3xl overflow-hidden bg-gradient-to-br from-emerald-900 via-emerald-850 to-teal-950 text-white relative">
-        <div className="absolute right-0 top-0 translate-x-12 -translate-y-12 w-64 h-64 rounded-full bg-emerald-500/10 blur-3xl" />
-        <div className="absolute left-0 bottom-0 -translate-x-12 translate-y-12 w-64 h-64 rounded-full bg-amber-500/10 blur-3xl" />
-        
-        <CardContent className="p-6 sm:p-8 relative z-10 space-y-6">
+      <Card className="border border-gray-200/80 shadow-sm rounded-3xl overflow-hidden bg-white relative">
+        <CardContent className="p-6 sm:p-8 space-y-6">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="bg-emerald-800/80 border border-emerald-500/40 text-emerald-100 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">
-                  Program Pasca-Kelulusan MTI
+                <span className="bg-slate-100 text-slate-700 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+                  Program Muraja'ah MTI
                 </span>
-                <span className="bg-amber-500/20 border border-amber-400/40 text-amber-200 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-1">
-                  <Flame className="w-3 h-3 text-amber-400" /> Bebas &gt;1 Putaran/Hari
+                <span className="bg-amber-50 border border-amber-200/80 text-amber-800 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-1">
+                  <Flame className="w-3 h-3 text-amber-500" /> Bebas &gt;1 Putaran/Hari
                 </span>
               </div>
-              <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-                Murojaah 40X 1/2 Juz {activeSegment === 'primary' ? `(${juzInfo?.code || '28B'})` : `(${juzInfo?.optional_part_a_code || '28A'})`}
+              <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-gray-900">
+                Muraja'ah 40x 1/2 Juz {activeSegment === 'primary' ? `(${juzInfo?.code || '28B'})` : `(${juzInfo?.optional_part_a_code || '28A'})`}
               </h2>
-              <p className="text-emerald-100/90 text-sm max-w-xl leading-relaxed">
-                Dimulai tepat setelah Pekan Murojaah Batch 2. Selesaikan 40 putaran sebagai <strong>syarat wajib naik juz</strong> berikutnya (dapat dicicil hingga pembukaan Batch 4).
+              <p className="text-gray-600 text-sm max-w-xl leading-relaxed">
+                Kunci hafalan mutqin adalah pengulangan. Selesaikan target 40 kali putaran muraja'ah untuk mengokohkan hafalan dan memenuhi syarat kelulusan.
               </p>
             </div>
 
             {/* Warrior Badge Box */}
-            <div className={`p-5 rounded-2xl border backdrop-blur-md flex items-center gap-4 transition-all ${
+            <div className={`p-4 sm:p-5 rounded-2xl border flex items-center gap-4 transition-all ${
               warrior?.has_badge 
-                ? 'bg-gradient-to-br from-amber-500/25 to-yellow-500/10 border-amber-400/50 shadow-lg shadow-amber-500/10' 
-                : 'bg-white/10 border-white/20'
+                ? 'bg-amber-50/80 border-amber-300 shadow-sm' 
+                : 'bg-gray-50/80 border-gray-200/70'
             }`}>
-              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shadow-inner ${
-                warrior?.has_badge ? 'bg-amber-400 text-amber-950 shadow-amber-300' : 'bg-white/20 text-white'
+              <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center text-2xl shadow-sm ${
+                warrior?.has_badge ? 'bg-amber-400 text-amber-950' : 'bg-white border border-gray-200 text-gray-600'
               }`}>
                 {warrior?.has_badge ? '🏆' : '🛡️'}
               </div>
               <div className="space-y-0.5">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-amber-300">Tantangan 20 Hari</p>
-                <h4 className="text-base font-extrabold text-white">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Tantangan 20 Hari</p>
+                <h4 className="text-base font-extrabold text-gray-900">
                   {warrior?.has_badge ? 'Murojaah Warrior' : 'Badge Murojaah Warrior'}
                 </h4>
-                <p className="text-xs text-emerald-100">
+                <p className="text-xs text-gray-500">
                   {warrior?.has_badge ? (
-                    <span className="text-amber-200 font-semibold flex items-center gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-amber-400" /> Telah Diraih! Barakallahu fiik.
+                    <span className="text-emerald-700 font-semibold flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Telah Diraih! Barakallahu fiik.
                     </span>
                   ) : (
                     <span>
-                      Hari ke-{warrior?.days_elapsed || 1} • <span className="text-amber-300 font-bold">Sisa {warrior?.days_remaining || 0} hari lagi</span>
+                      Hari ke-{warrior?.days_elapsed || 1} • <span className="text-amber-700 font-bold">Sisa {warrior?.days_remaining || 0} hari lagi</span>
                     </span>
                   )}
                 </p>
@@ -264,28 +261,28 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
           </div>
 
           {/* Progress Bar & Counter */}
-          <div className="bg-black/20 backdrop-blur-md rounded-2xl p-5 border border-white/10 space-y-3">
+          <div className="bg-gray-50/90 rounded-2xl p-4 sm:p-5 border border-gray-200/60 space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs gap-2">
-              <span className="font-semibold text-emerald-200">
+              <span className="font-semibold text-gray-700">
                 Progres {activeSegment === 'primary' ? 'Juz Utama' : 'Bagian A (Opsional)'}:
               </span>
-              <span className="text-sm font-black text-white">
+              <span className="text-sm font-black text-gray-900">
                 {currentCompletedCount} / 40 Putaran Selesai ({percentage}%)
               </span>
             </div>
-            <div className="w-full bg-white/10 rounded-full h-3 overflow-hidden p-0.5">
+            <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden p-0.5">
               <div 
-                className="bg-gradient-to-r from-emerald-400 to-teal-300 h-full rounded-full transition-all duration-500"
+                className="bg-emerald-600 h-full rounded-full transition-all duration-500"
                 style={{ width: `${percentage}%` }}
               />
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-emerald-200/80">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-gray-500">
               <span className="flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-amber-400" />
+                <Sparkles className="w-3 h-3 text-amber-500" />
                 {isSegmentCompleted ? 'Alhamdulillah, target 40 putaran telah tuntas!' : `Sisa ${40 - currentCompletedCount} putaran lagi`}
               </span>
-              <span className="text-amber-300 font-medium">
-                Syarat Naik Juz: Tuntas 40x sebelum pembukaan Batch 4
+              <span className="text-emerald-700 font-semibold">
+                Syarat Naik Juz: Tuntas 40x
               </span>
             </div>
           </div>
