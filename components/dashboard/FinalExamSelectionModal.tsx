@@ -53,12 +53,14 @@ export function FinalExamSelectionModal({ isOpen, onClose, examType, batchId }: 
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [existingRegistration, setExistingRegistration] = useState<any>(null);
+  const [scheduleToConfirm, setScheduleToConfirm] = useState<Schedule | null>(null);
 
   const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setIsEditing(false);
+      setScheduleToConfirm(null);
       fetchSchedules();
       fetchExistingRegistration();
     }
@@ -118,7 +120,7 @@ export function FinalExamSelectionModal({ isOpen, onClose, examType, batchId }: 
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl rounded-3xl border-none shadow-2xl p-0 overflow-hidden">
+      <DialogContent className="max-w-2xl rounded-3xl border-none shadow-2xl p-0 overflow-hidden relative">
         <DialogHeader className="bg-gradient-to-br from-green-600 to-emerald-700 text-white p-8">
           <DialogTitle className="text-2xl font-black tracking-tight flex items-center gap-3">
             <GraduationCap className="w-8 h-8" />
@@ -232,7 +234,7 @@ export function FinalExamSelectionModal({ isOpen, onClose, examType, batchId }: 
                         
                         <Button 
                           disabled={isFull || isSubmitting}
-                          onClick={() => handleRegister(schedule.id)}
+                          onClick={() => setScheduleToConfirm(schedule)}
                           className={cn(
                             "rounded-xl font-bold px-6 py-5 shadow-lg transition-all",
                             isFull 
@@ -240,7 +242,7 @@ export function FinalExamSelectionModal({ isOpen, onClose, examType, batchId }: 
                               : "bg-green-600 hover:bg-green-700 text-white shadow-green-600/20 active:translate-y-1"
                           )}
                         >
-                          {isFull ? 'Penuh' : isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Pilih Jadwal'}
+                          {isFull ? 'Penuh' : 'Pilih Jadwal'}
                         </Button>
                       </div>
                     </CardContent>
@@ -255,6 +257,83 @@ export function FinalExamSelectionModal({ isOpen, onClose, examType, batchId }: 
             </div>
           )}
         </div>
+
+        {/* Modal Konfirmasi Pemilihan Jadwal */}
+        {scheduleToConfirm && (
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-6 animate-fadeIn">
+            <div className="bg-white rounded-3xl p-5 sm:p-6 max-w-md w-full shadow-2xl border border-gray-100 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex items-start gap-3.5">
+                <div className="w-11 h-11 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 shadow-sm border border-amber-200/60">
+                  <AlertCircle className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-black text-gray-900 leading-tight">
+                    {existingRegistration ? 'Konfirmasi Pindah Jadwal' : 'Konfirmasi Pilihan Jadwal'}
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-1 font-medium">
+                    {existingRegistration 
+                      ? 'Apakah Ukhti yakin ingin memindahkan jadwal ujian?' 
+                      : 'Apakah Ukhti yakin memilih jadwal ujian ini?'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-emerald-50/70 border border-emerald-100 rounded-2xl p-4 space-y-2">
+                <div className="flex items-center gap-2 text-xs font-bold text-gray-900">
+                  <Calendar className="w-4 h-4 text-emerald-700 shrink-0" />
+                  <span>{new Intl.DateTimeFormat('id-ID', { dateStyle: 'full', timeZone: 'Asia/Jakarta' }).format(new Date(scheduleToConfirm.exam_date))}</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs font-bold text-gray-700">
+                  <Clock className="w-4 h-4 text-emerald-700 shrink-0" />
+                  <span>{scheduleToConfirm.start_time} - {scheduleToConfirm.end_time} WIB</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs font-bold text-emerald-900">
+                  <GraduationCap className="w-4 h-4 text-emerald-700 shrink-0" />
+                  <span>Penguji: {formatExaminerName(scheduleToConfirm.examiner?.full_name)}</span>
+                </div>
+              </div>
+
+              <div className="bg-amber-50 border border-amber-200/80 rounded-2xl p-3.5 text-xs text-amber-900 space-y-1">
+                <p className="font-extrabold flex items-center gap-1.5 text-amber-800">
+                  <span>⚠️</span> Kuota Setiap Sesi Terbatas
+                </p>
+                <p className="text-[11px] leading-relaxed text-amber-900/90 font-medium">
+                  Mohon pastikan Ukhti benar-benar bisa hadir pada waktu tersebut. Jika sewaktu-waktu ada kendala mendesak, Ukhti tetap dapat mengubah jadwal selama kuota sesi lain masih tersedia.
+                </p>
+              </div>
+
+              <div className="flex flex-col-reverse sm:flex-row gap-2.5 pt-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isSubmitting}
+                  onClick={() => setScheduleToConfirm(null)}
+                  className="flex-1 rounded-xl border-gray-200 text-gray-700 font-bold hover:bg-gray-50 py-2.5 text-xs"
+                >
+                  Pikirkan Dulu / Batal
+                </Button>
+                <Button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={async () => {
+                    await handleRegister(scheduleToConfirm.id);
+                    setScheduleToConfirm(null);
+                  }}
+                  className="flex-1 rounded-xl bg-green-700 hover:bg-green-800 text-white font-bold py-2.5 text-xs shadow-md shadow-green-700/20"
+                >
+                  {isSubmitting ? (
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Menyimpan...</span>
+                    </div>
+                  ) : (
+                    'Ya, Pilih Jadwal Ini'
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

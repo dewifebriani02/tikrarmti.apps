@@ -1207,9 +1207,8 @@ export default function DashboardContent() {
               { label: 'Catatan Tashih', icon: ClipboardList, color: 'emerald', href: '/tashih' },
               { label: 'Jurnal Harian', icon: BookOpen, color: 'indigo', href: '/jurnal-harian' },
               { label: 'Sit-In Kelas', icon: ArrowRightLeft, color: 'rose', href: '/sit-in' },
-              { label: 'Ujian Pekanan', icon: Calendar, color: 'amber', href: '/ujian' },
+              { label: 'Ujian', icon: Award, color: 'blue', href: '/ujian' },
               { label: "Muraja'ah 40x", icon: RotateCcw, color: 'teal', href: '/murojaah' },
-              { label: 'Ujian Akhir', icon: Award, color: 'blue', href: '/ujian' },
               { label: 'Sertifikat', icon: CheckCircle, color: 'emerald', href: '/kelulusan-sertifikat' },
               { label: 'Alumni', icon: GraduationCap, color: 'purple', href: '/alumni' },
               { label: 'Infaq & Donasi', icon: Wallet, color: 'amber', href: '/infaq-donasi' },
@@ -1222,9 +1221,6 @@ export default function DashboardContent() {
                     if ((item as any).locked) {
                       e.preventDefault();
                       alert(`Maaf Ukhti, menu ini terkunci.`);
-                    } else if (item.label === 'Ujian Akhir') {
-                      e.preventDefault();
-                      setExamModalOpen(true);
                     }
                   }}
                   className={cn(

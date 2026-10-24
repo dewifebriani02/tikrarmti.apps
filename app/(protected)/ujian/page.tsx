@@ -27,7 +27,17 @@ import { formatDateIndo } from '@/lib/utils/date-helpers';
 export default function UjianPage() {
   const { user } = useAuth();
   const { activeBatch } = useActiveBatch();
-  const [activeTab, setActiveTab] = useState<'pekanan' | 'akhir'>('pekanan');
+  const [activeTab, setActiveTab] = useState<'pekanan' | 'akhir'>('akhir');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get('tab');
+      if (tab === 'pekanan' || tab === 'akhir') {
+        setActiveTab(tab);
+      }
+    }
+  }, []);
 
   // Ujian Akhir Selection Modal State
   const [selectionOpen, setSelectionOpen] = useState(false);
@@ -80,20 +90,8 @@ export default function UjianPage() {
           </div>
         </div>
 
-        {/* Tab Switcher: Ujian Pekanan vs Ujian Akhir */}
+        {/* Tab Switcher: Ujian Akhir (Pilih Jadwal) vs Panduan Ujian Pekanan */}
         <div className="grid grid-cols-2 p-1 bg-gray-100 rounded-xl border border-gray-200 text-xs font-bold">
-          <button
-            onClick={() => setActiveTab('pekanan')}
-            className={cn(
-              "py-2.5 rounded-lg transition-all flex items-center justify-center gap-2",
-              activeTab === 'pekanan' 
-                ? "bg-white text-green-900 shadow-sm font-black" 
-                : "text-gray-600 hover:text-gray-900"
-            )}
-          >
-            <Calendar className="w-3.5 h-3.5" />
-            <span>Ujian Pekanan</span>
-          </button>
           <button
             onClick={() => setActiveTab('akhir')}
             className={cn(
@@ -108,6 +106,18 @@ export default function UjianPage() {
             {oralRegistration && (
               <span className="w-2 h-2 rounded-full bg-emerald-500 absolute top-2 right-2" />
             )}
+          </button>
+          <button
+            onClick={() => setActiveTab('pekanan')}
+            className={cn(
+              "py-2.5 rounded-lg transition-all flex items-center justify-center gap-2",
+              activeTab === 'pekanan' 
+                ? "bg-white text-green-900 shadow-sm font-black" 
+                : "text-gray-600 hover:text-gray-900"
+            )}
+          >
+            <Calendar className="w-3.5 h-3.5" />
+            <span>Panduan Ujian Pekanan</span>
           </button>
         </div>
 
