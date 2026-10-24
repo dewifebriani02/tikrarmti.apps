@@ -35,6 +35,8 @@ rsync -avz --delete \
   --exclude 'backups' \
   --exclude 'public/uploads' \
   --exclude '.env.local' \
+  --exclude '.next/cache' \
+  --exclude '.next/types' \
   ./ ${VPS_USER}@${VPS_HOST}:${REMOTE_PATH}/
 
 # 4. Check & Sync Production Environment Variables
