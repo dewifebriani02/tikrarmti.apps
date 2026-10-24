@@ -14,6 +14,21 @@
 // Singleton stub — browser code that calls createClient() gets a harmless object
 let _client: any = null;
 
+function createQueryChain(): any {
+  const handler: any = {
+    then: (resolve: any, reject: any) => Promise.resolve({ data: [], error: null }).then(resolve, reject),
+    single: () => Promise.resolve({ data: null, error: null }),
+    maybeSingle: () => Promise.resolve({ data: null, error: null }),
+  };
+  return new Proxy(handler, {
+    get(target, prop) {
+      if (prop in target) return target[prop];
+      if (prop === 'then') return target.then;
+      return () => createQueryChain();
+    }
+  });
+}
+
 export function createClient() {
   if (_client) return _client;
 
@@ -41,7 +56,7 @@ export function createClient() {
   _client = {
     from: () => {
       console.warn('[pg-client] from() called on browser client — use API routes instead');
-      return { select: () => Promise.resolve({ data: [], error: null }) };
+      return createQueryChain();
     },
     rpc: () => {
       console.warn('[pg-client] rpc() called on browser client — use API routes instead');
