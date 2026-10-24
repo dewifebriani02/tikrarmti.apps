@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdmin } from '@/lib/supabase'
 import { logger } from '@/lib/logger-secure'
-import { getClientIP } from '@/lib/rate-limiter'
+import { authRateLimit, checkRateLimit, getClientIP } from '@/lib/rate-limiter'
 import { ApiResponses } from '@/lib/api-responses'
 
 /**
@@ -13,6 +13,11 @@ export async function GET(request: NextRequest) {
   const ip = getClientIP(request)
 
   try {
+    const rate = await checkRateLimit(`blacklist-check:${ip}`, authRateLimit, '/api/blacklist/check')
+    if (!rate.success) {
+      return ApiResponses.error('RATE_LIMITED', 'Terlalu banyak permintaan. Coba lagi nanti.', undefined, 429)
+    }
+
     const { searchParams } = new URL(request.url)
     const phone = searchParams.get('phone')
     const email = searchParams.get('email')
@@ -24,22 +29,21 @@ export async function GET(request: NextRequest) {
 
     const supabaseAdmin = createSupabaseAdmin()
 
-    // Build query
-    let query = supabaseAdmin
-      .from('users')
-      .select('id, email, whatsapp, full_name, blacklist_reason, blacklisted_at')
-      .eq('is_blacklisted', true)
+    // Each value is bound separately — never interpolated into a filter string
+    const runCheck = (column: 'whatsapp' | 'email', value: string) =>
+      supabaseAdmin
+        .from('users')
+        .select('id')
+        .eq('is_blacklisted', true)
+        .eq(column, value)
+        .limit(1)
 
-    // Add filters
-    if (phone && email) {
-      query = query.or(`whatsapp.eq.${phone},email.eq.${email}`)
-    } else if (phone) {
-      query = query.eq('whatsapp', phone)
-    } else if (email) {
-      query = query.eq('email', email)
-    }
-
-    const { data, error } = await query.limit(1)
+    const results = await Promise.all([
+      phone ? runCheck('whatsapp', phone) : null,
+      email ? runCheck('email', email) : null,
+    ])
+    const error = results.find(r => r?.error)?.error
+    const data = results.flatMap(r => r?.data || [])
 
     if (error) {
       logger.error('Failed to check blacklist status', {
@@ -60,18 +64,13 @@ export async function GET(request: NextRequest) {
       logger.info('Blacklist check positive', {
         phone,
         email,
-        matchedUser: data[0].email,
+        matchedUserId: data[0].id,
         ip
       })
 
       return NextResponse.json({
         isBlacklisted: true,
-        message: 'This phone number or email has been blacklisted from registering',
-        blacklistedUser: {
-          email: data[0].email,
-          reason: data[0].blacklist_reason,
-          blacklistedAt: data[0].blacklisted_at
-        }
+        message: 'This phone number or email has been blacklisted from registering'
       })
     }
 

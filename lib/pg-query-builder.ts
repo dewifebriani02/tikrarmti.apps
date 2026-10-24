@@ -39,6 +39,58 @@ function escapeIdent(name: string): string {
   return `"${name.replace(/"/g, '""')}"`;
 }
 
+// ─── or() filter parsing ──────────────────────────────────────────────────────
+
+const SAFE_IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+const OR_OPS: Record<string, string> = {
+  eq: '=', neq: '!=', gt: '>', gte: '>=', lt: '<', lte: '<=',
+  like: 'LIKE', ilike: 'ILIKE',
+};
+
+const OR_IS_VALUES: Record<string, string> = { null: 'NULL', true: 'TRUE', false: 'FALSE' };
+
+/** Split on commas that are not inside parentheses or double quotes. */
+function splitTopLevel(input: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let inQuotes = false;
+  let current = '';
+  for (let i = 0; i < input.length; i++) {
+    const ch = input[i];
+    if (inQuotes) {
+      current += ch;
+      if (ch === '\\' && i + 1 < input.length) {
+        current += input[++i];
+      } else if (ch === '"') {
+        inQuotes = false;
+      }
+      continue;
+    }
+    if (ch === '"') inQuotes = true;
+    else if (ch === '(') depth++;
+    else if (ch === ')') depth = Math.max(0, depth - 1);
+    else if (ch === ',' && depth === 0) {
+      if (current.trim()) parts.push(current.trim());
+      current = '';
+      continue;
+    }
+    current += ch;
+  }
+  if (inQuotes || depth !== 0) throw new Error('or(): unbalanced quotes or parentheses');
+  if (current.trim()) parts.push(current.trim());
+  return parts;
+}
+
+/** PostgREST-style value: strip surrounding double quotes and unescape \" and \\. */
+function unquoteOrValue(value: string): string {
+  const v = value.trim();
+  if (v.length >= 2 && v.startsWith('"') && v.endsWith('"')) {
+    return v.slice(1, -1).replace(/\\(["\\])/g, '$1');
+  }
+  return v;
+}
+
 /** Parse "col1, col2, col3" or "*" or "col1!inner(col2)" into safe SQL */
 function buildSelectCols(cols: string): string {
   if (!cols || cols.trim() === '*') return '*';
@@ -84,6 +136,7 @@ class PgQueryBuilder<T = any> {
   private _isCountOnly: boolean = false; // head: true — only return count
   private _parsed: ParsedSelect | null = null; // select dengan relasi bersarang
   private _dotted: EmbedFilter[] = []; // filter pada kolom relasi, mis. 'programs.batch_id'
+  private _buildError: string | null = null; // filter tidak valid → query gagal, tidak dieksekusi
 
   constructor(table: string) {
     this._table = table;
@@ -272,33 +325,71 @@ class PgQueryBuilder<T = any> {
   }
 
   /**
-   * OR conditions — accepts Supabase-style string: "col.op.val,col2.op2.val2"
-   * or a simple raw SQL fragment.
+   * OR conditions — accepts Supabase/PostgREST-style string only:
+   *   "col.op.val,col2.not.op2.val2,and(col3.eq.x,col4.in.(a,b))"
+   * Columns must be plain identifiers and operators come from a fixed allow-list;
+   * every value is bound as a parameter. Anything unparseable fails the query
+   * (never passed through as raw SQL).
    * Example: .or("status.eq.active,status.eq.pending")
    */
   or(conditions: string, _options?: { foreignTable?: string }): this {
-    // Parse "col.op.val" format
-    const parts = conditions.split(',').map(part => {
-      const segments = part.trim().split('.');
-      if (segments.length < 3) {
-        // Assume raw SQL fragment
-        return part.trim();
-      }
-      const [col, op, ...rest] = segments;
-      const val = rest.join('.');
-      const opMap: Record<string, string> = {
-        eq: '=', neq: '!=', gt: '>', gte: '>=', lt: '<', lte: '<=',
-        like: 'LIKE', ilike: 'ILIKE', is: 'IS',
-      };
-      const sqlOp = opMap[op] || op.toUpperCase();
-      if (val === 'null') {
-        return `${escapeIdent(col)} IS ${sqlOp === '=' ? '' : 'NOT '}NULL`;
-      }
-      const p = this._addParam(val);
-      return `${escapeIdent(col)} ${sqlOp} ${p}`;
-    });
-    this._whereClauses.push({ sql: `(${parts.join(' OR ')})`, params: [] });
+    try {
+      const sql = this._parseOrGroup(conditions, 'OR');
+      this._whereClauses.push({ sql, params: [] });
+    } catch (err: any) {
+      this._buildError = err?.message || 'Invalid or() filter';
+    }
     return this;
+  }
+
+  private _parseOrGroup(conditions: string, joiner: 'AND' | 'OR'): string {
+    const parts = splitTopLevel(conditions);
+    if (parts.length === 0) throw new Error('or(): empty filter');
+    return `(${parts.map(p => this._parseOrCondition(p)).join(` ${joiner} `)})`;
+  }
+
+  private _parseOrCondition(raw: string): string {
+    const part = raw.trim();
+    const group = part.match(/^(and|or)\(([\s\S]*)\)$/);
+    if (group) return this._parseOrGroup(group[2], group[1] === 'and' ? 'AND' : 'OR');
+
+    const firstDot = part.indexOf('.');
+    if (firstDot <= 0) throw new Error(`or(): invalid condition "${part}"`);
+    const col = part.slice(0, firstDot);
+    if (!SAFE_IDENT_RE.test(col)) throw new Error(`or(): invalid column "${col}"`);
+
+    let rest = part.slice(firstDot + 1);
+    let negate = false;
+    if (rest.startsWith('not.')) {
+      negate = true;
+      rest = rest.slice(4);
+    }
+    const opDot = rest.indexOf('.');
+    if (opDot <= 0) throw new Error(`or(): invalid condition "${part}"`);
+    const op = rest.slice(0, opDot);
+    const val = rest.slice(opDot + 1);
+    const c = escapeIdent(col);
+
+    if (op === 'is' || ((op === 'eq' || op === 'neq') && val === 'null')) {
+      const literal = OR_IS_VALUES[val];
+      if (!literal) throw new Error(`or(): invalid "is" value "${val}"`);
+      const isNot = negate !== (op === 'neq');
+      return `${c} IS ${isNot ? 'NOT ' : ''}${literal}`;
+    }
+
+    if (op === 'in') {
+      const list = val.match(/^\(([\s\S]*)\)$/);
+      if (!list) throw new Error(`or(): invalid "in" list "${val}"`);
+      const items = splitTopLevel(list[1]).map(unquoteOrValue);
+      if (items.length === 0) return negate ? 'TRUE' : 'FALSE';
+      const placeholders = items.map(v => this._addParam(v)).join(', ');
+      return `${c} ${negate ? 'NOT IN' : 'IN'} (${placeholders})`;
+    }
+
+    const sqlOp = OR_OPS[op];
+    if (!sqlOp) throw new Error(`or(): unsupported operator "${op}"`);
+    const p = this._addParam(unquoteOrValue(val));
+    return negate ? `NOT (${c} ${sqlOp} ${p})` : `${c} ${sqlOp} ${p}`;
   }
 
   // ── Ordering and pagination ──
@@ -423,6 +514,9 @@ class PgQueryBuilder<T = any> {
   }
 
   private async _execute(): Promise<PgResponse> {
+    if (this._buildError) {
+      return { data: null, error: { message: this._buildError, code: 'PGRST100' } };
+    }
     try {
       let sql: string;
       switch (this._operation) {
