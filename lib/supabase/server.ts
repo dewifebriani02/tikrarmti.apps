@@ -108,7 +108,7 @@ export function createClient(_options?: {
     },
 
     signInWithPassword: async () => {
-      return { data: { user: null, session: null }, error: { message: 'Use /api/auth/login' } };
+      return { data: { user: null, session: null }, error: { message: 'Use loginAction (app/login/actions.ts)' } };
     },
 
     signUp: async () => {
