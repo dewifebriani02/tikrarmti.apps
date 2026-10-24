@@ -46,11 +46,12 @@ export async function POST(request: NextRequest) {
               used = CASE WHEN code = $2 THEN true ELSE (failed_attempts + 1 >= $3) END,
               updated_at = NOW()
         WHERE email = $1 AND used = false AND expires_at > NOW()
-        RETURNING (code = $2) AS matched, used`,
+        RETURNING id, (code = $2) AS matched, used`,
       [normalizedEmail, submittedCode, MAX_FAILED_ATTEMPTS]
     );
 
-    if (!attempts.some((a: { matched: boolean }) => a.matched)) {
+    const matchedOtp = attempts.find((a: { id: string; matched: boolean }) => a.matched);
+    if (!matchedOtp) {
       const locked = attempts.length > 0 && attempts.every((a: { used: boolean }) => a.used);
       return NextResponse.json(
         { error: locked ? 'Terlalu banyak kode salah. Silakan minta kode baru.' : 'Kode tidak valid atau sudah kadaluarsa' },
@@ -65,7 +66,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       email: normalizedEmail,
-      reset_token: await createPasswordResetToken(normalizedEmail),
+      reset_token: await createPasswordResetToken(normalizedEmail, matchedOtp.id),
     });
   } catch (error: any) {
     logger.error('Error in verify-otp', { error: error?.message });

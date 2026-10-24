@@ -19,10 +19,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Password minimal 8 karakter' }, { status: 400 });
     }
 
-    const email = await verifyPasswordResetToken(reset_token);
-    if (!email) {
+    const verified = await verifyPasswordResetToken(reset_token);
+    if (!verified) {
       return NextResponse.json(
         { error: 'Sesi reset password tidak valid atau kadaluarsa. Silakan ulangi dari awal.' },
+        { status: 401 }
+      );
+    }
+    const { email, otpId } = verified;
+
+    // Consume the token atomically — a reset token can change the password only once
+    const consumed = await queryOne<{ id: string }>(
+      `UPDATE password_reset_otps SET reset_token_used_at = NOW(), updated_at = NOW()
+        WHERE id = $1 AND email = $2 AND reset_token_used_at IS NULL
+        RETURNING id`,
+      [otpId, email]
+    );
+    if (!consumed) {
+      return NextResponse.json(
+        { error: 'Sesi reset password sudah digunakan. Silakan ulangi dari awal.' },
         { status: 401 }
       );
     }

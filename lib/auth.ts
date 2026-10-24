@@ -81,23 +81,28 @@ export async function verifySessionToken(token: string): Promise<UserSessionPayl
 
 /**
  * Short-lived token proving the holder verified a password-reset OTP for `email`.
+ * `otpId` (the password_reset_otps row) becomes the token's jti so the token can be
+ * consumed exactly once by /api/auth/reset-with-otp.
  */
-export async function createPasswordResetToken(email: string): Promise<string> {
+export async function createPasswordResetToken(email: string, otpId: string): Promise<string> {
   return await new SignJWT({ purpose: PASSWORD_RESET_PURPOSE, email })
     .setProtectedHeader({ alg: 'HS256' })
+    .setJti(otpId)
     .setIssuedAt()
     .setExpirationTime('15m')
     .sign(getAuthSecret());
 }
 
 /**
- * Returns the verified email, or null if the token is invalid/expired.
+ * Returns the verified email and OTP id (jti), or null if the token is invalid/expired.
+ * Single use is enforced by the caller against password_reset_otps.reset_token_used_at.
  */
-export async function verifyPasswordResetToken(token: string): Promise<string | null> {
+export async function verifyPasswordResetToken(token: string): Promise<{ email: string; otpId: string } | null> {
   try {
     const { payload } = await jwtVerify(token, getAuthSecret());
     if (payload.purpose !== PASSWORD_RESET_PURPOSE || typeof payload.email !== 'string') return null;
-    return payload.email;
+    if (typeof payload.jti !== 'string' || !payload.jti) return null;
+    return { email: payload.email, otpId: payload.jti };
   } catch {
     return null;
   }
