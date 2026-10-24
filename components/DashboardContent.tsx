@@ -1222,6 +1222,9 @@ export default function DashboardContent() {
                     if ((item as any).locked) {
                       e.preventDefault();
                       alert(`Maaf Ukhti, menu ini terkunci.`);
+                    } else if (item.label === 'Ujian Akhir') {
+                      e.preventDefault();
+                      setExamModalOpen(true);
                     }
                   }}
                   className={cn(
