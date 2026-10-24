@@ -20,7 +20,8 @@ export async function GET(request: Request) {
         examiner:users!final_exam_schedules_examiner_id_fkey (full_name)
       )
     `)
-    .eq('user_id', authUser.id);
+    .eq('user_id', authUser.id)
+    .order('created_at', { ascending: false });
 
   if (type) {
     queryBuilder = queryBuilder.eq('final_exam_schedules.exam_type', type);

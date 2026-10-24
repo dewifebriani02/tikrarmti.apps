@@ -29,12 +29,13 @@ export function FinalExamPortalModal({ isOpen, onClose, hariAktual, percentage, 
     if (isOpen) {
       fetchRegistrations();
     }
-  }, [isOpen]);
+  }, [isOpen, batchId]);
 
   const fetchRegistrations = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/exams/final-exams/registrations');
+      const url = `/api/exams/final-exams/registrations${batchId ? `?batch_id=${batchId}` : ''}`;
+      const response = await fetch(url);
       const result = await response.json();
       if (result.success) {
         setRegistrations(Array.isArray(result.data) ? result.data : result.data ? [result.data] : []);

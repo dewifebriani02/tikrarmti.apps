@@ -62,7 +62,7 @@ export function FinalExamSelectionModal({ isOpen, onClose, examType, batchId }: 
       fetchSchedules();
       fetchExistingRegistration();
     }
-  }, [isOpen, examType]);
+  }, [isOpen, examType, batchId]);
 
   const fetchSchedules = async () => {
     setIsLoading(true);
@@ -82,7 +82,8 @@ export function FinalExamSelectionModal({ isOpen, onClose, examType, batchId }: 
 
   const fetchExistingRegistration = async () => {
     try {
-      const response = await fetch(`/api/exams/final-exams/registrations?type=${examType}`);
+      const url = `/api/exams/final-exams/registrations?type=${examType}${batchId ? `&batch_id=${batchId}` : ''}`;
+      const response = await fetch(url);
       const result = await response.json();
       if (result.success) {
         setExistingRegistration(result.data);

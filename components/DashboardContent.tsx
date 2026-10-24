@@ -1422,8 +1422,8 @@ export default function DashboardContent() {
         hariAktual={displayStats.hariAktual}
         percentage={displayStats.persentaseProgress}
         isAdmin={userRole === 'admin'}
-        batchName={registrations[0]?.batch?.name || registrations[0]?.batch_name}
-        batchId={registrations[0]?.batch_id}
+        batchName={selectedBatch?.name || (matchingRegistration as any)?.batch?.name || matchingRegistration?.batch_name || registrations[0]?.batch?.name || registrations[0]?.batch_name}
+        batchId={effectiveBatchId || matchingRegistration?.batch_id || registrations[0]?.batch_id}
         isMurajaahCompleted={isMurajaahCompleted}
       />
 
