@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { saveUploadedFile } from '@/lib/storage'
+import { sniffFileType } from '@/lib/file-type'
 import { query } from '@/lib/db'
 
 export interface JurnalFormData {
@@ -259,11 +260,17 @@ export async function uploadJurnalScreenshot(formData: FormData) {
   }
 
   try {
-    const fileExt = file.name.split('.').pop()
-    const fileName = `${authUser.id}/${Date.now()}_jurnal_tarteel.${fileExt}`
+    const buffer = Buffer.from(await file.arrayBuffer())
+
+    // Extension comes from the file's real content, not the client-supplied name/MIME
+    const detected = sniffFileType(buffer)
+    if (!detected || detected.kind !== 'image') {
+      return { success: false, error: 'Format file harus gambar (JPG, PNG, WEBP, HEIC).' }
+    }
+
+    const fileName = `${authUser.id}/${Date.now()}_jurnal_tarteel.${detected.ext}`
     const filePath = `jurnal/${fileName}`
 
-    const buffer = Buffer.from(await file.arrayBuffer())
     const { publicUrl } = await saveUploadedFile('documents', filePath, buffer)
 
     return {

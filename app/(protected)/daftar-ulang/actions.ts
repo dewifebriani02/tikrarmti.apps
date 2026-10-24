@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createSupabaseAdmin } from '@/lib/supabase'
 import { syncApprovedSubmissionToHalaqahStudents } from '@/lib/halaqah-students-sync'
 import { saveUploadedFile, deleteUploadedFile } from '@/lib/storage'
+import { sniffFileType } from '@/lib/file-type'
 
 const parseDonationAmount = (value: string | number | null | undefined): number | null => {
   if (value === null || value === undefined || value === '') return null
@@ -465,11 +466,17 @@ export async function uploadAkad(formData: FormData) {
   }
 
   try {
-    const fileExt = file.name.split('.').pop()
-    const fileName = `${authUser.id}/${Date.now()}_akad.${fileExt}`
+    const buffer = Buffer.from(await file.arrayBuffer())
+
+    // Extension comes from the file's real content, not the client-supplied name/MIME
+    const detected = sniffFileType(buffer)
+    if (!detected || !['pdf', 'jpg', 'png'].includes(detected.ext)) {
+      return { success: false, error: 'Format file harus PDF atau gambar (JPG, PNG).' }
+    }
+
+    const fileName = `${authUser.id}/${Date.now()}_akad.${detected.ext}`
     const filePath = `akad/${fileName}`
 
-    const buffer = Buffer.from(await file.arrayBuffer())
     const { publicUrl } = await saveUploadedFile('documents', filePath, buffer)
 
     return {
