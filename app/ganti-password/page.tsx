@@ -21,7 +21,7 @@ export default function GantiPasswordPage() {
   const [success, setSuccess] = useState(false);
 
   // Validation rules
-  const isLengthValid = newPassword.length >= 6;
+  const isLengthValid = newPassword.length >= 8;
   const isNotDefault = newPassword.trim() !== 'MTI123!';
   const isMatch = newPassword.length > 0 && newPassword === confirmPassword;
   const isFormValid = isLengthValid && isNotDefault && isMatch;
@@ -31,7 +31,7 @@ export default function GantiPasswordPage() {
     setError('');
 
     if (!isLengthValid) {
-      setError('Password baru minimal 6 karakter.');
+      setError('Password baru minimal 8 karakter.');
       return;
     }
 
@@ -185,7 +185,7 @@ export default function GantiPasswordPage() {
                     ✓
                   </div>
                   <span className={isLengthValid ? 'text-emerald-700 font-medium' : 'text-gray-600'}>
-                    Minimal 6 karakter
+                    Minimal 8 karakter
                   </span>
                 </div>
                 <div className="flex items-center gap-2">

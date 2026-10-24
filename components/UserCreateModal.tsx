@@ -151,8 +151,8 @@ export default function UserCreateModal({
       return false;
     }
 
-    if (formData.password.length < 6) {
-      setError('Password minimal 6 karakter');
+    if (formData.password.length < 8) {
+      setError('Password minimal 8 karakter');
       return false;
     }
 
@@ -322,7 +322,7 @@ export default function UserCreateModal({
                   type="password"
                   value={formData.password}
                   onChange={(e) => handleInputChange('password', e.target.value)}
-                  placeholder="Masukkan password (minimal 6 karakter)"
+                  placeholder="Masukkan password (minimal 8 karakter)"
                   required
                 />
               </div>

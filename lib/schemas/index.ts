@@ -84,7 +84,7 @@ export const authSchemas = {
   register: z.object({
     nama_kunyah: z.string().optional(),
     email: commonSchemas.email,
-    password: z.string().min(6, 'Password minimal 6 karakter'),
+    password: z.string().min(8, 'Password minimal 8 karakter'),
     full_name: z.string().min(3, 'Nama lengkap minimal 3 karakter'),
     negara: z.string().min(1, 'Negara harus diisi'),
     provinsi: z.string().nullable().optional(), // Allow null for non-Indonesian countries

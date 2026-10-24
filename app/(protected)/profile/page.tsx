@@ -1360,8 +1360,8 @@ function AccountSecurity() {
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (passwords.newPassword.length < 6) {
-      toast.error('Password minimal 6 karakter')
+    if (passwords.newPassword.length < 8) {
+      toast.error('Password minimal 8 karakter')
       return
     }
 
@@ -1435,7 +1435,7 @@ function AccountSecurity() {
                   type={showPassword ? "text" : "password"}
                   value={passwords.newPassword}
                   onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })}
-                  placeholder="Minimal 6 karakter"
+                  placeholder="Minimal 8 karakter"
                   required
                 />
                 <button
