@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff, AlertCircle, CheckCircle2 } from "lucide-react";
 import { loginAction } from '@/app/login/actions';
+import { safeRedirectPath } from '@/lib/utils/safe-redirect';
 
 function LoginPageContent() {
   const router = useRouter();
@@ -104,7 +105,7 @@ function LoginPageContent() {
   const handleGoogleLogin = () => {
     setIsLoading(true);
     setErrors({});
-    const redirectUrl = searchParams.get('redirect') || '/dashboard';
+    const redirectUrl = safeRedirectPath(searchParams.get('redirect'));
     window.location.href = `/api/auth/google?next=${encodeURIComponent(redirectUrl)}`;
   };
 
@@ -158,8 +159,8 @@ function LoginPageContent() {
       if (result.mustChangePassword) {
         targetUrl = '/ganti-password';
       } else {
-        const redirectUrl = searchParams.get('redirect');
-        targetUrl = redirectUrl && redirectUrl !== '/login' ? redirectUrl : '/dashboard';
+        const redirectUrl = safeRedirectPath(searchParams.get('redirect'));
+        targetUrl = redirectUrl.startsWith('/login') ? '/dashboard' : redirectUrl;
       }
 
       console.log('[Login] Redirecting to:', targetUrl);

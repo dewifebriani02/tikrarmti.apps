@@ -2,6 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { safeRedirectPath } from '@/lib/utils/safe-redirect';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
@@ -47,7 +48,7 @@ function ConfirmEmailPageContent() {
 
           if (response.ok) {
             // Redirect to reset password page
-            const redirectUrl = next || '/reset-password';
+            const redirectUrl = safeRedirectPath(next, '/reset-password');
             console.log('Redirecting to:', redirectUrl);
             router.push(redirectUrl);
           } else {

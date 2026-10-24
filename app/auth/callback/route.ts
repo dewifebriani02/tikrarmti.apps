@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { safeRedirectPath } from '@/lib/utils/safe-redirect';
 import { queryOne } from '@/lib/db';
 import { createSessionToken, setSessionCookie } from '@/lib/auth';
 
@@ -141,7 +142,7 @@ export async function GET(request: NextRequest) {
 
     await setSessionCookie(token, true);
 
-    const redirectTarget = nextPath.startsWith('/') ? `${origin}${nextPath}` : `${origin}/dashboard`;
+    const redirectTarget = `${origin}${safeRedirectPath(nextPath)}`;
     console.log(`[auth/callback] Success Google login for ${email} -> Redirecting to ${redirectTarget}`);
 
     return NextResponse.redirect(redirectTarget);
