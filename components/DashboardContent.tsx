@@ -54,6 +54,9 @@ import { cn } from '@/lib/utils'
 import { isStaff } from '@/lib/roles'
 import { FinalExamPortalModal } from '@/components/dashboard/FinalExamPortalModal'
 import { SitInModal } from '@/components/dashboard/SitInModal'
+import { TransferScheduleModal } from '@/components/dashboard/TransferScheduleModal'
+import { ScheduleOptionsModal } from '@/components/dashboard/ScheduleOptionsModal'
+import { DynamicActionBanner } from '@/components/dashboard/DynamicActionBanner'
 import { GroupLinks } from '@/components/dashboard/GroupLinks'
 import { UserJadwalHarian } from '@/components/dashboard/UserJadwalHarian'
 
@@ -145,6 +148,8 @@ export default function DashboardContent() {
   const [activitiesPage, setActivitiesPage] = useState(1)
   const [examModalOpen, setExamModalOpen] = useState(false)
   const [isSitInModalOpen, setIsSitInModalOpen] = useState(false)
+  const [isScheduleOptionsOpen, setIsScheduleOptionsOpen] = useState(false)
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false)
   const [expandedHalaqahId, setExpandedHalaqahId] = useState<string | null>(null)
   const activitiesPerPage = 5
 
@@ -1221,6 +1226,9 @@ export default function DashboardContent() {
                     if ((item as any).locked) {
                       e.preventDefault();
                       alert(`Maaf Ukhti, menu ini terkunci.`);
+                    } else if (item.label === 'Sit-In Kelas') {
+                      e.preventDefault();
+                      setIsScheduleOptionsOpen(true);
                     }
                   }}
                   className={cn(
@@ -1266,43 +1274,20 @@ export default function DashboardContent() {
         </div>
       </div>
 
-      {/* Quick Sit-In Banner Card */}
-      <div className="max-w-6xl mx-auto w-full px-4 md:px-8 mb-6">
-        <div className="bg-gradient-to-r from-emerald-50/90 via-green-50/70 to-teal-50/80 border border-green-200/80 rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-green-700 text-white flex items-center justify-center shadow-md shadow-green-200 shrink-0">
-              <ArrowRightLeft className="w-5 h-5 sm:w-6 sm:h-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h4 className="text-sm sm:text-base font-black text-gray-900 tracking-tight">Izin & Sit-In Kelas Pengganti 🌸</h4>
-                <span className="text-[10px] font-bold bg-green-100 text-green-800 px-2 py-0.5 rounded-full uppercase">Aktif</span>
-              </div>
-              <p className="text-xs text-gray-600 mt-0.5">
-                Berhalangan hadir di kelas utama pekan ini? Silakan daftar Sit-In di jadwal kelas lain yang masih memiliki kuota kosong.
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
-            <Link href="/sit-in" className="w-full sm:w-auto">
-              <Button
-                className="w-full sm:w-auto bg-green-700 hover:bg-green-800 text-white font-bold rounded-xl shadow-sm text-xs sm:text-sm transition-all"
-              >
-                <ArrowRightLeft className="w-4 h-4 mr-1.5" />
-                Daftar Sit-In
-              </Button>
-            </Link>
-            <Link href="/sit-in" className="hidden sm:inline-flex">
-              <Button
-                variant="outline"
-                className="border-green-200 text-green-800 hover:bg-green-50 font-semibold rounded-xl text-xs sm:text-sm"
-              >
-                Lihat Jadwal
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </div>
+      {/* Dynamic Action Banner (Menyesuaikan Siklus Program & Layanan Jadwal Terpadu) */}
+      <DynamicActionBanner
+        user={user}
+        activeBatch={selectedBatch || activeBatch}
+        currentWeek={currentWeek}
+        hasRegistered={hasRegisteredTikrar || hasRegistered}
+        isRegisteredTikrar={hasRegisteredTikrar}
+        hasPhase3Complete={hasPhase3}
+        daftarUlangData={daftarUlangData}
+        onOpenScheduleOptions={() => setIsScheduleOptionsOpen(true)}
+        onOpenSitIn={() => setIsSitInModalOpen(true)}
+        onOpenTransfer={() => setIsTransferModalOpen(true)}
+        onOpenExam={() => push('/ujian')}
+      />
 
       {/* Jadwal Harian Section - only for active batch members & admin */}
       {(hasRegisteredTikrar || hasMuallimahReg || canSeeAdminStats) && (
@@ -1430,6 +1415,26 @@ export default function DashboardContent() {
         onClose={() => setIsSitInModalOpen(false)}
         user={user}
         activeBatch={selectedBatch || activeBatch}
+      />
+
+      {/* Unified Schedule Options Modal (Mutasi & Sit-In) */}
+      <ScheduleOptionsModal
+        isOpen={isScheduleOptionsOpen}
+        onClose={() => setIsScheduleOptionsOpen(false)}
+        onSelectSitIn={() => setIsSitInModalOpen(true)}
+        onSelectTransfer={() => setIsTransferModalOpen(true)}
+        isTransferAllowed={true}
+      />
+
+      {/* Transfer / Mutasi Jadwal Modal */}
+      <TransferScheduleModal
+        isOpen={isTransferModalOpen}
+        onClose={() => setIsTransferModalOpen(false)}
+        user={user}
+        activeBatch={selectedBatch || activeBatch}
+        onSuccess={() => {
+          toast.success('Pengajuan perpindahan jadwal berhasil diajukan');
+        }}
       />
 
       {/* Thalibah Rank Modal */}
