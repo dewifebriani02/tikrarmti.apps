@@ -1209,7 +1209,7 @@ export default function DashboardContent() {
               { label: 'Sit-In Kelas', icon: ArrowRightLeft, color: 'rose', href: '/sit-in' },
               { label: 'Ujian Pekanan', icon: Calendar, color: 'amber', href: '/ujian' },
               { label: "Muraja'ah 40x", icon: RotateCcw, color: 'teal', href: '/murojaah' },
-              { label: 'Ujian Akhir', icon: Award, color: 'blue', href: '#' },
+              { label: 'Ujian Akhir', icon: Award, color: 'blue', href: '/ujian' },
               { label: 'Sertifikat', icon: CheckCircle, color: 'emerald', href: '/kelulusan-sertifikat' },
               { label: 'Alumni', icon: GraduationCap, color: 'purple', href: '/alumni' },
               { label: 'Infaq & Donasi', icon: Wallet, color: 'amber', href: '/infaq-donasi' },
@@ -1222,12 +1222,6 @@ export default function DashboardContent() {
                     if ((item as any).locked) {
                       e.preventDefault();
                       alert(`Maaf Ukhti, menu ini terkunci.`);
-                    } else if (item.label === 'Sit-In Kelas') {
-                      e.preventDefault();
-                      setIsSitInModalOpen(true);
-                    } else if (item.label === 'Ujian Akhir') {
-                      e.preventDefault();
-                      setExamModalOpen(true);
                     }
                   }}
                   className={cn(
@@ -1275,15 +1269,15 @@ export default function DashboardContent() {
 
       {/* Quick Sit-In Banner Card */}
       <div className="max-w-6xl mx-auto w-full px-4 md:px-8 mb-6">
-        <div className="bg-gradient-to-r from-rose-50/90 via-pink-50/70 to-indigo-50/80 border border-rose-200/80 rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="bg-gradient-to-r from-emerald-50/90 via-green-50/70 to-teal-50/80 border border-green-200/80 rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-rose-500 text-white flex items-center justify-center shadow-md shadow-rose-200 shrink-0">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-green-700 text-white flex items-center justify-center shadow-md shadow-green-200 shrink-0">
               <ArrowRightLeft className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h4 className="text-sm sm:text-base font-black text-gray-900 tracking-tight">Izin & Sit-In Kelas Pengganti 🌸</h4>
-                <span className="text-[10px] font-bold bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full uppercase">Aktif</span>
+                <span className="text-[10px] font-bold bg-green-100 text-green-800 px-2 py-0.5 rounded-full uppercase">Aktif</span>
               </div>
               <p className="text-xs text-gray-600 mt-0.5">
                 Berhalangan hadir di kelas utama pekan ini? Silakan daftar Sit-In di jadwal kelas lain yang masih memiliki kuota kosong.
@@ -1291,17 +1285,18 @@ export default function DashboardContent() {
             </div>
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
-            <Button
-              onClick={() => setIsSitInModalOpen(true)}
-              className="w-full sm:w-auto bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl shadow-sm text-xs sm:text-sm transition-all"
-            >
-              <ArrowRightLeft className="w-4 h-4 mr-1.5" />
-              Daftar Sit-In
-            </Button>
+            <Link href="/sit-in" className="w-full sm:w-auto">
+              <Button
+                className="w-full sm:w-auto bg-green-700 hover:bg-green-800 text-white font-bold rounded-xl shadow-sm text-xs sm:text-sm transition-all"
+              >
+                <ArrowRightLeft className="w-4 h-4 mr-1.5" />
+                Daftar Sit-In
+              </Button>
+            </Link>
             <Link href="/sit-in" className="hidden sm:inline-flex">
               <Button
                 variant="outline"
-                className="border-rose-200 text-rose-700 hover:bg-rose-100/50 font-semibold rounded-xl text-xs sm:text-sm"
+                className="border-green-200 text-green-800 hover:bg-green-50 font-semibold rounded-xl text-xs sm:text-sm"
               >
                 Lihat Jadwal
               </Button>

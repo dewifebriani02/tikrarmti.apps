@@ -894,74 +894,119 @@ export default function PerjalananSaya() {
   if (!isClient) return <div className="flex h-screen items-center justify-center">Loading...</div>;
 
   return (
-    <div className="space-y-10 sm:space-y-16 animate-fadeIn pb-20">
-      {/* Premium Header */}
-      <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-green-900 via-green-800 to-emerald-900 p-8 sm:p-12 text-white shadow-2xl">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-start justify-between gap-6">
-          <div className="space-y-6">
-            <h1 className="text-4xl sm:text-6xl font-black tracking-tight">Perjalanan Hafalan <span className="text-emerald-300 italic">Ukhti</span></h1>
-            
+    <div className="max-w-2xl mx-auto px-4 py-8 space-y-6 animate-fadeInUp pb-24">
+      {/* 1. HERO CARD PERJALANAN SAYA */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-green-900 to-green-800 p-6 text-white shadow-sm border border-green-800">
+        <div className="relative z-10 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span className="bg-white/10 backdrop-blur-md border border-white/20 text-green-200 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+              Fase Pembelajaran Santri
+            </span>
             {availableBatches.length > 0 && (
               <div className="relative inline-block">
                 <select 
                   id="batch-selector"
-                  className="bg-emerald-800/80 border border-emerald-700 text-emerald-100 text-sm font-bold rounded-full px-5 py-2.5 outline-none appearance-none cursor-pointer pr-10 hover:bg-emerald-700/80 transition-colors"
+                  className="bg-black/20 border border-white/20 text-white text-xs font-bold rounded-full px-3.5 py-1.5 outline-none appearance-none cursor-pointer pr-8 hover:bg-black/30 transition-colors"
                   value={batchId || ''}
                   onChange={(e) => handleSelectBatch(e.target.value)}
                 >
                   {availableBatches.map(b => (
-                    <option key={b.id} value={b.id} className="bg-emerald-900 text-white font-medium">
+                    <option key={b.id} value={b.id} className="bg-green-950 text-white font-medium">
                       {b.name} {b.id === activeBatch?.id ? ' (Aktif)' : ''}
                     </option>
                   ))}
                 </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-emerald-300">
-                  <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-green-200">
+                  <svg className="fill-current h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
                     <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
                   </svg>
                 </div>
               </div>
             )}
           </div>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+              Perjalanan Hafalan <span className="text-emerald-300 italic">Ukhti</span>
+            </h1>
+            <p className="text-green-100/90 text-xs sm:text-sm mt-1 leading-relaxed">
+              Pantau seluruh tahapan pembelajaran, status seleksi, daftar ulang, hingga ujian akhir kelulusan di sini.
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* 5-Phase Premium Progress Tracker */}
-      <div className="max-w-6xl mx-auto w-full px-4">
-        <div className="relative bg-white/40 backdrop-blur-md border border-white shadow-xl rounded-[2rem] p-6 sm:p-10">
-          <h2 className="text-center text-emerald-900 font-black text-lg mb-10 uppercase tracking-widest">Fase Perjalanan Ukhti</h2>
-          <div className="relative flex flex-col xl:flex-row justify-between items-start xl:items-center gap-8 sm:gap-10 xl:gap-6">
-            {/* Timeline Connecting Lines */}
-            <div className="absolute top-6 left-6 right-6 h-1 bg-emerald-100/50 xl:block hidden z-0 rounded-full" />
-            <div className="absolute left-6 top-6 bottom-6 w-1 bg-emerald-100/50 xl:hidden block z-0 rounded-full" />
-
-            {phases.map((phase, idx) => (
-              <div key={phase.id} className="relative flex xl:flex-col items-start xl:items-center gap-4 xl:gap-3 w-full xl:w-[18%] z-10">
-                <div className={cn("w-12 h-12 rounded-full flex items-center justify-center border-4 border-white shadow-lg shrink-0 mt-0.5 relative z-10", phase.status === 'completed' ? "bg-emerald-500 text-white" : phase.status === 'current' ? "bg-yellow-400 text-yellow-900" : "bg-white text-gray-300")}>
-                  {phase.status === 'completed' ? <CheckCircle className="w-6 h-6" /> : phase.icon}
+      {/* 2. PROGRESS TRACKER FASE */}
+      <Card className="border border-gray-100 shadow-sm rounded-2xl overflow-hidden bg-white">
+        <CardHeader className="bg-gray-50/80 border-b border-gray-100 px-5 sm:px-6 py-4">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base font-bold text-gray-900 flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-green-700" />
+              Fase Perjalanan Ukhti
+            </CardTitle>
+            <span className="text-[10px] font-bold text-green-800 bg-green-50 px-2.5 py-1 rounded-full border border-green-200/60 uppercase tracking-wider">
+              5 Tahapan Utama
+            </span>
+          </div>
+          <CardDescription className="text-xs text-gray-500 mt-0.5">
+            Ikuti seluruh alur tahapan secara runtut hingga menyelesaikan masa belajar dan syahadah.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-5 sm:p-6 space-y-6">
+          {phases.map((phase) => (
+            <div key={phase.id} className="relative rounded-xl border border-gray-100 bg-gray-50/40 p-4 sm:p-5 transition-all hover:border-gray-200">
+              <div className="flex items-center justify-between gap-3 mb-3 pb-3 border-b border-gray-200/60">
+                <div className="flex items-center gap-3">
+                  <div className={cn(
+                    "w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 shadow-sm",
+                    phase.status === 'completed' 
+                      ? "bg-green-700 text-white" 
+                      : phase.status === 'current' 
+                      ? "bg-amber-400 text-amber-950 font-black" 
+                      : "bg-gray-100 text-gray-400"
+                  )}>
+                    {phase.status === 'completed' ? <CheckCircle className="w-5 h-5" /> : `F${phase.id}`}
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                      Fase {phase.id}
+                    </span>
+                    <h4 className="text-sm sm:text-base font-bold text-gray-900">
+                      {phase.name}
+                    </h4>
+                  </div>
                 </div>
-                <div className="flex flex-col xl:items-center text-left min-w-0 flex-1">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Fase {phase.id}</p>
-                  <h4 className="text-sm font-bold text-gray-900">{phase.name}</h4>
-                  <div className="mt-2 space-y-1.5 w-full">
-                    {phase.subPhases.map((sub, sIdx) => (
-                      <div key={sIdx} className="flex items-start gap-2 pt-0.5">
-                        <div className="flex-shrink-0 mt-0.5">
-                          {sub.done ? (
-                            <CheckCircle className="w-4 h-4 text-emerald-500" />
-                          ) : (
-                            <Circle className="w-4 h-4 text-gray-300" />
-                          )}
-                        </div>
-                        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 group min-w-0 flex-1">
-                          <span className="text-xs font-bold text-gray-800">{sub.name}</span>
+                <span className={cn(
+                  "text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider border",
+                  phase.status === 'completed' ? "bg-green-50 text-green-700 border-green-200/60" :
+                  phase.status === 'current' ? "bg-amber-50 text-amber-800 border-amber-200/60 font-black" :
+                  "bg-gray-50 text-gray-400 border-gray-200/60"
+                )}>
+                  {phase.status === 'completed' ? 'Selesai' : phase.status === 'current' ? 'Sedang Berjalan' : 'Belum Dimulai'}
+                </span>
+              </div>
+
+              {/* Sub-phases List */}
+              <div className="space-y-2.5 pt-1">
+                {phase.subPhases.map((sub, sIdx) => (
+                  <div key={sIdx} className="flex items-start justify-between gap-3 p-2.5 rounded-lg bg-white border border-gray-100 text-xs">
+                    <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                      <div className="shrink-0 mt-0.5">
+                        {sub.done ? (
+                          <CheckCircle className="w-4 h-4 text-green-600" />
+                        ) : (
+                          <Circle className="w-4 h-4 text-gray-300" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="font-bold text-gray-800">{sub.name}</span>
                           {(sub as any).date && (
-                            <span className="text-[9px] font-semibold text-emerald-800 bg-emerald-50/60 px-1 py-0.5 rounded border border-emerald-100/50 shrink-0">
+                            <span className="text-[9px] font-semibold text-green-800 bg-green-50 px-1.5 py-0.5 rounded border border-green-200/50 shrink-0">
                               {(sub as any).date}
                             </span>
                           )}
-                          <span className="text-xs font-medium text-gray-300">—</span>
-                          <span className="text-xs font-medium text-gray-500 break-words flex items-center gap-1.5">
+                          <span className="text-gray-300">—</span>
+                          <span className="text-gray-600 break-words flex items-center gap-1">
                             {sub.data}
                             {(() => {
                               const pType = (sub as any).pairingType;
@@ -981,85 +1026,81 @@ export default function PerjalananSaya() {
                               return null;
                             })()}
                           </span>
-                          {(sub as any).reviewType && (
-                            <button 
-                              onClick={() => { 
-                                setReviewType((sub as any).reviewType); 
-                                setIsReviewModalOpen(true); 
-                              }} 
-                              className="ml-1 text-emerald-600 hover:text-emerald-800 transition-colors p-1"
-                              title={`Review ${sub.name}`}
-                            >
-                              <Eye className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                          {(sub as any).isEditAction && (
-                            <button
-                              disabled={(sub as any).isEditDisabled}
-                              onClick={() => router.push((sub as any).editUrl ? `${(sub as any).editUrl}&batchId=${batchId}` : `/pendaftaran/tikrar-tahfidz?batchId=${batchId}`)}
-                              className={cn(
-                                "ml-1 flex items-center gap-1 transition-colors p-1",
-                                (sub as any).isEditDisabled
-                                  ? "text-gray-400 cursor-not-allowed opacity-50"
-                                  : "text-emerald-600 hover:text-emerald-800"
-                              )}
-                              title={
-                                (sub as any).isEditDisabled
-                                  ? ((sub as any).editDisabledTitle || `Pendaftaran belum dibuka (Mulai ${batch?.registration_start_date ? formatDateIndo(batch.registration_start_date) : ''})`)
-                                  : ((sub as any).editActiveTitle || (hasFormPendaftaran ? `Edit Pendaftaran` : `Daftar Sekarang`))
-                              }
-                            >
-                              <Edit className="w-3.5 h-3.5" />
-                              <span className="text-[10px] font-bold underline">{(sub as any).editLabel || (hasFormPendaftaran ? 'Edit' : 'Daftar')}</span>
-                            </button>
-                          )}
-                          {(sub as any).isTestAction && (
-                            <button 
-                              disabled={(sub as any).isTestDisabled}
-                              onClick={() => router.push((sub as any).testUrl)}
-                              className={cn(
-                                "ml-2 px-3 py-1.5 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1 active:scale-95 shadow-md",
-                                (sub as any).isTestDisabled 
-                                  ? "bg-gray-300 shadow-none cursor-not-allowed text-gray-500" 
-                                  : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-100"
-                              )}
-                              title={(sub as any).isTestDisabled ? "Tahapan belum dimulai" : "Mulai"}
-                            >
-                              <Play className="w-3 h-3 fill-current" />
-                              Mulai
-                            </button>
-                          )}
-                          {(sub as any).isPortalAction && (
-                            <button 
-                              disabled={(sub as any).isPortalDisabled}
-                              onClick={() => setIsExamPortalOpen(true)} 
-                              className={cn(
-                                "ml-1 px-3 py-1 text-white rounded-full text-[10px] font-bold transition-colors",
-                                (sub as any).isPortalDisabled 
-                                  ? "bg-gray-300 cursor-not-allowed text-gray-500" 
-                                  : "bg-emerald-600 hover:bg-emerald-700"
-                              )}
-                              title={(sub as any).isPortalDisabled ? "Portal ujian belum dibuka" : "Buka"}
-                            >
-                              BUKA
-                            </button>
-                          )}
-                          {(sub as any).isLocked && (
-                            <span className="inline-flex items-center ml-1 text-gray-400" title={hasFormPendaftaran ? "Dikerjakan via Google Form" : "Silakan isi form pendaftaran terlebih dahulu"}>
-                              <Lock className="w-3 h-3" />
-                            </span>
-                          )}
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+                    </div>
 
+                    {/* Action Buttons */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {(sub as any).reviewType && (
+                        <button 
+                          onClick={() => { 
+                            setReviewType((sub as any).reviewType); 
+                            setIsReviewModalOpen(true); 
+                          }} 
+                          className="text-green-700 hover:text-green-900 transition-colors p-1"
+                          title={`Review ${sub.name}`}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                      )}
+                      {(sub as any).isEditAction && (
+                        <button
+                          disabled={(sub as any).isEditDisabled}
+                          onClick={() => router.push((sub as any).editUrl ? `${(sub as any).editUrl}&batchId=${batchId}` : `/pendaftaran/tikrar-tahfidz?batchId=${batchId}`)}
+                          className={cn(
+                            "flex items-center gap-1 transition-colors px-2 py-1 rounded-md text-[10px] font-bold border",
+                            (sub as any).isEditDisabled
+                              ? "text-gray-400 bg-gray-50 border-gray-200 cursor-not-allowed opacity-50"
+                              : "text-green-700 bg-green-50 border-green-200 hover:bg-green-100"
+                          )}
+                        >
+                          <Edit className="w-3 h-3" />
+                          <span>{(sub as any).editLabel || (hasFormPendaftaran ? 'Edit' : 'Daftar')}</span>
+                        </button>
+                      )}
+                      {(sub as any).isTestAction && (
+                        <button 
+                          disabled={(sub as any).isTestDisabled}
+                          onClick={() => router.push((sub as any).testUrl)}
+                          className={cn(
+                            "px-2.5 py-1 text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1 shadow-sm",
+                            (sub as any).isTestDisabled 
+                              ? "bg-gray-300 cursor-not-allowed text-gray-500" 
+                              : "bg-green-700 hover:bg-green-800"
+                          )}
+                        >
+                          <Play className="w-3 h-3 fill-current" />
+                          Mulai
+                        </button>
+                      )}
+                      {(sub as any).isPortalAction && (
+                        <button 
+                          disabled={(sub as any).isPortalDisabled}
+                          onClick={() => setIsExamPortalOpen(true)} 
+                          className={cn(
+                            "px-2.5 py-1 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors shadow-sm",
+                            (sub as any).isPortalDisabled 
+                              ? "bg-gray-300 cursor-not-allowed text-gray-500" 
+                              : "bg-green-700 hover:bg-green-800"
+                          )}
+                        >
+                          Buka
+                        </button>
+                      )}
+                      {(sub as any).isLocked && (
+                        <span className="inline-flex items-center text-gray-400" title={hasFormPendaftaran ? "Dikerjakan via Google Form" : "Silakan isi form pendaftaran terlebih dahulu"}>
+                          <Lock className="w-3.5 h-3.5" />
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
       {/* Action Modals */}
 
 
