@@ -1,14 +1,38 @@
 import { writeFile, mkdir, unlink } from 'fs/promises';
 import { existsSync } from 'fs';
-import { join, dirname } from 'path';
+import { join, dirname, relative, resolve, sep } from 'path';
 
 /**
  * Base directory for uploads. In Next.js, public/uploads is served statically.
  */
-const UPLOAD_BASE_DIR = process.env.UPLOAD_DIR || join(process.cwd(), 'public', 'uploads');
+const UPLOAD_BASE_DIR = resolve(process.env.UPLOAD_DIR || join(process.cwd(), 'public', 'uploads'));
 const APP_URL = (process.env.NODE_ENV === 'production' || !process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_APP_URL.includes('localhost'))
   ? 'https://markaztikrar.id'
   : process.env.NEXT_PUBLIC_APP_URL;
+
+const SAFE_BUCKET_RE = /^[a-z0-9][a-z0-9-]*$/;
+
+/**
+ * Resolve <bucket>/<filePath> to an absolute path and make sure it stays inside
+ * that bucket's directory. Throws on traversal attempts ("..", absolute paths,
+ * NUL bytes) or an invalid bucket name.
+ */
+function resolveUploadPath(bucket: string, filePath: string): { cleanPath: string; fullPath: string } {
+  if (!SAFE_BUCKET_RE.test(bucket)) {
+    throw new Error(`Invalid storage bucket: ${bucket}`);
+  }
+  const trimmed = filePath.replace(/^\/+/, '');
+  if (!trimmed || trimmed.includes('\0')) {
+    throw new Error('Invalid storage path');
+  }
+  const bucketDir = join(UPLOAD_BASE_DIR, bucket);
+  const fullPath = resolve(bucketDir, trimmed);
+  if (!fullPath.startsWith(bucketDir + sep)) {
+    throw new Error('Storage path escapes bucket directory');
+  }
+  const cleanPath = relative(bucketDir, fullPath).split(sep).join('/');
+  return { cleanPath, fullPath };
+}
 
 /**
  * Save an uploaded file buffer to the local VPS storage (public/uploads/<bucket>/<filePath>)
@@ -18,10 +42,7 @@ export async function saveUploadedFile(
   filePath: string,
   data: Buffer | ArrayBuffer | Uint8Array
 ): Promise<{ publicUrl: string; localPath: string }> {
-  // Normalize clean path
-  const cleanPath = filePath.replace(/^\/+/, '');
-  const targetDir = join(UPLOAD_BASE_DIR, bucket);
-  const fullPath = join(targetDir, cleanPath);
+  const { cleanPath, fullPath } = resolveUploadPath(bucket, filePath);
 
   const folder = dirname(fullPath);
   if (!existsSync(folder)) {
@@ -49,8 +70,7 @@ export async function saveUploadedFile(
  */
 export async function deleteUploadedFile(bucket: string, filePath: string): Promise<boolean> {
   try {
-    const cleanPath = filePath.replace(/^\/+/, '');
-    const fullPath = join(UPLOAD_BASE_DIR, bucket, cleanPath);
+    const { fullPath } = resolveUploadPath(bucket, filePath);
     if (existsSync(fullPath)) {
       await unlink(fullPath);
       return true;
