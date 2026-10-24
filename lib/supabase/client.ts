@@ -64,7 +64,7 @@ export function createClient() {
             const res = await fetch('/api/user/change-password', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ newPassword: attrs.password }),
+              body: JSON.stringify({ newPassword: attrs.password, currentPassword: attrs.currentPassword }),
             });
             const data = await res.json();
             if (!res.ok || !data.success) {

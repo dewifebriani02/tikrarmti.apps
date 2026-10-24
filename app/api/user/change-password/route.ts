@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser, changeUserPassword, verifyPassword, createSessionToken, setSessionCookie } from '@/lib/auth';
+import { queryOne } from '@/lib/db';
+import { authRateLimit, checkRateLimit } from '@/lib/rate-limiter';
 
 /**
  * POST /api/user/change-password
@@ -13,6 +15,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'Sesi tidak valid atau telah berakhir. Silakan login kembali.' },
         { status: 401 }
+      );
+    }
+
+    const rate = await checkRateLimit(`change-password:${user.id}`, authRateLimit, '/api/user/change-password');
+    if (!rate.success) {
+      return NextResponse.json(
+        { success: false, error: 'Terlalu banyak percobaan. Silakan coba lagi beberapa menit lagi.' },
+        { status: 429 }
       );
     }
 
@@ -40,9 +50,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // If voluntary change (not forced reset) and currentPassword provided, verify current password
-    if (!user.must_change_password && currentPassword) {
-      const isValid = await verifyPassword(currentPassword, user.password_hash);
+    // Voluntary change (not a forced reset): the current password is always required.
+    // getCurrentUser() never selects password_hash, so read it here.
+    // Accounts without a password yet (e.g. Google-only) may set their first one.
+    if (!user.must_change_password) {
+      const row = await queryOne<{ password_hash: string | null }>(
+        'SELECT password_hash FROM users WHERE id = $1',
+        [user.id]
+      );
+      const hasPassword = !!row?.password_hash;
+      const isValid = !hasPassword || (
+        typeof currentPassword === 'string' &&
+        await verifyPassword(currentPassword, row?.password_hash)
+      );
       if (!isValid) {
         return NextResponse.json(
           { success: false, error: 'Password lama tidak sesuai' },
@@ -86,7 +106,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('[API /api/user/change-password] Error:', error);
     return NextResponse.json(
-      { success: false, error: error.message || 'Terjadi kesalahan sistem saat memperbarui password' },
+      { success: false, error: 'Terjadi kesalahan sistem saat memperbarui password' },
       { status: 500 }
     );
   }

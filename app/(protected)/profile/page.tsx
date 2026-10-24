@@ -1351,6 +1351,7 @@ function AccountSecurity() {
   const [isChangingPassword, setIsChangingPassword] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [passwords, setPasswords] = useState({
+    currentPassword: '',
     newPassword: '',
     confirmPassword: '',
   })
@@ -1373,13 +1374,14 @@ function AccountSecurity() {
     try {
       const supabase = createClient()
       const { error } = await supabase.auth.updateUser({
-        password: passwords.newPassword
+        password: passwords.newPassword,
+        currentPassword: passwords.currentPassword,
       })
 
       if (error) throw error
 
       toast.success('Password berhasil diperbarui!')
-      setPasswords({ newPassword: '', confirmPassword: '' })
+      setPasswords({ currentPassword: '', newPassword: '', confirmPassword: '' })
       setIsChangingPassword(false)
     } catch (error: any) {
       console.error('Password change error:', error)
@@ -1413,6 +1415,17 @@ function AccountSecurity() {
         </div>
       ) : (
         <form onSubmit={handlePasswordChange} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="currentPassword">Password Lama</Label>
+            <Input
+              id="currentPassword"
+              type={showPassword ? "text" : "password"}
+              value={passwords.currentPassword}
+              onChange={(e) => setPasswords({ ...passwords, currentPassword: e.target.value })}
+              placeholder="Masukkan password saat ini"
+              autoComplete="current-password"
+            />
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="newPassword">Password Baru</Label>
@@ -1453,7 +1466,7 @@ function AccountSecurity() {
               variant="ghost"
               onClick={() => {
                 setIsChangingPassword(false)
-                setPasswords({ newPassword: '', confirmPassword: '' })
+                setPasswords({ currentPassword: '', newPassword: '', confirmPassword: '' })
               }}
               disabled={isLoading}
             >
