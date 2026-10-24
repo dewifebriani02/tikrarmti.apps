@@ -1211,7 +1211,7 @@ export default function DashboardContent() {
               { label: 'Perjalanan Saya', icon: Clock, color: 'blue', href: '/perjalanan-saya' },
               { label: 'Catatan Tashih', icon: ClipboardList, color: 'emerald', href: '/tashih' },
               { label: 'Jurnal Harian', icon: BookOpen, color: 'indigo', href: '/jurnal-harian' },
-              { label: 'Sit-In Kelas', icon: ArrowRightLeft, color: 'rose', href: '/sit-in' },
+              { label: 'Sit-In / Mutasi', icon: ArrowRightLeft, color: 'rose', href: '/sit-in' },
               { label: 'Ujian', icon: Award, color: 'blue', href: '/ujian' },
               { label: "Muraja'ah 40x", icon: RotateCcw, color: 'teal', href: '/murojaah' },
               { label: 'Sertifikat', icon: CheckCircle, color: 'emerald', href: '/kelulusan-sertifikat' },
@@ -1220,24 +1220,28 @@ export default function DashboardContent() {
             ];
 
             return menuItems.map((item, i) => (
-              <Link key={i} href={item.href} className="group min-w-0">
-                <div 
-                  onClick={(e) => {
-                    if ((item as any).locked) {
-                      e.preventDefault();
-                      alert(`Maaf Ukhti, menu ini terkunci.`);
-                    } else if (item.label === 'Sit-In Kelas') {
-                      e.preventDefault();
-                      setIsScheduleOptionsOpen(true);
-                    }
-                  }}
+              <Link 
+                key={i} 
+                href={item.href} 
+                onClick={(e) => {
+                  if ((item as any).locked) {
+                    e.preventDefault();
+                    alert(`Maaf Ukhti, menu ini terkunci.`);
+                  } else if (item.label === 'Sit-In / Mutasi') {
+                    e.preventDefault();
+                    setIsScheduleOptionsOpen(true);
+                  }
+                }}
+                className="group min-w-0"
+              >
+                <div
                   className={cn(
                     "h-full glass-premium rounded-xl sm:rounded-3xl p-2 sm:p-4 border border-white transition-all duration-300 flex flex-col items-center text-center justify-start sm:justify-center min-h-[95px] sm:min-h-0 relative overflow-hidden",
                     (item as any).locked 
                       ? "opacity-50 grayscale cursor-not-allowed" 
                       : "hover:border-green-100 hover:shadow-xl hover:-translate-y-1 cursor-pointer",
                     item.label === 'Infaq & Donasi' && "bg-amber-50/90 border-amber-300/80 shadow-md shadow-amber-100/50 hover:border-amber-400",
-                    item.label === 'Sit-In Kelas' && "bg-rose-50/50 border-rose-200/60 shadow-sm hover:border-rose-300"
+                    item.label === 'Sit-In / Mutasi' && "bg-rose-50/50 border-rose-200/60 shadow-sm hover:border-rose-300"
                   )}
                 >
                   <div className={cn(
@@ -1263,7 +1267,7 @@ export default function DashboardContent() {
                   <h3 className={cn(
                     "text-[9px] sm:text-xs lg:text-sm font-bold leading-[1.1] w-full px-0.5 break-words",
                     item.label === 'Infaq & Donasi' ? "text-amber-950" : 
-                    item.label === 'Sit-In Kelas' ? "text-rose-950" : "text-gray-900"
+                    item.label === 'Sit-In / Mutasi' ? "text-rose-950" : "text-gray-900"
                   )}>
                     {item.label}
                   </h3>
