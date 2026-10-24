@@ -108,22 +108,22 @@ export function FinalExamPortalModal({ isOpen, onClose, hariAktual, percentage, 
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-3xl rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden bg-white max-h-[90vh] flex flex-col">
-          <DialogHeader className="bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 text-white p-8 sm:p-12 relative overflow-hidden shrink-0">
+          <DialogHeader className="bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 text-white p-6 sm:p-8 relative overflow-hidden shrink-0">
             <div className="relative z-10">
-              <DialogTitle className="text-3xl sm:text-4xl font-black tracking-tight flex items-center gap-4 mb-2">
-                <GraduationCap className="w-10 h-10 sm:w-12 sm:h-12" />
+              <DialogTitle className="text-2xl sm:text-3xl font-black tracking-tight flex items-center gap-3 mb-2">
+                <GraduationCap className="w-8 h-8 sm:w-10 sm:h-10" />
                 Ujian Akhir
               </DialogTitle>
-              <DialogDescription className="text-blue-100 text-base sm:text-lg font-medium max-w-md leading-relaxed">
+              <DialogDescription className="text-blue-100 text-sm sm:text-base font-medium max-w-md leading-relaxed">
                 Tahap akhir perjalanan Ukhti untuk mendapatkan sertifikat kelulusan Tikrar MTI.
                 <div className="mt-3 flex flex-wrap gap-2">
                   {batchName && (
-                    <span className="inline-block px-4 py-1.5 bg-white/20 text-white font-bold rounded-full text-sm backdrop-blur-sm border border-white/30">
+                    <span className="inline-block px-3 py-1 bg-white/20 text-white font-bold rounded-full text-xs sm:text-sm backdrop-blur-sm border border-white/30">
                       {batchName}
                     </span>
                   )}
                   {isAdmin && (
-                    <span className="inline-block px-4 py-1.5 bg-purple-500/50 text-white font-bold rounded-full text-sm backdrop-blur-sm border border-purple-300/50 flex items-center gap-1.5">
+                    <span className="inline-block px-3 py-1 bg-purple-500/50 text-white font-bold rounded-full text-xs sm:text-sm backdrop-blur-sm border border-purple-300/50 flex items-center gap-1.5">
                       <Lock className="w-3 h-3" /> Mode Admin (Bypass Gembok)
                     </span>
                   )}
@@ -132,11 +132,11 @@ export function FinalExamPortalModal({ isOpen, onClose, hariAktual, percentage, 
             </div>
             
             {/* Decorative background elements */}
-            <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
-            <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-64 h-64 bg-black/10 rounded-full blur-3xl" />
+            <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-64 h-64 bg-black/10 rounded-full blur-3xl pointer-events-none" />
           </DialogHeader>
 
-          <div className="flex-1 min-h-0 p-6 sm:p-10 flex flex-col md:grid md:grid-cols-2 gap-6 bg-gray-50/50 overflow-y-auto">
+          <div className="flex-1 min-h-0 p-5 sm:p-8 flex flex-col md:grid md:grid-cols-2 gap-4 sm:gap-6 bg-gray-50/50 overflow-y-auto">
             {exams.map((exam) => {
               const status = getStatus(exam.type);
               const isLocked = status === 'locked';
@@ -148,19 +148,19 @@ export function FinalExamPortalModal({ isOpen, onClose, hariAktual, percentage, 
                   key={exam.id}
                   onClick={() => handleAction(exam.type)}
                   className={cn(
-                    "group relative rounded-[2rem] border-2 p-6 sm:p-8 space-y-6 transition-all duration-500 overflow-hidden cursor-pointer flex flex-col",
+                    "group relative rounded-[2rem] border-2 p-5 sm:p-7 space-y-4 sm:space-y-6 transition-all duration-300 overflow-hidden cursor-pointer flex flex-col shrink-0",
                     isLocked ? "bg-white border-gray-100 opacity-60 grayscale" : 
                     isGraded ? "bg-emerald-50 border-emerald-200 shadow-emerald-900/5" :
                     isRegistered ? "bg-blue-50 border-blue-200 shadow-blue-900/5" :
-                    "bg-white border-white hover:border-indigo-100 shadow-xl hover:shadow-indigo-900/10 hover:-translate-y-2"
+                    "bg-white border-white hover:border-indigo-100 shadow-xl hover:shadow-indigo-900/10 hover:-translate-y-1"
                   )}
                 >
                   <div className="flex justify-between items-start">
                     <div className={cn(
-                      "w-16 h-16 rounded-3xl flex items-center justify-center shadow-lg transition-transform duration-500 group-hover:scale-110",
+                      "w-14 h-14 sm:w-16 sm:h-16 rounded-2xl sm:rounded-3xl flex items-center justify-center shadow-lg transition-transform duration-500 group-hover:scale-105 shrink-0",
                       exam.color === 'blue' ? "bg-blue-600 text-white shadow-blue-600/20" : "bg-emerald-600 text-white shadow-emerald-600/20"
                     )}>
-                      <exam.icon className="w-8 h-8" />
+                      <exam.icon className="w-7 h-7 sm:w-8 sm:h-8" />
                     </div>
                     
                     {isLocked ? (
@@ -182,16 +182,16 @@ export function FinalExamPortalModal({ isOpen, onClose, hariAktual, percentage, 
                     )}
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-1.5 flex-1">
                     <div className="flex flex-col">
-                      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-1">
+                      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-0.5">
                         {exam.subtitle}
                       </span>
-                      <h4 className="text-2xl font-black text-gray-900 tracking-tight">
+                      <h4 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">
                         {exam.label}
                       </h4>
                     </div>
-                    <p className="text-sm text-gray-500 font-medium leading-relaxed">
+                    <p className="text-xs sm:text-sm text-gray-500 font-medium leading-relaxed">
                       {exam.description}
                     </p>
                   </div>
@@ -222,11 +222,11 @@ export function FinalExamPortalModal({ isOpen, onClose, hariAktual, percentage, 
                     )}
                   </div>
                 </div>
-              )
+              );
             })}
           </div>
 
-          <div className="p-8 text-center border-t border-gray-100 bg-white">
+          <div className="p-4 sm:p-6 text-center border-t border-gray-100 bg-white shrink-0">
              <p className="text-xs text-gray-400 font-medium italic">
                 *Pastikan Ukhti sudah siap secara materi dan hafalan sebelum memilih jadwal ujian.
              </p>
