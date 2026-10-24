@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { safeRedirectPath } from '@/lib/utils/safe-redirect';
 import { queryOne } from '@/lib/db';
 import { createSessionToken, setSessionCookie } from '@/lib/auth';
+import { OAUTH_STATE_COOKIE, oauthNonceMatches } from '@/lib/oauth-state';
 
 function getAppOrigin(request: NextRequest): string {
   if (process.env.NEXT_PUBLIC_APP_URL && !process.env.NEXT_PUBLIC_APP_URL.includes('localhost')) {
@@ -15,6 +16,13 @@ function getAppOrigin(request: NextRequest): string {
 }
 
 export async function GET(request: NextRequest) {
+  const response = await handleCallback(request);
+  // The OAuth nonce is single use — always clear it
+  response.cookies.set(OAUTH_STATE_COOKIE, '', { path: '/', maxAge: 0 });
+  return response;
+}
+
+async function handleCallback(request: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(request.url);
   const origin = getAppOrigin(request);
 
@@ -32,17 +40,18 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    let nextPath = '/dashboard';
-    if (state) {
-      try {
-        const parsedState = JSON.parse(Buffer.from(state, 'base64url').toString('utf-8'));
-        if (parsedState?.next) {
-          nextPath = parsedState.next;
-        }
-      } catch (e) {
-        // Fallback to default dashboard
-      }
+    // CSRF check: `state` must carry the nonce we set in an httpOnly cookie
+    let parsedState: { next?: unknown; nonce?: unknown } | null = null;
+    try {
+      parsedState = state ? JSON.parse(Buffer.from(state, 'base64url').toString('utf-8')) : null;
+    } catch {
+      parsedState = null;
     }
+    if (!oauthNonceMatches(parsedState?.nonce, request.cookies.get(OAUTH_STATE_COOKIE)?.value)) {
+      console.warn('[auth/callback] OAuth state/nonce mismatch — rejecting callback');
+      return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent('Sesi login Google tidak valid. Silakan coba lagi.')}`);
+    }
+    const nextPath = typeof parsedState?.next === 'string' ? parsedState.next : '/dashboard';
 
     const clientId = process.env.GOOGLE_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
@@ -73,7 +82,7 @@ export async function GET(request: NextRequest) {
     if (!tokenResponse.ok || !tokenData.access_token) {
       console.error('[auth/callback] Token exchange failed:', tokenData);
       return NextResponse.redirect(
-        `${origin}/login?error=${encodeURIComponent('Gagal menukar token dengan Google: ' + (tokenData.error_description || tokenData.error || 'Unknown'))}`
+        `${origin}/login?error=${encodeURIComponent('Gagal menukar token dengan Google. Silakan coba lagi.')}`
       );
     }
 
@@ -89,6 +98,12 @@ export async function GET(request: NextRequest) {
     if (!userinfoResponse.ok || !googleUser.email) {
       console.error('[auth/callback] Failed to get user profile from Google:', googleUser);
       return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent('Gagal mengambil data profil dari Google')}`);
+    }
+
+    // Only trust emails Google has verified — account matching is by email alone
+    if (googleUser.verified_email !== true) {
+      console.warn('[auth/callback] Google email not verified:', googleUser.email);
+      return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent('Email Google Ukhti belum terverifikasi.')}`);
     }
 
     const email = googleUser.email.toLowerCase().trim();

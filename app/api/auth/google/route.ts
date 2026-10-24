@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { randomBytes } from 'crypto';
+import { OAUTH_STATE_COOKIE, OAUTH_STATE_MAX_AGE } from '@/lib/oauth-state';
+import { safeRedirectPath } from '@/lib/utils/safe-redirect';
 
 function getAppOrigin(request: NextRequest): string {
   if (process.env.NEXT_PUBLIC_APP_URL && !process.env.NEXT_PUBLIC_APP_URL.includes('localhost')) {
@@ -18,11 +21,20 @@ export async function GET(request: NextRequest) {
   }
 
   const { searchParams } = new URL(request.url);
-  const next = searchParams.get('next') || '/dashboard';
+  const next = safeRedirectPath(searchParams.get('next'));
   const origin = getAppOrigin(request);
 
-  // State parameter to pass redirect path securely
-  const state = Buffer.from(JSON.stringify({ next })).toString('base64url');
+  // The nonce cookie is host-only, so it must be set on the same host Google redirects
+  // back to (e.g. apex vs. www). Bounce to that host first if we're on another one
+  // (only once, in case the proxy doesn't forward the public Host header).
+  const requestHost = request.headers.get('x-forwarded-host') || request.headers.get('host');
+  if (requestHost && requestHost !== new URL(origin).host && !searchParams.has('h')) {
+    return NextResponse.redirect(`${origin}/api/auth/google?h=1&next=${encodeURIComponent(next)}`);
+  }
+
+  // CSRF protection: random nonce in an httpOnly cookie, echoed back by Google in `state`
+  const nonce = randomBytes(32).toString('base64url');
+  const state = Buffer.from(JSON.stringify({ next, nonce })).toString('base64url');
 
   const redirectUri = `${origin}/auth/callback`;
   const googleAuthUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
@@ -30,11 +42,18 @@ export async function GET(request: NextRequest) {
   googleAuthUrl.searchParams.set('redirect_uri', redirectUri);
   googleAuthUrl.searchParams.set('response_type', 'code');
   googleAuthUrl.searchParams.set('scope', 'openid email profile');
-  googleAuthUrl.searchParams.set('access_type', 'offline');
   googleAuthUrl.searchParams.set('prompt', 'consent');
   googleAuthUrl.searchParams.set('state', state);
 
   console.log('[Google Auth Initiator] Redirecting to Google with redirect_uri:', redirectUri);
 
-  return NextResponse.redirect(googleAuthUrl.toString());
+  const response = NextResponse.redirect(googleAuthUrl.toString());
+  response.cookies.set(OAUTH_STATE_COOKIE, nonce, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: OAUTH_STATE_MAX_AGE,
+  });
+  return response;
 }
