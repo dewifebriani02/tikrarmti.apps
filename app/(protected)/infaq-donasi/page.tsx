@@ -19,12 +19,11 @@ import {
   Check, 
   Send, 
   Upload, 
-  ArrowLeft,
-  Plus,
+  Plus, 
   ChevronDown,
   Sparkles,
-  ShieldCheck,
-  ExternalLink
+  Info,
+  HelpCircle
 } from 'lucide-react';
 import {
   Dialog,
@@ -33,10 +32,8 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import Link from 'next/link';
-
-// Import from components/ui/button
-import { Button as UIButton } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
+import { cn } from '@/lib/utils';
 
 interface Donation {
   id: string;
@@ -91,7 +88,6 @@ export default function InfaqDonasiPage() {
         if (data.success) {
           const list = Array.isArray(data.data) ? data.data : (Array.isArray(data.data?.rows) ? data.data.rows : []);
           setDonations(list);
-          // If user already has a pending donation from today/recently, default form to collapsed
           if (list.length > 0 && list.some((d: Donation) => d.status === 'pending')) {
             setIsFormOpen(false);
           }
@@ -108,7 +104,7 @@ export default function InfaqDonasiPage() {
   const copyBankNumber = () => {
     navigator.clipboard.writeText('7345608197');
     setCopiedBank(true);
-    toast.success('Nomor rekening disalin');
+    toast.success('Nomor rekening disalin ke clipboard');
     setTimeout(() => setCopiedBank(false), 2000);
   };
 
@@ -116,7 +112,6 @@ export default function InfaqDonasiPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Allow larger photos since client-side compression will downsize them
     if (file.size > 25 * 1024 * 1024) {
       toast.error('Ukuran file maksimal 25MB');
       return;
@@ -155,7 +150,6 @@ export default function InfaqDonasiPage() {
     const rawDigits = donationAmount.replace(/\D/g, '');
     let parsedAmount = Number(rawDigits);
     
-    // Auto-correct if user typed shorthand like '25' or '50' for ribuan
     if (parsedAmount > 0 && parsedAmount < 1000) {
       parsedAmount = parsedAmount * 1000;
     }
@@ -189,7 +183,6 @@ export default function InfaqDonasiPage() {
 
       const data = await res.json();
       if (res.ok && data.success) {
-        // 1. Save last submitted summary for modal & closed state
         setLastSubmitted({
           amount: parsedAmount,
           donor_name: donorName.trim(),
@@ -197,22 +190,15 @@ export default function InfaqDonasiPage() {
           created_at: new Date().toISOString()
         });
 
-        // 2. Open prominent Success Modal
         setShowSuccessModal(true);
-
-        // 3. Close the form
         setIsFormOpen(false);
-
-        // 4. Trigger Toast
         toast.success('Alhamdulillah, konfirmasi donasi berhasil dikirim!');
 
-        // 5. Reset input fields
         setDonationAmount('');
         setNotes('');
         setProofFile(null);
         setProofUrl('');
 
-        // 6. Refresh history list
         fetchDonations();
       } else {
         toast.error(data.error || 'Gagal mengirim konfirmasi donasi');
@@ -242,7 +228,7 @@ export default function InfaqDonasiPage() {
       if (isNaN(d.getTime())) return '-';
       return d.toLocaleDateString('id-ID', {
         day: 'numeric',
-        month: 'long',
+        month: 'short',
         year: 'numeric',
         timeZone: 'Asia/Jakarta'
       });
@@ -255,8 +241,8 @@ export default function InfaqDonasiPage() {
     return (
       <div className="min-h-screen bg-[#F8FAF9] py-20 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-800 mx-auto mb-4"></div>
-          <p className="text-emerald-800 font-medium font-sans">Memuat Halaman Infaq & Donasi...</p>
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-green-900 mx-auto mb-4"></div>
+          <p className="text-green-900 font-medium text-xs">Memuat Halaman Infaq & Donasi...</p>
         </div>
       </div>
     );
@@ -269,7 +255,7 @@ export default function InfaqDonasiPage() {
   const pendingDonation = (donations || []).find(d => d.status === 'pending');
 
   return (
-    <div className="min-h-screen bg-[#F8FAF9] py-12 px-4 sm:px-6 lg:px-8 font-sans">
+    <div className="max-w-2xl mx-auto px-4 py-8 space-y-6 animate-fadeInUp pb-24 font-sans">
       <Toaster position="top-right" richColors />
 
       {/* ========================================================================= */}
@@ -292,7 +278,6 @@ export default function InfaqDonasiPage() {
               </DialogDescription>
             </DialogHeader>
 
-            {/* Receipt Summary Card */}
             {lastSubmitted && (
               <div className="bg-emerald-50/60 border border-emerald-100/80 rounded-2xl p-4 text-left space-y-2">
                 <div className="flex justify-between items-center text-xs">
@@ -314,429 +299,389 @@ export default function InfaqDonasiPage() {
               </div>
             )}
 
-            <div className="pt-2 flex flex-col sm:flex-row gap-2.5">
-              <UIButton
+            <div className="pt-2">
+              <Button
                 onClick={() => setShowSuccessModal(false)}
-                className="w-full bg-emerald-800 hover:bg-emerald-700 text-white rounded-xl py-3 text-xs sm:text-sm font-bold shadow-md shadow-emerald-200"
+                className="w-full bg-green-900 hover:bg-green-800 text-white rounded-xl py-3 text-xs sm:text-sm font-bold shadow-md shadow-emerald-200"
               >
                 Lihat Riwayat Donasi
-              </UIButton>
-              <UIButton
-                asChild
-                variant="outline"
-                className="w-full border-gray-200 text-gray-700 hover:bg-gray-100 rounded-xl py-3 text-xs sm:text-sm font-semibold"
-              >
-                <Link href="/dashboard">
-                  Ke Dashboard
-                </Link>
-              </UIButton>
+              </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      <div className="max-w-5xl mx-auto">
-        {/* Banner Header */}
-        <div className="bg-gradient-to-r from-emerald-850 to-emerald-700 bg-emerald-900 rounded-3xl p-8 sm:p-10 text-white shadow-xl mb-10 overflow-hidden relative">
-          <div className="absolute right-0 top-0 translate-x-10 -translate-y-10 w-44 h-44 rounded-full bg-emerald-800/30 blur-2xl" />
-          <div className="absolute left-1/3 bottom-0 translate-y-10 w-60 h-60 rounded-full bg-emerald-600/10 blur-3xl" />
-          
-          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div>
-              <div className="flex items-center gap-2">
-                <Link
-                  href="/dashboard"
-                  className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all backdrop-blur-md"
-                  title="Kembali ke Dashboard"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                </Link>
-                <span className="bg-emerald-800/60 border border-emerald-600 text-emerald-100 text-xs font-semibold px-3 py-1.5 rounded-full tracking-wide uppercase">
-                  Kontribusi Dakwah
-                </span>
-              </div>
-              <h1 className="text-3xl sm:text-4xl font-extrabold mt-3 tracking-tight">Infaq & Donasi</h1>
-              <p className="text-emerald-100/90 text-sm sm:text-base mt-2 max-w-xl leading-relaxed">
-                Salurkan kontribusi terbaik Ukhti untuk operasional dakwah, kelas harian, beasiswa mu'allimah, dan pemeliharaan server Markaz Tikrar Indonesia.
-              </p>
-            </div>
-            <div className="bg-white/10 backdrop-blur-md border border-white/20 p-5 rounded-2xl flex items-center gap-4">
-              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-white">
-                <HeartHandshake className="w-6 h-6 animate-pulse" />
+      {/* 1. Header Halaman (Standar Jurnal Harian) */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-black text-gray-900 tracking-tight flex items-center gap-2">
+              Infaq & Donasi Dakwah
+              <Sparkles className="w-4 h-4 text-amber-500" />
+            </h1>
+            <p className="text-gray-700 text-[10px] font-black uppercase tracking-widest leading-none mt-1">
+              Markaz Tikrar Indonesia
+            </p>
+          </div>
+
+          <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-800 px-3 py-1.5 rounded-2xl shadow-sm">
+            <span className="text-xs">💛</span>
+            <span className="text-xs font-black uppercase tracking-wider">
+              Jariyah Santri
+            </span>
+          </div>
+        </div>
+
+        {/* 2. Hero Status Card (Gradien Hijau Tua Elegan) */}
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-green-900 to-green-800 p-4 sm:p-5 text-white shadow-lg border border-white/10">
+          <div className="relative z-10 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-inner">
+                <HeartHandshake className="w-5 h-5 text-green-200" />
               </div>
               <div>
-                <p className="text-xs text-emerald-250 font-bold uppercase tracking-wider">Total Donasi Ukhti</p>
-                <p className="text-lg font-black mt-0.5">
+                <h2 className="text-sm font-bold text-white tracking-wide">
+                  Total Kontribusi Ukhti
+                </h2>
+                <p className="text-green-100/70 text-[10px] font-black uppercase tracking-tighter">
                   {formatIDR(approvedTotal)}
                 </p>
               </div>
             </div>
+            <div className="text-right">
+              <span className="text-[10px] font-black uppercase tracking-wider bg-white/15 text-green-100 px-2.5 py-1 rounded-lg border border-white/10">
+                {donations.filter(d => d.status === 'approved').length} Transaksi Terverifikasi
+              </span>
+            </div>
+          </div>
+
+          <div className="absolute top-0 right-0 -mt-8 -mr-8 w-24 h-24 bg-yellow-400/5 rounded-full blur-2xl" />
+          <div className="absolute bottom-0 left-0 -mb-8 -ml-8 w-24 h-24 bg-green-400/5 rounded-full blur-2xl" />
+        </div>
+      </div>
+
+      {/* 3. Banner Edukasi & Rekening Bank Resmi */}
+      <div className="p-3.5 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-100/80 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-sm">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+            <Info className="w-3.5 h-3.5" />
+          </div>
+          <div>
+            <p className="text-xs font-black text-gray-900 leading-tight">
+              Rekening Resmi Operasional Dakwah MTI
+            </p>
+            <p className="text-[10px] text-gray-500 font-medium mt-0.5">
+              Disalurkan untuk operasional kelas, Zoom harian, dan beasiswa Mu'allimah.
+            </p>
           </div>
         </div>
+        <div className="flex items-center gap-1.5 self-start sm:self-auto shrink-0">
+          <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100/90 px-2 py-0.5 rounded-md border border-emerald-200">
+            Bank BSI
+          </span>
+        </div>
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Form / Success Card Column */}
-          <div className="lg:col-span-2 space-y-8">
+      {/* 4. Kartu Rekening BSI */}
+      <Card className="rounded-2xl border border-gray-100 shadow-sm p-4 bg-white space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-green-900 text-white flex items-center justify-center font-black text-xs shadow-sm">
+              BSI
+            </div>
+            <div>
+              <p className="text-xs font-bold text-gray-900 leading-none">Bank Syariah Indonesia</p>
+              <p className="text-[10px] text-gray-500 mt-1">a.n. Mara Martalena / Markaz Tikrar</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={copyBankNumber}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 hover:bg-green-100 text-green-900 rounded-xl text-xs font-bold border border-green-200/60 transition-all cursor-pointer shadow-xs"
+          >
+            {copiedBank ? <Check className="w-3.5 h-3.5 text-green-700" /> : <Copy className="w-3.5 h-3.5" />}
+            <span>{copiedBank ? 'Tersalin' : 'Salin Rekening'}</span>
+          </button>
+        </div>
+        <div className="bg-gray-50 border border-gray-100 rounded-xl px-3.5 py-2.5 flex items-center justify-between">
+          <span className="text-[11px] font-semibold text-gray-500">Nomor Rekening:</span>
+          <span className="text-sm font-black text-gray-900 font-mono tracking-wider">7345608197</span>
+        </div>
+      </Card>
 
-            {/* 1. COLLAPSED SUCCESS / ACTIVE STATUS CARD (When form is closed) */}
-            {!isFormOpen && (
-              <Card className="border-0 shadow-lg rounded-2xl overflow-hidden bg-white border-l-4 border-l-emerald-600">
-                <CardHeader className="p-6 sm:p-7 pb-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-700">
-                        <CheckCircle className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <CardTitle className="text-lg font-bold text-gray-900">
-                          Konfirmasi Infaq Terkirim
-                        </CardTitle>
-                        <CardDescription className="text-xs mt-0.5">
-                          Bukti transfer Ukhti sedang dalam proses verifikasi tim admin MTI.
-                        </CardDescription>
-                      </div>
-                    </div>
-                    {pendingDonation && (
-                      <span className="bg-amber-100 text-amber-800 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1.5 shrink-0">
-                        <Clock className="w-3.5 h-3.5" /> Proses Verifikasi
+      {/* 5. Status Pending Terakhir (Bila Form Tertutup) */}
+      {!isFormOpen && (
+        <Card className="rounded-2xl border border-gray-100 shadow-sm p-4 bg-white space-y-3 border-l-4 border-l-emerald-600">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-700">
+                <CheckCircle className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-gray-900">
+                  Konfirmasi Infaq Terkirim
+                </h3>
+                <p className="text-[11px] text-gray-500 mt-0.5">
+                  Bukti transfer sedang dalam antrean verifikasi tim admin.
+                </p>
+              </div>
+            </div>
+            {pendingDonation && (
+              <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1 shrink-0">
+                <Clock className="w-3 h-3" /> Verifikasi
+              </span>
+            )}
+          </div>
+
+          {(lastSubmitted || pendingDonation) && (
+            <div className="bg-gray-50 border border-gray-100 rounded-xl p-3 flex justify-between items-center text-xs">
+              <div>
+                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Nominal Diajukan</p>
+                <p className="text-base font-black text-gray-900 mt-0.5">
+                  {formatIDR(lastSubmitted?.amount || pendingDonation?.amount || 0)}
+                </p>
+              </div>
+              {(lastSubmitted?.proof_url || pendingDonation?.proof_url) && (
+                <Button asChild variant="outline" size="sm" className="rounded-xl text-xs h-8 border-gray-200">
+                  <a href={lastSubmitted?.proof_url || pendingDonation?.proof_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1">
+                    <FileText className="w-3.5 h-3.5" /> Bukti
+                  </a>
+                </Button>
+              )}
+            </div>
+          )}
+
+          <Button
+            onClick={() => setIsFormOpen(true)}
+            className="w-full bg-green-900 hover:bg-green-800 text-white rounded-xl text-xs font-bold h-9 flex items-center justify-center gap-1.5 shadow-sm"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Kirim Infaq / Donasi Lagi</span>
+          </Button>
+        </Card>
+      )}
+
+      {/* 6. Formulir Konfirmasi Transfer */}
+      {isFormOpen && (
+        <Card className="rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-6 bg-white space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+            <div>
+              <h2 className="text-sm sm:text-base font-bold text-gray-900">
+                Konfirmasi Transfer Infaq
+              </h2>
+              <p className="text-[11px] text-gray-500 mt-0.5">
+                Unggah bukti transfer untuk pencatatan dan verifikasi admin.
+              </p>
+            </div>
+            {donations.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setIsFormOpen(false)}
+                className="text-xs font-semibold text-gray-500 hover:text-gray-800 px-2.5 py-1 rounded-lg border border-gray-200 hover:bg-gray-50 transition-all shrink-0 cursor-pointer"
+              >
+                Tutup Form
+              </button>
+            )}
+          </div>
+
+          <form onSubmit={handleDonationSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div className="space-y-1.5">
+                <Label htmlFor="donorName" className="text-xs font-bold text-gray-700">Nama Donatur</Label>
+                <Input
+                  id="donorName"
+                  type="text"
+                  value={donorName}
+                  onChange={(e) => setDonorName(e.target.value)}
+                  placeholder="Nama lengkap Ukhti"
+                  className="rounded-xl border-gray-200 text-xs focus:border-green-800"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="whatsapp" className="text-xs font-bold text-gray-700">Nomor WhatsApp</Label>
+                <Input
+                  id="whatsapp"
+                  type="text"
+                  value={whatsapp}
+                  onChange={(e) => setWhatsapp(e.target.value)}
+                  placeholder="Contoh: 08123456789"
+                  className="rounded-xl border-gray-200 text-xs focus:border-green-800"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="amount" className="text-xs font-bold text-gray-700">Nominal Infaq / Donasi</Label>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {['25.000', '50.000', '100.000', '200.000'].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setDonationAmount(preset)}
+                    className={cn(
+                      "px-2.5 py-1 text-xs font-bold rounded-lg border transition-all cursor-pointer",
+                      donationAmount === preset
+                        ? "bg-green-900 text-white border-green-900 shadow-sm"
+                        : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-green-50 hover:border-green-300"
+                    )}
+                  >
+                    Rp {preset}
+                  </button>
+                ))}
+              </div>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs">Rp</span>
+                <Input
+                  id="amount"
+                  type="text"
+                  value={donationAmount}
+                  onChange={(e) => {
+                    const digits = e.target.value.replace(/\D/g, '');
+                    if (!digits) {
+                      setDonationAmount('');
+                    } else {
+                      const formatted = new Intl.NumberFormat('id-ID').format(Number(digits));
+                      setDonationAmount(formatted);
+                    }
+                  }}
+                  placeholder="25.000"
+                  className="rounded-xl border-gray-200 focus:border-green-800 pl-9 font-bold text-xs text-gray-900"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-gray-700">Unggah Bukti Transfer</Label>
+              <div className="flex items-center gap-2.5">
+                <label className="flex-1 flex items-center justify-between px-3.5 py-2.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl cursor-pointer transition-all">
+                  <span className="text-xs truncate max-w-[200px]">
+                    {proofFile ? proofFile.name : 'Pilih file struk/tangkapan layar...'}
+                  </span>
+                  <Upload className="w-4 h-4 text-gray-400" />
+                  <input
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.pdf,image/*"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                </label>
+                {uploadingProof && (
+                  <div className="w-4 h-4 animate-spin rounded-full border-b-2 border-green-900 shrink-0" />
+                )}
+                {proofUrl && (
+                  <span className="text-emerald-700 flex items-center gap-1 text-xs font-semibold shrink-0">
+                    <CheckCircle className="w-4 h-4" /> Siap
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="notes" className="text-xs font-bold text-gray-700">Catatan Tambahan (Opsional)</Label>
+              <Textarea
+                id="notes"
+                placeholder="Misal: untuk beasiswa mu'allimah atau operasional Zoom"
+                rows={2}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="rounded-xl border-gray-200 text-xs focus:border-green-800 resize-none"
+              />
+            </div>
+
+            <Button
+              type="submit"
+              disabled={submittingDonation || uploadingProof}
+              className="w-full bg-green-900 hover:bg-green-800 text-white rounded-xl py-5 font-bold text-xs shadow-md shadow-green-900/10 flex items-center justify-center gap-2 cursor-pointer transition-all"
+            >
+              {submittingDonation ? (
+                <>
+                  <div className="w-3.5 h-3.5 animate-spin rounded-full border-b-2 border-white" />
+                  <span>Mengirim Konfirmasi...</span>
+                </>
+              ) : (
+                <>
+                  <Send className="w-3.5 h-3.5" />
+                  <span>Kirim Konfirmasi Infaq</span>
+                </>
+              )}
+            </Button>
+          </form>
+        </Card>
+      )}
+
+      {/* 7. Riwayat Donasi */}
+      <Card className="rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-5 bg-white space-y-3">
+        <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+          <div>
+            <h3 className="text-sm font-bold text-gray-900">Riwayat Infaq Ukhti</h3>
+            <p className="text-[11px] text-gray-500">Catatan pengajuan infaq yang telah tercatat di sistem.</p>
+          </div>
+          <span className="text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+            {donations.length} Transaksi
+          </span>
+        </div>
+
+        {donations.length === 0 ? (
+          <div className="text-center py-8 text-gray-400 text-xs">
+            Belum ada riwayat infaq yang diajukan.
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-100 max-h-80 overflow-y-auto">
+            {donations.map((don) => (
+              <div key={don.id} className="py-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                <div>
+                  <p className="font-bold text-gray-900 text-sm">{formatIDR(don.amount)}</p>
+                  <p className="text-[11px] text-gray-500 mt-0.5 flex items-center gap-1.5">
+                    <span>{don.donor_name}</span>
+                    <span>•</span>
+                    <span>{formatDateSafe(don.created_at)}</span>
+                  </p>
+                  {don.notes && (
+                    <p className="text-[11px] text-gray-600 mt-1 bg-gray-50 px-2 py-1 rounded-md border border-gray-100">
+                      "{don.notes}"
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end pt-1 sm:pt-0">
+                  <Button asChild variant="outline" size="sm" className="border-gray-200 text-gray-700 hover:bg-gray-50 rounded-lg text-xs h-7 px-2">
+                    <a href={don.proof_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1">
+                      <FileText className="w-3 h-3" /> Bukti
+                    </a>
+                  </Button>
+                  <div>
+                    {don.status === 'approved' && (
+                      <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3" /> Berhasil
+                      </span>
+                    )}
+                    {don.status === 'rejected' && (
+                      <span className="bg-red-50 text-red-700 border border-red-200 text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                        <XCircle className="w-3 h-3" /> Ditolak
+                      </span>
+                    )}
+                    {don.status === 'pending' && (
+                      <span className="bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                        <Clock className="w-3 h-3" /> Verifikasi
                       </span>
                     )}
                   </div>
-                </CardHeader>
-
-                <CardContent className="p-6 sm:p-7 pt-2 space-y-4">
-                  {(lastSubmitted || pendingDonation) && (
-                    <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                      <div>
-                        <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">Nominal Terakhir Diajukan</p>
-                        <p className="text-xl font-black text-gray-900 mt-0.5">
-                          {formatIDR(lastSubmitted?.amount || pendingDonation?.amount || 0)}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-0.5">
-                          {formatDateSafe(lastSubmitted?.created_at || pendingDonation?.created_at)}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {(lastSubmitted?.proof_url || pendingDonation?.proof_url) && (
-                          <UIButton asChild variant="outline" size="sm" className="rounded-xl text-xs h-9 border-gray-200">
-                            <a href={lastSubmitted?.proof_url || pendingDonation?.proof_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5">
-                              <FileText className="w-3.5 h-3.5" /> Lihat Bukti
-                            </a>
-                          </UIButton>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex flex-wrap items-center gap-3 pt-2">
-                    <UIButton
-                      onClick={() => setIsFormOpen(true)}
-                      className="bg-emerald-800 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold h-10 px-4 flex items-center gap-2 shadow-sm"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>Kirim Infaq / Donasi Lagi</span>
-                    </UIButton>
-
-                    <UIButton
-                      asChild
-                      variant="outline"
-                      className="rounded-xl text-xs sm:text-sm font-semibold h-10 px-4 border-gray-200 text-gray-700 hover:bg-gray-50"
-                    >
-                      <Link href="/dashboard">
-                        Kembali ke Dashboard
-                      </Link>
-                    </UIButton>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* 2. DONATION FORM CARD (When form is open) */}
-            {isFormOpen && (
-              <Card className="border-0 shadow-lg rounded-2xl overflow-hidden bg-white">
-                <CardHeader className="border-b border-gray-50 pb-6 p-6 sm:p-8 flex flex-row items-center justify-between">
-                  <div>
-                    <CardTitle className="text-xl font-bold text-gray-900">Konfirmasi Donasi Operasional</CardTitle>
-                    <CardDescription className="mt-1">
-                      Kirimkan konfirmasi transfer donasi Ukhti untuk keperluan operasional dakwah Markaz Tikrar Indonesia.
-                    </CardDescription>
-                  </div>
-                  {donations.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setIsFormOpen(false)}
-                      className="text-xs font-semibold text-gray-400 hover:text-gray-700 px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-all shrink-0"
-                    >
-                      Tutup Form
-                    </button>
-                  )}
-                </CardHeader>
-                <CardContent className="p-6 sm:p-8">
-                  <form onSubmit={handleDonationSubmit} className="space-y-6">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {/* Donor Name */}
-                      <div className="space-y-2">
-                        <Label htmlFor="donorName" className="text-sm font-semibold text-gray-700">Nama Donatur</Label>
-                        <Input
-                          id="donorName"
-                          type="text"
-                          value={donorName}
-                          onChange={(e) => setDonorName(e.target.value)}
-                          placeholder="Masukkan nama donatur"
-                          className="rounded-xl border-gray-200 focus:border-emerald-500"
-                        />
-                      </div>
-                      
-                      {/* Whatsapp */}
-                      <div className="space-y-2">
-                        <Label htmlFor="whatsapp" className="text-sm font-semibold text-gray-700">Nomor Whatsapp</Label>
-                        <Input
-                          id="whatsapp"
-                          type="text"
-                          value={whatsapp}
-                          onChange={(e) => setWhatsapp(e.target.value)}
-                          placeholder="Contoh: 08123456789"
-                          className="rounded-xl border-gray-200 focus:border-emerald-500"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {/* Amount */}
-                      <div className="space-y-2">
-                        <Label htmlFor="amount" className="text-sm font-semibold text-gray-700">Nominal Infaq / Donasi (IDR)</Label>
-                        <div className="flex flex-wrap gap-1.5 mb-2">
-                          {['25.000', '50.000', '100.000', '200.000'].map((preset) => (
-                            <button
-                              key={preset}
-                              type="button"
-                              onClick={() => setDonationAmount(preset)}
-                              className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-all ${
-                                donationAmount === preset
-                                  ? 'bg-emerald-700 text-white border-emerald-700 shadow-sm'
-                                  : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-emerald-50 hover:border-emerald-300'
-                              }`}
-                            >
-                              Rp {preset}
-                            </button>
-                          ))}
-                        </div>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-sm">Rp</span>
-                          <Input
-                            id="amount"
-                            type="text"
-                            value={donationAmount}
-                            onChange={(e) => {
-                              const digits = e.target.value.replace(/\D/g, '');
-                              if (!digits) {
-                                setDonationAmount('');
-                              } else {
-                                const formatted = new Intl.NumberFormat('id-ID').format(Number(digits));
-                                setDonationAmount(formatted);
-                              }
-                            }}
-                            placeholder="25.000"
-                            className="rounded-xl border-gray-200 focus:border-emerald-500 pl-10 font-bold text-gray-900"
-                          />
-                        </div>
-                        {donationAmount && Number(donationAmount.replace(/\D/g, '')) > 0 && Number(donationAmount.replace(/\D/g, '')) < 1000 && (
-                          <p className="text-[11px] text-amber-600 font-medium">
-                            * Otomatis dihitung sebagai Rp {new Intl.NumberFormat('id-ID').format(Number(donationAmount.replace(/\D/g, '')) * 1000)}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Proof Upload */}
-                      <div className="space-y-2">
-                        <Label className="text-sm font-semibold text-gray-700">Unggah Bukti Transfer</Label>
-                        <div className="flex items-center gap-3">
-                          <label className="flex-1 flex items-center justify-between px-4 py-2.5 bg-white border border-gray-250 hover:bg-gray-50 text-gray-650 rounded-xl cursor-pointer transition-all">
-                            <span className="text-xs truncate max-w-[180px]">
-                              {proofFile ? proofFile.name : 'Pilih file (Max 25MB)...'}
-                            </span>
-                            <Upload className="w-4 h-4 text-gray-400" />
-                            <input
-                              type="file"
-                              accept=".jpg,.jpeg,.png,.pdf,image/*"
-                              onChange={handleFileUpload}
-                              className="hidden"
-                            />
-                          </label>
-                          {uploadingProof && (
-                            <div className="w-5 h-5 animate-spin rounded-full border-b-2 border-emerald-800" />
-                          )}
-                          {proofUrl && (
-                            <span className="text-emerald-700 flex items-center gap-1 text-xs font-semibold shrink-0">
-                              <CheckCircle className="w-4 h-4" /> Ready
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Notes */}
-                    <div className="space-y-2">
-                      <Label htmlFor="notes" className="text-sm font-semibold text-gray-700">Catatan Tambahan (Opsional)</Label>
-                      <Textarea
-                        id="notes"
-                        placeholder="Masukkan catatan jika ada (contoh: untuk beasiswa mu'allimah)"
-                        rows={3}
-                        value={notes}
-                        onChange={(e) => setNotes(e.target.value)}
-                        className="rounded-xl border-gray-200 focus:border-emerald-500 resize-none"
-                      />
-                    </div>
-
-                    <UIButton
-                      type="submit"
-                      disabled={submittingDonation || uploadingProof}
-                      className="w-full bg-emerald-800 hover:bg-emerald-700 text-white rounded-xl py-6 font-semibold shadow-lg shadow-emerald-100 flex items-center justify-center gap-2"
-                    >
-                      {submittingDonation ? (
-                        <>
-                          <div className="w-4 h-4 animate-spin rounded-full border-b-2 border-white" />
-                          Mengirim Konfirmasi...
-                        </>
-                      ) : (
-                        <>
-                          <Send className="w-4 h-4" />
-                          Kirim Konfirmasi Transfer
-                        </>
-                      )}
-                    </UIButton>
-                  </form>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Donation History Card */}
-            <Card className="border-0 shadow-lg rounded-2xl overflow-hidden bg-white">
-              <CardHeader className="border-b border-gray-50 pb-6 p-6 sm:p-8">
-                <CardTitle className="text-xl font-bold text-gray-900">Riwayat Donasi</CardTitle>
-                <CardDescription>Catatan kontribusi operasional yang sudah Ukhti ajukan.</CardDescription>
-              </CardHeader>
-              <CardContent className="p-0">
-                {donations.length === 0 ? (
-                  <div className="text-center py-12 text-gray-450 text-sm font-sans">
-                    Belum ada riwayat donasi yang diajukan.
-                  </div>
-                ) : (
-                  <div className="divide-y divide-gray-100 max-h-96 overflow-y-auto font-sans">
-                    {donations.map((don) => (
-                      <div key={don.id} className="p-6 hover:bg-gray-50/50 transition-colors flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                        <div>
-                          <p className="font-bold text-gray-900 text-base">{formatIDR(don.amount)}</p>
-                          <p className="text-xs text-gray-450 mt-1 flex items-center gap-1.5">
-                            <span>Atas nama: {don.donor_name}</span>
-                            <span className="w-1 h-1 rounded-full bg-gray-300" />
-                            <span>{formatDateSafe(don.created_at)}</span>
-                          </p>
-                          {don.notes && (
-                            <p className="text-xs text-gray-550 mt-2 bg-gray-50 p-2.5 rounded-lg border border-gray-100 max-w-lg">
-                              "{don.notes}"
-                            </p>
-                          )}
-                          {don.status === 'rejected' && don.notes && (
-                            <p className="text-xs text-red-655 mt-1.5 font-medium">
-                              Catatan admin: {don.notes}
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
-                          <UIButton asChild variant="outline" size="sm" className="border-gray-250 text-gray-650 hover:bg-gray-100 rounded-lg text-xs h-8">
-                            <a href={don.proof_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1">
-                              <FileText className="w-3 h-3" /> Bukti
-                            </a>
-                          </UIButton>
-                          <div>
-                            {don.status === 'approved' && (
-                              <span className="bg-emerald-55 text-emerald-700 border border-emerald-100 text-xs font-semibold px-3 py-1 rounded-full flex items-center gap-1">
-                                <CheckCircle className="w-3.5 h-3.5" /> Berhasil
-                              </span>
-                            )}
-                            {don.status === 'rejected' && (
-                              <span className="bg-red-50 text-red-700 border border-red-100 text-xs font-semibold px-3 py-1 rounded-full flex items-center gap-1">
-                                <XCircle className="w-3.5 h-3.5" /> Ditolak
-                              </span>
-                            )}
-                            {don.status === 'pending' && (
-                              <span className="bg-amber-50 text-amber-700 border border-amber-100 text-xs font-semibold px-3 py-1 rounded-full flex items-center gap-1">
-                                <Clock className="w-3.5 h-3.5" /> Proses Verifikasi
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                </div>
+              </div>
+            ))}
           </div>
+        )}
+      </Card>
 
-          {/* Bank Info / FAQ Column */}
-          <div className="space-y-6">
-            {/* Bank Transfer Info Card */}
-            <Card className="border-0 shadow-lg rounded-2xl overflow-hidden bg-white">
-              <CardHeader className="bg-gradient-to-b from-emerald-55 to-white pb-4">
-                <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
-                  <HeartHandshake className="w-5 h-5 text-emerald-800" />
-                  Informasi Rekening Transfer
-                </h3>
-              </CardHeader>
-              <CardContent className="p-6 pt-2 space-y-6">
-                <div className="bg-emerald-900/5 border border-emerald-900/10 rounded-2xl p-5 relative overflow-hidden">
-                  <div className="absolute right-0 bottom-0 opacity-5 -translate-x-2 translate-y-2">
-                    <HeartHandshake className="w-24 h-24 text-emerald-950" />
-                  </div>
-                  
-                  <p className="text-xs text-emerald-800 font-semibold tracking-wider uppercase font-sans">Nama Bank</p>
-                  <p className="font-extrabold text-emerald-950 text-lg mt-0.5 font-sans">Bank Syariah Indonesia (BSI)</p>
-                  
-                  <p className="text-xs text-emerald-800 font-semibold tracking-wider uppercase mt-4 font-sans">Nomor Rekening</p>
-                  <div className="flex items-center justify-between gap-2 mt-0.5">
-                    <p className="font-extrabold text-emerald-950 text-xl tracking-wide font-sans">7345608197</p>
-                    <button
-                      onClick={copyBankNumber}
-                      type="button"
-                      className="p-2 bg-white hover:bg-emerald-50 text-emerald-900 rounded-xl transition-all border border-emerald-900/10 shadow-sm"
-                    >
-                      {copiedBank ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                    </button>
-                  </div>
-
-                  <p className="text-xs text-emerald-800 font-semibold tracking-wider uppercase mt-4 font-sans">Nama Pemilik Rekening</p>
-                  <p className="font-bold text-emerald-950 mt-0.5 font-sans">Mara Martalena</p>
-                </div>
-
-                <div className="bg-amber-50/70 border border-amber-100 rounded-xl p-4 flex gap-3 text-amber-900 text-xs leading-relaxed font-sans">
-                  <AlertCircle className="w-4 h-4 text-amber-700 flex-shrink-0 mt-0.5" />
-                  <p>
-                    Mohon pastikan jumlah transfer sesuai dengan nominal donasi Ukhti. Pengiriman bukti transfer sangat penting untuk pencatatan laporan keuangan Yayasan.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Donation FAQ Card */}
-            <Card className="border-0 shadow-md rounded-2xl bg-white">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-sm font-bold text-gray-900 uppercase tracking-wide">FAQ Donasi</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4 text-xs text-gray-650 leading-relaxed font-sans">
-                <div>
-                  <h4 className="font-semibold text-gray-800 mb-1">Ke mana donasi operasional disalurkan?</h4>
-                  <p>Donasi Ukhti disalurkan sepenuhnya untuk biaya penyediaan Zoom premium kelas harian, pemeliharaan server website, beasiswa mu'allimah, serta pengembangan sarana prasarana dakwah Markaz Tikrar Indonesia.</p>
-                </div>
-                <div>
-                  <h4 className="font-semibold text-gray-800 mb-1">Berapa minimal donasi?</h4>
-                  <p>Tidak ada batas minimal. Berapapun dukungan ikhlas yang Ukhti berikan, insyaAllah sangat bernilai di sisi Allah Subhanahu wa Ta'ala sebagai sedekah jariyah.</p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+      {/* 8. FAQ Donasi Ringkas */}
+      <div className="p-3.5 bg-gray-50 border border-gray-100 rounded-2xl space-y-1.5">
+        <p className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+          <HelpCircle className="w-3.5 h-3.5 text-gray-500" />
+          Penyaluran Infaq Dakwah
+        </p>
+        <p className="text-[11px] text-gray-500 leading-relaxed">
+          Seluruh infaq yang Ukhti salurkan dipergunakan untuk operasional dakwah Markaz Tikrar Indonesia, langganan Zoom kelas harian, beasiswa mu'allimah, serta pemeliharaan server aplikasi. Jazakunnallahu khairan atas kebaikan Ukhti.
+        </p>
       </div>
     </div>
   );
