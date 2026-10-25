@@ -11,6 +11,8 @@ import {
   generateMurajaahWeeklyRecap,
   generatePengumumanUjianAkhir,
   generatePanduanMurajaah40x,
+  getDefaultMurajaahStartDate,
+  getMurajaahDate,
   JuzOptionLike,
   MurajaahScheduleItem
 } from '@/lib/kurikulum-murajaah';
@@ -30,7 +32,10 @@ export function AdminKurikulumMurajaahModal({
   const [selectedMode, setSelectedMode] = useState<'recap' | 'ujian' | 'panduan40x' | string>('recap');
   const [customText, setCustomText] = useState<string>('');
   const [isCopied, setIsCopied] = useState<boolean>(false);
-  const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [weekStartDate, setWeekStartDate] = useState<string>(() => {
+    const d = getDefaultMurajaahStartDate();
+    return d.toISOString().split('T')[0];
+  });
 
   // Fetch juz options if not provided
   useEffect(() => {
@@ -48,11 +53,11 @@ export function AdminKurikulumMurajaahModal({
     }
   }, [initialJuzOptions]);
 
-  // Generate text whenever selectedMode or selectedDate or juzList changes
+  // Generate text whenever selectedMode or weekStartDate or juzList changes
   useEffect(() => {
-    const dateObj = new Date(selectedDate);
+    const mondayObj = new Date(weekStartDate + 'T12:00:00');
     if (selectedMode === 'recap') {
-      const text = generateMurajaahWeeklyRecap({ startDate: dateObj, juzOptions: juzList });
+      const text = generateMurajaahWeeklyRecap({ startDate: mondayObj, juzOptions: juzList });
       setCustomText(text);
     } else if (selectedMode === 'ujian') {
       const text = generatePengumumanUjianAkhir();
@@ -62,10 +67,11 @@ export function AdminKurikulumMurajaahModal({
       setCustomText(text);
     } else {
       const scheduleItem = MURAJAAH_SCHEDULE.find(m => m.code === selectedMode) || MURAJAAH_SCHEDULE[0];
-      const text = generateMurajaahDailyText({ item: scheduleItem, date: dateObj, juzOptions: juzList });
+      const targetDate = getMurajaahDate(mondayObj, scheduleItem.code);
+      const text = generateMurajaahDailyText({ item: scheduleItem, date: targetDate, juzOptions: juzList });
       setCustomText(text);
     }
-  }, [selectedMode, selectedDate, juzList]);
+  }, [selectedMode, weekStartDate, juzList]);
 
   const handleCopy = async () => {
     try {
@@ -77,6 +83,8 @@ export function AdminKurikulumMurajaahModal({
       toast.error('Gagal menyalin teks ke clipboard');
     }
   };
+
+  const mondayDate = new Date(weekStartDate + 'T12:00:00');
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
@@ -138,26 +146,47 @@ export function AdminKurikulumMurajaahModal({
             </button>
           </div>
 
+          {/* Date Picker Selector for Start of Muraja'ah Week */}
+          {['recap', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7'].includes(selectedMode) && (
+            <div className="flex flex-wrap items-center justify-between gap-2 p-2 bg-emerald-50/70 border border-emerald-200/60 rounded-xl text-xs">
+              <div className="flex items-center gap-2 text-emerald-950 font-semibold">
+                <Calendar className="w-4 h-4 text-emerald-700 shrink-0" />
+                <span>Mulai Pekan Muraja'ah (Senin / M1):</span>
+              </div>
+              <input
+                type="date"
+                value={weekStartDate}
+                onChange={(e) => setWeekStartDate(e.target.value)}
+                className="bg-white border border-emerald-300 rounded-lg px-2 py-0.5 text-xs font-bold text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+              />
+            </div>
+          )}
+
           {/* Daily Sub-buttons (M1 - M7) */}
           <div className="space-y-1">
-            <div className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
-              Target Harian Pekan Muraja'ah:
+            <div className="text-[11px] font-bold text-gray-500 uppercase tracking-wider flex items-center justify-between">
+              <span>Target Harian Pekan Muraja'ah:</span>
+              <span className="text-[10px] text-gray-400 font-normal">Tanggal otomatis bergeser per hari</span>
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
-              {MURAJAAH_SCHEDULE.map((m) => (
-                <button
-                  key={m.code}
-                  type="button"
-                  onClick={() => setSelectedMode(m.code)}
-                  className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                    selectedMode === m.code
-                      ? 'bg-amber-600 text-white shadow-sm ring-2 ring-amber-500/20'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-transparent'
-                  }`}
-                >
-                  {m.code} ({m.day.slice(0, 3)})
-                </button>
-              ))}
+              {MURAJAAH_SCHEDULE.map((m) => {
+                const dayDate = getMurajaahDate(mondayDate, m.code);
+                const dayDateStr = dayDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'numeric' });
+                return (
+                  <button
+                    key={m.code}
+                    type="button"
+                    onClick={() => setSelectedMode(m.code)}
+                    className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                      selectedMode === m.code
+                        ? 'bg-amber-600 text-white shadow-sm ring-2 ring-amber-500/20'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-transparent'
+                    }`}
+                  >
+                    {m.code} ({m.day.slice(0, 3)}, {dayDateStr})
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -201,9 +230,9 @@ export function AdminKurikulumMurajaahModal({
               type="button"
               size="sm"
               onClick={handleCopy}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold gap-1.5 flex-1 sm:flex-initial shadow-sm"
+              className="rounded-xl text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white shadow-sm flex items-center gap-1.5"
             >
-              {isCopied ? <CheckCircle2 className="w-4 h-4 text-emerald-200" /> : <Copy className="w-4 h-4" />}
+              {isCopied ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
               <span>{isCopied ? 'Tersalin!' : 'Salin Teks WhatsApp'}</span>
             </Button>
           </div>

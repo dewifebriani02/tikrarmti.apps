@@ -7,6 +7,9 @@ import {
   generateMurajaahDailyText, 
   generateMurajaahWeeklyRecap, 
   formatHijriDate, 
+  getMurajaahWeekMonday,
+  getMurajaahDate,
+  getDefaultMurajaahStartDate,
   MurajaahScheduleItem 
 } from '@/lib/kurikulum-murajaah';
 
@@ -185,15 +188,17 @@ export function KurikulumTab({ currentWeek }: KurikulumTabProps = {}) {
 
   const updateGeneratedText = () => {
     if (selectedPekan === 11) {
+      const monday = getMurajaahWeekMonday(selectedDate);
       if (murajaahMode === 'weekly_recap') {
-        const text = generateMurajaahWeeklyRecap({ startDate: selectedDate, juzOptions });
+        const text = generateMurajaahWeeklyRecap({ startDate: monday, juzOptions });
         setGeneratedText(text);
         return;
       } else {
         const mSchedule = MURAJAAH_SCHEDULE.find(m => m.code === selectedMurajaahCode) ||
                           MURAJAAH_SCHEDULE.find(m => m.day === selectedHari) || 
                           MURAJAAH_SCHEDULE[0];
-        const text = generateMurajaahDailyText({ item: mSchedule, date: selectedDate, juzOptions });
+        const dayDate = getMurajaahDate(monday, mSchedule.code);
+        const text = generateMurajaahDailyText({ item: mSchedule, date: dayDate, juzOptions });
         setGeneratedText(text);
         return;
       }
@@ -242,10 +247,10 @@ export function KurikulumTab({ currentWeek }: KurikulumTabProps = {}) {
     try {
       await navigator.clipboard.writeText(generatedText);
       setIsCopied(true);
-      toast.success('Teks kurikulum berhasil disalin!');
+      toast.success('Teks berhasil disalin!');
       setTimeout(() => setIsCopied(false), 2000);
-    } catch (err) {
-      toast.error('Gagal menyalin text');
+    } catch {
+      toast.error('Gagal menyalin teks');
     }
   };
 
@@ -253,22 +258,24 @@ export function KurikulumTab({ currentWeek }: KurikulumTabProps = {}) {
     if (!posterRef.current) return;
     try {
       setIsDownloading(true);
+      // Dynamic import to prevent SSR/Canvas issues
       const html2canvas = (await import('html2canvas')).default;
       
       const canvas = await html2canvas(posterRef.current, {
-        scale: 2, 
+        scale: 2, // 2x scale for crisp export
         useCORS: true,
-        backgroundColor: null
+        backgroundColor: '#ffffff',
       });
 
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
       const link = document.createElement('a');
-      link.download = `Kurikulum_${selectedPekan === 11 ? `Murajaah_${selectedMurajaahCode}` : `${selectedHari}_Pekan${selectedPekan}`}.png`;
-      link.href = canvas.toDataURL('image/png');
+      link.download = `kurikulum-${selectedPekan === 11 ? 'murajaah' : `pekan-${selectedPekan}`}-${selectedHari.toLowerCase()}-${selectedDate.toISOString().split('T')[0]}.jpg`;
+      link.href = dataUrl;
       link.click();
-      toast.success('Poster berhasil diunduh!');
+      toast.success('Poster berhasil di-download!');
     } catch (err) {
-      console.error(err);
-      toast.error('Gagal membuat poster. Pastikan koneksi stabil.');
+      console.error('Download poster error:', err);
+      toast.error('Gagal mendownload poster');
     } finally {
       setIsDownloading(false);
     }
@@ -276,7 +283,7 @@ export function KurikulumTab({ currentWeek }: KurikulumTabProps = {}) {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-green-600">
+      <div className="flex flex-col items-center justify-center p-12 text-gray-400">
         <Loader2 className="h-10 w-10 animate-spin mb-4" />
         <p className="text-sm font-medium animate-pulse">Memuat kurikulum...</p>
       </div>
@@ -314,6 +321,7 @@ export function KurikulumTab({ currentWeek }: KurikulumTabProps = {}) {
 
   const navDateOptions: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'long', year: 'numeric' };
   const navDateStr = selectedDate.toLocaleDateString('id-ID', navDateOptions).toUpperCase();
+  const murajaahMonday = getMurajaahWeekMonday(selectedDate);
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -381,6 +389,9 @@ export function KurikulumTab({ currentWeek }: KurikulumTabProps = {}) {
               onClick={() => {
                 setManualPekan(11);
                 setMurajaahMode('daily');
+                setSelectedMurajaahCode('M1');
+                const defaultMonday = getDefaultMurajaahStartDate();
+                setSelectedDate(defaultMonday);
               }}
               className={`px-3 py-1 rounded-xl text-xs font-bold transition-all ${
                 selectedPekan === 11
@@ -426,6 +437,8 @@ export function KurikulumTab({ currentWeek }: KurikulumTabProps = {}) {
             <div className="flex flex-wrap items-center gap-1.5">
               {MURAJAAH_SCHEDULE.map(m => {
                 const isActive = murajaahMode === 'daily' && selectedMurajaahCode === m.code;
+                const targetDate = getMurajaahDate(murajaahMonday, m.code);
+                const dayDateStr = targetDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'numeric' });
                 return (
                   <button
                     key={m.code}
@@ -433,6 +446,7 @@ export function KurikulumTab({ currentWeek }: KurikulumTabProps = {}) {
                     onClick={() => {
                       setMurajaahMode('daily');
                       setSelectedMurajaahCode(m.code);
+                      setSelectedDate(targetDate);
                     }}
                     className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
                       isActive
@@ -440,7 +454,7 @@ export function KurikulumTab({ currentWeek }: KurikulumTabProps = {}) {
                         : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200/70'
                     }`}
                   >
-                    <span>{m.code}</span> <span className="opacity-75">({m.day.slice(0, 3)})</span>
+                    <span>{m.code}</span> <span className="opacity-75">({m.day.slice(0, 3)}, {dayDateStr})</span>
                   </button>
                 );
               })}

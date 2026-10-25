@@ -117,6 +117,64 @@ export const MURAJAAH_SCHEDULE: MurajaahScheduleItem[] = [
   },
 ];
 
+export const DAY_OFFSET_MAP: Record<string, number> = {
+  'M1': 0, // Senin
+  'M2': 1, // Selasa
+  'M3': 2, // Rabu
+  'M4': 3, // Kamis
+  'M5': 4, // Jumat
+  'M6': 5, // Sabtu
+  'M7': 6, // Ahad
+};
+
+/**
+ * Returns date offset by day of murajaah schedule (M1=Senin..M7=Ahad) from base Monday
+ */
+export function getMurajaahDate(baseMonday: Date, code: string): Date {
+  const d = new Date(baseMonday);
+  d.setHours(12, 0, 0, 0);
+  const offset = DAY_OFFSET_MAP[code] ?? 0;
+  d.setDate(d.getDate() + offset);
+  return d;
+}
+
+/**
+ * Find default start date (Monday) for Pekan Murajaah:
+ * If today is Sunday (day === 0), returns tomorrow Monday.
+ * If today is Monday (day === 1), returns today.
+ * If today is Tuesday..Saturday, returns this week's Monday.
+ */
+export function getDefaultMurajaahStartDate(): Date {
+  const today = new Date();
+  today.setHours(12, 0, 0, 0);
+  const day = today.getDay(); // 0 is Sunday, 1 is Monday...
+  const d = new Date(today);
+  if (day === 0) {
+    d.setDate(today.getDate() + 1);
+  } else if (day === 1) {
+    // today is Monday
+  } else {
+    d.setDate(today.getDate() - (day - 1));
+  }
+  return d;
+}
+
+/**
+ * Given any date, find the Monday of that muraja'ah week
+ * (Treats Sunday as the 7th day / M7 of the week ending on that Sunday)
+ */
+export function getMurajaahWeekMonday(referenceDate: Date): Date {
+  const d = new Date(referenceDate);
+  d.setHours(12, 0, 0, 0);
+  const day = d.getDay();
+  if (day === 0) {
+    d.setDate(d.getDate() - 6);
+  } else {
+    d.setDate(d.getDate() - (day - 1));
+  }
+  return d;
+}
+
 export interface JuzOptionLike {
   id?: string;
   name: string;
@@ -130,16 +188,27 @@ export interface JuzOptionLike {
  */
 export function generateMurajaahDailyText({
   item,
-  date = new Date(),
+  startDate,
+  date,
   juzOptions = [],
 }: {
   item: MurajaahScheduleItem;
+  startDate?: Date;
   date?: Date;
   juzOptions?: JuzOptionLike[];
 }): string {
+  let targetDate: Date;
+  if (startDate) {
+    targetDate = getMurajaahDate(startDate, item.code);
+  } else if (date) {
+    targetDate = date;
+  } else {
+    targetDate = getMurajaahDate(getDefaultMurajaahStartDate(), item.code);
+  }
+
   const dateOptions: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'long', year: 'numeric' };
-  const dateStr = date.toLocaleDateString('id-ID', dateOptions).toUpperCase();
-  const hijriStr = formatHijriDate(date);
+  const dateStr = targetDate.toLocaleDateString('id-ID', dateOptions).toUpperCase();
+  const hijriStr = formatHijriDate(targetDate);
   const dateHeader = `${item.day.toUpperCase()}, ${dateStr} / ${hijriStr}`;
 
   let text = `*KURIKULUM HARI INI: PEKAN MURAJA'AH*\n`;
@@ -181,16 +250,22 @@ export function generateMurajaahDailyText({
  * Generate weekly announcement text covering all 7 days (M1 - M7)
  */
 export function generateMurajaahWeeklyRecap({
-  startDate = new Date(),
+  startDate = getDefaultMurajaahStartDate(),
   juzOptions = [],
 }: {
   startDate?: Date;
   juzOptions?: JuzOptionLike[];
 }): string {
+  const monday = getMurajaahWeekMonday(startDate);
+  const sunday = getMurajaahDate(monday, 'M7');
+  const dOpt: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'long', year: 'numeric' };
+  const rangeHeader = `${monday.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} s.d. ${sunday.toLocaleDateString('id-ID', dOpt)}`;
+
   let text = `╔❀◎📖◎❀════════════╗\n`;
   text += `  𝗠𝗔𝗥𝗞𝗔𝗭 𝗧𝗜𝗞𝗥𝗔𝗥 𝗜𝗡𝗗𝗢𝗡𝗘𝗦𝗜𝗔\n`;
   text += `  𝗞𝗨𝗥𝗜𝗞𝗨𝗟𝗨𝗠 𝗣𝗘𝗞𝗔𝗡 𝗠𝗨𝗥𝗔𝗝𝗔'𝗔𝗛\n`;
   text += `  (𝗣𝗘𝗞𝗔𝗡 𝟭𝟭: 𝗠𝟭 – 𝗠𝟳)\n`;
+  text += `  Periode: ${rangeHeader}\n`;
   text += `╚════════════❀◎📖◎❀╝\n\n`;
 
   text += `بِسْــــــــــــــــــمِ اللهِ الرَّحْمَنِ الرَّحِيْمِ\n\n`;
@@ -202,7 +277,9 @@ export function generateMurajaahWeeklyRecap({
 
   text += `🗓️ *JADWAL KURIKULUM MURAJA'AH SEPEKAN (M1 – M7):*\n`;
   MURAJAAH_SCHEDULE.forEach(m => {
-    text += `• 🔹 *${m.day} (${m.code})* : ${m.blokA} / ${m.blokB} ➡️ *Target ${m.target}*\n`;
+    const dayDate = getMurajaahDate(monday, m.code);
+    const dayDateStr = dayDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+    text += `• 🔹 *${m.day}, ${dayDateStr} (${m.code})* : ${m.blokA} / ${m.blokB} ➡️ *Target ${m.target}*\n`;
   });
   text += `\n`;
 
