@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   BookOpen, Calendar, Clock, Video, Users, CheckCircle2, AlertCircle, 
   Sparkles, Headphones, GraduationCap, ShieldCheck, MessageCircle, 
   ChevronRight, Save, History, Award, Info, FileText, Check, X,
-  UserCheck, RefreshCw
+  UserCheck, RefreshCw, Search, PlusCircle, Filter
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -74,6 +74,9 @@ export default function JurnalPraTikrarPage() {
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'harian' | 'bimbingan' | 'pengawalan' | 'riwayat'>('harian');
 
+  // Day filter for available sessions
+  const [selectedDayFilter, setSelectedDayFilter] = useState<number | 'all' | 'today'>('all');
+
   // Form State (Thalibah Daily Entry)
   const [formData, setFormData] = useState<PraTikrarEntryInput>({
     tanggal: new Date().toISOString().split('T')[0],
@@ -86,6 +89,7 @@ export default function JurnalPraTikrarPage() {
     ayat_range: '1-10',
     durasi_menit: 30,
     catatan_santri: '',
+    halaqah_id: '',
   });
 
   // Management State for Mu'allimah & Musyrifah
@@ -94,7 +98,8 @@ export default function JurnalPraTikrarPage() {
   const [rosterRecords, setRosterRecords] = useState<PraTikrarStudentRecord[]>([]);
   const [loadingRoster, setLoadingRoster] = useState(false);
 
-  // Selected Student for Tashih / Bimbingan (Mu'allimah)
+  // Student search & add for open session grading
+  const [studentSearchQuery, setStudentSearchQuery] = useState('');
   const [selectedStudentForTashih, setSelectedStudentForTashih] = useState<PraTikrarStudentRecord | null>(null);
   const [tashihNote, setTashihNote] = useState('');
   const [statusBacaan, setStatusBacaan] = useState('cukup');
@@ -123,24 +128,21 @@ export default function JurnalPraTikrarPage() {
             ayat_range: res.todayEntry.ayat_range || '1-10',
             durasi_menit: res.todayEntry.durasi_menit || 30,
             catatan_santri: res.todayEntry.catatan_santri || '',
-            halaqah_id: res.todayEntry.halaqah_id || res.userHalaqah?.id,
+            halaqah_id: res.todayEntry.halaqah_id || '',
             batch_id: res.todayEntry.batch_id || res.activeBatch?.id,
           });
           setTashihNote(res.todayEntry.catatan_muallimah || '');
           setStatusBacaan(res.todayEntry.status_bacaan || 'cukup');
-        } else if (res.userHalaqah) {
+        } else {
           setFormData(prev => ({
             ...prev,
-            halaqah_id: res.userHalaqah.id,
             batch_id: res.activeBatch?.id,
           }));
         }
 
         // Set default managed halaqah if available
-        if (res.managedHalaqahs && res.managedHalaqahs.length > 0) {
-          setSelectedHalaqahId(res.managedHalaqahs[0].id);
-        } else if (res.userHalaqah) {
-          setSelectedHalaqahId(res.userHalaqah.id);
+        if (res.availableSessions && res.availableSessions.length > 0) {
+          setSelectedHalaqahId(res.availableSessions[0].id);
         }
       }
     } catch (e: any) {
@@ -156,10 +158,9 @@ export default function JurnalPraTikrarPage() {
 
   // Load roster records when halaqah or date changes
   const loadRoster = useCallback(async () => {
-    if (!selectedHalaqahId) return;
     try {
       setLoadingRoster(true);
-      const res = await getHalaqahJournalRecords(selectedHalaqahId, selectedDate);
+      const res = await getHalaqahJournalRecords(selectedHalaqahId || null, selectedDate);
       if (res.success && res.records) {
         setRosterRecords(res.records);
         // Initialize attendance state for Musyrifah
@@ -185,12 +186,38 @@ export default function JurnalPraTikrarPage() {
     }
   }, [selectedHalaqahId, selectedDate, context?.isMuallimah, context?.isMusyrifah, context?.isAdmin, loadRoster]);
 
+  // Current day of week (0 = Sunday, 1 = Monday, ..., 7 = Sunday for system)
+  const todayDayIndex = new Date().getDay() === 0 ? 7 : new Date().getDay();
+
+  // Filtered available sessions
+  const filteredSessions = useMemo(() => {
+    if (!context?.availableSessions) return [];
+    if (selectedDayFilter === 'all') return context.availableSessions;
+    if (selectedDayFilter === 'today') {
+      return context.availableSessions.filter((s: any) => s.day_of_week === todayDayIndex);
+    }
+    return context.availableSessions.filter((s: any) => s.day_of_week === selectedDayFilter);
+  }, [context?.availableSessions, selectedDayFilter, todayDayIndex]);
+
+  // Search filtered students for quick grading
+  const filteredStudentsForPicker = useMemo(() => {
+    if (!context?.praStudentsList) return [];
+    if (!studentSearchQuery.trim()) return context.praStudentsList.slice(0, 15);
+    const q = studentSearchQuery.toLowerCase();
+    return context.praStudentsList.filter((st: any) => 
+      st.full_name?.toLowerCase().includes(q) || 
+      st.nama_kunyah?.toLowerCase().includes(q) ||
+      st.whatsapp?.includes(q) ||
+      st.email?.toLowerCase().includes(q)
+    ).slice(0, 20);
+  }, [context?.praStudentsList, studentSearchQuery]);
+
   const handleSaveDaily = async () => {
     try {
       setSaving(true);
       const res = await savePraTikrarDailyEntry({
         ...formData,
-        halaqah_id: formData.halaqah_id || context?.userHalaqah?.id || null,
+        halaqah_id: formData.halaqah_id || null,
         batch_id: formData.batch_id || context?.activeBatch?.id || null,
       });
 
@@ -216,7 +243,7 @@ export default function JurnalPraTikrarPage() {
       setSaving(true);
       const res = await submitTashihByMuallimah({
         studentId: selectedStudentForTashih.student_id,
-        halaqahId: selectedHalaqahId,
+        halaqahId: selectedHalaqahId || null,
         batchId: context?.activeBatch?.id,
         tanggal: selectedDate,
         status_bacaan: statusBacaan,
@@ -241,7 +268,7 @@ export default function JurnalPraTikrarPage() {
   };
 
   const handleSaveAllAttendance = async () => {
-    if (!selectedHalaqahId || rosterRecords.length === 0) {
+    if (rosterRecords.length === 0) {
       toast.error('Tidak ada data santriwati untuk diabsen.');
       return;
     }
@@ -255,7 +282,7 @@ export default function JurnalPraTikrarPage() {
 
       const res = await submitBatchPresensiByMusyrifah(
         items,
-        selectedHalaqahId,
+        selectedHalaqahId || '',
         context?.activeBatch?.id || null,
         selectedDate
       );
@@ -273,133 +300,163 @@ export default function JurnalPraTikrarPage() {
     }
   };
 
-  const halaqah = context?.userHalaqah;
-  const zoomLink = halaqah?.zoom_url || halaqah?.zoom_link;
-  const muallimahName = halaqah?.muallimah_name || 'Ustadzah Pembimbing';
-  const musyrifahName = halaqah?.musyrifah_name || 'Musyrifah Pengelola';
-
   return (
     <div className="space-y-6 max-w-6xl mx-auto px-3 sm:px-6 py-4">
-      {/* 1. HERO BANNER */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-900 via-indigo-800 to-emerald-900 text-white p-6 sm:p-8 shadow-xl">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/30 border border-indigo-400/30 text-indigo-200 text-xs font-semibold uppercase tracking-wider backdrop-blur-xs">
+      {/* 1. HERO HEADER */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-950 via-indigo-900 to-emerald-950 text-white p-6 sm:p-8 shadow-xl border border-indigo-800/40">
+        <div className="relative z-10 space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-xs font-bold uppercase tracking-wider backdrop-blur-xs">
               <Sparkles className="w-3.5 h-3.5 text-yellow-300" /> Program Pra-Tikrar MTI (Juz 30)
-            </div>
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight">
-              Jurnal Pembelajaran Pra-Tikrar
-            </h1>
-            <p className="text-indigo-100/90 text-sm sm:text-base max-w-2xl">
-              Fokus perbaikan dasar tahsin, makharijul huruf, dan pembiasaan menyimak murottal Juz 30 dibimbing Mu'allimah serta dikawal oleh Musyrifah.
-            </p>
+            </span>
+            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-200 text-xs font-semibold">
+              🌸 Bebas Ikut Sesi Mana Pun (Tanpa Kelas Tetap)
+            </span>
           </div>
 
-          {zoomLink && (
-            <div className="shrink-0 flex flex-col gap-2">
-              <a 
-                href={zoomLink} 
-                target="_blank" 
-                rel="noreferrer"
-                className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm shadow-lg shadow-emerald-500/20 transition-all transform hover:-translate-y-0.5 active:translate-y-0"
-              >
-                <Video className="w-4 h-4" /> Masuk Ruang Zoom Halaqah
-              </a>
-              {halaqah?.zoom_meeting_id && (
-                <div className="text-[11px] text-indigo-200/80 text-center font-mono">
-                  ID: {halaqah.zoom_meeting_id} {halaqah.zoom_passcode ? `• Pass: ${halaqah.zoom_passcode}` : ''}
-                </div>
-              )}
-            </div>
-          )}
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight">
+            Jurnal & Sesi Terbuka Pra-Tikrar
+          </h1>
+          <p className="text-indigo-100/90 text-xs sm:text-sm max-w-3xl leading-relaxed">
+            Program Pra-Tikrar difokuskan untuk memfasihkan makharijul huruf, sifat huruf, dan pembiasaan menyimak murottal Juz 30. <strong className="text-white">Santriwati tidak terikat pada satu kelas tetap</strong>—Ukhti bebas menghadiri sesi tatap muka Zoom mana pun di bawah ini sesuai keluangan waktu masing-masing.
+          </p>
         </div>
       </div>
 
-      {/* 2. CARD STRUKTUR PENGURUS HALAQAH */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Info Halaqah */}
-        <Card className="border border-indigo-100 shadow-sm rounded-2xl bg-white overflow-hidden">
-          <div className="h-1.5 bg-indigo-500 w-full" />
-          <CardContent className="p-5 space-y-3">
-            <div className="flex items-center gap-2 text-indigo-700 text-xs font-bold uppercase tracking-wider">
-              <BookOpen className="w-4 h-4" /> Halaqah Pra-Tikrar
+      {/* 2. KATALOG SESI TATAP MUKA ZOOM TERBUKA (PEKAN INI) */}
+      <Card className="border border-indigo-100 shadow-sm rounded-2xl bg-white overflow-hidden">
+        <div className="h-1.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-emerald-600 w-full" />
+        <CardHeader className="p-5 pb-3 border-b border-gray-100 bg-gradient-to-b from-indigo-50/40 to-transparent">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <CardTitle className="text-base sm:text-lg font-bold text-gray-900 flex items-center gap-2">
+                <Video className="w-5 h-5 text-indigo-600" />
+                Jadwal Sesi Zoom Terbuka Pra-Tikrar ({context?.availableSessions?.length || 0} Sesi Tersedia)
+              </CardTitle>
+              <CardDescription className="text-xs text-gray-500">
+                Pilih sesi yang sesuai dengan waktu luang Ukhti, lalu klik "Masuk Zoom" untuk bergabung dengan Mu'allimah pengampu.
+              </CardDescription>
             </div>
-            <div className="text-base font-bold text-gray-900 leading-snug">
-              {halaqah?.name || 'Halaqah Pra-Tikrar Reguler'}
-            </div>
-            <div className="flex items-center gap-2 text-xs text-gray-600 bg-indigo-50/60 p-2.5 rounded-xl border border-indigo-100/60">
-              <Clock className="w-4 h-4 text-indigo-600 shrink-0" />
-              <span>
-                {halaqah?.day_of_week !== undefined && halaqah?.day_of_week !== null 
-                  ? `${DAYS[halaqah.day_of_week]}, ${halaqah.start_time?.slice(0,5) || '16:00'} - ${halaqah.end_time?.slice(0,5) || '17:00'} WIB`
-                  : 'Jadwal tatap muka Zoom mingguan'}
-              </span>
-            </div>
-          </CardContent>
-        </Card>
 
-        {/* Mu'allimah Pengampu */}
-        <Card className="border border-emerald-100 shadow-sm rounded-2xl bg-white overflow-hidden">
-          <div className="h-1.5 bg-emerald-500 w-full" />
-          <CardContent className="p-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-emerald-700 text-xs font-bold uppercase tracking-wider">
-                <GraduationCap className="w-4 h-4" /> Mu'allimah Pengampu
-              </div>
-              <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">
-                Edukasi & Tashih
-              </span>
-            </div>
-            <div className="text-base font-bold text-gray-900">
-              {muallimahName}
-            </div>
-            <p className="text-xs text-gray-500 leading-relaxed">
-              Bertanggung jawab membimbing bacaan, memperbaiki makhraj & sifat huruf, serta menguji kelancaran Juz 30.
-            </p>
-            {halaqah?.muallimah_wa && (
-              <a 
-                href={`https://wa.me/${halaqah.muallimah_wa.replace(/\D/g, '')}`}
-                target="_blank" 
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs text-emerald-700 hover:text-emerald-800 font-semibold pt-1"
+            {/* Filter Hari */}
+            <div className="flex flex-wrap items-center gap-1.5 bg-gray-100 p-1 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setSelectedDayFilter('all')}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${selectedDayFilter === 'all' ? 'bg-white text-indigo-700 shadow-xs' : 'text-gray-600 hover:text-gray-900'}`}
               >
-                <MessageCircle className="w-3.5 h-3.5" /> Konsultasi Bacaan via WA
-              </a>
-            )}
-          </CardContent>
-        </Card>
+                Semua ({context?.availableSessions?.length || 0})
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedDayFilter('today')}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${selectedDayFilter === 'today' ? 'bg-emerald-600 text-white shadow-xs' : 'text-emerald-700 hover:bg-emerald-50'}`}
+              >
+                Hari Ini ({context?.availableSessions?.filter((s: any) => s.day_of_week === todayDayIndex).length || 0})
+              </button>
+              {[1, 2, 3, 4, 5, 6, 7].map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => setSelectedDayFilter(d)}
+                  className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all ${selectedDayFilter === d ? 'bg-indigo-600 text-white shadow-xs' : 'text-gray-600 hover:text-gray-900'}`}
+                >
+                  {DAYS[d]}
+                </button>
+              ))}
+            </div>
+          </div>
+        </CardHeader>
 
-        {/* Musyrifah Pengelola */}
-        <Card className="border border-blue-100 shadow-sm rounded-2xl bg-white overflow-hidden">
-          <div className="h-1.5 bg-blue-500 w-full" />
-          <CardContent className="p-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-blue-700 text-xs font-bold uppercase tracking-wider">
-                <ShieldCheck className="w-4 h-4" /> Musyrifah Pengelola
-              </div>
-              <span className="text-[10px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full">
-                Operasional & Zoom
-              </span>
+        <CardContent className="p-5">
+          {filteredSessions.length === 0 ? (
+            <div className="text-center py-8 text-gray-400 text-xs italic border-2 border-dashed border-gray-100 rounded-xl">
+              Tidak ada jadwal sesi Pra-Tikrar pada filter hari ini. Silakan pilih "Semua" untuk melihat jadwal sepekan penuh.
             </div>
-            <div className="text-base font-bold text-gray-900">
-              {musyrifahName}
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+              {filteredSessions.map((session: any) => {
+                const isToday = session.day_of_week === todayDayIndex;
+                const zoomLink = session.zoom_url || session.zoom_link;
+                const muallimahName = session.muallimah_name || 'Ustadzah Pembimbing';
+                const musyrifahName = session.musyrifah_name || 'Musyrifah Pengawal';
+
+                return (
+                  <div 
+                    key={session.id}
+                    className={`p-4 rounded-xl border transition-all ${
+                      isToday 
+                        ? 'bg-emerald-50/50 border-emerald-300 ring-1 ring-emerald-400/30' 
+                        : 'bg-white border-gray-200 hover:border-indigo-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-gray-900">
+                        <Clock className={`w-3.5 h-3.5 ${isToday ? 'text-emerald-600' : 'text-indigo-600'}`} />
+                        <span>{DAYS[session.day_of_week]}, {session.start_time?.slice(0, 5)} - {session.end_time?.slice(0, 5)} WIB</span>
+                      </div>
+                      {isToday && (
+                        <span className="text-[10px] font-extrabold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full flex items-center gap-1 animate-pulse">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span> HARI INI
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="text-xs font-bold text-gray-800 truncate mb-1">
+                      {session.name.replace('Pra-Tikrar | Juz 30 | ', '')}
+                    </div>
+
+                    <div className="text-[11px] text-gray-600 space-y-1 mb-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-500">Mu'allimah:</span>
+                        <span className="font-semibold text-gray-900">{muallimahName}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-500">Musyrifah:</span>
+                        <span className="font-semibold text-gray-700">{musyrifahName}</span>
+                      </div>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="pt-2 border-t border-gray-100/80 flex items-center justify-between gap-2">
+                      {zoomLink ? (
+                        <a 
+                          href={zoomLink}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-colors"
+                        >
+                          <Video className="w-3.5 h-3.5" /> Masuk Zoom
+                        </a>
+                      ) : (
+                        <span className="text-[11px] text-gray-400 italic">Link belum disematkan</span>
+                      )}
+
+                      {session.muallimah_wa && (
+                        <a
+                          href={`https://wa.me/${session.muallimah_wa.replace(/\D/g, '')}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="p-2 rounded-lg bg-gray-100 hover:bg-emerald-50 text-emerald-700 transition-colors"
+                          title="Konsultasi WA Mu'allimah"
+                        >
+                          <MessageCircle className="w-4 h-4" />
+                        </a>
+                      )}
+                    </div>
+
+                    {session.zoom_meeting_id && (
+                      <div className="mt-1.5 text-[10px] text-gray-400 font-mono text-center">
+                        ID: {session.zoom_meeting_id} {session.zoom_passcode ? `• Pass: ${session.zoom_passcode}` : ''}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-            <p className="text-xs text-gray-500 leading-relaxed">
-              Mengawal ketertiban kelas, menyebarkan tautan & pengingat Zoom, serta merekap absensi dan perizinan.
-            </p>
-            {halaqah?.musyrifah_wa && (
-              <a 
-                href={`https://wa.me/${halaqah.musyrifah_wa.replace(/\D/g, '')}`}
-                target="_blank" 
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs text-blue-700 hover:text-blue-800 font-semibold pt-1"
-              >
-                <MessageCircle className="w-3.5 h-3.5" /> Konfirmasi Izin / Udzur via WA
-              </a>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* 3. TABS NAVIGASI UTAMA */}
       <Tabs defaultValue="harian" className="w-full space-y-6" onValueChange={(val: any) => setActiveTab(val)}>
@@ -543,7 +600,27 @@ export default function JurnalPraTikrarPage() {
                   Materi Latihan / Setoran Mandiri Hari Ini
                 </h4>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                  {/* Sesi Zoom yang Diikuti (Fleksibel) */}
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label htmlFor="sesi-zoom" className="text-xs font-semibold text-gray-700">
+                      Sesi Zoom yang Diikuti Hari Ini (Opsional):
+                    </Label>
+                    <select
+                      id="sesi-zoom"
+                      value={formData.halaqah_id || ''}
+                      onChange={(e) => setFormData({ ...formData, halaqah_id: e.target.value })}
+                      className="w-full text-xs h-10 px-3 rounded-lg border border-gray-200 bg-white font-medium"
+                    >
+                      <option value="">-- Belajar Mandiri / Belum Ikut Zoom --</option>
+                      {context?.availableSessions?.map((s: any) => (
+                        <option key={s.id} value={s.id}>
+                          {DAYS[s.day_of_week]}, {s.start_time?.slice(0,5)} WIB • {s.muallimah_name || 'Ustadzah'}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
                   <div className="space-y-1.5 sm:col-span-1">
                     <Label htmlFor="surat-nama" className="text-xs font-semibold text-gray-700">Nama Surat:</Label>
                     <select
@@ -568,7 +645,9 @@ export default function JurnalPraTikrarPage() {
                       className="text-xs h-10 rounded-lg"
                     />
                   </div>
+                </div>
 
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="space-y-1.5 sm:col-span-1">
                     <Label htmlFor="durasi" className="text-xs font-semibold text-gray-700">Durasi Belajar (Menit):</Label>
                     <Input 
@@ -581,17 +660,17 @@ export default function JurnalPraTikrarPage() {
                       className="text-xs h-10 rounded-lg font-medium"
                     />
                   </div>
-                </div>
 
-                <div className="space-y-1.5">
-                  <Label htmlFor="catatan-santri" className="text-xs font-semibold text-gray-700">Catatan Santriwati (Kendala Huruf / Tajwid):</Label>
-                  <Textarea 
-                    id="catatan-santri"
-                    placeholder="Tuliskan kendala makhraj huruf (misal: huruf 'Ain, Dhad, atau ghunnah) agar Mu'allimah dapat memberikan arahan saat tatap muka..."
-                    value={formData.catatan_santri}
-                    onChange={(e) => setFormData({ ...formData, catatan_santri: e.target.value })}
-                    className="text-xs min-h-[80px] rounded-lg"
-                  />
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label htmlFor="catatan-santri" className="text-xs font-semibold text-gray-700">Catatan Santriwati (Kendala Huruf / Tajwid):</Label>
+                    <Input 
+                      id="catatan-santri"
+                      placeholder="Tuliskan kendala makhraj huruf (misal: huruf 'Ain, Dhad, atau ghunnah)..."
+                      value={formData.catatan_santri}
+                      onChange={(e) => setFormData({ ...formData, catatan_santri: e.target.value })}
+                      className="text-xs h-10 rounded-lg"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -612,7 +691,7 @@ export default function JurnalPraTikrarPage() {
 
         {/* TAB 2: CATATAN BIMBINGAN MU'ALLIMAH */}
         <TabsContent value="bimbingan" className="space-y-6">
-          {/* A. STAFF VIEW: If Mu'allimah or Admin, show Halaqah Roster and grading form */}
+          {/* A. STAFF VIEW: If Mu'allimah or Admin */}
           {(context?.isMuallimah || context?.isAdmin) && (
             <Card className="border border-emerald-200 shadow-sm rounded-2xl bg-white overflow-hidden">
               <div className="h-1.5 bg-emerald-600 w-full" />
@@ -621,31 +700,30 @@ export default function JurnalPraTikrarPage() {
                   <div>
                     <CardTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
                       <GraduationCap className="w-5 h-5 text-emerald-700" />
-                      Evaluasi & Penilaian Bimbingan Mu'allimah
+                      Evaluasi & Penilaian Bimbingan Mu'allimah (Sesi Terbuka)
                     </CardTitle>
                     <CardDescription className="text-xs text-gray-600">
-                      Pilih halaqah dan tanggal halaqah untuk melihat lembar jurnal santriwati serta memberikan tashih tajwid.
+                      Pilih sesi mengajar Ukhti dan catat penilaian tashih santriwati mana pun yang hadir di Zoom.
                     </CardDescription>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-3">
-                    {/* Halaqah selector */}
-                    {context.managedHalaqahs && context.managedHalaqahs.length > 0 && (
-                      <div className="flex items-center gap-2">
-                        <Label className="text-xs font-semibold text-gray-700">Halaqah:</Label>
-                        <select
-                          value={selectedHalaqahId}
-                          onChange={(e) => setSelectedHalaqahId(e.target.value)}
-                          className="text-xs h-9 px-2.5 rounded-lg border border-gray-300 bg-white font-semibold"
-                        >
-                          {context.managedHalaqahs.map((h: any) => (
-                            <option key={h.id} value={h.id}>
-                              {h.name} ({h.active_students || 0} santri)
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
+                    {/* Sesi selector */}
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs font-semibold text-gray-700">Sesi:</Label>
+                      <select
+                        value={selectedHalaqahId}
+                        onChange={(e) => setSelectedHalaqahId(e.target.value)}
+                        className="text-xs h-9 px-2.5 rounded-lg border border-gray-300 bg-white font-semibold"
+                      >
+                        <option value="">-- Semua Sesi Hari Ini --</option>
+                        {context.availableSessions?.map((h: any) => (
+                          <option key={h.id} value={h.id}>
+                            {DAYS[h.day_of_week]}, {h.start_time?.slice(0,5)} WIB • {h.muallimah_name || 'Ustadzah'}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
                     {/* Date picker */}
                     <div className="flex items-center gap-2">
@@ -672,99 +750,49 @@ export default function JurnalPraTikrarPage() {
               </CardHeader>
 
               <CardContent className="p-6 space-y-6">
-                {/* Roster Table */}
-                <div className="space-y-3">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-gray-600">
-                    Daftar Santriwati Pra-Tikrar ({rosterRecords.length} orang)
-                  </h4>
+                {/* Search & Pick any Pra-Tikrar student who joined the Zoom */}
+                <div className="p-4 rounded-xl bg-gray-50 border border-gray-200/80 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+                      <Search className="w-3.5 h-3.5 text-emerald-600" />
+                      Cari & Nilai Santriwati yang Hadir di Sesi Ini ({context.praStudentsList?.length || 0} Santri Pra-Tikrar Aktif):
+                    </Label>
+                    <span className="text-[10px] text-gray-500">Pilih santriwati untuk mengisi lembar penilaian</span>
+                  </div>
 
-                  <div className="overflow-x-auto border border-gray-200 rounded-xl">
-                    <table className="w-full text-xs text-left">
-                      <thead>
-                        <tr className="bg-gray-50 border-b border-gray-200 text-gray-700 font-bold">
-                          <th className="py-3 px-4">Nama Santriwati</th>
-                          <th className="py-3 px-4 text-center">Simak 3x</th>
-                          <th className="py-3 px-4">Surat & Ayat</th>
-                          <th className="py-3 px-4">Catatan Santri</th>
-                          <th className="py-3 px-4">Status Bacaan</th>
-                          <th className="py-3 px-4 text-right">Aksi</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {loadingRoster ? (
-                          <tr>
-                            <td colSpan={6} className="py-6 text-center text-gray-400">
-                              Memuat data santriwati halaqah...
-                            </td>
-                          </tr>
-                        ) : rosterRecords.length === 0 ? (
-                          <tr>
-                            <td colSpan={6} className="py-6 text-center text-gray-400">
-                              Belum ada santriwati yang terdaftar aktif di halaqah ini.
-                            </td>
-                          </tr>
-                        ) : (
-                          rosterRecords.map((st) => (
-                            <tr key={st.student_id} className={`hover:bg-gray-50/80 transition-colors ${selectedStudentForTashih?.student_id === st.student_id ? 'bg-emerald-50/50' : ''}`}>
-                              <td className="py-3 px-4">
-                                <div className="font-bold text-gray-900">{st.student_name}</div>
-                                {st.student_wa && (
-                                  <a
-                                    href={`https://wa.me/${st.student_wa.replace(/\D/g, '')}`}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="text-[11px] text-emerald-600 hover:underline flex items-center gap-1 mt-0.5"
-                                  >
-                                    <MessageCircle className="w-3 h-3" /> {st.student_wa}
-                                  </a>
-                                )}
-                              </td>
-                              <td className="py-3 px-4 text-center">
-                                <div className="inline-flex gap-1">
-                                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${st.simak_1 ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-400'}`}>1</span>
-                                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${st.simak_2 ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-400'}`}>2</span>
-                                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${st.simak_3 ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-400'}`}>3</span>
-                                </div>
-                              </td>
-                              <td className="py-3 px-4">
-                                <span className="font-semibold text-gray-800">{st.surat_nama || '-'}</span>
-                                {st.ayat_range && <span className="text-gray-500"> ({st.ayat_range})</span>}
-                              </td>
-                              <td className="py-3 px-4 max-w-[200px]">
-                                <p className="text-[11px] text-gray-600 truncate" title={st.catatan_santri || ''}>
-                                  {st.catatan_santri || '-'}
-                                </p>
-                              </td>
-                              <td className="py-3 px-4">
-                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                                  st.status_bacaan === 'lancar_mutqin' ? 'bg-emerald-100 text-emerald-800' :
-                                  st.status_bacaan === 'cukup' ? 'bg-blue-100 text-blue-800' :
-                                  st.status_bacaan === 'perlu_bimbingan' ? 'bg-amber-100 text-amber-800' :
-                                  'bg-gray-100 text-gray-500'
-                                }`}>
-                                  {st.status_bacaan ? st.status_bacaan.replace('_', ' ') : 'Belum Tashih'}
-                                </span>
-                              </td>
-                              <td className="py-3 px-4 text-right">
-                                <Button
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedStudentForTashih(st);
-                                    setStatusBacaan(st.status_bacaan || 'cukup');
-                                    setTashihNote(st.catatan_muallimah || '');
-                                    const rawTajwid = Array.isArray(st.evaluasi_tajwid) ? st.evaluasi_tajwid[0]?.deskripsi : '';
-                                    setTajwidNotes(rawTajwid || '');
-                                  }}
-                                  className={`h-7 px-2.5 rounded-lg text-[11px] font-semibold ${selectedStudentForTashih?.student_id === st.student_id ? 'bg-emerald-800 text-white' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
-                                >
-                                  {selectedStudentForTashih?.student_id === st.student_id ? 'Sedang Dinilai' : 'Nilai Tashih'}
-                                </Button>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Input
+                      placeholder="Ketik nama atau nomor WhatsApp santriwati..."
+                      value={studentSearchQuery}
+                      onChange={(e) => setStudentSearchQuery(e.target.value)}
+                      className="text-xs h-9 rounded-lg bg-white"
+                    />
+
+                    <select
+                      onChange={(e) => {
+                        const stId = e.target.value;
+                        const found = context.praStudentsList?.find((s: any) => s.id === stId);
+                        if (found) {
+                          setSelectedStudentForTashih({
+                            student_id: found.id,
+                            student_name: found.full_name,
+                            student_kunyah: found.nama_kunyah,
+                            student_wa: found.whatsapp,
+                          });
+                          setStatusBacaan('cukup');
+                          setTashihNote('');
+                          setTajwidNotes('');
+                        }
+                      }}
+                      className="text-xs h-9 px-2.5 rounded-lg border border-gray-300 bg-white font-medium"
+                    >
+                      <option value="">-- Pilih dari hasil pencarian ({filteredStudentsForPicker.length}) --</option>
+                      {filteredStudentsForPicker.map((st: any) => (
+                        <option key={st.id} value={st.id}>
+                          {st.full_name} {st.nama_kunyah ? `(${st.nama_kunyah})` : ''} • {st.whatsapp || 'No WA'}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
 
@@ -836,6 +864,102 @@ export default function JurnalPraTikrarPage() {
                     </div>
                   </div>
                 )}
+
+                {/* Table of students graded/recorded today */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-gray-600">
+                    Rekap Santriwati yang Telah Dinilai / Mengisi Jurnal ({rosterRecords.length} orang pada tanggal {selectedDate})
+                  </h4>
+
+                  <div className="overflow-x-auto border border-gray-200 rounded-xl">
+                    <table className="w-full text-xs text-left">
+                      <thead>
+                        <tr className="bg-gray-50 border-b border-gray-200 text-gray-700 font-bold">
+                          <th className="py-3 px-4">Nama Santriwati</th>
+                          <th className="py-3 px-4 text-center">Simak 3x</th>
+                          <th className="py-3 px-4">Surat & Ayat</th>
+                          <th className="py-3 px-4">Catatan Santri</th>
+                          <th className="py-3 px-4">Status Bacaan</th>
+                          <th className="py-3 px-4 text-right">Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {loadingRoster ? (
+                          <tr>
+                            <td colSpan={6} className="py-6 text-center text-gray-400">
+                              Memuat data...
+                            </td>
+                          </tr>
+                        ) : rosterRecords.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="py-6 text-center text-gray-400">
+                              Belum ada santriwati yang mengisi jurnal atau dinilai pada tanggal ini. Gunakan kotak pencarian di atas untuk menilai santriwati yang hadir di sesi Zoom.
+                            </td>
+                          </tr>
+                        ) : (
+                          rosterRecords.map((st) => (
+                            <tr key={st.student_id} className={`hover:bg-gray-50/80 transition-colors ${selectedStudentForTashih?.student_id === st.student_id ? 'bg-emerald-50/50' : ''}`}>
+                              <td className="py-3 px-4">
+                                <div className="font-bold text-gray-900">{st.student_name}</div>
+                                {st.student_wa && (
+                                  <a
+                                    href={`https://wa.me/${st.student_wa.replace(/\D/g, '')}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-[11px] text-emerald-600 hover:underline flex items-center gap-1 mt-0.5"
+                                  >
+                                    <MessageCircle className="w-3 h-3" /> {st.student_wa}
+                                  </a>
+                                )}
+                              </td>
+                              <td className="py-3 px-4 text-center">
+                                <div className="inline-flex gap-1">
+                                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${st.simak_1 ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-400'}`}>1</span>
+                                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${st.simak_2 ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-400'}`}>2</span>
+                                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${st.simak_3 ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-400'}`}>3</span>
+                                </div>
+                              </td>
+                              <td className="py-3 px-4">
+                                <span className="font-semibold text-gray-800">{st.surat_nama || '-'}</span>
+                                {st.ayat_range && <span className="text-gray-500"> ({st.ayat_range})</span>}
+                              </td>
+                              <td className="py-3 px-4 max-w-[200px]">
+                                <p className="text-[11px] text-gray-600 truncate" title={st.catatan_santri || ''}>
+                                  {st.catatan_santri || '-'}
+                                </p>
+                              </td>
+                              <td className="py-3 px-4">
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                  st.status_bacaan === 'lancar_mutqin' ? 'bg-emerald-100 text-emerald-800' :
+                                  st.status_bacaan === 'cukup' ? 'bg-blue-100 text-blue-800' :
+                                  st.status_bacaan === 'perlu_bimbingan' ? 'bg-amber-100 text-amber-800' :
+                                  'bg-gray-100 text-gray-500'
+                                }`}>
+                                  {st.status_bacaan ? st.status_bacaan.replace('_', ' ') : 'Belum Tashih'}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 text-right">
+                                <Button
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedStudentForTashih(st);
+                                    setStatusBacaan(st.status_bacaan || 'cukup');
+                                    setTashihNote(st.catatan_muallimah || '');
+                                    const rawTajwid = Array.isArray(st.evaluasi_tajwid) ? st.evaluasi_tajwid[0]?.deskripsi : '';
+                                    setTajwidNotes(rawTajwid || '');
+                                  }}
+                                  className={`h-7 px-2.5 rounded-lg text-[11px] font-semibold ${selectedStudentForTashih?.student_id === st.student_id ? 'bg-emerald-800 text-white' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
+                                >
+                                  {selectedStudentForTashih?.student_id === st.student_id ? 'Sedang Dinilai' : 'Nilai Ulang'}
+                                </Button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -878,8 +1002,10 @@ export default function JurnalPraTikrarPage() {
                 </div>
 
                 <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-1">
-                  <span className="text-[11px] font-bold text-gray-700 uppercase tracking-wider">Mu'allimah Penilai:</span>
-                  <div className="text-sm font-bold text-gray-900">{muallimahName}</div>
+                  <span className="text-[11px] font-bold text-gray-700 uppercase tracking-wider">Penilai:</span>
+                  <div className="text-sm font-bold text-gray-900">
+                    {context?.todayEntry?.muallimah_nama_lengkap || 'Ustadzah Pembimbing Sesi'}
+                  </div>
                   <p className="text-xs text-gray-500">
                     Koreksi diberikan secara berkala selama sesi tatap muka Zoom maupun evaluasi berkala.
                   </p>
@@ -899,7 +1025,7 @@ export default function JurnalPraTikrarPage() {
 
         {/* TAB 3: PENGAWALAN & PRESENSI KELAS OLEH MUSYRIFAH */}
         <TabsContent value="pengawalan" className="space-y-6">
-          {/* A. STAFF VIEW: If Musyrifah or Admin, show Attendance Roster and batch save */}
+          {/* A. STAFF VIEW: If Musyrifah or Admin */}
           {(context?.isMusyrifah || context?.isAdmin) && (
             <Card className="border border-blue-200 shadow-sm rounded-2xl bg-white overflow-hidden">
               <div className="h-1.5 bg-blue-600 w-full" />
@@ -908,33 +1034,30 @@ export default function JurnalPraTikrarPage() {
                   <div>
                     <CardTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
                       <ShieldCheck className="w-5 h-5 text-blue-700" />
-                      Presensi Tatap Muka Zoom & Pengawalan Kelas oleh Musyrifah
+                      Presensi Tatap Muka Zoom oleh Musyrifah (Sesi Terbuka)
                     </CardTitle>
                     <CardDescription className="text-xs text-gray-600">
-                      Catat kehadiran seluruh santriwati pada sesi Zoom tatap muka, perizinan udzur syar'i, dan kendala kehadiran.
+                      Catat kehadiran seluruh santriwati yang hadir pada sesi Zoom tatap muka hari ini.
                     </CardDescription>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-3">
-                    {/* Halaqah selector */}
-                    {context.managedHalaqahs && context.managedHalaqahs.length > 0 && (
-                      <div className="flex items-center gap-2">
-                        <Label className="text-xs font-semibold text-gray-700">Halaqah:</Label>
-                        <select
-                          value={selectedHalaqahId}
-                          onChange={(e) => setSelectedHalaqahId(e.target.value)}
-                          className="text-xs h-9 px-2.5 rounded-lg border border-gray-300 bg-white font-semibold"
-                        >
-                          {context.managedHalaqahs.map((h: any) => (
-                            <option key={h.id} value={h.id}>
-                              {h.name} ({h.active_students || 0} santri)
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs font-semibold text-gray-700">Sesi:</Label>
+                      <select
+                        value={selectedHalaqahId}
+                        onChange={(e) => setSelectedHalaqahId(e.target.value)}
+                        className="text-xs h-9 px-2.5 rounded-lg border border-gray-300 bg-white font-semibold"
+                      >
+                        <option value="">-- Semua Sesi Hari Ini --</option>
+                        {context.availableSessions?.map((h: any) => (
+                          <option key={h.id} value={h.id}>
+                            {DAYS[h.day_of_week]}, {h.start_time?.slice(0,5)} WIB • {h.muallimah_name || 'Ustadzah'}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-                    {/* Date picker */}
                     <div className="flex items-center gap-2">
                       <Label className="text-xs font-semibold text-gray-700">Tanggal:</Label>
                       <Input
@@ -962,7 +1085,7 @@ export default function JurnalPraTikrarPage() {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <h4 className="text-xs font-bold uppercase tracking-wider text-gray-600">
-                      Presensi Zoom Santriwati ({rosterRecords.length} orang)
+                      Daftar Kehadiran Santriwati ({rosterRecords.length} orang)
                     </h4>
                     <span className="text-[11px] text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full font-semibold">
                       Klik status kehadiran untuk setiap santri
@@ -982,13 +1105,13 @@ export default function JurnalPraTikrarPage() {
                         {loadingRoster ? (
                           <tr>
                             <td colSpan={3} className="py-6 text-center text-gray-400">
-                              Memuat data presensi halaqah...
+                              Memuat data presensi...
                             </td>
                           </tr>
                         ) : rosterRecords.length === 0 ? (
                           <tr>
                             <td colSpan={3} className="py-6 text-center text-gray-400">
-                              Belum ada santriwati yang terdaftar aktif di halaqah ini.
+                              Belum ada entri santriwati pada tanggal ini.
                             </td>
                           </tr>
                         ) : (
@@ -1074,7 +1197,7 @@ export default function JurnalPraTikrarPage() {
                       className="bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs px-6 py-2.5 rounded-xl shadow-md"
                     >
                       <Save className="w-4 h-4 mr-1.5" />
-                      {saving ? 'Menyimpan...' : 'Simpan Seluruh Presensi Halaqah'}
+                      {saving ? 'Menyimpan...' : 'Simpan Seluruh Presensi'}
                     </Button>
                   </div>
                 </div>
@@ -1082,7 +1205,7 @@ export default function JurnalPraTikrarPage() {
             </Card>
           )}
 
-          {/* B. THALIBAH VIEW: Review presensi pribadi */}
+          {/* B. THALIBAH VIEW */}
           <Card className="border border-blue-100 shadow-xs rounded-2xl bg-white">
             <CardHeader className="pb-4 border-b border-gray-100">
               <CardTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
@@ -1090,60 +1213,40 @@ export default function JurnalPraTikrarPage() {
                 Presensi & Pengawalan Kelas oleh Musyrifah
               </CardTitle>
               <CardDescription className="text-xs text-gray-500">
-                Pengelolaan kehadiran sesi tatap muka Zoom, penanganan udzur syar'i, dan pengingat jadwal kelas.
+                Pengelolaan kehadiran sesi tatap muka Zoom dan penanganan udzur syar'i.
               </CardDescription>
             </CardHeader>
 
             <CardContent className="p-6 space-y-6">
-              {/* Status Kehadiran Terakhir */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-blue-50/60 p-4 rounded-xl border border-blue-100 space-y-2">
-                  <span className="text-[11px] font-bold text-blue-800 uppercase tracking-wider">Status Presensi Kelas:</span>
-                  <div>
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
-                      context?.todayEntry?.kehadiran_zoom === 'hadir' ? 'bg-emerald-100 text-emerald-900' :
-                      context?.todayEntry?.kehadiran_zoom === 'izin_syari' ? 'bg-blue-100 text-blue-900' :
-                      context?.todayEntry?.kehadiran_zoom === 'sakit' ? 'bg-amber-100 text-amber-900' :
-                      context?.todayEntry?.kehadiran_zoom === 'alpa' ? 'bg-rose-100 text-rose-900' :
-                      'bg-gray-100 text-gray-700'
-                    }`}>
-                      {context?.todayEntry?.kehadiran_zoom === 'hadir' ? '✓ Hadir di Kelas Zoom' :
-                       context?.todayEntry?.kehadiran_zoom === 'izin_syari' ? 'ℹ Izin Syar\'i' :
-                       context?.todayEntry?.kehadiran_zoom === 'sakit' ? '🏥 Sakit' :
-                       context?.todayEntry?.kehadiran_zoom === 'alpa' ? '✗ Tidak Hadir Tanpa Keterangan' :
-                       'Belum Tercatat untuk Hari Ini'}
-                    </span>
-                  </div>
-                  {context?.todayEntry?.absen_at && (
-                    <p className="text-[11px] text-gray-500">
-                      Dicatat: {new Date(context.todayEntry.absen_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}
-                    </p>
-                  )}
+              <div className="bg-blue-50/60 p-4 rounded-xl border border-blue-100 space-y-2">
+                <span className="text-[11px] font-bold text-blue-800 uppercase tracking-wider">Status Presensi Kelas:</span>
+                <div>
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                    context?.todayEntry?.kehadiran_zoom === 'hadir' ? 'bg-emerald-100 text-emerald-900' :
+                    context?.todayEntry?.kehadiran_zoom === 'izin_syari' ? 'bg-blue-100 text-blue-900' :
+                    context?.todayEntry?.kehadiran_zoom === 'sakit' ? 'bg-amber-100 text-amber-900' :
+                    context?.todayEntry?.kehadiran_zoom === 'alpa' ? 'bg-rose-100 text-rose-900' :
+                    'bg-gray-100 text-gray-700'
+                  }`}>
+                    {context?.todayEntry?.kehadiran_zoom === 'hadir' ? '✓ Hadir di Kelas Zoom' :
+                     context?.todayEntry?.kehadiran_zoom === 'izin_syari' ? 'ℹ Izin Syar\'i' :
+                     context?.todayEntry?.kehadiran_zoom === 'sakit' ? '🏥 Sakit' :
+                     context?.todayEntry?.kehadiran_zoom === 'alpa' ? '✗ Tidak Hadir Tanpa Keterangan' :
+                     'Belum Tercatat untuk Hari Ini'}
+                  </span>
                 </div>
-
-                <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-1">
-                  <span className="text-[11px] font-bold text-gray-700 uppercase tracking-wider">Musyrifah Penanggung Jawab:</span>
-                  <div className="text-sm font-bold text-gray-900">{musyrifahName}</div>
-                  <p className="text-xs text-gray-500">
-                    Silakan hubungi Musyrifah jika Ukhti berhalangan hadir agar dicatat sebagai izin resmi.
+                {context?.todayEntry?.absen_at && (
+                  <p className="text-[11px] text-gray-500">
+                    Dicatat: {new Date(context.todayEntry.absen_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}
                   </p>
-                </div>
-              </div>
-
-              {/* Catatan Musyrifah */}
-              <div className="bg-white p-4 rounded-xl border border-gray-200 space-y-2">
-                <Label className="text-xs font-bold text-gray-700">Catatan Pengawalan / Pengingat Kelas:</Label>
-                <div className="text-sm text-gray-800 bg-gray-50/70 p-3.5 rounded-lg border border-gray-200/80 min-h-[60px] italic">
-                  {context?.todayEntry?.catatan_musyrifah || 'Belum ada catatan khusus dari Musyrifah. Pastikan selalu memantau tautan Zoom di grup halaqah.'}
-                </div>
+                )}
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* TAB 4: RIWAYAT & PANDUAN 3 METODE SIMAK */}
+        {/* TAB 4: RIWAYAT & PANDUAN */}
         <TabsContent value="riwayat" className="space-y-6">
-          {/* Riwayat Pengisian */}
           <Card className="border border-gray-200 shadow-xs rounded-2xl bg-white overflow-hidden">
             <CardHeader className="pb-3 border-b border-gray-100">
               <CardTitle className="text-base font-bold text-gray-900 flex items-center gap-2">

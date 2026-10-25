@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Calendar, Clock, MapPin, Video, Users, AlertCircle, ChevronRight, MessageCircle, BookOpen, ArrowRightLeft, ChevronDown, ChevronUp } from 'lucide-react';
+import { Calendar, Clock, MapPin, Video, Users, AlertCircle, ChevronRight, MessageCircle, BookOpen, ArrowRightLeft, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
 import { formatTimeShort } from '@/lib/reminder-generator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TransferScheduleModal } from './TransferScheduleModal';
@@ -341,6 +341,13 @@ export function UserJadwalHarian({ user, activeBatch, daftarUlangData }: { user:
         </TabsContent>
         
         <TabsContent value="pra-tikrar" className="mt-0 outline-none">
+          <div className="bg-gradient-to-r from-fuchsia-50 via-purple-50 to-indigo-50 border border-fuchsia-200/80 rounded-2xl p-4 mb-3.5 flex items-start gap-3">
+            <Sparkles className="w-5 h-5 text-fuchsia-600 shrink-0 mt-0.5" />
+            <div className="text-xs text-fuchsia-950">
+              <div className="font-bold text-sm mb-0.5">Sistem Sesi Terbuka & Fleksibel (Tanpa Kelas Tetap) 🌸</div>
+              Program Pra-Tikrar tidak mengunci santriwati pada kelas tetap. Ukhti bebas masuk dan mengikuti sesi tatap muka Zoom mana pun di bawah ini sesuai keluangan waktu Ukhti tanpa perlu mengajukan permohonan mutasi/pindah jadwal!
+            </div>
+          </div>
           <div className="grid grid-cols-1 gap-3.5">
             {displayedPraTikrar.map(renderScheduleCard)}
             

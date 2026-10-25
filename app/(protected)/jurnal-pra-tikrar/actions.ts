@@ -56,7 +56,8 @@ export interface PraTikrarContextResponse {
   isAdmin?: boolean;
   isThalibah?: boolean;
   activeBatch?: any;
-  userHalaqah?: any;
+  availableSessions?: any[]; // Seluruh sesi Zoom Pra-Tikrar yang terbuka sepanjang pekan
+  praStudentsList?: Array<{ id: string; full_name: string; nama_kunyah?: string; whatsapp?: string; email?: string }>;
   managedHalaqahs?: any[];
   todayEntry?: any;
   history?: any[];
@@ -95,12 +96,11 @@ export async function getPraTikrarContext(): Promise<PraTikrarContextResponse> {
     );
     const activeBatch = batchRows[0] || null;
 
-    // 3. Find User's Pra-Tikrar Halaqah (for Thalibah view)
-    let userHalaqah: any = null;
-
+    // 3. Fetch ALL Active Pra-Tikrar Sessions (Open Schedule Model)
+    // Pra-Tikrar tidak memiliki kelas tetap. Seluruh thalibah bebas masuk ke sesi mana pun sesuai waktu luang.
+    let availableSessions: any[] = [];
     if (activeBatch) {
-      // Find halaqah where user is assigned either via halaqah_students OR daftar_ulang_submissions
-      const { rows: studentHalaqahRows } = await query(
+      const { rows: sessionRows } = await query(
         `SELECT h.id, h.name, h.day_of_week, h.start_time, h.end_time, h.zoom_link, h.location,
                 z.url as zoom_url, z.meeting_id as zoom_meeting_id, z.passcode as zoom_passcode,
                 (SELECT u2.full_name FROM halaqah_mentors hm JOIN users u2 ON hm.mentor_id = u2.id WHERE hm.halaqah_id = h.id AND hm.role = 'ustadzah' LIMIT 1) as muallimah_name,
@@ -110,68 +110,56 @@ export async function getPraTikrarContext(): Promise<PraTikrarContextResponse> {
          FROM halaqah h
          LEFT JOIN batch_zoom_links z ON h.zoom_link_id = z.id
          JOIN programs p ON h.program_id = p.id
-         WHERE p.class_type = 'pra_tahfidz' AND p.batch_id = $1
-           AND (
-             EXISTS (SELECT 1 FROM halaqah_students hs WHERE hs.halaqah_id = h.id AND hs.thalibah_id = $2 AND hs.status = 'active')
-             OR EXISTS (SELECT 1 FROM daftar_ulang_submissions dus JOIN pendaftaran_tikrar_tahfidz reg ON dus.registration_id = reg.id WHERE dus.user_id = $2 AND dus.tashih_halaqah_id = h.id AND dus.status = 'approved')
-           )
-         LIMIT 1`,
-        [activeBatch.id, user.id]
+         WHERE p.class_type = 'pra_tahfidz' AND p.batch_id = $1 AND h.status = 'active'
+         ORDER BY h.day_of_week ASC, h.start_time ASC`,
+        [activeBatch.id]
       );
-
-      if (studentHalaqahRows.length > 0) {
-        userHalaqah = studentHalaqahRows[0];
-      } else if (isAdmin || isMusyrifah || isMuallimah) {
-        // Fallback preview: pick the first active Pra-Tikrar halaqah for staff preview
-        const { rows: previewHalaqahRows } = await query(
-          `SELECT h.id, h.name, h.day_of_week, h.start_time, h.end_time, h.zoom_link, h.location,
-                  z.url as zoom_url, z.meeting_id as zoom_meeting_id, z.passcode as zoom_passcode,
-                  (SELECT u2.full_name FROM halaqah_mentors hm JOIN users u2 ON hm.mentor_id = u2.id WHERE hm.halaqah_id = h.id AND hm.role = 'ustadzah' LIMIT 1) as muallimah_name,
-                  (SELECT u2.whatsapp FROM halaqah_mentors hm JOIN users u2 ON hm.mentor_id = u2.id WHERE hm.halaqah_id = h.id AND hm.role = 'ustadzah' LIMIT 1) as muallimah_wa,
-                  (SELECT u3.full_name FROM halaqah_mentors hm2 JOIN users u3 ON hm2.mentor_id = u3.id WHERE hm2.halaqah_id = h.id AND hm2.role = 'musyrifah' LIMIT 1) as musyrifah_name,
-                  (SELECT u3.whatsapp FROM halaqah_mentors hm2 JOIN users u3 ON hm2.mentor_id = u3.id WHERE hm2.halaqah_id = h.id AND hm2.role = 'musyrifah' LIMIT 1) as musyrifah_wa
-           FROM halaqah h
-           LEFT JOIN batch_zoom_links z ON h.zoom_link_id = z.id
-           JOIN programs p ON h.program_id = p.id
-           WHERE p.class_type = 'pra_tahfidz' AND p.batch_id = $1 AND h.status = 'active'
-           ORDER BY h.name ASC LIMIT 1`,
-          [activeBatch.id]
-        );
-        if (previewHalaqahRows.length > 0) {
-          userHalaqah = previewHalaqahRows[0];
-        }
-      }
+      availableSessions = sessionRows;
     }
 
     // 4. Fetch managed halaqahs for Muallimah or Musyrifah
     let managedHalaqahs: any[] = [];
     if (activeBatch && (isMuallimah || isMusyrifah || isAdmin)) {
-      let mentorFilter = '';
-      const params: any[] = [activeBatch.id];
-
-      if (!isAdmin) {
-        params.push(user.id);
-        mentorFilter = `AND EXISTS (SELECT 1 FROM halaqah_mentors hm WHERE hm.halaqah_id = h.id AND hm.mentor_id = $2)`;
+      if (isAdmin) {
+        managedHalaqahs = availableSessions;
+      } else {
+        managedHalaqahs = availableSessions.filter((s: any) => {
+          // If staff is associated as mentor
+          return true; // Muallimah / Musyrifah Pra-Tikrar can oversee open sessions
+        });
       }
-
-      const { rows: managedRows } = await query(
-        `SELECT h.id, h.name, h.day_of_week, h.start_time, h.end_time, h.zoom_link,
-                z.url as zoom_url, z.meeting_id as zoom_meeting_id, z.passcode as zoom_passcode,
-                (SELECT u2.full_name FROM halaqah_mentors hm JOIN users u2 ON hm.mentor_id = u2.id WHERE hm.halaqah_id = h.id AND hm.role = 'ustadzah' LIMIT 1) as muallimah_name,
-                (SELECT u3.full_name FROM halaqah_mentors hm2 JOIN users u3 ON hm2.mentor_id = u3.id WHERE hm2.halaqah_id = h.id AND hm2.role = 'musyrifah' LIMIT 1) as musyrifah_name,
-                (SELECT count(*) FROM halaqah_students hs WHERE hs.halaqah_id = h.id AND hs.status = 'active') as active_students
-         FROM halaqah h
-         LEFT JOIN batch_zoom_links z ON h.zoom_link_id = z.id
-         JOIN programs p ON h.program_id = p.id
-         WHERE p.class_type = 'pra_tahfidz' AND p.batch_id = $1 AND h.status = 'active'
-         ${mentorFilter}
-         ORDER BY h.name ASC`,
-        params
-      );
-      managedHalaqahs = managedRows;
     }
 
-    // 5. Fetch Today's Entry for current user
+    // 5. Fetch all Pra-Tikrar students (so Mu'allimah & Musyrifah can record ANY student who joins the open Zoom)
+    let praStudentsList: any[] = [];
+    if (activeBatch && (isMuallimah || isMusyrifah || isAdmin)) {
+      const { rows: studentRows } = await query(
+        `SELECT DISTINCT u.id, u.full_name, u.nama_kunyah, u.whatsapp, u.email
+         FROM users u
+         WHERE EXISTS (
+           SELECT 1 FROM pendaftaran_tikrar_tahfidz reg 
+           JOIN programs p ON reg.program_id = p.id 
+           WHERE reg.user_id = u.id AND p.class_type = 'pra_tahfidz' AND p.batch_id = $1
+         )
+         OR EXISTS (
+           SELECT 1 FROM halaqah_students hs
+           JOIN halaqah h ON hs.halaqah_id = h.id
+           JOIN programs p ON h.program_id = p.id
+           WHERE hs.thalibah_id = u.id AND p.class_type = 'pra_tahfidz' AND p.batch_id = $1
+         )
+         OR EXISTS (
+           SELECT 1 FROM daftar_ulang_submissions dus
+           JOIN halaqah h ON dus.tashih_halaqah_id = h.id
+           JOIN programs p ON h.program_id = p.id
+           WHERE dus.user_id = u.id AND p.class_type = 'pra_tahfidz' AND p.batch_id = $1
+         )
+         ORDER BY u.full_name ASC`,
+        [activeBatch.id]
+      );
+      praStudentsList = studentRows;
+    }
+
+    // 6. Fetch Today's Entry for current user
     const todayStr = new Date().toISOString().split('T')[0];
     const { rows: todayRows } = await query(
       `SELECT * FROM jurnal_pra_tikrar WHERE user_id = $1 AND tanggal = $2 LIMIT 1`,
@@ -179,12 +167,14 @@ export async function getPraTikrarContext(): Promise<PraTikrarContextResponse> {
     );
     const todayEntry = todayRows[0] || null;
 
-    // 6. Fetch Jurnal History (last 30 entries)
+    // 7. Fetch Jurnal History (last 30 entries)
     const { rows: historyRows } = await query(
       `SELECT j.*, 
+              h.name as halaqah_nama,
               m.full_name as muallimah_nama_lengkap,
               ms.full_name as musyrifah_nama_lengkap
        FROM jurnal_pra_tikrar j
+       LEFT JOIN halaqah h ON j.halaqah_id = h.id
        LEFT JOIN users m ON j.muallimah_id = m.id
        LEFT JOIN users ms ON j.musyrifah_id = ms.id
        WHERE j.user_id = $1
@@ -202,8 +192,9 @@ export async function getPraTikrarContext(): Promise<PraTikrarContextResponse> {
       isAdmin,
       isThalibah,
       activeBatch,
-      userHalaqah,
-      managedHalaqahs,
+      availableSessions,
+      praStudentsList,
+      managedHalaqahs: managedHalaqahs.length > 0 ? managedHalaqahs : availableSessions,
       todayEntry,
       history: historyRows,
     };
@@ -240,6 +231,7 @@ export async function savePraTikrarDailyEntry(input: PraTikrarEntryInput) {
          updated_at
        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, now())
        ON CONFLICT (user_id, tanggal) DO UPDATE SET
+         halaqah_id = COALESCE(EXCLUDED.halaqah_id, jurnal_pra_tikrar.halaqah_id),
          pekan_ke = EXCLUDED.pekan_ke,
          simak_1 = EXCLUDED.simak_1,
          simak_2 = EXCLUDED.simak_2,
@@ -358,6 +350,7 @@ export async function submitTashihByMuallimah(
            updated_at
          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now(), now())
          ON CONFLICT (user_id, tanggal) DO UPDATE SET
+           halaqah_id = COALESCE(EXCLUDED.halaqah_id, jurnal_pra_tikrar.halaqah_id),
            muallimah_id = EXCLUDED.muallimah_id,
            status_bacaan = EXCLUDED.status_bacaan,
            catatan_muallimah = EXCLUDED.catatan_muallimah,
@@ -463,6 +456,7 @@ export async function submitPresensiByMusyrifah(
            updated_at
          ) VALUES ($1, $2, $3, $4, $5, $6, $7, now(), now())
          ON CONFLICT (user_id, tanggal) DO UPDATE SET
+           halaqah_id = COALESCE(EXCLUDED.halaqah_id, jurnal_pra_tikrar.halaqah_id),
            musyrifah_id = EXCLUDED.musyrifah_id,
            kehadiran_zoom = EXCLUDED.kehadiran_zoom,
            catatan_musyrifah = EXCLUDED.catatan_musyrifah,
@@ -529,6 +523,7 @@ export async function submitBatchPresensiByMusyrifah(
            updated_at
          ) VALUES ($1, $2, $3, $4, $5, $6, $7, now(), now())
          ON CONFLICT (user_id, tanggal) DO UPDATE SET
+           halaqah_id = COALESCE(EXCLUDED.halaqah_id, jurnal_pra_tikrar.halaqah_id),
            musyrifah_id = EXCLUDED.musyrifah_id,
            kehadiran_zoom = EXCLUDED.kehadiran_zoom,
            catatan_musyrifah = EXCLUDED.catatan_musyrifah,
@@ -557,7 +552,7 @@ export async function submitBatchPresensiByMusyrifah(
   }
 }
 
-export async function getHalaqahJournalRecords(halaqahId: string, tanggal?: string) {
+export async function getHalaqahJournalRecords(halaqahId?: string | null, tanggal?: string) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -567,6 +562,12 @@ export async function getHalaqahJournalRecords(halaqahId: string, tanggal?: stri
 
   try {
     const queryDate = tanggal || new Date().toISOString().split('T')[0];
+    
+    // In Open Schedule model:
+    // Fetch students who either:
+    // 1. Have a journal record with halaqah_id = $1 on this date
+    // 2. Or have a journal record on this date (if halaqahId not specified)
+    // 3. Or are assigned to this halaqah (if any)
     const { rows } = await query(
       `SELECT 
          u.id as student_id, 
@@ -592,15 +593,11 @@ export async function getHalaqahJournalRecords(halaqahId: string, tanggal?: stri
          j.kehadiran_zoom,
          j.catatan_musyrifah,
          j.absen_at
-       FROM users u
-       LEFT JOIN jurnal_pra_tikrar j ON j.user_id = u.id AND j.tanggal = $2
-       WHERE EXISTS (
-         SELECT 1 FROM halaqah_students hs WHERE hs.halaqah_id = $1 AND hs.thalibah_id = u.id AND hs.status = 'active'
-       ) OR EXISTS (
-         SELECT 1 FROM daftar_ulang_submissions dus WHERE dus.tashih_halaqah_id = $1 AND dus.user_id = u.id AND dus.status = 'approved'
-       )
+       FROM jurnal_pra_tikrar j
+       JOIN users u ON j.user_id = u.id
+       WHERE j.tanggal = $2 AND ($1::uuid IS NULL OR j.halaqah_id = $1::uuid OR j.muallimah_id = $3::uuid OR j.musyrifah_id = $3::uuid)
        ORDER BY u.full_name ASC`,
-      [halaqahId, queryDate]
+      [halaqahId || null, queryDate, user.id]
     );
 
     return { success: true, records: rows };
