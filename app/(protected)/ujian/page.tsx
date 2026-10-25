@@ -25,7 +25,7 @@ import { useActiveBatch } from '@/hooks/useBatches';
 import { FinalExamSelectionModal } from '@/components/dashboard/FinalExamSelectionModal';
 import { cn } from '@/lib/utils';
 import { formatDateIndo } from '@/lib/utils/date-helpers';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 
 export default function UjianPage() {
   const { user } = useAuth();
