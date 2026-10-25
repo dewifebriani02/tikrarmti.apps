@@ -253,20 +253,20 @@ export function getAvailablePersonas(roles: string[] | null | undefined): UserRo
 export function getPersonaLabel(role: string): string {
   switch (role.toLowerCase().trim()) {
     case 'super_admin':
-      return 'Super Admin';
+      return 'SuperAdmin';
     case 'admin':
-      return 'Administrator';
+      return 'Admin';
     case 'musyrifah':
-      return 'Musyrifah (Pengawas)';
+      return 'Musyrifah';
     case 'muallimah':
-      return "Mu'allimah (Pengajar)";
+      return "Mu'allimah";
     case 'roisah':
     case 'raisah':
-      return 'Raisah (Ketua Kelas)';
+      return 'Raisah';
     case 'thalibah':
-      return 'Thalibah (Santriwati)';
+      return 'Thalibah';
     case 'calon_thalibah':
-      return 'Calon Thalibah';
+      return 'Calon';
     default:
       return role;
   }

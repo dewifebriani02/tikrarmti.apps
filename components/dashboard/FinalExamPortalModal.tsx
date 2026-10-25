@@ -15,10 +15,23 @@ interface FinalExamPortalModalProps {
   isAdmin?: boolean;
   batchName?: string;
   batchId?: string;
+  finalExamStartDate?: string | null;
+  finalExamEndDate?: string | null;
   isMurajaahCompleted?: boolean;
 }
 
-export function FinalExamPortalModal({ isOpen, onClose, hariAktual, percentage, isAdmin, batchName, batchId, isMurajaahCompleted = false }: FinalExamPortalModalProps) {
+export function FinalExamPortalModal({ 
+  isOpen, 
+  onClose, 
+  hariAktual, 
+  percentage, 
+  isAdmin, 
+  batchName, 
+  batchId, 
+  finalExamStartDate,
+  finalExamEndDate,
+  isMurajaahCompleted = false 
+}: FinalExamPortalModalProps) {
   const router = useRouter();
   const [selectedType, setSelectedType] = useState<'oral' | 'written' | null>(null);
   const [selectionOpen, setSelectionOpen] = useState(false);
@@ -52,7 +65,11 @@ export function FinalExamPortalModal({ isOpen, onClose, hariAktual, percentage, 
 
     if (type === 'written') {
       if (reg?.status === 'graded') return 'graded';
-      return 'locked';
+      if (!isAdmin && !isMurajaahCompleted) return 'locked';
+      const now = new Date();
+      if (!isAdmin && finalExamStartDate && now < new Date(finalExamStartDate)) return 'locked';
+      if (!isAdmin && finalExamEndDate && now > new Date(finalExamEndDate)) return 'locked';
+      return 'available';
     }
 
     let isLocked = false;
@@ -67,13 +84,21 @@ export function FinalExamPortalModal({ isOpen, onClose, hariAktual, percentage, 
 
   const handleAction = (type: 'oral' | 'written') => {
     const status = getStatus(type);
-    if (status === 'locked') return;
-    
-    // Written exam is done via G-Form, just show info
-    if (type === 'written') {
-      if (status !== 'graded') {
-        import('react-hot-toast').then(m => m.toast('Ujian Tulisan dilakukan via G-Form. Nilai akan diinput oleh Admin.', { icon: 'ℹ️' }));
+    if (status === 'locked') {
+      if (type === 'written') {
+        import('react-hot-toast').then(m => m.toast('Waktu ujian pilihan ganda belum dibuka.', { icon: '🔒' }));
       }
+      return;
+    }
+    
+    // Direct written exam to CBT multiple-choice exam
+    if (type === 'written') {
+      if (status === 'graded') {
+        router.push('/exam/results?source=final-exam');
+      } else {
+        router.push('/exam?source=final-exam');
+      }
+      onClose();
       return;
     }
 
@@ -97,7 +122,7 @@ export function FinalExamPortalModal({ isOpen, onClose, hariAktual, percentage, 
       type: 'written' as const,
       label: 'Ujian Tulisan',
       subtitle: 'Pilihan Ganda',
-      description: 'Tes pemahaman materi melalui 100 soal pilihan ganda.',
+      description: 'Tes pemahaman materi melalui 100 soal pilihan ganda CBT.',
       icon: FileText,
       minHari: 40,
       color: 'blue'
@@ -203,7 +228,7 @@ export function FinalExamPortalModal({ isOpen, onClose, hariAktual, percentage, 
                         exam.type === 'written' ? "text-gray-500 bg-gray-100" : "text-rose-500 bg-rose-50"
                       )}>
                         <AlertCircle className="w-3 h-3" />
-                        {exam.type === 'oral' ? 'Selesaikan Pekan Muraja’ah' : 'Via Google Form'}
+                        {exam.type === 'oral' ? 'Selesaikan Pekan Muraja’ah' : 'Belum Dibuka'}
                       </div>
                     ) : isGraded ? (
                       <div className="flex items-center gap-2 text-[10px] font-black text-emerald-700 uppercase tracking-widest bg-emerald-100 px-3 py-2 rounded-full w-fit">
@@ -217,7 +242,7 @@ export function FinalExamPortalModal({ isOpen, onClose, hariAktual, percentage, 
                       </div>
                     ) : (
                       <div className="flex items-center gap-2 text-[10px] font-black text-indigo-700 uppercase tracking-widest bg-indigo-50 px-3 py-2 rounded-full w-fit transition-colors group-hover:bg-indigo-600 group-hover:text-white">
-                        Pilih Jadwal
+                        {exam.type === 'written' ? 'Mulai Ujian' : 'Pilih Jadwal'}
                       </div>
                     )}
                   </div>
@@ -228,7 +253,7 @@ export function FinalExamPortalModal({ isOpen, onClose, hariAktual, percentage, 
 
           <div className="p-4 sm:p-6 text-center border-t border-gray-100 bg-white shrink-0">
              <p className="text-xs text-gray-400 font-medium italic">
-                *Pastikan Ukhti sudah siap secara materi dan hafalan sebelum memilih jadwal ujian.
+                *Pastikan Ukhti sudah siap secara materi dan hafalan sebelum mengikuti ujian.
              </p>
           </div>
         </DialogContent>

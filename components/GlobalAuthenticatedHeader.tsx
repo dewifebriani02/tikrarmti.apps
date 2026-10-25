@@ -20,6 +20,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { LogoutConfirmModal } from '@/components/LogoutConfirmModal';
 import { PersonaSwitcher } from '@/components/PersonaSwitcher';
 import { getPersonaLabel } from '@/lib/roles';
+import { formatDynamicNit } from '@/lib/nit';
 
 interface GlobalAuthenticatedHeaderProps {
   onMenuToggle?: () => void;

@@ -19,9 +19,10 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { juz_number } = body;
+    const { juz_number, source } = body;
+    const isFinalExam = source === 'final-exam';
 
-    if (!juz_number || ![28, 29, 30].includes(juz_number)) {
+    if (!juz_number || (isFinalExam ? (juz_number < 1 || juz_number > 30) : ![28, 29, 30].includes(juz_number))) {
       return NextResponse.json({ error: 'Invalid juz number' }, { status: 400 });
     }
 
@@ -42,7 +43,9 @@ export async function POST(request: NextRequest) {
     const registration = registrations[0];
 
     // Verify that this juz exam is required for their chosen juz
-    const requiredJuz = getRequiredExamJuz(registration.chosen_juz);
+    const requiredJuz = isFinalExam
+      ? parseInt(registration.chosen_juz?.replace(/[AB]/g, "") || "0")
+      : getRequiredExamJuz(registration.chosen_juz);
 
     if (requiredJuz !== juz_number) {
       return NextResponse.json({

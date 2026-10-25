@@ -167,18 +167,23 @@ export async function GET(request: NextRequest) {
         }, { status: 400 });
       }
     } else {
-      // For final-exam mode: verify user has a registered final exam
-      const { data: finalExamReg } = await supabaseAdmin
-        .from('final_exam_registrations')
-        .select('id, status, schedule:final_exam_schedules(exam_type)')
-        .eq('user_id', user.id)
-        .limit(10);
+      // For final-exam mode: verify batch exam window has started or user is staff
+      const { data: profile } = await supabaseAdmin
+        .from('users')
+        .select('roles')
+        .eq('id', user.id)
+        .single();
+      const isStaff = profile?.roles && (
+        profile.roles.includes('admin') ||
+        profile.roles.includes('superadmin') ||
+        profile.roles.includes('musyrifah')
+      );
 
-      const writtenReg = finalExamReg?.find((r: any) => r.schedule?.exam_type === 'written');
-      if (!writtenReg) {
+      const now = new Date();
+      if (!isStaff && batch.final_exam_start_date && now < new Date(batch.final_exam_start_date)) {
         return NextResponse.json({
-          error: 'Belum terdaftar ujian akhir tulisan',
-          details: 'Silakan daftar jadwal ujian akhir tulisan terlebih dahulu melalui menu Ujian Akhir.'
+          error: 'Exam period not open',
+          details: 'Ujian akhir pilihan ganda belum dibuka.'
         }, { status: 400 });
       }
     }

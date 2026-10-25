@@ -612,7 +612,7 @@ export default function PerjalananSaya() {
         desc: batch?.graduation_start_date ? formatDateIndo(batch.graduation_start_date) : 'Wisuda & Sertifikat', 
         icon: <Award className="w-4 h-4" />,
         subPhases: [
-          { name: 'Ujian Tulis', date: formatDateRangeShort(batch?.final_exam_start_date, batch?.final_exam_end_date), done: !!writtenExam, data: writtenExam ? (writtenExam.status === 'graded' ? `Nilai: ${writtenExam.score_tulisan}` : 'Sudah terdaftar') : 'Belum ujian', isPortalAction: false, isLocked: !writtenExam },
+          { name: 'Ujian Tulis', date: formatDateRangeShort(batch?.final_exam_start_date, batch?.final_exam_end_date), done: !!writtenExam, data: writtenExam ? (writtenExam.status === 'graded' ? `Nilai: ${writtenExam.score_tulisan}` : 'Sudah terdaftar') : 'Belum ujian', isPortalAction: isFinalExamStarted || isAdmin, isPortalDisabled: !isFinalExamStarted && !isAdmin, isLocked: !isFinalExamStarted && !isAdmin },
           { name: 'Ujian Lisan', date: formatDateRangeShort(batch?.final_exam_start_date, batch?.final_exam_end_date), done: !!oralExam, data: oralExam ? (oralExam.status === 'graded' ? `Nilai: ${oralExam.score_lisan}` : `${formatDateIndo(oralExam.schedule?.exam_date || '')}`) : 'Belum memilih jadwal', isPortalAction: isLearningDone || isAdmin, isPortalDisabled: !isFinalExamStarted },
           { name: 'Wisuda', date: batch?.graduation_start_date ? formatDateShort(batch.graduation_start_date) : '', done: isGraduationDone, data: batch?.graduation_start_date ? formatDateIndo(batch.graduation_start_date) : '-' },
           { name: 'Sertifikat', date: batch?.graduation_start_date ? formatDateShort(batch.graduation_start_date) : '', done: isGraduationDone, data: isGraduationDone ? 'Sudah terbit' : 'Menunggu wisuda' }
@@ -1089,7 +1089,7 @@ export default function PerjalananSaya() {
                         </button>
                       )}
                       {(sub as any).isLocked && (
-                        <span className="inline-flex items-center text-gray-400" title={hasFormPendaftaran ? "Dikerjakan via Google Form" : "Silakan isi form pendaftaran terlebih dahulu"}>
+                        <span className="inline-flex items-center text-gray-400" title={hasFormPendaftaran ? "Ujian Pilihan Ganda (CBT)" : "Silakan isi form pendaftaran terlebih dahulu"}>
                           <Lock className="w-3.5 h-3.5" />
                         </span>
                       )}
@@ -1122,6 +1122,8 @@ export default function PerjalananSaya() {
         isAdmin={isAdmin}
         batchName={batch?.name || ((batch as any)?.batch_number ? `Batch ${(batch as any).batch_number}` : undefined)}
         batchId={batchId || undefined}
+        finalExamStartDate={batch?.final_exam_start_date}
+        finalExamEndDate={batch?.final_exam_end_date}
         isMurajaahCompleted={isMurajaahCompleted}
       />
     </div>

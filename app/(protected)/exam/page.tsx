@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'react-hot-toast';
 import {
@@ -24,6 +24,16 @@ interface ExamAttempt {
 }
 
 export default function ExamPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><p className="text-gray-600">Memuat Ujian...</p></div>}>
+      <ExamContent />
+    </Suspense>
+  );
+}
+
+function ExamContent() {
+  const searchParams = useSearchParams();
+  const source = searchParams?.get('source') || '';
   const router = useRouter();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -58,12 +68,12 @@ export default function ExamPage() {
       setLoading(true);
 
       // Check eligibility
-      const eligibilityResponse = await fetch('/api/exam/eligibility');
+      const eligibilityResponse = await fetch('/api/exam/eligibility' + (source ? '?source=' + source : ''));
       const eligibilityResult = await eligibilityResponse.json();
 
       if (!eligibilityResponse.ok || !eligibilityResult.data.isEligible) {
         toast.error(eligibilityResult.data.reason || 'Not eligible for exam');
-        router.push('/perjalanan-saya');
+        router.push(source === 'final-exam' ? '/ujian?tab=akhir' : '/perjalanan-saya');
         return;
       }
 
@@ -73,21 +83,21 @@ export default function ExamPage() {
       const startResponse = await fetch('/api/exam/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ juz_number: requiredJuz }),
+        body: JSON.stringify({ juz_number: requiredJuz, source }),
       });
 
       const startResult = await startResponse.json();
 
       if (!startResponse.ok) {
         toast.error(startResult.error || 'Failed to start exam');
-        router.push('/perjalanan-saya');
+        router.push(source === 'final-exam' ? '/ujian?tab=akhir' : '/perjalanan-saya');
         return;
       }
 
       setAttempt(startResult.attempt);
 
       // Load questions
-      const questionsResponse = await fetch('/api/exam/questions/for-user');
+      const questionsResponse = await fetch('/api/exam/questions/for-user' + (source ? '?source=' + source : ''));
       const questionsResult = await questionsResponse.json();
 
       if (questionsResponse.ok) {
@@ -104,12 +114,12 @@ export default function ExamPage() {
         }
       } else {
         toast.error('Failed to load questions');
-        router.push('/perjalanan-saya');
+        router.push(source === 'final-exam' ? '/ujian?tab=akhir' : '/perjalanan-saya');
       }
     } catch (error) {
       console.error('Error loading exam:', error);
       toast.error('Failed to load exam');
-      router.push('/perjalanan-saya');
+      router.push(source === 'final-exam' ? '/ujian?tab=akhir' : '/perjalanan-saya');
     } finally {
       setLoading(false);
     }
@@ -187,7 +197,7 @@ export default function ExamPage() {
 
       if (response.ok) {
         toast.success('Exam submitted successfully!');
-        router.push(`/exam/results?attemptId=${attempt.id}`);
+        router.push(`/exam/results?attemptId=${attempt.id}` + (source ? `&source=${source}` : ''));
       } else {
         toast.error(result.error || 'Failed to submit exam');
       }

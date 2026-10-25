@@ -14,6 +14,7 @@ import { useState, useEffect } from 'react';
 import { LogoutConfirmModal } from '@/components/LogoutConfirmModal';
 import { usePersona } from '@/hooks/usePersona';
 import { PersonaSwitcher } from '@/components/PersonaSwitcher';
+import { formatDynamicNit } from '@/lib/nit';
 
 interface UniversalSidebarProps {
   currentPath?: string;
@@ -474,9 +475,21 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
           </button>
         </div>
 
-        {/* Persona Switcher in Sidebar (When not collapsed) */}
+        {/* User Card with Name & NIT + Persona Switcher in Sidebar (When not collapsed) */}
         {!isCollapsed && isMounted && (
           <div className="px-3 pt-3 pb-1 flex-shrink-0">
+            <div className="bg-gradient-to-r from-emerald-50 to-green-50/70 border border-emerald-100/80 rounded-2xl p-2.5 mb-2 shadow-2xs">
+              <p className="text-xs font-bold text-gray-900 truncate">
+                {user?.full_name || 'Hamba Allah'}
+              </p>
+              {user?.student_id_number && (
+                <div className="mt-0.5">
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-100/90 text-emerald-800 border border-emerald-200" title="Nomor Induk Tholibah">
+                    NIT: {formatDynamicNit(user.student_id_number, (user as any)?.current_juz)}
+                  </span>
+                </div>
+              )}
+            </div>
             <PersonaSwitcher variant="sidebar" />
           </div>
         )}

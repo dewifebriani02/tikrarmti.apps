@@ -44,6 +44,102 @@ export async function GET(request: NextRequest) {
 
     const registration = registrations[0];
 
+    const source = request.nextUrl.searchParams.get("source");
+    const isFinalExam = source === "final-exam";
+
+    if (isFinalExam) {
+      const chosenJuz = registration.chosen_juz;
+      const targetJuzNum = parseInt(chosenJuz?.replace(/[AB]/g, "") || "0");
+      if (targetJuzNum < 1 || targetJuzNum > 30) {
+        return NextResponse.json({
+          data: {
+            isEligible: false,
+            requiredJuz: null,
+            reason: "Target " + (chosenJuz || "juz") + " tidak valid untuk ujian akhir.",
+            hasCompleted: false
+          }
+        });
+      }
+
+      // Check batch final exam window
+      const { data: batch } = await supabaseAdmin
+        .from("batches")
+        .select("name, final_exam_start_date, final_exam_end_date")
+        .eq("id", registration.batch_id)
+        .single();
+
+      const { data: profile } = await supabaseAdmin
+        .from("users")
+        .select("roles")
+        .eq("id", user.id)
+        .single();
+      const isStaff = profile?.roles && (
+        profile.roles.includes("admin") ||
+        profile.roles.includes("superadmin") ||
+        profile.roles.includes("musyrifah")
+      );
+
+      const now = new Date();
+      if (!isStaff && batch?.final_exam_start_date && now < new Date(batch.final_exam_start_date)) {
+        return NextResponse.json({
+          data: {
+            isEligible: false,
+            requiredJuz: targetJuzNum,
+            reason: "Waktu ujian akhir pilihan ganda belum dibuka.",
+            hasCompleted: false
+          }
+        });
+      }
+
+      if (!isStaff && batch?.final_exam_end_date && now > new Date(batch.final_exam_end_date)) {
+        return NextResponse.json({
+          data: {
+            isEligible: false,
+            requiredJuz: targetJuzNum,
+            reason: "Waktu pelaksanaan ujian akhir telah berakhir.",
+            hasCompleted: false
+          }
+        });
+      }
+
+      // Check if attempt already submitted
+      const { data: attempts } = await supabaseAdmin
+        .from("exam_attempts")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("registration_id", registration.id)
+        .eq("juz_number", targetJuzNum)
+        .eq("status", "submitted");
+
+      if (attempts && attempts.length > 0) {
+        const attempt = attempts[0];
+        return NextResponse.json({
+          data: {
+            isEligible: false,
+            requiredJuz: targetJuzNum,
+            reason: "Ukhti telah menyelesaikan ujian pilihan ganda dengan nilai " + attempt.score + ".",
+            hasCompleted: true,
+            attemptId: attempt.id,
+            score: attempt.score,
+            maxAttempts: 1,
+            attemptsUsed: 1,
+            attemptsRemaining: 0
+          }
+        });
+      }
+
+      return NextResponse.json({
+        data: {
+          isEligible: true,
+          requiredJuz: targetJuzNum,
+          hasCompleted: false,
+          maxAttempts: 1,
+          attemptsUsed: 0,
+          attemptsRemaining: 1
+        }
+      });
+    }
+
     // Check if user is Alumni
     const { data: pastRegs } = await supabaseAdmin
       .from('pendaftaran_tikrar_tahfidz')

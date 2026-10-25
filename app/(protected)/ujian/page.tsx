@@ -16,7 +16,8 @@ import {
   CheckCircle2, 
   Clock, 
   ChevronRight,
-  GraduationCap
+  GraduationCap,
+  Lock
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useActiveBatch } from '@/hooks/useBatches';
@@ -43,6 +44,7 @@ export default function UjianPage() {
   const [selectionOpen, setSelectionOpen] = useState(false);
   const [registrations, setRegistrations] = useState<any[]>([]);
   const [loadingRegistrations, setLoadingRegistrations] = useState(false);
+  const [writtenAttempt, setWrittenAttempt] = useState<any>(null);
 
   const fetchRegistrations = async () => {
     setLoadingRegistrations(true);
@@ -52,6 +54,17 @@ export default function UjianPage() {
       const result = await response.json();
       if (result.success) {
         setRegistrations(Array.isArray(result.data) ? result.data : result.data ? [result.data] : []);
+      }
+
+      // Also fetch exam attempts to check if written exam has been completed
+      try {
+        const attemptRes = await fetch('/api/exam/attempts');
+        const attemptData = await attemptRes.json();
+        if (attemptData.attempt) {
+          setWrittenAttempt(attemptData.attempt);
+        }
+      } catch (err) {
+        console.error('Fetch written attempt error:', err);
       }
     } catch (error) {
       console.error('Fetch registrations error:', error);
@@ -66,6 +79,15 @@ export default function UjianPage() {
 
   const oralRegistration = registrations.find(r => r.schedule?.exam_type === 'oral');
   const writtenRegistration = registrations.find(r => r.schedule?.exam_type === 'written');
+
+  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'musyrifah' || user?.roles?.includes('admin') || user?.roles?.includes('musyrifah') || (user as any)?.primaryRole === 'admin' || (user as any)?.primaryRole === 'musyrifah';
+  const now = new Date();
+  const examStartDate = activeBatch?.final_exam_start_date ? new Date(activeBatch.final_exam_start_date) : null;
+  const examEndDate = activeBatch?.final_exam_end_date ? new Date(activeBatch.final_exam_end_date) : null;
+  const isExamOpen = isAdmin || (examStartDate ? now >= examStartDate : false);
+  const isExamEnded = !isAdmin && examEndDate ? now > examEndDate : false;
+  const isWrittenCompleted = writtenRegistration?.status === 'graded' || writtenAttempt?.status === 'submitted';
+  const writtenScore = writtenRegistration?.score ?? writtenRegistration?.score_tulisan ?? writtenAttempt?.score;
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 space-y-6 animate-fadeInUp pb-24 font-sans">
@@ -142,7 +164,7 @@ export default function UjianPage() {
                 <p className="text-green-100/80 text-xs mt-0.5">
                   {activeTab === 'pekanan' 
                     ? 'Dilaksanakan Setiap Akhir Pekan (Sabtu - Ahad)'
-                    : 'Pilih jadwal ujian lisan hafalan bersama Mu\'allimah Penguji'}
+                    : 'Pilih jadwal ujian lisan hafalan bersama Mu\'allimah Penguji dan ikuti evaluasi pilihan ganda'}
                 </p>
               </div>
             </div>
@@ -364,28 +386,87 @@ export default function UjianPage() {
                     Ujian Tulisan Akhir Juz
                   </h3>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    Tes pemahaman materi, kaidah tajwid, dan makna ayat melalui soal evaluasi.
+                    Tes pemahaman materi, kaidah tajwid, dan makna ayat melalui soal evaluasi pilihan ganda CBT.
                   </p>
                 </div>
               </div>
 
-              {writtenRegistration?.status === 'graded' ? (
-                <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
-                  Dinilai ({writtenRegistration.score})
+              {isWrittenCompleted ? (
+                <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0 flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Dinilai ({writtenScore ?? '-'})
+                </span>
+              ) : isExamOpen && !isExamEnded ? (
+                <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 shrink-0 flex items-center gap-1">
+                  <Sparkles className="w-3.5 h-3.5" /> Ujian Dibuka
+                </span>
+              ) : isExamEnded ? (
+                <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
+                  Waktu Berakhir
                 </span>
               ) : (
-                <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
-                  Via Google Form
+                <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 border border-gray-200 shrink-0 flex items-center gap-1">
+                  <Lock className="w-3 h-3" /> Belum Dibuka
                 </span>
               )}
             </div>
 
-            <div className="bg-blue-50/60 border border-blue-100 rounded-xl p-3.5 text-xs text-blue-900 space-y-1">
-              <p className="font-bold">📝 Mekanisme Ujian Tulisan:</p>
-              <p className="text-blue-800/80 leading-relaxed">
-                Ujian tulisan dikerjakan melalui formulir online resmi MTI yang dibagikan menjelang pekan ujian akhir. Nilai akan otomatis terhubung ke sistem rapor kelulusan.
+            <div className={cn(
+              "rounded-xl p-3.5 text-xs space-y-1 border",
+              isWrittenCompleted
+                ? "bg-emerald-50/60 border-emerald-100 text-emerald-900"
+                : isExamOpen && !isExamEnded
+                ? "bg-blue-50/60 border-blue-100 text-blue-900"
+                : "bg-gray-50 border-gray-200 text-gray-600"
+            )}>
+              <p className="font-bold flex items-center gap-1.5">
+                {isWrittenCompleted ? (
+                  <><span>🎉</span> Ujian Telah Selesai</>
+                ) : isExamOpen && !isExamEnded ? (
+                  <><span>📝</span> Petunjuk Ujian Pilihan Ganda (CBT):</>
+                ) : (
+                  <><span>🔒</span> Ujian Belum Dibuka</>
+                )}
+              </p>
+              <p className="leading-relaxed">
+                {isWrittenCompleted
+                  ? `Alhamdulillah, Ukhti telah menyelesaikan ujian tulisan pilihan ganda dengan perolehan nilai ${writtenScore ?? '-'}. Nilai otomatis terhubung ke sistem kelulusan.`
+                  : isExamOpen && !isExamEnded
+                  ? "Ujian tulisan dikerjakan langsung melalui sistem Computer Based Test (CBT) pilihan ganda MTI. Pastikan koneksi internet stabil sebelum memulai pengerjaan."
+                  : `Ujian pilihan ganda akan dibuka pada ${examStartDate ? formatDateIndo(activeBatch.final_exam_start_date) : 'jadwal pekan ujian akhir yang ditentukan panitia'}. Silakan persiapkan diri dan muraja'ah materi hafalan Ukhti.`}
               </p>
             </div>
+
+            {/* Tombol Aksi Ujian Tulisan */}
+            {isWrittenCompleted ? (
+              <Link href="/exam/results?source=final-exam" className="block w-full">
+                <Button
+                  variant="outline"
+                  className="w-full border-emerald-200 text-emerald-800 hover:bg-emerald-50 font-bold py-3 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition-all"
+                >
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>Lihat Hasil Ujian Tulisan</span>
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </Link>
+            ) : isExamOpen && !isExamEnded ? (
+              <Link href="/exam?source=final-exam" className="block w-full">
+                <Button
+                  className="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 rounded-xl shadow-sm text-xs sm:text-sm flex items-center justify-center gap-2 transition-all"
+                >
+                  <FileText className="w-4 h-4" />
+                  <span>Mulai Ujian Pilihan Ganda</span>
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </Link>
+            ) : (
+              <Button
+                disabled
+                className="w-full bg-gray-100 text-gray-400 font-bold py-3 rounded-xl border border-gray-200 text-xs sm:text-sm flex items-center justify-center gap-2 cursor-not-allowed"
+              >
+                <Lock className="w-4 h-4" />
+                <span>{isExamEnded ? 'Waktu Ujian Telah Berakhir' : 'Ujian Belum Dibuka'}</span>
+              </Button>
+            )}
           </Card>
         </div>
       )}

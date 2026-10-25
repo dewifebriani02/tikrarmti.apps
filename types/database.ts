@@ -32,6 +32,7 @@ export interface User {
   phone?: string;
   roles: UserRole[];
   primaryRole?: UserRole;
+  role?: UserRole | string;
   avatar_url?: string;
   is_active: boolean;
   created_at: string;

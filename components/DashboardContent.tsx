@@ -1298,6 +1298,8 @@ export default function DashboardContent() {
         isAdmin={userRole === 'admin'}
         batchName={selectedBatch?.name || (matchingRegistration as any)?.batch?.name || matchingRegistration?.batch_name || registrations[0]?.batch?.name || registrations[0]?.batch_name}
         batchId={effectiveBatchId || matchingRegistration?.batch_id || registrations[0]?.batch_id}
+        finalExamStartDate={(selectedBatch as any)?.final_exam_start_date || (matchingRegistration as any)?.batch?.final_exam_start_date}
+        finalExamEndDate={(selectedBatch as any)?.final_exam_end_date || (matchingRegistration as any)?.batch?.final_exam_end_date}
         isMurajaahCompleted={isMurajaahCompleted}
       />
 
