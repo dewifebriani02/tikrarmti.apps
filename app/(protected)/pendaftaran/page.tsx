@@ -159,8 +159,61 @@ export default function PendaftaranPage() {
         });
       });
 
-      // NOTE: Removed placeholder generation for batches without programs
-      // Only programs from the database should be displayed
+      // Ensure Muallimah and Musyrifah are always available as options for the open batch
+      const targetBatch = batches.find(b => b.status === 'open') || batches[0];
+      if (targetBatch) {
+        const hasMuallimah = transformedData.some(p => p.title.toLowerCase().includes('muallimah'));
+        if (!hasMuallimah) {
+          const muallimahType = getProgramTypeByName('muallimah');
+          transformedData.push({
+            id: `program-muallimah-${targetBatch.id}`,
+            title: "Mu'allimah MTI",
+            description: 'Pendaftaran & Akad Komitmen Pengajar Tashih dan Penguji Ujian MTI',
+            icon: ShieldCheck,
+            color: 'purple',
+            benefits: muallimahType.benefits,
+            requirements: muallimahType.requirements,
+            status: mapProgramStatus('open', targetBatch.registration_end_date),
+            batchInfo: {
+              batch: targetBatch.name,
+              period: `${formatDate(targetBatch.start_date)} - ${formatDate(targetBatch.end_date)}`,
+              deadline: formatDate(targetBatch.registration_end_date),
+              capacity: targetBatch.total_quota || 50,
+              registered: 0
+            },
+            price: 'GRATIS',
+            duration: `${targetBatch.duration_weeks || 13} pekan`,
+            programId: 'muallimah',
+            batchId: targetBatch.id
+          });
+        }
+
+        const hasMusyrifah = transformedData.some(p => p.title.toLowerCase().includes('musyrifah'));
+        if (!hasMusyrifah) {
+          const musyrifahType = getProgramTypeByName('musyrifah');
+          transformedData.push({
+            id: `program-musyrifah-${targetBatch.id}`,
+            title: 'Musyrifah / Raisah MTI',
+            description: 'Pendaftaran Tim Pendamping Halaqah dan Kepemimpinan MTI',
+            icon: UserCheck,
+            color: 'blue',
+            benefits: musyrifahType.benefits,
+            requirements: musyrifahType.requirements,
+            status: mapProgramStatus('open', targetBatch.registration_end_date),
+            batchInfo: {
+              batch: targetBatch.name,
+              period: `${formatDate(targetBatch.start_date)} - ${formatDate(targetBatch.end_date)}`,
+              deadline: formatDate(targetBatch.registration_end_date),
+              capacity: targetBatch.total_quota || 50,
+              registered: 0
+            },
+            price: 'GRATIS',
+            duration: `${targetBatch.duration_weeks || 13} pekan`,
+            programId: 'musyrifah',
+            batchId: targetBatch.id
+          });
+        }
+      }
 
       setPendaftaranTypes(transformedData);
     }
@@ -464,7 +517,7 @@ export default function PendaftaranPage() {
         )}
 
         {/* Unified Registration Hub Card (Featured) */}
-        <RegistrationHubCard showTitle={false} />
+        <RegistrationHubCard showTitle={false} alwaysShow={true} />
 
         {/* Registration Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-8">
