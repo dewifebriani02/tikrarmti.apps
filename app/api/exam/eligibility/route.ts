@@ -73,19 +73,26 @@ export async function GET(request: NextRequest) {
         .select("roles")
         .eq("id", user.id)
         .single();
-      const isStaff = profile?.roles && (
+
+      // Respect the active persona cookie if present (so admin simulating thalibah experiences real thalibah rules)
+      const activePersonaCookie = request.cookies.get('mti_active_persona')?.value;
+      const isSimulatingStudent = activePersonaCookie === 'thalibah' || activePersonaCookie === 'calon_thalibah';
+
+      const isStaff = !isSimulatingStudent && profile?.roles && (
         profile.roles.includes("admin") ||
         profile.roles.includes("superadmin") ||
         profile.roles.includes("musyrifah")
       );
 
       const now = new Date();
-      if (!isStaff && batch?.final_exam_start_date && now < new Date(batch.final_exam_start_date)) {
+      if (!isStaff && (!batch?.final_exam_start_date || now < new Date(batch.final_exam_start_date))) {
         return NextResponse.json({
           data: {
             isEligible: false,
             requiredJuz: targetJuzNum,
-            reason: "Waktu ujian akhir pilihan ganda belum dibuka.",
+            reason: batch?.final_exam_start_date
+              ? "Waktu ujian akhir pilihan ganda belum dibuka."
+              : "Jadwal ujian akhir pilihan ganda belum ditentukan oleh panitia.",
             hasCompleted: false
           }
         });

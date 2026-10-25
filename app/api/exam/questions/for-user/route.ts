@@ -173,17 +173,28 @@ export async function GET(request: NextRequest) {
         .select('roles')
         .eq('id', user.id)
         .single();
-      const isStaff = profile?.roles && (
+
+      const activePersonaCookie = request.cookies.get('mti_active_persona')?.value;
+      const isSimulatingStudent = activePersonaCookie === 'thalibah' || activePersonaCookie === 'calon_thalibah';
+
+      const isStaff = !isSimulatingStudent && profile?.roles && (
         profile.roles.includes('admin') ||
         profile.roles.includes('superadmin') ||
         profile.roles.includes('musyrifah')
       );
 
       const now = new Date();
-      if (!isStaff && batch.final_exam_start_date && now < new Date(batch.final_exam_start_date)) {
+      if (!isStaff && (!batch.final_exam_start_date || now < new Date(batch.final_exam_start_date))) {
         return NextResponse.json({
           error: 'Exam period not open',
           details: 'Ujian akhir pilihan ganda belum dibuka.'
+        }, { status: 400 });
+      }
+
+      if (!isStaff && batch.final_exam_end_date && now > new Date(batch.final_exam_end_date)) {
+        return NextResponse.json({
+          error: 'Exam period closed',
+          details: 'Waktu pelaksanaan ujian akhir telah berakhir.'
         }, { status: 400 });
       }
     }

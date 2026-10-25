@@ -20,13 +20,16 @@ import {
   Lock
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { usePersona } from '@/hooks/usePersona';
 import { useActiveBatch } from '@/hooks/useBatches';
 import { FinalExamSelectionModal } from '@/components/dashboard/FinalExamSelectionModal';
 import { cn } from '@/lib/utils';
 import { formatDateIndo } from '@/lib/utils/date-helpers';
+import { toast } from 'react-hot-toast';
 
 export default function UjianPage() {
   const { user } = useAuth();
+  const { activePersona, isAdminPersona, isMusyrifahPersona } = usePersona();
   const { activeBatch } = useActiveBatch();
   const [activeTab, setActiveTab] = useState<'pekanan' | 'akhir'>('akhir');
 
@@ -80,12 +83,19 @@ export default function UjianPage() {
   const oralRegistration = registrations.find(r => r.schedule?.exam_type === 'oral');
   const writtenRegistration = registrations.find(r => r.schedule?.exam_type === 'written');
 
-  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'musyrifah' || user?.roles?.includes('admin') || user?.roles?.includes('musyrifah') || (user as any)?.primaryRole === 'admin' || (user as any)?.primaryRole === 'musyrifah';
+  // Hanya izinkan bypass jadwal jika persona yang sedang aktif adalah Admin atau Musyrifah
+  const isStaffView = isAdminPersona || isMusyrifahPersona;
+  const isAdmin = isStaffView;
+
   const now = new Date();
-  const examStartDate = activeBatch?.final_exam_start_date ? new Date(activeBatch.final_exam_start_date) : null;
+  const examStartDate = activeBatch?.final_exam_start_date ? new Date(activeBatch?.final_exam_start_date || '') : null;
   const examEndDate = activeBatch?.final_exam_end_date ? new Date(activeBatch.final_exam_end_date) : null;
-  const isExamOpen = isAdmin || (examStartDate ? now >= examStartDate : false);
+
+  // Status jadwal ujian
+  const isBeforeExam = !isAdmin && (examStartDate ? now < examStartDate : true);
   const isExamEnded = !isAdmin && examEndDate ? now > examEndDate : false;
+  const isExamOpen = isAdmin || (!isBeforeExam && !isExamEnded);
+
   const isWrittenCompleted = writtenRegistration?.status === 'graded' || writtenAttempt?.status === 'submitted';
   const writtenScore = writtenRegistration?.score ?? writtenRegistration?.score_tulisan ?? writtenAttempt?.score;
 
@@ -397,15 +407,15 @@ export default function UjianPage() {
                 </span>
               ) : isExamOpen && !isExamEnded ? (
                 <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 shrink-0 flex items-center gap-1">
-                  <Sparkles className="w-3.5 h-3.5" /> Ujian Dibuka
+                  <Sparkles className="w-3.5 h-3.5" /> {isStaffView && isBeforeExam ? 'Simulasi Panitia (Dibuka)' : 'Ujian Dibuka'}
                 </span>
               ) : isExamEnded ? (
-                <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
-                  Waktu Berakhir
+                <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 shrink-0 flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5" /> Waktu Berakhir
                 </span>
               ) : (
                 <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 border border-gray-200 shrink-0 flex items-center gap-1">
-                  <Lock className="w-3 h-3" /> Belum Dibuka
+                  <Lock className="w-3.5 h-3.5" /> Belum Dibuka
                 </span>
               )}
             </div>
@@ -416,6 +426,8 @@ export default function UjianPage() {
                 ? "bg-emerald-50/60 border-emerald-100 text-emerald-900"
                 : isExamOpen && !isExamEnded
                 ? "bg-blue-50/60 border-blue-100 text-blue-900"
+                : isExamEnded
+                ? "bg-rose-50/60 border-rose-100 text-rose-900"
                 : "bg-gray-50 border-gray-200 text-gray-600"
             )}>
               <p className="font-bold flex items-center gap-1.5">
@@ -423,6 +435,8 @@ export default function UjianPage() {
                   <><span>🎉</span> Ujian Telah Selesai</>
                 ) : isExamOpen && !isExamEnded ? (
                   <><span>📝</span> Petunjuk Ujian Pilihan Ganda (CBT):</>
+                ) : isExamEnded ? (
+                  <><span>⏱️</span> Waktu Pelaksanaan Ujian Telah Berakhir</>
                 ) : (
                   <><span>🔒</span> Ujian Belum Dibuka</>
                 )}
@@ -432,7 +446,9 @@ export default function UjianPage() {
                   ? `Alhamdulillah, Ukhti telah menyelesaikan ujian tulisan pilihan ganda dengan perolehan nilai ${writtenScore ?? '-'}. Nilai otomatis terhubung ke sistem kelulusan.`
                   : isExamOpen && !isExamEnded
                   ? "Ujian tulisan dikerjakan langsung melalui sistem Computer Based Test (CBT) pilihan ganda MTI. Pastikan koneksi internet stabil sebelum memulai pengerjaan."
-                  : `Ujian pilihan ganda akan dibuka pada ${examStartDate ? formatDateIndo(activeBatch.final_exam_start_date) : 'jadwal pekan ujian akhir yang ditentukan panitia'}. Silakan persiapkan diri dan muraja'ah materi hafalan Ukhti.`}
+                  : isExamEnded
+                  ? `Waktu pelaksanaan ujian pilihan ganda telah berakhir pada ${activeBatch?.final_exam_end_date ? formatDateIndo(activeBatch.final_exam_end_date) : 'jadwal yang telah ditentukan'}. Jika memiliki kendala, silakan hubungi Musyrifah atau Mu'allimah pembimbing.`
+                  : `Ujian pilihan ganda akan dibuka pada ${activeBatch?.final_exam_start_date ? formatDateIndo(activeBatch.final_exam_start_date) : 'jadwal pekan ujian akhir yang ditentukan panitia'}. Silakan persiapkan diri dan muraja'ah materi hafalan Ukhti.`}
               </p>
             </div>
 
@@ -451,7 +467,7 @@ export default function UjianPage() {
             ) : isExamOpen && !isExamEnded ? (
               <Link href="/exam?source=final-exam" className="block w-full">
                 <Button
-                  className="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 rounded-xl shadow-sm text-xs sm:text-sm flex items-center justify-center gap-2 transition-all"
+                  className="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 rounded-xl shadow-sm text-xs sm:text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.99]"
                 >
                   <FileText className="w-4 h-4" />
                   <span>Mulai Ujian Pilihan Ganda</span>
@@ -460,10 +476,25 @@ export default function UjianPage() {
               </Link>
             ) : (
               <Button
-                disabled
-                className="w-full bg-gray-100 text-gray-400 font-bold py-3 rounded-xl border border-gray-200 text-xs sm:text-sm flex items-center justify-center gap-2 cursor-not-allowed"
+                type="button"
+                onClick={() => {
+                  if (isExamEnded) {
+                    toast.error(
+                      activeBatch?.final_exam_end_date
+                        ? `Waktu pelaksanaan ujian telah berakhir pada ${formatDateIndo(activeBatch.final_exam_end_date)}.`
+                        : 'Waktu pelaksanaan ujian pilihan ganda telah berakhir.'
+                    );
+                  } else {
+                    toast.error(
+                      activeBatch?.final_exam_start_date
+                        ? `Jadwal ujian belum dibuka. Ujian akan dibuka pada ${formatDateIndo(activeBatch.final_exam_start_date)}.`
+                        : 'Jadwal pelaksanaan ujian akhir pilihan ganda belum dibuka oleh panitia.'
+                    );
+                  }
+                }}
+                className="w-full bg-gray-100 hover:bg-gray-200/90 text-gray-500 font-bold py-3 rounded-xl border border-gray-200 text-xs sm:text-sm flex items-center justify-center gap-2 cursor-not-allowed transition-all"
               >
-                <Lock className="w-4 h-4" />
+                <Lock className="w-4 h-4 text-gray-400" />
                 <span>{isExamEnded ? 'Waktu Ujian Telah Berakhir' : 'Ujian Belum Dibuka'}</span>
               </Button>
             )}
