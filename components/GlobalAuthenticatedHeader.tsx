@@ -18,6 +18,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { LogoutConfirmModal } from '@/components/LogoutConfirmModal';
+import { PersonaSwitcher } from '@/components/PersonaSwitcher';
+import { getPersonaLabel } from '@/lib/roles';
 
 interface GlobalAuthenticatedHeaderProps {
   onMenuToggle?: () => void;
@@ -331,7 +333,10 @@ export default function GlobalAuthenticatedHeader({
           <div className="hidden md:flex items-center flex-1"></div>
 
           {/* Right Section - Actions & Profile */}
-          <div className="flex items-center space-x-1 md:space-x-4">
+          <div className="flex items-center space-x-2 md:space-x-3">
+
+            {/* Persona Switcher Pill */}
+            {isMounted && <PersonaSwitcher variant="header" />}
 
             {/* Notifications - Desktop/Tablet */}
             <div className="relative hidden md:block" ref={notificationRef}>
@@ -482,19 +487,16 @@ export default function GlobalAuthenticatedHeader({
                         <p className="text-sm opacity-90">{user?.email || ''}</p>
                         <p className="text-xs opacity-75 mt-1">
                           {(() => {
-                            // Get primary role from roles array with backward compatibility
-                            const primaryRole = user?.roles?.[0] || (user as any)?.role;
-                            
-                            switch (primaryRole?.toLowerCase()) {
-                              case 'thalibah': return 'Thalibah';
-                              case 'admin': return 'Administrator';
-                              default: return 'User';
-                            }
+                            const primaryRole = (user as any)?.primaryRole || user?.roles?.[0] || (user as any)?.role || 'calon_thalibah';
+                            return getPersonaLabel(primaryRole);
                           })()}
                         </p>
                       </div>
                     </div>
                   </div>
+
+                  {/* Multi-Persona Switcher Menu inside Profile Dropdown */}
+                  {isMounted && <PersonaSwitcher variant="menu" />}
 
                   <div className="p-2">
                     <Link

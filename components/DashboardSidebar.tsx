@@ -12,6 +12,8 @@ import { ROLE_RANKS, hasRequiredRank, isStaff } from '@/lib/roles';
 import { useAuth } from '@/hooks/useAuth';
 import { useState, useEffect } from 'react';
 import { LogoutConfirmModal } from '@/components/LogoutConfirmModal';
+import { usePersona } from '@/hooks/usePersona';
+import { PersonaSwitcher } from '@/components/PersonaSwitcher';
 
 interface UniversalSidebarProps {
   currentPath?: string;
@@ -23,6 +25,14 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { logout, user } = useAuth();
+  const {
+    activePersona,
+    isAdminPersona,
+    isMusyrifahPersona,
+    isMuallimahPersona,
+    isRaisahPersona,
+    isThalibahPersona,
+  } = usePersona();
   
   // Use primaryRole if available, fallback to roles array
   const userRoles = (user as any)?.primaryRole ? [(user as any).primaryRole] : (user?.roles || []);
@@ -54,160 +64,269 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
     };
   }, []);
 
-  // Role-based navigation items
+  // Role-based navigation items powered by Active Persona
   const getNavItems = () => {
-    const isAdmin = hasRequiredRank(userRoles, ROLE_RANKS.admin);
-    const isMusyrifahAndUp = hasRequiredRank(userRoles, ROLE_RANKS.musyrifah);
-    const isStaffGroup = isStaff(userRoles);
-    
-    // Base items for the sidebar
     const baseItems: any[] = [];
 
-    // Admin/Staff Content (Rank 60+)
-    if (isStaffGroup) {
-      // SECTION: MONITORING
+    // 1. ADMIN / SUPER ADMIN PERSONA
+    if (isAdminPersona) {
       baseItems.push({ type: 'header', label: 'Monitoring' });
       baseItems.push({
         href: '/dashboard',
         label: 'Dashboard Personal',
         icon: <LayoutGrid className="h-5 w-5 text-emerald-600" />,
       });
-      if (isAdmin) {
-        baseItems.push({
-          href: '/statistik',
-          label: 'Ringkasan Statistik',
-          icon: <BarChart3 className="h-5 w-5" />,
-        });
+      baseItems.push({
+        href: '/statistik',
+        label: 'Ringkasan Statistik',
+        icon: <BarChart3 className="h-5 w-5" />,
+      });
 
-        // SECTION: ALUR PENDAFTARAN (Admin Only)
-        baseItems.push({ type: 'header', label: 'Alur Pendaftaran' });
-        baseItems.push({
-          href: '/admin/muallimah',
-          label: 'Daftar Muallimah',
-          icon: <GraduationCap className="h-5 w-5 text-green-600" />,
-        });
-        baseItems.push({
-          href: '/admin/tikrar',
-          label: 'Pendaftaran & Seleksi',
-          icon: <ClipboardList className="h-5 w-5" />,
-        });
-        baseItems.push({
-          href: '/admin/daftar-ulang',
-          label: 'Daftar Ulang',
-          icon: <UserCheck className="h-5 w-5" />,
-        });
-      }
+      baseItems.push({ type: 'header', label: 'Alur Pendaftaran' });
+      baseItems.push({
+        href: '/admin/muallimah',
+        label: 'Daftar Muallimah',
+        icon: <GraduationCap className="h-5 w-5 text-green-600" />,
+      });
+      baseItems.push({
+        href: '/admin/tikrar',
+        label: 'Pendaftaran & Seleksi',
+        icon: <ClipboardList className="h-5 w-5" />,
+      });
+      baseItems.push({
+        href: '/admin/daftar-ulang',
+        label: 'Daftar Ulang',
+        icon: <UserCheck className="h-5 w-5" />,
+      });
 
-      // SECTION: ALUR PEMBELAJARAN
       baseItems.push({ type: 'header', label: 'Alur Pembelajaran' });
-      
-      if (isAdmin) {
-        baseItems.push({
-          href: '/admin/halaqah',
-          label: 'Manajemen Halaqah',
-          icon: <Users className="h-5 w-5" />,
-        });
-        baseItems.push({
-          href: '/admin/partner',
-          label: 'Manajemen Partner',
-          icon: <HeartHandshake className="h-5 w-5" />,
-        });
-      }
-      
+      baseItems.push({
+        href: '/admin/halaqah',
+        label: 'Manajemen Halaqah',
+        icon: <Users className="h-5 w-5" />,
+      });
+      baseItems.push({
+        href: '/admin/partner',
+        label: 'Manajemen Partner',
+        icon: <HeartHandshake className="h-5 w-5" />,
+      });
       baseItems.push({
         href: '/admin/jadwal-harian',
         label: 'Jadwal Harian',
         icon: <Calendar className="h-5 w-5" />,
       });
-
-      if (isAdmin) {
-        baseItems.push({
-          href: '/admin/halaqah/analisis-zoom',
-          label: 'Analisis Zoom',
-          icon: <Video className="h-5 w-5" />,
-        });
-      }
-
-      if (isAdmin) {
-        baseItems.push({
-          href: '/admin/mutasi-jadwal',
-          label: 'Mutasi Jadwal',
-          icon: <ArrowRightLeft className="h-5 w-5" />,
-        });
-      }
-
+      baseItems.push({
+        href: '/admin/halaqah/analisis-zoom',
+        label: 'Analisis Zoom',
+        icon: <Video className="h-5 w-5" />,
+      });
+      baseItems.push({
+        href: '/admin/mutasi-jadwal',
+        label: 'Mutasi Jadwal',
+        icon: <ArrowRightLeft className="h-5 w-5" />,
+      });
       baseItems.push({
         href: '/presensi-jurnal',
         label: 'Presensi & Jurnal',
         icon: <BookOpen className="h-5 w-5" />,
       });
-      
-      if (isAdmin) {
-        baseItems.push({
-          href: '/admin/exams',
-          label: 'Manajemen Ujian',
-          icon: <GraduationCap className="h-5 w-5" />,
-        });
+      baseItems.push({
+        href: '/admin/exams',
+        label: 'Manajemen Ujian',
+        icon: <GraduationCap className="h-5 w-5" />,
+      });
 
-        // SECTION: ALUR KELULUSAN
-        baseItems.push({ type: 'header', label: 'Alur Kelulusan' });
-        baseItems.push({
-          href: '/kelulusan-sertifikat',
-          label: 'Penerbitan Syahadah',
-          icon: <Award className="h-5 w-5 text-amber-600" />,
-        });
-        
-        baseItems.push({
-          href: '/admin/testimonials',
-          label: 'Testimoni Alumni',
-          icon: <MessageSquare className="h-5 w-5" />,
-        });
-        baseItems.push({
-          href: '/admin/donations',
-          label: 'Infaq Bulanan',
-          icon: <HeartHandshake className="h-5 w-5" />,
-        });
-      }
-      // SECTION: PENGATURAN & DATA (Admin Only)
-      if (isAdmin) {
-        baseItems.push({ type: 'header', label: 'Pengaturan & Data' });
-        baseItems.push({
-          href: '/admin/batch-program',
-          label: 'Batch & Program',
-          icon: <Calendar className="h-5 w-5" />,
-        });
-        baseItems.push({
-          href: '/admin/users',
-          label: 'Manajemen Users',
-          icon: <Shield className="h-5 w-5" />,
-        });
+      baseItems.push({ type: 'header', label: 'Alur Kelulusan' });
+      baseItems.push({
+        href: '/kelulusan-sertifikat',
+        label: 'Penerbitan Syahadah',
+        icon: <Award className="h-5 w-5 text-amber-600" />,
+      });
+      baseItems.push({
+        href: '/admin/testimonials',
+        label: 'Testimoni Alumni',
+        icon: <MessageSquare className="h-5 w-5" />,
+      });
+      baseItems.push({
+        href: '/admin/donations',
+        label: 'Infaq Bulanan',
+        icon: <HeartHandshake className="h-5 w-5" />,
+      });
 
-        baseItems.push({
-          href: '/admin/pengaturan/faq',
-          label: 'Pengaturan FAQ',
-          icon: <HelpCircle className="h-5 w-5" />,
-        });
+      baseItems.push({ type: 'header', label: 'Pengaturan & Data' });
+      baseItems.push({
+        href: '/admin/batch-program',
+        label: 'Batch & Program',
+        icon: <Calendar className="h-5 w-5" />,
+      });
+      baseItems.push({
+        href: '/admin/users',
+        label: 'Manajemen Users',
+        icon: <Shield className="h-5 w-5" />,
+      });
+      baseItems.push({
+        href: '/admin/pengaturan/faq',
+        label: 'Pengaturan FAQ',
+        icon: <HelpCircle className="h-5 w-5" />,
+      });
+      baseItems.push({
+        href: '/admin/backup',
+        label: 'Backup Database',
+        icon: <Database className="h-5 w-5 text-emerald-600" />,
+      });
+      baseItems.push({
+        href: '/pengaturan',
+        label: 'Pengaturan Akun',
+        icon: <Settings className="h-5 w-5" />,
+      });
+    }
+    // 2. MUSYRIFAH PERSONA (Pengawas Lapangan Multi-Halaqah)
+    else if (isMusyrifahPersona) {
+      baseItems.push({ type: 'header', label: 'Pengawasan Halaqah' });
+      baseItems.push({
+        href: '/dashboard',
+        label: 'Dasbor Pengawas',
+        icon: <LayoutGrid className="h-5 w-5 text-blue-600" />,
+      });
+      baseItems.push({
+        href: '/presensi-jurnal',
+        label: 'Presensi & Jurnal Multi-Kelas',
+        icon: <BookOpen className="h-5 w-5 text-blue-600" />,
+      });
+      baseItems.push({
+        href: '/admin/jadwal-harian',
+        label: 'Jadwal Harian',
+        icon: <Calendar className="h-5 w-5" />,
+      });
+      baseItems.push({
+        href: '/admin/halaqah/analisis-zoom',
+        label: 'Analisis Zoom',
+        icon: <Video className="h-5 w-5" />,
+      });
+      baseItems.push({
+        href: '/admin/mutasi-jadwal',
+        label: 'Mutasi Jadwal',
+        icon: <ArrowRightLeft className="h-5 w-5" />,
+      });
 
-        baseItems.push({
-          href: '/admin/backup',
-          label: 'Backup Database',
-          icon: <Database className="h-5 w-5 text-emerald-600" />,
-        });
+      baseItems.push({ type: 'header', label: 'Profil & Akun' });
+      baseItems.push({
+        href: '/profile',
+        label: 'Edit Profil',
+        icon: <UserCheck className="h-5 w-5" />,
+      });
+      baseItems.push({
+        href: '/pengaturan',
+        label: 'Pengaturan Akun',
+        icon: <Settings className="h-5 w-5" />,
+      });
+    }
+    // 3. MU'ALLIMAH PERSONA (Pengajar / Pengampu Halaqah)
+    else if (isMuallimahPersona) {
+      baseItems.push({ type: 'header', label: 'Pengajaran' });
+      baseItems.push({
+        href: '/dashboard',
+        label: 'Dasbor Pengajar',
+        icon: <LayoutGrid className="h-5 w-5 text-emerald-600" />,
+      });
+      baseItems.push({
+        href: '/admin/jadwal-harian',
+        label: 'Jadwal Mengajar',
+        icon: <Calendar className="h-5 w-5 text-emerald-600" />,
+      });
+      baseItems.push({
+        href: '/presensi-jurnal',
+        label: 'Bimbingan & Presensi',
+        icon: <BookOpen className="h-5 w-5 text-emerald-600" />,
+      });
+      baseItems.push({
+        href: '/tashih',
+        label: 'Tashih Bacaan Santri',
+        icon: <FileText className="h-5 w-5 text-emerald-600" />,
+      });
 
-        baseItems.push({
-          href: '/pengaturan',
-          label: 'Pengaturan Akun',
-          icon: <Settings className="h-5 w-5" />,
-        });
-      }
-    } 
-    // Thalibah / Calon Thalibah Content
+      baseItems.push({ type: 'header', label: 'Profil & Akun' });
+      baseItems.push({
+        href: '/profile',
+        label: 'Edit Profil',
+        icon: <UserCheck className="h-5 w-5" />,
+      });
+      baseItems.push({
+        href: '/pengaturan',
+        label: 'Pengaturan Akun',
+        icon: <Settings className="h-5 w-5" />,
+      });
+    }
+    // 4. RAISAH PERSONA (Ketua Kelas Santri)
+    else if (isRaisahPersona) {
+      baseItems.push({ type: 'header', label: 'Kelas Saya' });
+      baseItems.push({
+        href: '/dashboard',
+        label: 'Dasbor',
+        icon: <LayoutGrid className="h-5 w-5 text-purple-600" />,
+      });
+      baseItems.push({
+        href: '/presensi-jurnal',
+        label: 'Presensi Halaqah Saya',
+        icon: <BookOpen className="h-5 w-5 text-purple-600" />,
+      });
+      baseItems.push({
+        href: '/jadwal-harian',
+        label: 'Jadwal Harian',
+        icon: <Calendar className="h-5 w-5" />,
+      });
+
+      baseItems.push({ type: 'header', label: 'Hafalan Santri' });
+      baseItems.push({
+        href: '/jurnal-harian',
+        label: 'Jurnal Harian',
+        icon: <BookOpen className="h-5 w-5" />,
+      });
+      baseItems.push({
+        href: '/tashih',
+        label: 'Tashih Bacaan',
+        icon: <FileText className="h-5 w-5" />,
+      });
+      baseItems.push({
+        href: '/sit-in',
+        label: 'Sit-In Kelas',
+        icon: <ArrowRightLeft className="h-5 w-5 text-rose-600" />,
+      });
+      baseItems.push({
+        href: '/perjalanan-saya',
+        label: 'Perjalanan Saya',
+        icon: <BarChart3 className="h-5 w-5" />,
+      });
+      baseItems.push({
+        href: '/murojaah',
+        label: "Muraja'ah 40x",
+        icon: <RotateCcw className="h-5 w-5" />,
+      });
+      baseItems.push({
+        href: '/alumni',
+        label: 'Ruang Alumni',
+        icon: <Users className="h-5 w-5" />,
+      });
+
+      baseItems.push({ type: 'header', label: 'Profil' });
+      baseItems.push({
+        href: '/profile',
+        label: 'Edit Profil',
+        icon: <UserCheck className="h-5 w-5" />,
+      });
+      baseItems.push({
+        href: '/pengaturan',
+        label: 'Pengaturan',
+        icon: <Settings className="h-5 w-5" />,
+      });
+    }
+    // 5. THALIBAH / CALON THALIBAH PERSONA
     else {
       baseItems.push({ type: 'header', label: 'Menu Utama' });
       baseItems.push({
         href: '/dashboard',
         label: 'Dasbor',
-        icon: <LayoutGrid className="h-5 w-5" />,
+        icon: <LayoutGrid className="h-5 w-5 text-emerald-600" />,
       });
       baseItems.push({
         href: '/jadwal-harian',
@@ -228,11 +347,6 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
         href: '/pendaftaran/muallimah',
         label: 'Daftar Muallimah',
         icon: <GraduationCap className="h-5 w-5 text-green-600" />,
-        onClick: (e: any) => {
-          if (!window.confirm("PERHATIAN!\n\nPendaftaran ini khusus untuk calon PENGAJAR (Mu'allimah), BUKAN untuk calon SANTRI (Thalibah).\n\nJika Ukhti ingin mendaftar sebagai santri, silakan pilih menu 'Pendaftaran' atau 'Tikrar Tahfidz'.\n\nApakah Ukhti yakin ingin melanjutkan mendaftar sebagai Mu'allimah?")) {
-            e.preventDefault();
-          }
-        }
       });
       baseItems.push({
         href: '/tashih',
@@ -270,7 +384,6 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
 
     return baseItems;
   };
-
   const navItems = getNavItems();
 
   const isActive = (href: string) => {
@@ -360,6 +473,13 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
             )}
           </button>
         </div>
+
+        {/* Persona Switcher in Sidebar (When not collapsed) */}
+        {!isCollapsed && isMounted && (
+          <div className="px-3 pt-3 pb-1 flex-shrink-0">
+            <PersonaSwitcher variant="sidebar" />
+          </div>
+        )}
 
         {/* Navigation */}
         <nav className={`flex-1 py-4 sm:py-6 space-y-1 sm:space-y-2 overflow-y-auto scrollbar-thin scrollbar-thumb-green-900/20 scrollbar-track-transparent -webkit-overflow-scrolling:touch ${isCollapsed ? 'px-2' : 'px-3 sm:px-4'}`}>

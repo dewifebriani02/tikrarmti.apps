@@ -52,6 +52,7 @@ import { usePrayerTimes } from '@/hooks/usePrayerTimes'
 import { SWRLoadingFallback, SWRErrorFallback } from '@/lib/swr/providers'
 import { cn } from '@/lib/utils'
 import { isStaff } from '@/lib/roles'
+import { usePersona } from '@/hooks/usePersona'
 import { FinalExamPortalModal } from '@/components/dashboard/FinalExamPortalModal'
 import { SitInModal } from '@/components/dashboard/SitInModal'
 import { TransferScheduleModal } from '@/components/dashboard/TransferScheduleModal'
@@ -65,11 +66,12 @@ export default function DashboardContent() {
   // NOTE: Authentication is now handled by server-side layout
   // No need for client-side auth checks or redirects
   const { user, isLoading } = useAuth()
+  const { activePersona } = usePersona()
   const { push } = useRouter()
   const searchParams = useSearchParams()
   const targetUserId = searchParams.get('user_id')
   
-  const userRole = user?.primaryRole || 'calon_thalibah'
+  const userRole = activePersona || user?.primaryRole || 'calon_thalibah'
   const canSeeAdminStats = isStaff(userRole)
   const isImpersonating = !!(targetUserId && userRole === 'admin')
   const [isRankingModalOpen, setIsRankingModalOpen] = useState(false);
