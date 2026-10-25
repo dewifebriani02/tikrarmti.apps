@@ -131,9 +131,9 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
         icon: <BookOpen className="h-5 w-5" />,
       });
       baseItems.push({
-        href: '/jurnal-pra-tikrar',
-        label: 'Jurnal Pra-Tikrar',
-        icon: <Sparkles className="h-5 w-5 text-indigo-600" />,
+        href: '/jurnal-harian',
+        label: 'Pratinjau Jurnal Harian',
+        icon: <BookOpen className="h-5 w-5 text-indigo-600" />,
       });
       baseItems.push({
         href: '/admin/exams',
@@ -199,11 +199,6 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
         icon: <BookOpen className="h-5 w-5 text-blue-600" />,
       });
       baseItems.push({
-        href: '/jurnal-pra-tikrar',
-        label: 'Jurnal Pra-Tikrar',
-        icon: <Sparkles className="h-5 w-5 text-blue-600" />,
-      });
-      baseItems.push({
         href: '/admin/jadwal-harian',
         label: 'Jadwal Harian',
         icon: <Calendar className="h-5 w-5" />,
@@ -250,11 +245,6 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
         icon: <BookOpen className="h-5 w-5 text-emerald-600" />,
       });
       baseItems.push({
-        href: '/jurnal-pra-tikrar',
-        label: 'Jurnal Pra-Tikrar',
-        icon: <Sparkles className="h-5 w-5 text-emerald-600" />,
-      });
-      baseItems.push({
         href: '/tashih',
         label: 'Tashih Bacaan Santri',
         icon: <FileText className="h-5 w-5 text-emerald-600" />,
@@ -296,11 +286,6 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
         href: '/jurnal-harian',
         label: 'Jurnal Harian',
         icon: <BookOpen className="h-5 w-5" />,
-      });
-      baseItems.push({
-        href: '/jurnal-pra-tikrar',
-        label: 'Jurnal Pra-Tikrar',
-        icon: <Sparkles className="h-5 w-5 text-purple-600" />,
       });
       baseItems.push({
         href: '/tashih',
@@ -362,11 +347,6 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
         href: '/jurnal-harian',
         label: 'Jurnal Harian',
         icon: <BookOpen className="h-5 w-5" />,
-      });
-      baseItems.push({
-        href: '/jurnal-pra-tikrar',
-        label: 'Jurnal Pra-Tikrar',
-        icon: <Sparkles className="h-5 w-5 text-indigo-600" />,
       });
       baseItems.push({
         href: '/sit-in',

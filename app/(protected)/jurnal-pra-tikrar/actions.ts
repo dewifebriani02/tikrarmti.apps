@@ -5,63 +5,20 @@ import { query } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { hasRequiredRank, ROLE_RANKS } from '@/lib/roles';
 
-export interface PraTikrarEntryInput {
-  tanggal: string; // YYYY-MM-DD
-  pekan_ke?: number;
-  simak_1: boolean;
-  simak_2: boolean;
-  simak_3: boolean;
-  metode_simak: string;
-  surat_nama: string;
-  ayat_range: string;
-  durasi_menit: number;
-  catatan_santri?: string;
-  halaqah_id?: string | null;
-  batch_id?: string | null;
-}
+export type { 
+  PraTikrarEntryInput, 
+  PraTikrarStudentRecord, 
+  PraTikrarContextResponse, 
+  TashihPayload 
+} from '@/lib/pra-tikrar';
+import type { 
+  PraTikrarEntryInput, 
+  PraTikrarContextResponse, 
+  TashihPayload 
+} from '@/lib/pra-tikrar';
 
-export interface PraTikrarStudentRecord {
-  student_id: string;
-  student_name: string;
-  student_kunyah?: string;
-  student_email?: string;
-  student_wa?: string;
-  entry_id?: string | null;
-  tanggal?: string;
-  pekan_ke?: number;
-  simak_1?: boolean;
-  simak_2?: boolean;
-  simak_3?: boolean;
-  metode_simak?: string;
-  surat_nama?: string;
-  ayat_range?: string;
-  durasi_menit?: number;
-  catatan_santri?: string;
-  status_bacaan?: string;
-  catatan_muallimah?: string;
-  evaluasi_tajwid?: any;
-  tashih_at?: string;
-  kehadiran_zoom?: string;
-  catatan_musyrifah?: string;
-  absen_at?: string;
-}
 
-export interface PraTikrarContextResponse {
-  success: boolean;
-  error?: string;
-  userRole?: string;
-  roles?: string[];
-  isMuallimah?: boolean;
-  isMusyrifah?: boolean;
-  isAdmin?: boolean;
-  isThalibah?: boolean;
-  activeBatch?: any;
-  availableSessions?: any[]; // Seluruh sesi Zoom Pra-Tikrar yang terbuka sepanjang pekan
-  praStudentsList?: Array<{ id: string; full_name: string; nama_kunyah?: string; whatsapp?: string; email?: string }>;
-  managedHalaqahs?: any[];
-  todayEntry?: any;
-  history?: any[];
-}
+
 
 export async function getPraTikrarContext(): Promise<PraTikrarContextResponse> {
   const supabase = createClient();
@@ -124,7 +81,6 @@ export async function getPraTikrarContext(): Promise<PraTikrarContextResponse> {
         managedHalaqahs = availableSessions;
       } else {
         managedHalaqahs = availableSessions.filter((s: any) => {
-          // If staff is associated as mentor
           return true; // Muallimah / Musyrifah Pra-Tikrar can oversee open sessions
         });
       }
@@ -228,8 +184,12 @@ export async function savePraTikrarDailyEntry(input: PraTikrarEntryInput) {
          ayat_range,
          durasi_menit,
          catatan_santri,
+         jenis_kelas,
+         jenis_kelas_custom,
+         asal_bimbingan,
+         kategori_kelas,
          updated_at
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, now())
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, now())
        ON CONFLICT (user_id, tanggal) DO UPDATE SET
          halaqah_id = COALESCE(EXCLUDED.halaqah_id, jurnal_pra_tikrar.halaqah_id),
          pekan_ke = EXCLUDED.pekan_ke,
@@ -241,6 +201,10 @@ export async function savePraTikrarDailyEntry(input: PraTikrarEntryInput) {
          ayat_range = EXCLUDED.ayat_range,
          durasi_menit = EXCLUDED.durasi_menit,
          catatan_santri = EXCLUDED.catatan_santri,
+         jenis_kelas = COALESCE(EXCLUDED.jenis_kelas, jurnal_pra_tikrar.jenis_kelas),
+         jenis_kelas_custom = EXCLUDED.jenis_kelas_custom,
+         asal_bimbingan = COALESCE(EXCLUDED.asal_bimbingan, jurnal_pra_tikrar.asal_bimbingan),
+         kategori_kelas = COALESCE(EXCLUDED.kategori_kelas, jurnal_pra_tikrar.kategori_kelas),
          updated_at = now()
        RETURNING *`,
       [
@@ -257,10 +221,15 @@ export async function savePraTikrarDailyEntry(input: PraTikrarEntryInput) {
         input.ayat_range || null,
         input.durasi_menit || 0,
         input.catatan_santri || null,
+        input.jenis_kelas || 'tahsin_juz30',
+        input.jenis_kelas_custom || null,
+        input.asal_bimbingan || 'internal_mti',
+        input.kategori_kelas || 'umum',
       ]
     );
 
     revalidatePath('/jurnal-pra-tikrar');
+    revalidatePath('/jurnal-harian');
     return {
       success: true,
       message: 'Alhamdulillah! Jurnal harian Pra-Tikrar berhasil disimpan.',
@@ -272,16 +241,6 @@ export async function savePraTikrarDailyEntry(input: PraTikrarEntryInput) {
   }
 }
 
-export interface TashihPayload {
-  entryId?: string | null;
-  studentId: string;
-  halaqahId?: string | null;
-  batchId?: string | null;
-  tanggal: string;
-  status_bacaan: string;
-  catatan_muallimah?: string;
-  evaluasi_tajwid?: any[];
-}
 
 export async function submitTashihByMuallimah(
   paramOrEntryId: string | TashihPayload,
@@ -289,6 +248,10 @@ export async function submitTashihByMuallimah(
     catatan_muallimah?: string;
     status_bacaan?: string;
     evaluasi_tajwid?: any[];
+    jenis_kelas?: string;
+    jenis_kelas_custom?: string;
+    asal_bimbingan?: string;
+    kategori_kelas?: string;
   }
 ) {
   const supabase = createClient();
@@ -315,6 +278,10 @@ export async function submitTashihByMuallimah(
              catatan_muallimah = $2,
              status_bacaan = $3,
              evaluasi_tajwid = $4,
+             jenis_kelas = COALESCE($6, jenis_kelas),
+             jenis_kelas_custom = $7,
+             asal_bimbingan = COALESCE($8, asal_bimbingan),
+             kategori_kelas = COALESCE($9, kategori_kelas),
              tashih_at = now(),
              updated_at = now()
          WHERE id = $5
@@ -325,10 +292,15 @@ export async function submitTashihByMuallimah(
           legacyData?.status_bacaan || 'cukup',
           JSON.stringify(legacyData?.evaluasi_tajwid || []),
           entryId,
+          legacyData?.jenis_kelas || null,
+          legacyData?.jenis_kelas_custom || null,
+          legacyData?.asal_bimbingan || null,
+          legacyData?.kategori_kelas || null,
         ]
       );
 
       revalidatePath('/jurnal-pra-tikrar');
+    revalidatePath('/jurnal-harian');
       return {
         success: true,
         message: 'Catatan bimbingan dan tashih bacaan berhasil diperbarui.',
@@ -346,15 +318,23 @@ export async function submitTashihByMuallimah(
            status_bacaan,
            catatan_muallimah,
            evaluasi_tajwid,
+           jenis_kelas,
+           jenis_kelas_custom,
+           asal_bimbingan,
+           kategori_kelas,
            tashih_at,
            updated_at
-         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now(), now())
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now(), now())
          ON CONFLICT (user_id, tanggal) DO UPDATE SET
            halaqah_id = COALESCE(EXCLUDED.halaqah_id, jurnal_pra_tikrar.halaqah_id),
            muallimah_id = EXCLUDED.muallimah_id,
            status_bacaan = EXCLUDED.status_bacaan,
            catatan_muallimah = EXCLUDED.catatan_muallimah,
            evaluasi_tajwid = EXCLUDED.evaluasi_tajwid,
+           jenis_kelas = COALESCE(EXCLUDED.jenis_kelas, jurnal_pra_tikrar.jenis_kelas),
+           jenis_kelas_custom = EXCLUDED.jenis_kelas_custom,
+           asal_bimbingan = COALESCE(EXCLUDED.asal_bimbingan, jurnal_pra_tikrar.asal_bimbingan),
+           kategori_kelas = COALESCE(EXCLUDED.kategori_kelas, jurnal_pra_tikrar.kategori_kelas),
            tashih_at = now(),
            updated_at = now()
          RETURNING *`,
@@ -367,10 +347,15 @@ export async function submitTashihByMuallimah(
           p.status_bacaan || 'cukup',
           p.catatan_muallimah || null,
           JSON.stringify(p.evaluasi_tajwid || []),
+          p.jenis_kelas || 'tahsin_juz30',
+          p.jenis_kelas_custom || null,
+          p.asal_bimbingan || 'internal_mti',
+          p.kategori_kelas || 'umum',
         ]
       );
 
       revalidatePath('/jurnal-pra-tikrar');
+    revalidatePath('/jurnal-harian');
       return {
         success: true,
         message: 'Catatan bimbingan dan tashih bacaan santriwati berhasil disimpan.',
@@ -436,6 +421,7 @@ export async function submitPresensiByMusyrifah(
       );
 
       revalidatePath('/jurnal-pra-tikrar');
+    revalidatePath('/jurnal-harian');
       return {
         success: true,
         message: 'Presensi kelas Zoom berhasil dicatat oleh Musyrifah.',
@@ -475,6 +461,7 @@ export async function submitPresensiByMusyrifah(
       );
 
       revalidatePath('/jurnal-pra-tikrar');
+    revalidatePath('/jurnal-harian');
       return {
         success: true,
         message: 'Presensi kelas Zoom santriwati berhasil dicatat.',
@@ -542,6 +529,7 @@ export async function submitBatchPresensiByMusyrifah(
     }
 
     revalidatePath('/jurnal-pra-tikrar');
+    revalidatePath('/jurnal-harian');
     return {
       success: true,
       message: `Presensi seluruh santriwati (${items.length} orang) berhasil disimpan.`,
@@ -592,7 +580,11 @@ export async function getHalaqahJournalRecords(halaqahId?: string | null, tangga
          j.tashih_at,
          j.kehadiran_zoom,
          j.catatan_musyrifah,
-         j.absen_at
+         j.absen_at,
+         j.jenis_kelas,
+         j.jenis_kelas_custom,
+         j.asal_bimbingan,
+         j.kategori_kelas
        FROM jurnal_pra_tikrar j
        JOIN users u ON j.user_id = u.id
        WHERE j.tanggal = $2 AND ($1::uuid IS NULL OR j.halaqah_id = $1::uuid OR j.muallimah_id = $3::uuid OR j.musyrifah_id = $3::uuid)

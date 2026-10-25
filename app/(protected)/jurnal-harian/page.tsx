@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Loader2, Info, Ban } from 'lucide-react'
+import { Loader2, Info, Ban, Sparkles, ShieldCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { useAllRegistrations } from '@/hooks/useRegistrations'
@@ -11,10 +11,11 @@ import { useJurnalStatus } from '@/hooks/useDashboard'
 import { saveJurnalRecord } from './actions'
 import { getRoleRank, ROLE_RANKS } from '@/lib/roles'
 
-// Import New Modular Components
+// Import Modular Components
 import { JurnalHeader } from './components/JurnalHeader'
 import { JurnalStatusGrid } from './components/JurnalStatusGrid'
 import { JurnalEntryForm } from './components/JurnalEntryForm'
+import { PraTikrarJurnalForm } from './components/PraTikrarJurnalForm'
 
 interface JuzOption {
   id: string
@@ -53,7 +54,6 @@ export default function JurnalHarianPage() {
   }, [user]);
 
   const { registrations, isLoading: registrationsLoading } = useAllRegistrations()
-
   const { activeBatch } = useActiveBatch()
   
   // Selalu batch yang sedang berjalan (open/ongoing); tidak ada pilihan batch untuk thalibah.
@@ -64,6 +64,24 @@ export default function JurnalHarianPage() {
       || registrations.find((r: any) => r.batch?.status === 'closed' && isEligible(r))
       || registrations[0]
   }, [registrations])
+
+  // Deteksi program aktif thalibah
+  const isPraTikrarThalibah = React.useMemo(() => {
+    const programClassType = (activeRegistration?.program as any)?.class_type || 
+                             (activeRegistration as any)?.class_type ||
+                             (activeRegistration?.daftar_ulang as any)?.program_class_type;
+    return programClassType === 'pra_tahfidz' || activeRegistration?.selection_status === 'waitlist';
+  }, [activeRegistration]);
+
+  // Admin preview toggle: jika admin, bisa bebas memilih melihat mode Tikrar atau Pra-Tikrar
+  const [adminProgramPreview, setAdminProgramPreview] = useState<'auto' | 'tikrar' | 'pra-tikrar'>('auto');
+
+  const currentProgramMode = React.useMemo(() => {
+    if (isAdmin && adminProgramPreview !== 'auto') {
+      return adminProgramPreview;
+    }
+    return isPraTikrarThalibah ? 'pra-tikrar' : 'tikrar';
+  }, [isAdmin, adminProgramPreview, isPraTikrarThalibah]);
 
   const effectiveBatch = activeRegistration?.batch || activeBatch
   const targetBatchId = activeRegistration?.batch_id || activeRegistration?.batch?.id || activeBatch?.id
@@ -217,8 +235,13 @@ export default function JurnalHarianPage() {
     }
   }
 
-  if (registrationsLoading || jurnalStatusLoading || isLoadingJuz) {
-    return <div className="flex justify-center items-center py-24"><Loader2 className="h-10 w-10 animate-spin text-green-900" /></div>
+  if (registrationsLoading || (currentProgramMode === 'tikrar' && (jurnalStatusLoading || isLoadingJuz))) {
+    return (
+      <div className="flex flex-col justify-center items-center py-24 space-y-3">
+        <Loader2 className="h-10 w-10 animate-spin text-emerald-800" />
+        <p className="text-xs text-gray-500 font-medium">Memuat data jurnal harian...</p>
+      </div>
+    );
   }
 
   if ((user as any)?.is_blacklisted) {
@@ -241,7 +264,41 @@ export default function JurnalHarianPage() {
   const totalBlocks = jurnalStatus?.summary?.total_blocks || 40
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8 space-y-6 animate-fadeInUp">
+    <div className={`mx-auto px-3 sm:px-4 py-6 sm:py-8 space-y-6 animate-fadeInUp ${currentProgramMode === 'pra-tikrar' ? 'max-w-4xl' : 'max-w-2xl'}`}>
+      {/* Admin Switcher Bar (Hanya tampil bagi Admin / Staff) */}
+      {isAdmin && (
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-xs">
+          <div className="flex items-center gap-2 font-bold text-amber-950">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+            <span>Mode Pratinjau Jurnal (Admin/Staff):</span>
+          </div>
+          <div className="flex items-center gap-1.5 bg-white p-1 rounded-xl border border-amber-200 shadow-xs">
+            <button
+              type="button"
+              onClick={() => setAdminProgramPreview('tikrar')}
+              className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
+                currentProgramMode === 'tikrar' 
+                  ? 'bg-emerald-600 text-white shadow-xs' 
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Tikrar Tahfidz
+            </button>
+            <button
+              type="button"
+              onClick={() => setAdminProgramPreview('pra-tikrar')}
+              className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
+                currentProgramMode === 'pra-tikrar' 
+                  ? 'bg-indigo-600 text-white shadow-xs' 
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Pra-Tikrar (Juz 30)
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Registration Banner for Unauthorized Users */}
       {hasNoActiveRegistration && (
         <div className="relative group overflow-hidden bg-gradient-to-r from-emerald-600 to-teal-700 rounded-3xl p-6 shadow-xl border border-emerald-500/20 mb-4 transition-all hover:shadow-emerald-900/10">
@@ -260,38 +317,48 @@ export default function JurnalHarianPage() {
         </div>
       )}
 
-      {/* Main Jurnal Container */}
-      <div className="space-y-6">
-        {/* Dynamic Header Component */}
-        <JurnalHeader 
-          title="Jurnal Harian"
-          subtitle={effectiveBatch?.name || 'Tikrar Tahfidz'}
-          juzInfo={selectedJuzInfo}
-          progress={{
-            completed: completedBlocks,
-            total: totalBlocks
-          }}
-          streakCount={jurnalStatus?.summary?.streak_count || 0}
+      {/* RENDER FORM DINAMIS BERDASARKAN PROGRAM */}
+      {currentProgramMode === 'pra-tikrar' ? (
+        /* 1. TAMPILAN FORM PRA-TIKRAR */
+        <PraTikrarJurnalForm
+          user={user}
+          activeBatch={effectiveBatch}
+          activeRegistration={activeRegistration}
         />
+      ) : (
+        /* 2. TAMPILAN FORM TIKRAR TAHFIDZ REGULER */
+        <div className="space-y-6">
+          {/* Dynamic Header Component */}
+          <JurnalHeader 
+            title="Jurnal Harian"
+            subtitle={effectiveBatch?.name || 'Tikrar Tahfidz'}
+            juzInfo={selectedJuzInfo}
+            progress={{
+              completed: completedBlocks,
+              total: totalBlocks
+            }}
+            streakCount={jurnalStatus?.summary?.streak_count || 0}
+          />
 
-        {/* Dynamic View: Status Grid vs Form Entry */}
-        {viewMode === 'status' ? (
-          <JurnalStatusGrid
-            blocks={jurnalStatus?.blocks || []}
-            currentWeekNumber={currentWeekNumber}
-            onBlockClick={handleBlockClick}
-            isAdminPreview={!activeRegistration && isAdmin}
-          />
-        ) : (
-          <JurnalEntryForm
-            blockCode={jurnalData.blok}
-            initialData={jurnalData}
-            isSubmitting={isSubmitting}
-            onSubmit={handleFormSubmit}
-            onCancel={() => setViewMode('status')}
-          />
-        )}
-      </div>
+          {/* Dynamic View: Status Grid vs Form Entry */}
+          {viewMode === 'status' ? (
+            <JurnalStatusGrid
+              blocks={jurnalStatus?.blocks || []}
+              currentWeekNumber={currentWeekNumber}
+              onBlockClick={handleBlockClick}
+              isAdminPreview={!activeRegistration && isAdmin}
+            />
+          ) : (
+            <JurnalEntryForm
+              blockCode={jurnalData.blok}
+              initialData={jurnalData}
+              isSubmitting={isSubmitting}
+              onSubmit={handleFormSubmit}
+              onCancel={() => setViewMode('status')}
+            />
+          )}
+        </div>
+      )}
     </div>
   )
 }
