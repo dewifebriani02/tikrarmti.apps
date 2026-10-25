@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Loader2, Copy, CheckCircle2, Calendar, Download, ChevronLeft, ChevronRight, Sparkles, BookOpen } from 'lucide-react';
+import { Loader2, Copy, CheckCircle2, Calendar, Download, ChevronLeft, ChevronRight, Sparkles, BookOpen, GraduationCap, RotateCcw } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { PosterPreview } from './PosterPreview';
 import { 
   MURAJAAH_SCHEDULE, 
   generateMurajaahDailyText, 
   generateMurajaahWeeklyRecap, 
+  generatePengumumanUjianAkhir,
+  generatePanduanMurajaah40x,
   formatHijriDate, 
   getMurajaahWeekMonday,
   getMurajaahDate,
@@ -41,7 +43,7 @@ export function KurikulumTab({ currentWeek }: KurikulumTabProps = {}) {
   });
 
   const [manualPekan, setManualPekan] = useState<number | null>(null);
-  const [murajaahMode, setMurajaahMode] = useState<'daily' | 'weekly_recap'>('daily');
+  const [murajaahMode, setMurajaahMode] = useState<'daily' | 'weekly_recap' | 'ujian' | 'panduan40x'>('daily');
   const [selectedMurajaahCode, setSelectedMurajaahCode] = useState<string>('M1');
 
   const [generatedText, setGeneratedText] = useState<string>('');
@@ -108,13 +110,13 @@ export function KurikulumTab({ currentWeek }: KurikulumTabProps = {}) {
 
   // Sync active murajaah day code when selectedDate changes (if in daily mode)
   useEffect(() => {
-    if (selectedPekan === 11) {
+    if (selectedPekan === 11 && murajaahMode === 'daily') {
       const match = MURAJAAH_SCHEDULE.find(m => m.day === selectedHari);
       if (match) {
         setSelectedMurajaahCode(match.code);
       }
     }
-  }, [selectedHari, selectedPekan]);
+  }, [selectedHari, selectedPekan, murajaahMode]);
 
   const getDailyConfig = (pekan: number, hari: string, dateObj: Date) => {
     const dateOptions: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'long', year: 'numeric' };
@@ -191,6 +193,14 @@ export function KurikulumTab({ currentWeek }: KurikulumTabProps = {}) {
       const monday = getMurajaahWeekMonday(selectedDate);
       if (murajaahMode === 'weekly_recap') {
         const text = generateMurajaahWeeklyRecap({ startDate: monday, juzOptions });
+        setGeneratedText(text);
+        return;
+      } else if (murajaahMode === 'ujian') {
+        const text = generatePengumumanUjianAkhir();
+        setGeneratedText(text);
+        return;
+      } else if (murajaahMode === 'panduan40x') {
+        const text = generatePanduanMurajaah40x();
         setGeneratedText(text);
         return;
       } else {
@@ -346,7 +356,7 @@ export function KurikulumTab({ currentWeek }: KurikulumTabProps = {}) {
               </div>
               <p className="text-xs sm:text-sm text-gray-500">
                 {selectedPekan === 11 
-                  ? "Generator teks & poster muraja'ah M1–M7 untuk broadcast ke grup kelas" 
+                  ? "Template pesan muraja'ah M1–M7, broadcast sepekan, pengumuman ujian, & panduan 40x" 
                   : "Buat jurnal harian & poster untuk disalin ke grup kelas"
                 }
               </p>
@@ -416,48 +426,79 @@ export function KurikulumTab({ currentWeek }: KurikulumTabProps = {}) {
 
         {/* Pekan 11 Mode & Day Selector */}
         {selectedPekan === 11 && (
-          <div className="mb-5 p-3.5 bg-white border border-emerald-200/80 rounded-2xl shadow-sm space-y-2.5">
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-800">
-                Pilih Target Teks Muraja'ah:
-              </span>
+          <div className="mb-5 p-3.5 bg-white border border-emerald-200/80 rounded-2xl shadow-sm space-y-3">
+            {/* Category Switcher */}
+            <div className="flex flex-wrap items-center gap-1.5 pb-2 border-b border-gray-100">
               <button
                 type="button"
-                onClick={() => setMurajaahMode(murajaahMode === 'weekly_recap' ? 'daily' : 'weekly_recap')}
+                onClick={() => setMurajaahMode('weekly_recap')}
                 className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 ${
                   murajaahMode === 'weekly_recap'
                     ? 'bg-amber-600 text-white shadow-sm'
                     : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200'
                 }`}
               >
-                <span>📢 Format Broadcast Sepekan (M1–M7)</span>
+                <span>📢 Rekap Sepekan (M1–M7)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setMurajaahMode('ujian')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 ${
+                  murajaahMode === 'ujian'
+                    ? 'bg-purple-800 text-white shadow-sm'
+                    : 'bg-purple-50 text-purple-800 hover:bg-purple-100 border border-purple-200'
+                }`}
+              >
+                <GraduationCap className="w-3.5 h-3.5" />
+                <span>Pengumuman Ujian Akhir</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setMurajaahMode('panduan40x')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 ${
+                  murajaahMode === 'panduan40x'
+                    ? 'bg-teal-800 text-white shadow-sm'
+                    : 'bg-teal-50 text-teal-800 hover:bg-teal-100 border border-teal-200'
+                }`}
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Panduan Muraja'ah 40x</span>
               </button>
             </div>
 
-            <div className="flex flex-wrap items-center gap-1.5">
-              {MURAJAAH_SCHEDULE.map(m => {
-                const isActive = murajaahMode === 'daily' && selectedMurajaahCode === m.code;
-                const targetDate = getMurajaahDate(murajaahMonday, m.code);
-                const dayDateStr = targetDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'numeric' });
-                return (
-                  <button
-                    key={m.code}
-                    type="button"
-                    onClick={() => {
-                      setMurajaahMode('daily');
-                      setSelectedMurajaahCode(m.code);
-                      setSelectedDate(targetDate);
-                    }}
-                    className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                      isActive
-                        ? 'bg-emerald-700 text-white shadow-sm ring-2 ring-emerald-500/20'
-                        : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200/70'
-                    }`}
-                  >
-                    <span>{m.code}</span> <span className="opacity-75">({m.day.slice(0, 3)}, {dayDateStr})</span>
-                  </button>
-                );
-              })}
+            {/* Daily Selector M1 - M7 */}
+            <div className="space-y-1.5">
+              <div className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-800 flex items-center justify-between">
+                <span>Target Harian Muraja'ah:</span>
+                <span className="text-[10px] text-gray-400 font-normal">Klik untuk memilih hari target</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {MURAJAAH_SCHEDULE.map(m => {
+                  const isActive = murajaahMode === 'daily' && selectedMurajaahCode === m.code;
+                  const targetDate = getMurajaahDate(murajaahMonday, m.code);
+                  const dayDateStr = targetDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'numeric' });
+                  return (
+                    <button
+                      key={m.code}
+                      type="button"
+                      onClick={() => {
+                        setMurajaahMode('daily');
+                        setSelectedMurajaahCode(m.code);
+                        setSelectedDate(targetDate);
+                      }}
+                      className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                        isActive
+                          ? 'bg-emerald-700 text-white shadow-sm ring-2 ring-emerald-500/20'
+                          : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200/70'
+                      }`}
+                    >
+                      <span>{m.code}</span> <span className="opacity-75">({m.day.slice(0, 3)}, {dayDateStr})</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {murajaahMode === 'daily' && (
