@@ -1,7 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Loader2, Copy, CheckCircle2, Calendar, Download, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Loader2, Copy, CheckCircle2, Calendar, Download, ChevronLeft, ChevronRight, Sparkles, BookOpen } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { PosterPreview } from './PosterPreview';
+import { 
+  MURAJAAH_SCHEDULE, 
+  generateMurajaahDailyText, 
+  generateMurajaahWeeklyRecap, 
+  formatHijriDate, 
+  MurajaahScheduleItem 
+} from '@/lib/kurikulum-murajaah';
 
 interface JuzOption {
   id: string;
@@ -14,55 +21,6 @@ interface JuzOption {
   is_active: boolean;
   sort_order: number;
 }
-
-const DAYS = ['Senin', 'Selasa', 'Rabu', 'Kamis'];
-
-// Reliable cross-browser Hijri date conversion (not relying on Intl locale support)
-const HIJRI_MONTHS_ID = [
-  'Muharram', 'Safar', 'Rabiulawal', 'Rabiulakhir',
-  'Jumadilawal', 'Jumadilakhir', 'Rajab', 'Syakban',
-  'Ramadan', 'Syawal', 'Zulkaidah', 'Zulhijah'
-];
-
-function toHijri(date: Date): { day: number; month: number; year: number } {
-  // Julian Day Number calculation
-  const Y = date.getFullYear();
-  const M = date.getMonth() + 1;
-  const D = date.getDate();
-  const JD = Math.floor((1461 * (Y + 4800 + Math.floor((M - 14) / 12))) / 4) +
-    Math.floor((367 * (M - 2 - 12 * Math.floor((M - 14) / 12))) / 12) -
-    Math.floor((3 * Math.floor((Y + 4900 + Math.floor((M - 14) / 12)) / 100)) / 4) +
-    D - 32075;
-
-  // Convert JD to Hijri
-  const l = JD - 1948440 + 10632;
-  const n = Math.floor((l - 1) / 10631);
-  const l2 = l - 10631 * n + 354;
-  const j = Math.floor((10985 - l2) / 5316) * Math.floor((50 * l2) / 17719) +
-    Math.floor(l2 / 5670) * Math.floor((43 * l2) / 15238);
-  const l3 = l2 - Math.floor((30 - j) / 15) * Math.floor((17719 * j) / 50) -
-    Math.floor(j / 16) * Math.floor((15238 * j) / 43) + 29;
-  const hMonth = Math.floor((24 * l3) / 709);
-  const hDay = l3 - Math.floor((709 * hMonth) / 24);
-  const hYear = 30 * n + j - 30;
-  return { day: hDay, month: hMonth, year: hYear };
-}
-
-function formatHijriDate(date: Date): string {
-  const h = toHijri(date);
-  const monthName = HIJRI_MONTHS_ID[h.month - 1] || '';
-  return `${h.day} ${monthName.toUpperCase()} ${h.year} H`;
-}
-
-const murajaahSchedule = [
-  { day: 'Senin', range: [1, 3], parts: ['A', 'B'], target: '4×', code: 'M1' },
-  { day: 'Selasa', range: [3, 5], parts: ['C', 'D'], target: '4×', code: 'M2' },
-  { day: 'Rabu', range: [1, 5], parts: ['A', 'D'], target: '2×', code: 'M3' },
-  { day: 'Kamis', range: [6, 8], parts: ['A', 'B'], target: '4×', code: 'M4' },
-  { day: 'Jumat', range: [8, 10], parts: ['C', 'D'], target: '4×', code: 'M5' },
-  { day: 'Sabtu', range: [6, 10], parts: ['A', 'D'], target: '2×', code: 'M6' },
-  { day: 'Ahad', range: [1, 10], parts: ['A', 'D'], target: '1×', code: 'M7' },
-];
 
 interface KurikulumTabProps {
   currentWeek?: number;
@@ -78,6 +36,10 @@ export function KurikulumTab({ currentWeek }: KurikulumTabProps = {}) {
     d.setHours(0, 0, 0, 0);
     return d;
   });
+
+  const [manualPekan, setManualPekan] = useState<number | null>(null);
+  const [murajaahMode, setMurajaahMode] = useState<'daily' | 'weekly_recap'>('daily');
+  const [selectedMurajaahCode, setSelectedMurajaahCode] = useState<string>('M1');
 
   const [generatedText, setGeneratedText] = useState<string>('');
   const [isCopied, setIsCopied] = useState(false);
@@ -112,7 +74,8 @@ export function KurikulumTab({ currentWeek }: KurikulumTabProps = {}) {
     return Math.max(1, Math.min(11, calculated)); // clamp between 1 and 11
   };
 
-  const selectedPekan = getCalculatedPekan();
+  const calculatedPekan = getCalculatedPekan();
+  const selectedPekan = manualPekan !== null ? manualPekan : calculatedPekan;
   const allDays = ['Ahad', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
   const selectedHari = allDays[selectedDate.getDay()];
 
@@ -140,19 +103,20 @@ export function KurikulumTab({ currentWeek }: KurikulumTabProps = {}) {
     }
   };
 
+  // Sync active murajaah day code when selectedDate changes (if in daily mode)
   useEffect(() => {
-    if (juzOptions.length > 0) {
-      updateGeneratedText();
+    if (selectedPekan === 11) {
+      const match = MURAJAAH_SCHEDULE.find(m => m.day === selectedHari);
+      if (match) {
+        setSelectedMurajaahCode(match.code);
+      }
     }
-  }, [selectedDate, currentWeek, juzOptions]);
+  }, [selectedHari, selectedPekan]);
 
   const getDailyConfig = (pekan: number, hari: string, dateObj: Date) => {
     const dateOptions: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'long', year: 'numeric' };
     const dateStr = dateObj.toLocaleDateString('id-ID', dateOptions).toUpperCase();
-    
-    // Reliable cross-browser Hijri date
     const hijriDateStr = formatHijriDate(dateObj);
-
     const dateHeader = `${hari.toUpperCase()}, ${dateStr} / ${hijriDateStr}`;
 
     let blockString = '';
@@ -207,21 +171,43 @@ export function KurikulumTab({ currentWeek }: KurikulumTabProps = {}) {
         rabthString = '[MURAJAAH/RABTH PEKANAN]';
       }
     } else {
-      const mSchedule = murajaahSchedule.find(m => m.day === hari);
-      if (mSchedule) {
-        blockString = `${mSchedule.code} target ${mSchedule.target}`;
-        murojaahString = blockString;
-        rabthString = blockString;
-      }
+      // Pekan 11: Muraja'ah
+      const mSchedule = MURAJAAH_SCHEDULE.find(m => m.code === selectedMurajaahCode) ||
+                        MURAJAAH_SCHEDULE.find(m => m.day === hari) || 
+                        MURAJAAH_SCHEDULE[0];
+      blockString = `${mSchedule.code} (${mSchedule.day}): ${mSchedule.desc} (Target ${mSchedule.target})`;
+      murojaahString = `${mSchedule.code} target ${mSchedule.target}`;
+      rabthString = `${mSchedule.code} target ${mSchedule.target}`;
     }
     
     return { dateHeader, blockString, rabthString, murojaahString };
   };
 
   const updateGeneratedText = () => {
+    if (selectedPekan === 11) {
+      if (murajaahMode === 'weekly_recap') {
+        const text = generateMurajaahWeeklyRecap({ startDate: selectedDate, juzOptions });
+        setGeneratedText(text);
+        return;
+      } else {
+        const mSchedule = MURAJAAH_SCHEDULE.find(m => m.code === selectedMurajaahCode) ||
+                          MURAJAAH_SCHEDULE.find(m => m.day === selectedHari) || 
+                          MURAJAAH_SCHEDULE[0];
+        const text = generateMurajaahDailyText({ item: mSchedule, date: selectedDate, juzOptions });
+        setGeneratedText(text);
+        return;
+      }
+    }
+
     const text = generateDailyText(selectedPekan, selectedHari, selectedDate);
     setGeneratedText(text);
   };
+
+  useEffect(() => {
+    if (juzOptions.length > 0) {
+      updateGeneratedText();
+    }
+  }, [selectedDate, selectedPekan, juzOptions, murajaahMode, selectedMurajaahCode]);
 
   const generateDailyText = (pekan: number, hari: string, dateObj: Date) => {
     const { dateHeader, blockString, rabthString, murojaahString } = getDailyConfig(pekan, hari, dateObj);
@@ -242,7 +228,6 @@ export function KurikulumTab({ currentWeek }: KurikulumTabProps = {}) {
 
     text += `Notes:\n`;
     juzOptions.forEach(j => {
-      // Strip "Juz " prefix and "(Hal X-Y)" range from name → keep only code like "1A"
       const codeOnly = j.name.replace(/Juz\s*/i, '').replace(/\s*\(.*?\)/, '').trim();
       text += `Juz ${codeOnly} mulai dari hal ${j.start_page}\n`;
     });
@@ -257,7 +242,7 @@ export function KurikulumTab({ currentWeek }: KurikulumTabProps = {}) {
     try {
       await navigator.clipboard.writeText(generatedText);
       setIsCopied(true);
-      toast.success('Kurikulum berhasil disalin!');
+      toast.success('Teks kurikulum berhasil disalin!');
       setTimeout(() => setIsCopied(false), 2000);
     } catch (err) {
       toast.error('Gagal menyalin text');
@@ -268,19 +253,16 @@ export function KurikulumTab({ currentWeek }: KurikulumTabProps = {}) {
     if (!posterRef.current) return;
     try {
       setIsDownloading(true);
-      // Dynamically load html2canvas to avoid SSR issues
       const html2canvas = (await import('html2canvas')).default;
       
-      // We need to briefly make it visible to screen to render properly, or html2canvas handles it?
-      // html2canvas can render off-screen elements if they are in the DOM, but using absolute -9999px is standard.
       const canvas = await html2canvas(posterRef.current, {
         scale: 2, 
         useCORS: true,
         backgroundColor: null
       });
-      
+
       const link = document.createElement('a');
-      link.download = `Kurikulum_${selectedHari}_Pekan${selectedPekan}.png`;
+      link.download = `Kurikulum_${selectedPekan === 11 ? `Murajaah_${selectedMurajaahCode}` : `${selectedHari}_Pekan${selectedPekan}`}.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
       toast.success('Poster berhasil diunduh!');
@@ -316,7 +298,6 @@ export function KurikulumTab({ currentWeek }: KurikulumTabProps = {}) {
   }
 
   const { dateHeader, blockString, rabthString, murojaahString } = getDailyConfig(selectedPekan, selectedHari, selectedDate);
-
   const isLibur = ['Jumat', 'Sabtu', 'Ahad'].includes(selectedHari) && selectedPekan <= 10;
 
   const handlePrevDay = () => {
@@ -331,25 +312,40 @@ export function KurikulumTab({ currentWeek }: KurikulumTabProps = {}) {
     setSelectedDate(newDate);
   };
 
-  // Format date for display in the navigator
   const navDateOptions: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'long', year: 'numeric' };
   const navDateStr = selectedDate.toLocaleDateString('id-ID', navDateOptions).toUpperCase();
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       <div className="bg-white p-4 sm:p-6 border border-gray-100 rounded-2xl shadow-sm relative overflow-hidden">
+        
+        {/* Header Section */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 sm:p-3 bg-amber-50 text-amber-600 rounded-xl shrink-0">
-              <Calendar className="w-5 h-5 sm:w-6 sm:h-6" />
+            <div className={`p-2.5 sm:p-3 rounded-xl shrink-0 ${selectedPekan === 11 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-600'}`}>
+              {selectedPekan === 11 ? <BookOpen className="w-5 h-5 sm:w-6 sm:h-6" /> : <Calendar className="w-5 h-5 sm:w-6 sm:h-6" />}
             </div>
             <div>
-              <h2 className="text-lg sm:text-xl font-black text-gray-900">Kurikulum Hari Ini</h2>
-              <p className="text-xs sm:text-sm text-gray-500">Buat jurnal harian & poster untuk disalin ke grup kelas</p>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg sm:text-xl font-black text-gray-900">
+                  {selectedPekan === 11 ? "Kurikulum Pekan Muraja'ah" : "Kurikulum Hari Ini"}
+                </h2>
+                {selectedPekan === 11 && (
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black uppercase tracking-wider">
+                    Pekan 11
+                  </span>
+                )}
+              </div>
+              <p className="text-xs sm:text-sm text-gray-500">
+                {selectedPekan === 11 
+                  ? "Generator teks & poster muraja'ah M1–M7 untuk broadcast ke grup kelas" 
+                  : "Buat jurnal harian & poster untuk disalin ke grup kelas"
+                }
+              </p>
             </div>
           </div>
           
-          {!isLibur && (
+          {(!isLibur || selectedPekan === 11) && (
             <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
               <button
                 onClick={handleDownloadPoster}
@@ -370,8 +366,100 @@ export function KurikulumTab({ currentWeek }: KurikulumTabProps = {}) {
           )}
         </div>
 
+        {/* Quick Week Switcher / Pekan 11 Murajaah Banner */}
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-2.5 p-3 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50/50 to-amber-50 border border-emerald-100">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-emerald-700 shrink-0" />
+            <span className="text-xs font-bold text-emerald-950">
+              {selectedPekan === 11 ? "Sedang aktif: Kurikulum Pekan Muraja'ah" : "Pekan Pembelajaran Aktif"}
+            </span>
+          </div>
 
-        {/* Date Navigator - inline: pekan + tanggal + hari sejajar */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              type="button"
+              onClick={() => {
+                setManualPekan(11);
+                setMurajaahMode('daily');
+              }}
+              className={`px-3 py-1 rounded-xl text-xs font-bold transition-all ${
+                selectedPekan === 11
+                  ? 'bg-emerald-800 text-white shadow-sm'
+                  : 'bg-white text-emerald-800 hover:bg-emerald-100 border border-emerald-300/60'
+              }`}
+            >
+              📖 Masuk Pekan Muraja'ah (P11)
+            </button>
+
+            {manualPekan !== null && (
+              <button
+                type="button"
+                onClick={() => setManualPekan(null)}
+                className="px-2.5 py-1 rounded-xl text-[11px] font-semibold text-gray-500 hover:text-gray-800 bg-white border border-gray-200"
+              >
+                Reset ke Pekan Berjalan
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Pekan 11 Mode & Day Selector */}
+        {selectedPekan === 11 && (
+          <div className="mb-5 p-3.5 bg-white border border-emerald-200/80 rounded-2xl shadow-sm space-y-2.5">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-800">
+                Pilih Target Teks Muraja'ah:
+              </span>
+              <button
+                type="button"
+                onClick={() => setMurajaahMode(murajaahMode === 'weekly_recap' ? 'daily' : 'weekly_recap')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 ${
+                  murajaahMode === 'weekly_recap'
+                    ? 'bg-amber-600 text-white shadow-sm'
+                    : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200'
+                }`}
+              >
+                <span>📢 Format Broadcast Sepekan (M1–M7)</span>
+              </button>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5">
+              {MURAJAAH_SCHEDULE.map(m => {
+                const isActive = murajaahMode === 'daily' && selectedMurajaahCode === m.code;
+                return (
+                  <button
+                    key={m.code}
+                    type="button"
+                    onClick={() => {
+                      setMurajaahMode('daily');
+                      setSelectedMurajaahCode(m.code);
+                    }}
+                    className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                      isActive
+                        ? 'bg-emerald-700 text-white shadow-sm ring-2 ring-emerald-500/20'
+                        : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200/70'
+                    }`}
+                  >
+                    <span>{m.code}</span> <span className="opacity-75">({m.day.slice(0, 3)})</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {murajaahMode === 'daily' && (
+              <div className="text-xs bg-emerald-50/70 text-emerald-900 px-3 py-1.5 rounded-xl border border-emerald-100 flex items-center gap-2">
+                <span className="font-bold">
+                  {MURAJAAH_SCHEDULE.find(m => m.code === selectedMurajaahCode)?.code} ({MURAJAAH_SCHEDULE.find(m => m.code === selectedMurajaahCode)?.day}):
+                </span>
+                <span>
+                  {MURAJAAH_SCHEDULE.find(m => m.code === selectedMurajaahCode)?.desc} • Target {MURAJAAH_SCHEDULE.find(m => m.code === selectedMurajaahCode)?.target}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Date Navigator */}
         <div className="flex items-center gap-1.5 sm:gap-3 mb-6 bg-gray-50 rounded-2xl px-2 sm:px-3 py-2 border border-gray-100 shadow-inner">
           <button
             onClick={handlePrevDay}
@@ -400,7 +488,7 @@ export function KurikulumTab({ currentWeek }: KurikulumTabProps = {}) {
           </button>
         </div>
 
-        {['Jumat', 'Sabtu', 'Ahad'].includes(selectedHari) && selectedPekan <= 10 ? (
+        {isLibur ? (
           <div className="flex flex-col items-center justify-center py-16 bg-gray-50 border border-dashed border-gray-200 rounded-2xl">
             <div className="p-4 bg-gray-100 rounded-full mb-3">
               <Calendar className="w-8 h-8 text-gray-400" />
@@ -436,4 +524,3 @@ export function KurikulumTab({ currentWeek }: KurikulumTabProps = {}) {
     </div>
   );
 }
-

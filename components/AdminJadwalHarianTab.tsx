@@ -22,6 +22,8 @@ import {
 import { toPng } from 'html-to-image';
 import { JadwalPoster } from './JadwalPoster';
 import { TerimaKasihPoster } from './TerimaKasihPoster';
+import { AdminKurikulumMurajaahModal } from './AdminKurikulumMurajaahModal';
+
 
 const DAYS = [
   { id: 1, name: 'Senin' },
@@ -37,6 +39,7 @@ const DAYS = [
 export default function AdminJadwalHarianTab() {
   const { user } = useAuth();
   const [programTab, setProgramTab] = useState<'tikrar' | 'pra_tikrar'>('tikrar');
+    const [isMurajaahModalOpen, setIsMurajaahModalOpen] = useState(false);
   const [activeDay, setActiveDay] = useState<number>(new Date().getDay() === 0 ? 7 : new Date().getDay());
   const [halaqahs, setHalaqahs] = useState<HalaqahForReminder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -490,6 +493,15 @@ export default function AdminJadwalHarianTab() {
             >
               <Copy className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               Copy Rekapan
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsMurajaahModalOpen(true)}
+              className="col-span-2 sm:col-span-1 flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-emerald-800 hover:bg-emerald-900 text-white text-xs sm:text-sm font-semibold rounded-xl transition-all shadow-sm shadow-emerald-800/20 w-full sm:w-auto"
+              title="Generator Teks Kurikulum Pekan Muraja'ah (M1–M7)"
+            >
+              <BookOpen className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              Teks Muraja'ah
             </button>
           </div>
         )}
@@ -1132,6 +1144,10 @@ export default function AdminJadwalHarianTab() {
           </div>
         </div>
       )}
+        <AdminKurikulumMurajaahModal
+        isOpen={isMurajaahModalOpen}
+        onClose={() => setIsMurajaahModalOpen(false)}
+      />
     </div>
   );
 }
