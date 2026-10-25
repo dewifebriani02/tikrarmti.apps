@@ -266,7 +266,7 @@ export function getPersonaLabel(role: string): string {
     case 'thalibah':
       return 'Thalibah';
     case 'calon_thalibah':
-      return 'Calon';
+      return 'Calon Thalibah';
     default:
       return role;
   }
