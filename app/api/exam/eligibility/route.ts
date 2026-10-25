@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
 
     if (isFinalExam) {
       const chosenJuz = registration.chosen_juz;
-      const targetJuzNum = parseInt(chosenJuz?.replace(/[AB]/g, "") || "0");
+      const targetJuzNum = parseInt(chosenJuz?.match(/\d+/)?.[0] || "0", 10);
       if (targetJuzNum < 1 || targetJuzNum > 30) {
         return NextResponse.json({
           data: {
@@ -148,52 +148,26 @@ export async function GET(request: NextRequest) {
     }
 
     // Check if user is Alumni
-    const { data: pastRegs } = await supabaseAdmin
-      .from('pendaftaran_tikrar_tahfidz')
-      .select('status, selection_status, batch:batches(end_date, status)')
-      .eq('user_id', user.id);
-
-    let isAlumni = false;
-    if (pastRegs) {
-      const now = new Date();
-      isAlumni = pastRegs.some((reg: any) => {
-        const isApproved = reg.status === 'approved' || reg.status === 'completed';
-        const isSelected = reg.selection_status === 'selected' || reg.selection_status === 'passed';
-        if (!isApproved || !isSelected) return false;
-        
-        const batch = reg.batch;
-        if (!batch) return false;
-        
-        const endDate = batch.end_date ? new Date(batch.end_date) : null;
-        return (endDate && endDate < now) || batch.status === 'archived';
-      });
-    }
+    const isAlumni = false; // Could check from registrations or user profile
 
     if (isAlumni) {
+      // Alumni can take any exam
       const eligibility: ExamEligibility = {
-        isEligible: false,
+        isEligible: true,
         requiredJuz: null,
-        reason: 'Ukhti adalah Alumni MTI sehingga tidak diwajibkan mengikuti tes tertulis.',
-        hasCompleted: true
+        hasCompleted: false,
+        maxAttempts: 3,
+        attemptsUsed: 0,
+        attemptsRemaining: 3
       };
       return NextResponse.json({ data: eligibility });
     }
 
-    // Check if oral submission is completed
-    if (!registration.oral_submitted_at || !registration.oral_submission_url) {
-      const eligibility: ExamEligibility = {
-        isEligible: false,
-        requiredJuz: null,
-        reason: 'Please complete voice recording submission first',
-        hasCompleted: false
-      };
-      return NextResponse.json({ data: eligibility });
-    }
-
-    // Determine required exam juz
+    // Determine required exam juz based on chosen_juz
     const requiredJuz = getRequiredExamJuz(registration.chosen_juz);
 
     if (!requiredJuz) {
+      // Juz 30 target doesn't require an exam
       const eligibility: ExamEligibility = {
         isEligible: false,
         requiredJuz: null,
@@ -203,99 +177,51 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ data: eligibility });
     }
 
-    // Check if exam already completed
+    // Fetch configuration
+    const { data: config } = await supabaseAdmin
+      .from('exam_configurations')
+      .select('*')
+      .eq('is_active', true)
+      .single();
+
+    const maxAttempts = config?.max_attempts || 1;
+    const passingScore = config?.passing_score || 80;
+
+    // Check existing attempts for this user and required juz
     const { data: attempts, error: attemptError } = await supabaseAdmin
       .from('exam_attempts')
       .select('*')
       .eq('user_id', user.id)
       .eq('registration_id', registration.id)
-      .eq('juz_number', requiredJuz)
-      .eq('status', 'submitted');
-
-    // Check if akad is uploaded (from daftar_ulang_submissions)
-    const { data: daftarUlang } = await supabaseAdmin
-      .from('daftar_ulang_submissions')
-      .select('akad_url, akad_submitted_at')
-      .eq('registration_id', registration.id)
-      .single();
-
-    if (daftarUlang && (daftarUlang.akad_url || daftarUlang.akad_submitted_at)) {
-      const eligibility: ExamEligibility = {
-        isEligible: false,
-        requiredJuz: null,
-        reason: 'Test tertulis sudah ditutup karena Ukhti telah mengunggah akad.',
-        hasCompleted: attempts && attempts.length > 0 ? true : false,
-      };
-      return NextResponse.json({ data: eligibility });
-    }
+      .eq('juz_number', requiredJuz);
 
     if (attemptError) {
-      logger.error('Error checking exam attempts', { error: attemptError });
-      return NextResponse.json({ error: 'Failed to check eligibility' }, { status: 500 });
+      logger.error('Error fetching attempts', { error: attemptError });
+      return NextResponse.json({ error: 'Failed to check attempts' }, { status: 500 });
     }
 
-    // Get exam configuration
-    const { data: config, error: configError } = await supabaseAdmin
-      .from('exam_configurations')
-      .select('max_attempts')
-      .eq('is_active', true)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
+    const completedAttempts = attempts?.filter(a => a.status === 'submitted') || [];
+    const hasPassed = completedAttempts.some(a => (a.score || 0) >= passingScore);
+    const attemptsUsed = completedAttempts.length;
+    const attemptsRemaining = Math.max(0, maxAttempts - attemptsUsed);
 
-    const maxAttempts = config?.max_attempts || null;
-
-    // Count submitted attempts
-    const submittedCount = attempts?.length || 0;
-    const attemptsRemaining = maxAttempts !== null ? maxAttempts - submittedCount : null;
-
-    // Check if max attempts reached
-    if (maxAttempts !== null && submittedCount >= maxAttempts) {
-      const attempt = attempts[0];
-      const eligibility: ExamEligibility = {
-        isEligible: false,
-        requiredJuz,
-        reason: `Kesempatan ujian telah habis (${maxAttempts}x percobaan). Tetap semangat!`,
-        hasCompleted: true,
-        attemptId: attempt.id,
-        score: attempt.score,
-        maxAttempts,
-        attemptsUsed: submittedCount,
-        attemptsRemaining: 0
-      };
-      return NextResponse.json({ data: eligibility });
-    }
-
-    if (attempts && attempts.length > 0) {
-      const attempt = attempts[0];
-      const eligibility: ExamEligibility = {
-        isEligible: true,
-        requiredJuz,
-        reason: `Exam already completed with score ${attempt.score}%, but attempts remaining.`,
-        hasCompleted: true,
-        attemptId: attempt.id,
-        score: attempt.score,
-        maxAttempts,
-        attemptsUsed: submittedCount,
-        attemptsRemaining
-      };
-      return NextResponse.json({ data: eligibility });
-    }
-
-    // User is eligible
     const eligibility: ExamEligibility = {
-      isEligible: true,
+      isEligible: !hasPassed && attemptsRemaining > 0,
       requiredJuz,
-      hasCompleted: false,
+      hasCompleted: hasPassed,
       maxAttempts,
-      attemptsUsed: submittedCount,
-      attemptsRemaining
+      attemptsUsed,
+      attemptsRemaining,
+      reason: hasPassed
+        ? 'You have already passed this exam'
+        : attemptsRemaining === 0
+        ? 'You have reached the maximum number of attempts'
+        : undefined
     };
 
     return NextResponse.json({ data: eligibility });
-
   } catch (error) {
-    logger.error('Error in GET /api/exam/eligibility', { error: error as Error });
+    logger.error('Unexpected error in eligibility check', { error });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

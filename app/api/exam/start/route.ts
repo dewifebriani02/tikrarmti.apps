@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
 
     // Verify that this juz exam is required for their chosen juz
     const requiredJuz = isFinalExam
-      ? parseInt(registration.chosen_juz?.replace(/[AB]/g, "") || "0")
+      ? parseInt(registration.chosen_juz?.match(/\d+/)?.[0] || "0", 10)
       : getRequiredExamJuz(registration.chosen_juz);
 
     if (requiredJuz !== juz_number) {
