@@ -1,7 +1,7 @@
 // Database Types untuk Tikrar MTI Apps
 // Generated from database schema
 
-export type UserRole = 'super_admin' | 'admin' | 'musyrifah' | 'muallimah' | 'thalibah' | 'calon_thalibah';
+export type UserRole = 'super_admin' | 'admin' | 'musyrifah' | 'muallimah' | 'roisah' | 'raisah' | 'thalibah' | 'calon_thalibah';
 export type BatchStatus = 'draft' | 'open' | 'closed' | 'archived';
 export type ProgramStatus = 'draft' | 'open' | 'ongoing' | 'completed' | 'cancelled';
 export type HalaqahStatus = 'active' | 'inactive' | 'suspended';
