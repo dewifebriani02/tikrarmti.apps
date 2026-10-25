@@ -24,6 +24,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import Link from 'next/link';
+import { RegistrationHubCard } from '@/components/registration/RegistrationHubCard';
 
 interface PendaftaranType {
   id: string;
@@ -461,6 +462,9 @@ export default function PendaftaranPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* Unified Registration Hub Card (Featured) */}
+        <RegistrationHubCard showTitle={false} />
 
         {/* Registration Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-8">

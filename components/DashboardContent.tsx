@@ -58,6 +58,7 @@ import { TransferScheduleModal } from '@/components/dashboard/TransferScheduleMo
 import { ScheduleOptionsModal } from '@/components/dashboard/ScheduleOptionsModal'
 import { DynamicActionBanner } from '@/components/dashboard/DynamicActionBanner'
 import { GroupLinks } from '@/components/dashboard/GroupLinks'
+import { RegistrationHubCard } from '@/components/registration/RegistrationHubCard'
 import { UserJadwalHarian } from '@/components/dashboard/UserJadwalHarian'
 
 export default function DashboardContent() {
@@ -1041,132 +1042,8 @@ export default function DashboardContent() {
           </div>
         )}
 
-        {/* Tikrar Tahfidz Registration CTA - Muncul di masa pendaftaran/seleksi */}
-        {(() => {
-          // Cek apakah masa pendaftaran masih terbuka
-          // Masa pendaftaran: dari registration_start_date sampai registration_end_date
-          const isRegistrationPeriod = activeBatch &&
-            activeBatch.registration_start_date &&
-            activeBatch.registration_end_date &&
-            new Date(activeBatch.registration_start_date) <= new Date() &&
-            new Date(activeBatch.registration_end_date) >= new Date();
-
-          // Card muncul kalau:
-          // 1) Ada active batch, DAN
-          // 2) Masa pendaftaran masih terbuka, DAN
-          // 3) User BELUM mendaftar di batch aktif ini
-          const shouldShowCard = activeBatch &&
-            isRegistrationPeriod &&
-            !hasRegisteredTikrar;
-
-          return shouldShowCard;
-        })() && (
-          <div className="mb-8">
-            <Card className="rounded-[2.5rem] border-none shadow-2xl shadow-amber-900/20 overflow-hidden bg-gradient-to-br from-amber-50 via-yellow-50 to-amber-100 ring-2 ring-amber-300/50 relative">
-              {/* Gold sparkle effects */}
-              <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-yellow-400/20 to-amber-500/10 rounded-full blur-3xl -z-10"></div>
-              <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-amber-400/15 to-yellow-500/10 rounded-full blur-2xl -z-10"></div>
-
-              <CardContent className="p-0 relative">
-                <div className="flex flex-col md:flex-row items-stretch">
-                  <div className="w-full md:w-1/3 bg-gradient-to-br from-amber-500 via-yellow-500 to-amber-600 p-8 flex flex-col items-center justify-center text-white relative overflow-hidden">
-                    {/* Gold shine effect */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-transparent"></div>
-
-                    <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center mb-4 ring-2 ring-yellow-300/50 shadow-xl relative z-10">
-                      <BookOpen className="w-8 h-8 text-yellow-900" />
-                    </div>
-                    <div className="text-center relative z-10">
-                      <p className="text-[10px] uppercase font-black tracking-[0.3em] text-yellow-100 mb-1 flex items-center justify-center gap-1">
-                        <Sparkles className="w-3 h-3" />
-                        Program Utama
-                        <Sparkles className="w-3 h-3" />
-                      </p>
-                      <h3 className="text-xl font-black text-white drop-shadow-lg">Tikrar Tahfidz</h3>
-                      {activeBatch?.name && (
-                        <span className="inline-block mt-2 px-2.5 py-0.5 rounded-full bg-white/20 text-[9px] font-bold text-white tracking-wide">
-                          {activeBatch.name}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex-1 p-8 md:p-10 flex flex-col justify-center space-y-6 relative">
-                    <div className="space-y-3">
-                      <h2 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight leading-tight">
-                        Siap Menjadi <span className="bg-gradient-to-r from-amber-600 to-yellow-600 bg-clip-text text-transparent">Hafidzah</span> Al-Qur'an?
-                      </h2>
-                      <p className="text-sm font-medium text-gray-600 leading-relaxed">
-                        Program Tahfidz Tikrar MTI dengan metode pengulangan 40X. Daftar sekarang dan raih keberkahan menghafal Al-Qur'an.
-                      </p>
-                    </div>
-                    <div className="flex flex-col sm:flex-row items-center gap-4">
-                      <Link href={`/pendaftaran/tikrar-tahfidz?batchId=${activeBatch?.id}`} className="w-full sm:w-auto">
-                        <Button className="w-full sm:w-auto bg-gradient-to-r from-amber-600 via-yellow-600 to-amber-700 hover:from-amber-700 hover:via-yellow-700 hover:to-amber-800 text-white font-black px-8 py-6 rounded-2xl shadow-xl shadow-amber-900/30 border-b-4 border-amber-900 active:border-b-0 active:translate-y-1 transition-all">
-                          Daftar Sekarang
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* Muallimah Registration CTA - Muncul jika user belum mendaftar Muallimah di batch aktif dan masih dalam masa pendaftaran */}
-        {(() => {
-          const isRegistrationPeriod = activeBatch &&
-            activeBatch.registration_start_date &&
-            activeBatch.registration_end_date &&
-            new Date(activeBatch.registration_start_date) <= new Date() &&
-            new Date(activeBatch.registration_end_date) >= new Date();
-
-          return !hasMuallimahReg && activeBatch && isRegistrationPeriod;
-        })() && (
-          <div className="mb-8">
-            <Card className="rounded-[2.5rem] border-none shadow-2xl shadow-green-900/10 overflow-hidden bg-gradient-to-br from-white to-green-50 ring-1 ring-green-100/50">
-              <CardContent className="p-0">
-                <div className="flex flex-col md:flex-row items-stretch">
-                  <div className="w-full md:w-1/3 bg-gradient-to-br from-green-700 to-green-900 p-8 flex flex-col items-center justify-center text-white">
-                    <div className="w-16 h-16 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center mb-4 ring-1 ring-white/20 shadow-xl">
-                      <GraduationCap className="w-8 h-8 text-white" />
-                    </div>
-                    <div className="text-center">
-                      <p className="text-[10px] uppercase font-black tracking-[0.3em] text-green-300 mb-1">Recruitment</p>
-                      <h3 className="text-xl font-black">Muallimah MTI</h3>
-                      {activeBatch?.name && (
-                        <span className="inline-block mt-2 px-2.5 py-0.5 rounded-full bg-white/10 text-[9px] font-bold text-green-200 tracking-wide border border-white/10">
-                          {activeBatch.name}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex-1 p-8 md:p-10 flex flex-col justify-center space-y-6">
-                    <div className="space-y-3">
-                      <h2 className="text-2xl font-black text-gray-900 tracking-tight leading-tight">
-                        Siap Menjadi Bagian dari <span className="text-green-700">Pendidik Al-Qur'an?</span>
-                      </h2>
-                      <p className="text-sm font-medium text-gray-500 leading-relaxed">
-                        Bergabunglah menjadi Muallimah Markaz Tikrar Indonesia. Bagikan ilmu Ukhti dan raih pahala jariyah.
-                      </p>
-                    </div>
-                    <div className="flex flex-col sm:flex-row items-center gap-4">
-                      <Link href={activeBatch ? `/pendaftaran/muallimah?batchId=${activeBatch.id}` : "/pendaftaran/muallimah"} className="w-full sm:w-auto" onClick={(e) => {
-                        if (!window.confirm("PERHATIAN!\n\nPendaftaran ini khusus untuk calon PENGAJAR (Mu'allimah), BUKAN untuk calon SANTRI (Thalibah).\n\nJika Ukhti ingin mendaftar sebagai santri, silakan pilih Pendaftaran Tikrar Tahfidz.\n\nApakah Ukhti yakin ingin melanjutkan mendaftar sebagai Mu'allimah?")) {
-                          e.preventDefault();
-                        }
-                      }}>
-                        <Button className="w-full sm:w-auto bg-green-700 hover:bg-green-800 text-white font-black px-8 py-6 rounded-2xl shadow-lg border-b-4 border-green-900 active:border-b-0 active:translate-y-1 transition-all">
-                          Daftar Sekarang
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+        {/* Unified Registration Hub Card - Muncul di masa pendaftaran aktif */}
+        <RegistrationHubCard />
 
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">

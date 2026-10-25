@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
-import { useActiveBatch, useBatch } from '@/hooks/useBatches'
+import { useRegistrationBatch, useBatch } from '@/hooks/useBatches'
 import { useMyRegistrations } from '@/hooks/useRegistrations'
 import { useJuzOptions } from '@/hooks/useJuzOptions'
 import { Button } from '@/components/ui/button'
@@ -236,17 +236,17 @@ export default function ThalibahBatch2Page() {
     }
   }
   const { user, isLoading, isAuthenticated, isUnauthenticated } = useAuth()
-  const { activeBatch, isLoading: activeBatchLoading } = useActiveBatch()
+  const { registrationBatch, isLoading: regBatchLoading } = useRegistrationBatch()
   const searchParams = useSearchParams()
   const urlBatchId = searchParams.get('batchId')
   const urlProgramId = searchParams.get('programId')
   const editModeParam = searchParams.get('edit') === 'true'
 
-  // Use specific batch from URL if provided, otherwise fallback to activeBatch
+  // Use specific batch from URL if provided, otherwise fallback to registrationBatch (batch open for registration)
   const { batch: urlBatch, isLoading: urlBatchLoading } = useBatch(urlBatchId || undefined)
   
-  const activeBatchData = urlBatch || activeBatch
-  const batchLoading = activeBatchLoading || urlBatchLoading
+  const activeBatchData = urlBatch || registrationBatch
+  const batchLoading = urlBatchLoading || regBatchLoading
 
   const { juzOptions, isLoading: juzLoading } = useJuzOptions()
   const { registrations, mutate: mutateRegistrations } = useMyRegistrations()

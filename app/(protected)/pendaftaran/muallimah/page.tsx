@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
-import { useActiveBatch } from '@/hooks/useBatches';
+import { useRegistrationBatch } from '@/hooks/useBatches';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -237,7 +237,7 @@ function MuallimahRegistrationContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
-  const { activeBatch, isLoading: batchLoading } = useActiveBatch();
+  const { registrationBatch, isLoading: batchLoading } = useRegistrationBatch();
   const supabase = createClient();
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -448,11 +448,11 @@ function MuallimahRegistrationContent() {
     if (batchFromUrl) {
       setBatchId(batchFromUrl);
       fetchBatchInfo(batchFromUrl);
-    } else if (activeBatch?.id && !batchId) {
-      setBatchId(activeBatch.id);
-      setBatchInfo(activeBatch);
+    } else if (registrationBatch?.id && !batchId) {
+      setBatchId(registrationBatch.id);
+      setBatchInfo(registrationBatch);
     }
-  }, [searchParams, activeBatch]);
+  }, [searchParams, registrationBatch]);
 
   // Load user data and existing registration/akad
   useEffect(() => {
