@@ -183,7 +183,7 @@ export async function getCurrentUser() {
   const user = await queryOne(
     `SELECT id, email, full_name, role, roles, avatar_url, is_active, is_blacklisted,
             must_change_password, whatsapp, telegram, negara, provinsi, kota, alamat, zona_waktu,
-            tanggal_lahir, tempat_lahir, jenis_kelamin, pekerjaan, alasan_daftar, created_at,
+            tanggal_lahir, tempat_lahir, jenis_kelamin, pekerjaan, alasan_daftar, created_at, student_id_number, current_tikrar_batch_id,
             session_version
      FROM users WHERE id = $1`,
     [latestPayload.sub]

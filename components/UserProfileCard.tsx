@@ -8,6 +8,7 @@ import { Info } from 'lucide-react'
 
 interface UserProfile {
   full_name?: string
+  student_id_number?: string
   email?: string
   whatsapp?: string
   telegram?: string
@@ -102,6 +103,17 @@ export function UserProfileCard({
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 text-sm">
+            {userProfile.student_id_number && (
+              <div className="space-y-1 md:col-span-2 bg-white/80 border border-emerald-200 rounded-lg p-2.5 flex items-center justify-between shadow-xs">
+                <div>
+                  <p className="text-emerald-700 font-bold text-xs uppercase tracking-wider">Nomor Induk Tholibah (NIT)</p>
+                  <p className="text-gray-900 font-mono font-bold text-base sm:text-lg">{userProfile.student_id_number}</p>
+                </div>
+                <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                  Resmi & Permanen
+                </span>
+              </div>
+            )}
             <div className="space-y-1">
               <p className="text-gray-600 font-medium text-xs sm:text-sm">Nama Lengkap</p>
               <p className="text-gray-900 font-semibold text-sm sm:text-base">{userProfile.full_name || '-'}</p>

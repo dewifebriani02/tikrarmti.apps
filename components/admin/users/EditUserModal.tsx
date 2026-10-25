@@ -88,6 +88,17 @@ export function EditUserModal({ user, isOpen, onClose, onSuccess }: EditUserModa
 
         <div className="flex-1 overflow-y-auto p-8 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {user.student_id_number && (
+              <div className="md:col-span-2 bg-emerald-50 border border-emerald-200 rounded-2xl p-3 flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider block">Nomor Induk Tholibah (NIT)</span>
+                  <span className="text-sm font-mono font-bold text-emerald-950">{user.student_id_number}</span>
+                </div>
+                <span className="text-[11px] font-semibold bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full border border-emerald-300">
+                  Resmi & Permanen
+                </span>
+              </div>
+            )}
             <div className="space-y-2">
               <label className="text-xs font-bold text-gray-500 uppercase">Nama Lengkap *</label>
               <div className="relative">

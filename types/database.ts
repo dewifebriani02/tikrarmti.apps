@@ -38,6 +38,7 @@ export interface User {
   updated_at: string;
   current_tikrar_batch_id?: string;
   current_tikrar_batch?: Batch;
+  student_id_number?: string;
   // Extended profile fields
   nama_kunyah?: string;
   negara?: string;

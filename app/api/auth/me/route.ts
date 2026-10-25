@@ -37,6 +37,7 @@ export async function GET() {
       jenis_kelamin: user.jenis_kelamin,
       pekerjaan: user.pekerjaan,
       alasan_daftar: user.alasan_daftar,
+      student_id_number: user.student_id_number,
     };
 
     return NextResponse.json({

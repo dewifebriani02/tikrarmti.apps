@@ -446,6 +446,12 @@ export default function ProfilePage() {
                   {formData.namaKunyah && (
                     <p className="text-green-100 text-sm">{formData.namaKunyah}</p>
                   )}
+                  {user?.student_id_number && (
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-white/20 text-white border border-white/30 backdrop-blur-sm mt-1">
+                      <Award className="w-3 h-3 text-emerald-200" />
+                      <span>NIT: {user.student_id_number}</span>
+                    </div>
+                  )}
                   <p className="text-green-100 text-sm flex items-center mt-1">
                     <Mail className="h-3 w-3 mr-1" />
                     {user?.email || '-'}
@@ -458,6 +464,20 @@ export default function ProfilePage() {
             <Card className="p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Informasi Pribadi</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {user?.student_id_number && (
+                  <div className="md:col-span-2 bg-emerald-50 border border-emerald-200 rounded-lg p-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <Award className="h-5 w-5 text-emerald-600" />
+                      <div>
+                        <p className="text-xs font-bold text-emerald-800 uppercase tracking-wider">Nomor Induk Tholibah (NIT)</p>
+                        <p className="text-base font-mono font-bold text-emerald-950">{user.student_id_number}</p>
+                      </div>
+                    </div>
+                    <span className="px-2 py-0.5 text-[11px] font-semibold bg-white text-emerald-700 rounded border border-emerald-300 shadow-2xs">
+                      Permanen
+                    </span>
+                  </div>
+                )}
                 <InfoItem
                   icon={<User className="h-4 w-4" />}
                   label="Nama Lengkap"

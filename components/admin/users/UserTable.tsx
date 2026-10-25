@@ -67,9 +67,16 @@ export function UserTable({ users, isLoading, pagination, onPageChange, onAction
                         )}
                       </div>
                       <div className="flex flex-col min-w-0">
-                        <span className="text-sm font-bold text-gray-900 truncate">
-                          {user.full_name || 'Hamba Allah'}
-                        </span>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-sm font-bold text-gray-900 truncate">
+                            {user.full_name || 'Hamba Allah'}
+                          </span>
+                          {user.student_id_number && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200" title="Nomor Induk Tholibah">
+                              {user.student_id_number}
+                            </span>
+                          )}
+                        </div>
                         <span className="text-xs text-gray-500 truncate">{user.email}</span>
                       </div>
                     </div>

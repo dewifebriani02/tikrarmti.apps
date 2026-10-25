@@ -539,9 +539,17 @@ export default function DashboardContent() {
               </div>
               
               <div>
-                <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black mb-2 tracking-tight break-words">
-                  {welcomeTheme.greeting}, <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-white/60">{user?.full_name?.split(' ')[0] || 'Ukhti'}!</span>
-                </h1>
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                  <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black tracking-tight break-words">
+                    {welcomeTheme.greeting}, <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-white/60">{user?.full_name?.split(' ')[0] || 'Ukhti'}!</span>
+                  </h1>
+                  {user?.student_id_number && (
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-bold bg-white/20 text-white border border-white/30 backdrop-blur-sm shadow-xs self-center">
+                      <Award className="w-3.5 h-3.5 text-yellow-300" />
+                      <span>NIT: {user.student_id_number}</span>
+                    </div>
+                  )}
+                </div>
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-white/80 text-xs sm:text-sm font-semibold">
                   <div className="flex items-center gap-1.5">
                     <Calendar className="w-4 h-4 opacity-70" />

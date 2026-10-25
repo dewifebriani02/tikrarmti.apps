@@ -102,6 +102,7 @@ export default async function ProtectedLayout({
         jenis_kelamin: userData.jenis_kelamin,
         pekerjaan: userData.pekerjaan,
         alasan_daftar: userData.alasan_daftar,
+        student_id_number: userData.student_id_number,
       }}
     >
       {children}

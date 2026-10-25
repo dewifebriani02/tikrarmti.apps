@@ -44,7 +44,7 @@ export async function GET(request: Request) {
       .select('*', { count: 'exact' });
 
     if (search) {
-      query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,whatsapp.ilike.%${search}%`);
+      query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,whatsapp.ilike.%${search}%,student_id_number.ilike.%${search}%`);
     }
 
     if (role && role !== 'all') {
