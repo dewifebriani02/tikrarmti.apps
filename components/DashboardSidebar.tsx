@@ -34,9 +34,6 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
     isThalibahPersona,
   } = usePersona();
   
-  // Use primaryRole if available, fallback to roles array
-  const userRoles = (user as any)?.primaryRole ? [(user as any).primaryRole] : (user?.roles || []);
-  
   const [isMounted, setIsMounted] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -64,16 +61,15 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
     };
   }, []);
 
-  // Role-based navigation items powered by Active Persona
+  // Role-based navigation items powered by Active Persona and MTI Journey Flow
   const getNavItems = () => {
     const baseItems: any[] = [];
 
     // 1. ADMIN / SUPER ADMIN PERSONA
     if (isAdminPersona) {
-      baseItems.push({ type: 'header', label: 'Monitoring' });
       baseItems.push({
         href: '/dashboard',
-        label: 'Dashboard Personal',
+        label: 'Dasbor Admin',
         icon: <LayoutGrid className="h-5 w-5 text-emerald-600" />,
       });
       baseItems.push({
@@ -170,6 +166,11 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
         icon: <Shield className="h-5 w-5" />,
       });
       baseItems.push({
+        href: '/admin/whatsapp',
+        label: 'Broadcast WhatsApp',
+        icon: <MessageSquare className="h-5 w-5 text-emerald-600" />,
+      });
+      baseItems.push({
         href: '/admin/pengaturan/faq',
         label: 'Pengaturan FAQ',
         icon: <HelpCircle className="h-5 w-5" />,
@@ -187,21 +188,22 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
     }
     // 2. MUSYRIFAH PERSONA (Pengawas Lapangan Multi-Halaqah)
     else if (isMusyrifahPersona) {
-      baseItems.push({ type: 'header', label: 'Pengawasan Halaqah' });
       baseItems.push({
         href: '/dashboard',
         label: 'Dasbor Pengawas',
         icon: <LayoutGrid className="h-5 w-5 text-blue-600" />,
       });
-      baseItems.push({
-        href: '/presensi-jurnal',
-        label: 'Presensi & Jurnal Multi-Kelas',
-        icon: <BookOpen className="h-5 w-5 text-blue-600" />,
-      });
+
+      baseItems.push({ type: 'header', label: 'Pengawasan Halaqah' });
       baseItems.push({
         href: '/admin/jadwal-harian',
         label: 'Jadwal Harian',
         icon: <Calendar className="h-5 w-5" />,
+      });
+      baseItems.push({
+        href: '/presensi-jurnal',
+        label: 'Presensi & Jurnal Multi-Kelas',
+        icon: <BookOpen className="h-5 w-5 text-blue-600" />,
       });
       baseItems.push({
         href: '/admin/halaqah/analisis-zoom',
@@ -228,12 +230,13 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
     }
     // 3. MU'ALLIMAH PERSONA (Pengajar / Pengampu Halaqah)
     else if (isMuallimahPersona) {
-      baseItems.push({ type: 'header', label: 'Pengajaran' });
       baseItems.push({
         href: '/dashboard',
         label: 'Dasbor Pengajar',
         icon: <LayoutGrid className="h-5 w-5 text-emerald-600" />,
       });
+
+      baseItems.push({ type: 'header', label: 'Pengajaran & Bimbingan' });
       baseItems.push({
         href: '/admin/jadwal-harian',
         label: 'Jadwal Mengajar',
@@ -264,28 +267,32 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
     }
     // 4. RAISAH PERSONA (Ketua Kelas Santri)
     else if (isRaisahPersona) {
-      baseItems.push({ type: 'header', label: 'Kelas Saya' });
       baseItems.push({
         href: '/dashboard',
         label: 'Dasbor',
         icon: <LayoutGrid className="h-5 w-5 text-purple-600" />,
       });
       baseItems.push({
-        href: '/presensi-jurnal',
-        label: 'Presensi Halaqah Saya',
-        icon: <BookOpen className="h-5 w-5 text-purple-600" />,
+        href: '/perjalanan-saya',
+        label: 'Perjalanan Saya',
+        icon: <BarChart3 className="h-5 w-5" />,
       });
+
+      baseItems.push({ type: 'header', label: 'Halaqah & Pembelajaran' });
       baseItems.push({
         href: '/jadwal-harian',
         label: 'Jadwal Harian',
         icon: <Calendar className="h-5 w-5" />,
       });
-
-      baseItems.push({ type: 'header', label: 'Hafalan Santri' });
       baseItems.push({
         href: '/jurnal-harian',
         label: 'Jurnal Harian',
         icon: <BookOpen className="h-5 w-5" />,
+      });
+      baseItems.push({
+        href: '/presensi-jurnal',
+        label: 'Presensi Halaqah Saya',
+        icon: <BookOpen className="h-5 w-5 text-purple-600" />,
       });
       baseItems.push({
         href: '/tashih',
@@ -297,11 +304,20 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
         label: 'Sit-In Kelas',
         icon: <ArrowRightLeft className="h-5 w-5 text-rose-600" />,
       });
+
+      baseItems.push({ type: 'header', label: 'Evaluasi & Syahadah' });
       baseItems.push({
-        href: '/perjalanan-saya',
-        label: 'Perjalanan Saya',
-        icon: <BarChart3 className="h-5 w-5" />,
+        href: '/ujian',
+        label: 'Ujian Akhir',
+        icon: <GraduationCap className="h-5 w-5 text-indigo-600" />,
       });
+      baseItems.push({
+        href: '/kelulusan-sertifikat',
+        label: 'Syahadah & Kelulusan',
+        icon: <Award className="h-5 w-5 text-amber-600" />,
+      });
+
+      baseItems.push({ type: 'header', label: 'Lanjutan & Alumni' });
       baseItems.push({
         href: '/murojaah',
         label: "Muraja'ah 40x",
@@ -311,11 +327,6 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
         href: '/alumni',
         label: 'Ruang Alumni',
         icon: <Users className="h-5 w-5" />,
-      });
-      baseItems.push({
-        href: '/kelulusan-sertifikat',
-        label: 'Syahadah & Kelulusan',
-        icon: <Award className="h-5 w-5 text-amber-600" />,
       });
 
       baseItems.push({ type: 'header', label: 'Profil' });
@@ -330,14 +341,22 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
         icon: <Settings className="h-5 w-5" />,
       });
     }
-    // 5. THALIBAH / CALON THALIBAH PERSONA
+    // 5. THALIBAH / CALON THALIBAH PERSONA (Alur Lengkap Santriwati MTI)
     else {
-      baseItems.push({ type: 'header', label: 'Menu Utama' });
+      // 1. Pintu Utama (Dasbor & Peta Perjalanan) - Langsung tanpa header "Menu Utama"
       baseItems.push({
         href: '/dashboard',
         label: 'Dasbor',
         icon: <LayoutGrid className="h-5 w-5 text-emerald-600" />,
       });
+      baseItems.push({
+        href: '/perjalanan-saya',
+        label: 'Perjalanan Saya',
+        icon: <BarChart3 className="h-5 w-5" />,
+      });
+
+      // 2. Alur Pembelajaran Aktif
+      baseItems.push({ type: 'header', label: 'Pembelajaran' });
       baseItems.push({
         href: '/jadwal-harian',
         label: 'Jadwal Harian',
@@ -349,25 +368,31 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
         icon: <BookOpen className="h-5 w-5" />,
       });
       baseItems.push({
-        href: '/sit-in',
-        label: 'Sit-In Kelas',
-        icon: <ArrowRightLeft className="h-5 w-5 text-rose-600" />,
-      });
-      baseItems.push({
-        href: '/pendaftaran/muallimah',
-        label: 'Daftar Muallimah',
-        icon: <GraduationCap className="h-5 w-5 text-green-600" />,
-      });
-      baseItems.push({
         href: '/tashih',
         label: 'Tashih Bacaan',
         icon: <FileText className="h-5 w-5" />,
       });
       baseItems.push({
-        href: '/perjalanan-saya',
-        label: 'Perjalanan Saya',
-        icon: <BarChart3 className="h-5 w-5" />,
+        href: '/sit-in',
+        label: 'Sit-In Kelas',
+        icon: <ArrowRightLeft className="h-5 w-5 text-rose-600" />,
       });
+
+      // 3. Alur Evaluasi & Kelulusan
+      baseItems.push({ type: 'header', label: 'Evaluasi & Syahadah' });
+      baseItems.push({
+        href: '/ujian',
+        label: 'Ujian Akhir',
+        icon: <GraduationCap className="h-5 w-5 text-indigo-600" />,
+      });
+      baseItems.push({
+        href: '/kelulusan-sertifikat',
+        label: 'Syahadah & Kelulusan',
+        icon: <Award className="h-5 w-5 text-amber-600" />,
+      });
+
+      // 4. Alur Lanjutan, Komunitas & Pengabdian
+      baseItems.push({ type: 'header', label: 'Lanjutan & Alumni' });
       baseItems.push({
         href: '/murojaah',
         label: "Muraja'ah 40x",
@@ -379,11 +404,12 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
         icon: <Users className="h-5 w-5" />,
       });
       baseItems.push({
-        href: '/kelulusan-sertifikat',
-        label: 'Syahadah & Kelulusan',
-        icon: <Award className="h-5 w-5 text-amber-600" />,
+        href: '/pendaftaran/muallimah',
+        label: 'Daftar Muallimah',
+        icon: <GraduationCap className="h-5 w-5 text-green-600" />,
       });
 
+      // 5. Akun & Profil
       baseItems.push({ type: 'header', label: 'Profil' });
       baseItems.push({
         href: '/profile',
@@ -410,7 +436,6 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
     return pathname === href || (href !== '/dashboard' && pathname.startsWith(href));
   };
 
-  
   return (
     <>
       {/* Mobile overlay - Only render after mount to prevent hydration mismatch */}
@@ -489,15 +514,14 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
           </button>
         </div>
 
-
-        {/* Navigation */}
-        <nav className={`flex-1 py-4 sm:py-6 space-y-1 sm:space-y-2 overflow-y-auto scrollbar-thin scrollbar-thumb-green-900/20 scrollbar-track-transparent -webkit-overflow-scrolling:touch ${isCollapsed ? 'px-2' : 'px-3 sm:px-4'}`}>
+        {/* Navigation - Space kosong dihilangkan, Dasbor langsung tampil di bagian atas */}
+        <nav className={`flex-1 pt-2 sm:pt-3 pb-6 space-y-1 overflow-y-auto scrollbar-thin scrollbar-thumb-green-900/20 scrollbar-track-transparent -webkit-overflow-scrolling:touch ${isCollapsed ? 'px-2' : 'px-3 sm:px-4'}`}>
           {navItems.map((item, index) => {
             if (item.type === 'header') {
-              if (isCollapsed) return <div key={`header-${index}`} className="h-px bg-green-900/5 my-4 mx-4" />;
+              if (isCollapsed) return <div key={`header-${index}`} className="h-px bg-green-900/10 my-3 mx-2" />;
               return (
-                <div key={`header-${index}`} className="px-6 pt-6 pb-2">
-                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-green-900/40">
+                <div key={`header-${index}`} className="px-3 pt-4 pb-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-green-900/40">
                     {item.label}
                   </span>
                 </div>
@@ -510,13 +534,12 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
                   href={item.href}
                   className={`
                     flex items-center rounded-xl text-sm font-medium transition-all duration-300 relative min-w-0 touch-manipulation group
-                    ${isCollapsed ? 'justify-center px-2 py-3 hover:bg-green-50/50' : 'px-4 py-3 hover:bg-green-50/50 hover:translate-x-1'}
+                    ${isCollapsed ? 'justify-center px-2 py-3 hover:bg-green-50/50' : 'px-4 py-2.5 hover:bg-green-50/50 hover:translate-x-1'}
                     ${isActive(item.href)
                       ? 'bg-green-50 text-green-900 shadow-sm border border-green-900/5'
                       : 'text-gray-500 hover:text-green-900'
                     }
                   `}
-
                   onClick={(e) => {
                     if (item.onClick) {
                       item.onClick(e);
@@ -533,7 +556,7 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
                   )}
 
                   <div className={`w-5 h-5 flex items-center justify-center rounded-full flex-shrink-0 ${
-                    isCollapsed ? '' : 'mr-4'
+                    isCollapsed ? '' : 'mr-3.5'
                   } ${
                     isActive(item.href)
                       ? 'bg-green-600/10'
@@ -559,9 +582,7 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
               </div>
             );
           })}
-
-
-          </nav>
+        </nav>
 
         {/* Footer: Compact Name & NIT with Icon Logout Button */}
         {isMounted && (
