@@ -1,0 +1,611 @@
+'use server';
+
+import { createClient } from '@/lib/supabase/server';
+import { query } from '@/lib/db';
+import { revalidatePath } from 'next/cache';
+import { hasRequiredRank, ROLE_RANKS } from '@/lib/roles';
+
+export interface PraTikrarEntryInput {
+  tanggal: string; // YYYY-MM-DD
+  pekan_ke?: number;
+  simak_1: boolean;
+  simak_2: boolean;
+  simak_3: boolean;
+  metode_simak: string;
+  surat_nama: string;
+  ayat_range: string;
+  durasi_menit: number;
+  catatan_santri?: string;
+  halaqah_id?: string | null;
+  batch_id?: string | null;
+}
+
+export interface PraTikrarStudentRecord {
+  student_id: string;
+  student_name: string;
+  student_kunyah?: string;
+  student_email?: string;
+  student_wa?: string;
+  entry_id?: string | null;
+  tanggal?: string;
+  pekan_ke?: number;
+  simak_1?: boolean;
+  simak_2?: boolean;
+  simak_3?: boolean;
+  metode_simak?: string;
+  surat_nama?: string;
+  ayat_range?: string;
+  durasi_menit?: number;
+  catatan_santri?: string;
+  status_bacaan?: string;
+  catatan_muallimah?: string;
+  evaluasi_tajwid?: any;
+  tashih_at?: string;
+  kehadiran_zoom?: string;
+  catatan_musyrifah?: string;
+  absen_at?: string;
+}
+
+export interface PraTikrarContextResponse {
+  success: boolean;
+  error?: string;
+  userRole?: string;
+  roles?: string[];
+  isMuallimah?: boolean;
+  isMusyrifah?: boolean;
+  isAdmin?: boolean;
+  isThalibah?: boolean;
+  activeBatch?: any;
+  userHalaqah?: any;
+  managedHalaqahs?: any[];
+  todayEntry?: any;
+  history?: any[];
+}
+
+export async function getPraTikrarContext(): Promise<PraTikrarContextResponse> {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: 'Unauthorized. Silakan login kembali.' };
+  }
+
+  try {
+    // 1. Get user profile and roles
+    const { rows: userRows } = await query(
+      `SELECT id, full_name, email, role, roles FROM users WHERE id = $1`,
+      [user.id]
+    );
+    const userProfile = userRows[0] || {};
+    const roles: string[] = Array.isArray(userProfile.roles)
+      ? userProfile.roles
+      : [userProfile.role || 'thalibah'];
+
+    const isAdmin = hasRequiredRank(roles, ROLE_RANKS.admin);
+    const isMusyrifah = roles.includes('musyrifah') || isAdmin;
+    const isMuallimah = roles.includes('muallimah') || isAdmin;
+    const isThalibah = roles.includes('thalibah') || (!isMusyrifah && !isMuallimah && !isAdmin);
+
+    // 2. Get active batch
+    const { rows: batchRows } = await query(
+      `SELECT id, name, status, start_date, opening_class_date, first_week_start_date 
+       FROM batches 
+       WHERE status IN ('open', 'ongoing') 
+       ORDER BY created_at DESC LIMIT 1`
+    );
+    const activeBatch = batchRows[0] || null;
+
+    // 3. Find User's Pra-Tikrar Halaqah (for Thalibah view)
+    let userHalaqah: any = null;
+
+    if (activeBatch) {
+      // Find halaqah where user is assigned either via halaqah_students OR daftar_ulang_submissions
+      const { rows: studentHalaqahRows } = await query(
+        `SELECT h.id, h.name, h.day_of_week, h.start_time, h.end_time, h.zoom_link, h.location,
+                z.url as zoom_url, z.meeting_id as zoom_meeting_id, z.passcode as zoom_passcode,
+                (SELECT u2.full_name FROM halaqah_mentors hm JOIN users u2 ON hm.mentor_id = u2.id WHERE hm.halaqah_id = h.id AND hm.role = 'ustadzah' LIMIT 1) as muallimah_name,
+                (SELECT u2.whatsapp FROM halaqah_mentors hm JOIN users u2 ON hm.mentor_id = u2.id WHERE hm.halaqah_id = h.id AND hm.role = 'ustadzah' LIMIT 1) as muallimah_wa,
+                (SELECT u3.full_name FROM halaqah_mentors hm2 JOIN users u3 ON hm2.mentor_id = u3.id WHERE hm2.halaqah_id = h.id AND hm2.role = 'musyrifah' LIMIT 1) as musyrifah_name,
+                (SELECT u3.whatsapp FROM halaqah_mentors hm2 JOIN users u3 ON hm2.mentor_id = u3.id WHERE hm2.halaqah_id = h.id AND hm2.role = 'musyrifah' LIMIT 1) as musyrifah_wa
+         FROM halaqah h
+         LEFT JOIN batch_zoom_links z ON h.zoom_link_id = z.id
+         JOIN programs p ON h.program_id = p.id
+         WHERE p.class_type = 'pra_tahfidz' AND p.batch_id = $1
+           AND (
+             EXISTS (SELECT 1 FROM halaqah_students hs WHERE hs.halaqah_id = h.id AND hs.thalibah_id = $2 AND hs.status = 'active')
+             OR EXISTS (SELECT 1 FROM daftar_ulang_submissions dus JOIN pendaftaran_tikrar_tahfidz reg ON dus.registration_id = reg.id WHERE dus.user_id = $2 AND dus.tashih_halaqah_id = h.id AND dus.status = 'approved')
+           )
+         LIMIT 1`,
+        [activeBatch.id, user.id]
+      );
+
+      if (studentHalaqahRows.length > 0) {
+        userHalaqah = studentHalaqahRows[0];
+      } else if (isAdmin || isMusyrifah || isMuallimah) {
+        // Fallback preview: pick the first active Pra-Tikrar halaqah for staff preview
+        const { rows: previewHalaqahRows } = await query(
+          `SELECT h.id, h.name, h.day_of_week, h.start_time, h.end_time, h.zoom_link, h.location,
+                  z.url as zoom_url, z.meeting_id as zoom_meeting_id, z.passcode as zoom_passcode,
+                  (SELECT u2.full_name FROM halaqah_mentors hm JOIN users u2 ON hm.mentor_id = u2.id WHERE hm.halaqah_id = h.id AND hm.role = 'ustadzah' LIMIT 1) as muallimah_name,
+                  (SELECT u2.whatsapp FROM halaqah_mentors hm JOIN users u2 ON hm.mentor_id = u2.id WHERE hm.halaqah_id = h.id AND hm.role = 'ustadzah' LIMIT 1) as muallimah_wa,
+                  (SELECT u3.full_name FROM halaqah_mentors hm2 JOIN users u3 ON hm2.mentor_id = u3.id WHERE hm2.halaqah_id = h.id AND hm2.role = 'musyrifah' LIMIT 1) as musyrifah_name,
+                  (SELECT u3.whatsapp FROM halaqah_mentors hm2 JOIN users u3 ON hm2.mentor_id = u3.id WHERE hm2.halaqah_id = h.id AND hm2.role = 'musyrifah' LIMIT 1) as musyrifah_wa
+           FROM halaqah h
+           LEFT JOIN batch_zoom_links z ON h.zoom_link_id = z.id
+           JOIN programs p ON h.program_id = p.id
+           WHERE p.class_type = 'pra_tahfidz' AND p.batch_id = $1 AND h.status = 'active'
+           ORDER BY h.name ASC LIMIT 1`,
+          [activeBatch.id]
+        );
+        if (previewHalaqahRows.length > 0) {
+          userHalaqah = previewHalaqahRows[0];
+        }
+      }
+    }
+
+    // 4. Fetch managed halaqahs for Muallimah or Musyrifah
+    let managedHalaqahs: any[] = [];
+    if (activeBatch && (isMuallimah || isMusyrifah || isAdmin)) {
+      let mentorFilter = '';
+      const params: any[] = [activeBatch.id];
+
+      if (!isAdmin) {
+        params.push(user.id);
+        mentorFilter = `AND EXISTS (SELECT 1 FROM halaqah_mentors hm WHERE hm.halaqah_id = h.id AND hm.mentor_id = $2)`;
+      }
+
+      const { rows: managedRows } = await query(
+        `SELECT h.id, h.name, h.day_of_week, h.start_time, h.end_time, h.zoom_link,
+                z.url as zoom_url, z.meeting_id as zoom_meeting_id, z.passcode as zoom_passcode,
+                (SELECT u2.full_name FROM halaqah_mentors hm JOIN users u2 ON hm.mentor_id = u2.id WHERE hm.halaqah_id = h.id AND hm.role = 'ustadzah' LIMIT 1) as muallimah_name,
+                (SELECT u3.full_name FROM halaqah_mentors hm2 JOIN users u3 ON hm2.mentor_id = u3.id WHERE hm2.halaqah_id = h.id AND hm2.role = 'musyrifah' LIMIT 1) as musyrifah_name,
+                (SELECT count(*) FROM halaqah_students hs WHERE hs.halaqah_id = h.id AND hs.status = 'active') as active_students
+         FROM halaqah h
+         LEFT JOIN batch_zoom_links z ON h.zoom_link_id = z.id
+         JOIN programs p ON h.program_id = p.id
+         WHERE p.class_type = 'pra_tahfidz' AND p.batch_id = $1 AND h.status = 'active'
+         ${mentorFilter}
+         ORDER BY h.name ASC`,
+        params
+      );
+      managedHalaqahs = managedRows;
+    }
+
+    // 5. Fetch Today's Entry for current user
+    const todayStr = new Date().toISOString().split('T')[0];
+    const { rows: todayRows } = await query(
+      `SELECT * FROM jurnal_pra_tikrar WHERE user_id = $1 AND tanggal = $2 LIMIT 1`,
+      [user.id, todayStr]
+    );
+    const todayEntry = todayRows[0] || null;
+
+    // 6. Fetch Jurnal History (last 30 entries)
+    const { rows: historyRows } = await query(
+      `SELECT j.*, 
+              m.full_name as muallimah_nama_lengkap,
+              ms.full_name as musyrifah_nama_lengkap
+       FROM jurnal_pra_tikrar j
+       LEFT JOIN users m ON j.muallimah_id = m.id
+       LEFT JOIN users ms ON j.musyrifah_id = ms.id
+       WHERE j.user_id = $1
+       ORDER BY j.tanggal DESC
+       LIMIT 30`,
+      [user.id]
+    );
+
+    return {
+      success: true,
+      userRole: userProfile.role,
+      roles,
+      isMuallimah,
+      isMusyrifah,
+      isAdmin,
+      isThalibah,
+      activeBatch,
+      userHalaqah,
+      managedHalaqahs,
+      todayEntry,
+      history: historyRows,
+    };
+  } catch (error: any) {
+    console.error('[getPraTikrarContext] Error:', error);
+    return { success: false, error: error?.message || 'Gagal memuat data Pra-Tikrar' };
+  }
+}
+
+export async function savePraTikrarDailyEntry(input: PraTikrarEntryInput) {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: 'Unauthorized. Silakan login kembali.' };
+  }
+
+  try {
+    const { rows } = await query(
+      `INSERT INTO jurnal_pra_tikrar (
+         user_id,
+         batch_id,
+         halaqah_id,
+         tanggal,
+         pekan_ke,
+         simak_1,
+         simak_2,
+         simak_3,
+         metode_simak,
+         surat_nama,
+         ayat_range,
+         durasi_menit,
+         catatan_santri,
+         updated_at
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, now())
+       ON CONFLICT (user_id, tanggal) DO UPDATE SET
+         pekan_ke = EXCLUDED.pekan_ke,
+         simak_1 = EXCLUDED.simak_1,
+         simak_2 = EXCLUDED.simak_2,
+         simak_3 = EXCLUDED.simak_3,
+         metode_simak = EXCLUDED.metode_simak,
+         surat_nama = EXCLUDED.surat_nama,
+         ayat_range = EXCLUDED.ayat_range,
+         durasi_menit = EXCLUDED.durasi_menit,
+         catatan_santri = EXCLUDED.catatan_santri,
+         updated_at = now()
+       RETURNING *`,
+      [
+        user.id,
+        input.batch_id || null,
+        input.halaqah_id || null,
+        input.tanggal,
+        input.pekan_ke || 1,
+        input.simak_1 || false,
+        input.simak_2 || false,
+        input.simak_3 || false,
+        input.metode_simak || 'murni',
+        input.surat_nama || null,
+        input.ayat_range || null,
+        input.durasi_menit || 0,
+        input.catatan_santri || null,
+      ]
+    );
+
+    revalidatePath('/jurnal-pra-tikrar');
+    return {
+      success: true,
+      message: 'Alhamdulillah! Jurnal harian Pra-Tikrar berhasil disimpan.',
+      data: rows[0],
+    };
+  } catch (error: any) {
+    console.error('[savePraTikrarDailyEntry] Error:', error);
+    return { success: false, error: error?.message || 'Gagal menyimpan jurnal' };
+  }
+}
+
+export interface TashihPayload {
+  entryId?: string | null;
+  studentId: string;
+  halaqahId?: string | null;
+  batchId?: string | null;
+  tanggal: string;
+  status_bacaan: string;
+  catatan_muallimah?: string;
+  evaluasi_tajwid?: any[];
+}
+
+export async function submitTashihByMuallimah(
+  paramOrEntryId: string | TashihPayload,
+  legacyData?: {
+    catatan_muallimah?: string;
+    status_bacaan?: string;
+    evaluasi_tajwid?: any[];
+  }
+) {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: 'Unauthorized.' };
+  }
+
+  try {
+    const { rows: userRows } = await query(`SELECT roles FROM users WHERE id = $1`, [user.id]);
+    const roles: string[] = userRows[0]?.roles || [];
+    const canTashih = roles.includes('muallimah') || hasRequiredRank(roles, ROLE_RANKS.admin);
+
+    if (!canTashih) {
+      return { success: false, error: 'Hanya Muallimah atau Admin yang berhak memberikan penilaian tashih.' };
+    }
+
+    if (typeof paramOrEntryId === 'string') {
+      const entryId = paramOrEntryId;
+      const { rows } = await query(
+        `UPDATE jurnal_pra_tikrar 
+         SET muallimah_id = $1,
+             catatan_muallimah = $2,
+             status_bacaan = $3,
+             evaluasi_tajwid = $4,
+             tashih_at = now(),
+             updated_at = now()
+         WHERE id = $5
+         RETURNING *`,
+        [
+          user.id,
+          legacyData?.catatan_muallimah || null,
+          legacyData?.status_bacaan || 'cukup',
+          JSON.stringify(legacyData?.evaluasi_tajwid || []),
+          entryId,
+        ]
+      );
+
+      revalidatePath('/jurnal-pra-tikrar');
+      return {
+        success: true,
+        message: 'Catatan bimbingan dan tashih bacaan berhasil diperbarui.',
+        data: rows[0],
+      };
+    } else {
+      const p = paramOrEntryId;
+      const { rows } = await query(
+        `INSERT INTO jurnal_pra_tikrar (
+           user_id,
+           halaqah_id,
+           batch_id,
+           tanggal,
+           muallimah_id,
+           status_bacaan,
+           catatan_muallimah,
+           evaluasi_tajwid,
+           tashih_at,
+           updated_at
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now(), now())
+         ON CONFLICT (user_id, tanggal) DO UPDATE SET
+           muallimah_id = EXCLUDED.muallimah_id,
+           status_bacaan = EXCLUDED.status_bacaan,
+           catatan_muallimah = EXCLUDED.catatan_muallimah,
+           evaluasi_tajwid = EXCLUDED.evaluasi_tajwid,
+           tashih_at = now(),
+           updated_at = now()
+         RETURNING *`,
+        [
+          p.studentId,
+          p.halaqahId || null,
+          p.batchId || null,
+          p.tanggal,
+          user.id,
+          p.status_bacaan || 'cukup',
+          p.catatan_muallimah || null,
+          JSON.stringify(p.evaluasi_tajwid || []),
+        ]
+      );
+
+      revalidatePath('/jurnal-pra-tikrar');
+      return {
+        success: true,
+        message: 'Catatan bimbingan dan tashih bacaan santriwati berhasil disimpan.',
+        data: rows[0],
+      };
+    }
+  } catch (error: any) {
+    console.error('[submitTashihByMuallimah] Error:', error);
+    return { success: false, error: error?.message || 'Gagal menyimpan catatan tashih' };
+  }
+}
+
+export interface PresensiPayload {
+  entryId?: string | null;
+  studentId: string;
+  halaqahId?: string | null;
+  batchId?: string | null;
+  tanggal: string;
+  kehadiran_zoom: string;
+  catatan_musyrifah?: string;
+}
+
+export async function submitPresensiByMusyrifah(
+  paramOrEntryId: string | PresensiPayload,
+  legacyData?: {
+    kehadiran_zoom?: string;
+    catatan_musyrifah?: string;
+  }
+) {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: 'Unauthorized.' };
+  }
+
+  try {
+    const { rows: userRows } = await query(`SELECT roles FROM users WHERE id = $1`, [user.id]);
+    const roles: string[] = userRows[0]?.roles || [];
+    const canManagePresensi = roles.includes('musyrifah') || hasRequiredRank(roles, ROLE_RANKS.admin);
+
+    if (!canManagePresensi) {
+      return { success: false, error: 'Hanya Musyrifah atau Admin yang berhak mencatat presensi kehadiran.' };
+    }
+
+    if (typeof paramOrEntryId === 'string') {
+      const entryId = paramOrEntryId;
+      const { rows } = await query(
+        `UPDATE jurnal_pra_tikrar 
+         SET musyrifah_id = $1,
+             kehadiran_zoom = $2,
+             catatan_musyrifah = $3,
+             absen_at = now(),
+             updated_at = now()
+         WHERE id = $4
+         RETURNING *`,
+        [
+          user.id,
+          legacyData?.kehadiran_zoom || 'hadir',
+          legacyData?.catatan_musyrifah || null,
+          entryId,
+        ]
+      );
+
+      revalidatePath('/jurnal-pra-tikrar');
+      return {
+        success: true,
+        message: 'Presensi kelas Zoom berhasil dicatat oleh Musyrifah.',
+        data: rows[0],
+      };
+    } else {
+      const p = paramOrEntryId;
+      const { rows } = await query(
+        `INSERT INTO jurnal_pra_tikrar (
+           user_id,
+           halaqah_id,
+           batch_id,
+           tanggal,
+           musyrifah_id,
+           kehadiran_zoom,
+           catatan_musyrifah,
+           absen_at,
+           updated_at
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, now(), now())
+         ON CONFLICT (user_id, tanggal) DO UPDATE SET
+           musyrifah_id = EXCLUDED.musyrifah_id,
+           kehadiran_zoom = EXCLUDED.kehadiran_zoom,
+           catatan_musyrifah = EXCLUDED.catatan_musyrifah,
+           absen_at = now(),
+           updated_at = now()
+         RETURNING *`,
+        [
+          p.studentId,
+          p.halaqahId || null,
+          p.batchId || null,
+          p.tanggal,
+          user.id,
+          p.kehadiran_zoom || 'hadir',
+          p.catatan_musyrifah || null,
+        ]
+      );
+
+      revalidatePath('/jurnal-pra-tikrar');
+      return {
+        success: true,
+        message: 'Presensi kelas Zoom santriwati berhasil dicatat.',
+        data: rows[0],
+      };
+    }
+  } catch (error: any) {
+    console.error('[submitPresensiByMusyrifah] Error:', error);
+    return { success: false, error: error?.message || 'Gagal menyimpan presensi' };
+  }
+}
+
+export async function submitBatchPresensiByMusyrifah(
+  items: Array<{ studentId: string; kehadiran_zoom: string; catatan_musyrifah?: string }>,
+  halaqahId: string,
+  batchId: string | null,
+  tanggal: string
+) {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: 'Unauthorized.' };
+  }
+
+  try {
+    const { rows: userRows } = await query(`SELECT roles FROM users WHERE id = $1`, [user.id]);
+    const roles: string[] = userRows[0]?.roles || [];
+    const canManagePresensi = roles.includes('musyrifah') || hasRequiredRank(roles, ROLE_RANKS.admin);
+
+    if (!canManagePresensi) {
+      return { success: false, error: 'Hanya Musyrifah atau Admin yang berhak mencatat presensi kehadiran.' };
+    }
+
+    for (const item of items) {
+      await query(
+        `INSERT INTO jurnal_pra_tikrar (
+           user_id,
+           halaqah_id,
+           batch_id,
+           tanggal,
+           musyrifah_id,
+           kehadiran_zoom,
+           catatan_musyrifah,
+           absen_at,
+           updated_at
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, now(), now())
+         ON CONFLICT (user_id, tanggal) DO UPDATE SET
+           musyrifah_id = EXCLUDED.musyrifah_id,
+           kehadiran_zoom = EXCLUDED.kehadiran_zoom,
+           catatan_musyrifah = EXCLUDED.catatan_musyrifah,
+           absen_at = now(),
+           updated_at = now()`,
+        [
+          item.studentId,
+          halaqahId || null,
+          batchId || null,
+          tanggal,
+          user.id,
+          item.kehadiran_zoom || 'hadir',
+          item.catatan_musyrifah || null,
+        ]
+      );
+    }
+
+    revalidatePath('/jurnal-pra-tikrar');
+    return {
+      success: true,
+      message: `Presensi seluruh santriwati (${items.length} orang) berhasil disimpan.`,
+    };
+  } catch (error: any) {
+    console.error('[submitBatchPresensiByMusyrifah] Error:', error);
+    return { success: false, error: error?.message || 'Gagal menyimpan batch presensi' };
+  }
+}
+
+export async function getHalaqahJournalRecords(halaqahId: string, tanggal?: string) {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: 'Unauthorized.' };
+  }
+
+  try {
+    const queryDate = tanggal || new Date().toISOString().split('T')[0];
+    const { rows } = await query(
+      `SELECT 
+         u.id as student_id, 
+         u.full_name as student_name, 
+         u.nama_kunyah as student_kunyah,
+         u.email as student_email,
+         u.whatsapp as student_wa,
+         j.id as entry_id,
+         j.tanggal,
+         j.pekan_ke,
+         j.simak_1,
+         j.simak_2,
+         j.simak_3,
+         j.metode_simak,
+         j.surat_nama,
+         j.ayat_range,
+         j.durasi_menit,
+         j.catatan_santri,
+         j.status_bacaan,
+         j.catatan_muallimah,
+         j.evaluasi_tajwid,
+         j.tashih_at,
+         j.kehadiran_zoom,
+         j.catatan_musyrifah,
+         j.absen_at
+       FROM users u
+       LEFT JOIN jurnal_pra_tikrar j ON j.user_id = u.id AND j.tanggal = $2
+       WHERE EXISTS (
+         SELECT 1 FROM halaqah_students hs WHERE hs.halaqah_id = $1 AND hs.thalibah_id = u.id AND hs.status = 'active'
+       ) OR EXISTS (
+         SELECT 1 FROM daftar_ulang_submissions dus WHERE dus.tashih_halaqah_id = $1 AND dus.user_id = u.id AND dus.status = 'approved'
+       )
+       ORDER BY u.full_name ASC`,
+      [halaqahId, queryDate]
+    );
+
+    return { success: true, records: rows };
+  } catch (error: any) {
+    console.error('[getHalaqahJournalRecords] Error:', error);
+    return { success: false, error: error?.message || 'Gagal memuat rekap jurnal halaqah' };
+  }
+}

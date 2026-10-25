@@ -111,10 +111,15 @@ export function DynamicActionBanner({
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto shrink-0">
             <Link href="/pendaftaran/tikrar-tahfidz" className="w-full sm:w-auto">
               <Button className="w-full sm:w-auto bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl shadow-sm text-xs sm:text-sm">
-                Daftar Sekarang &rarr;
+                Daftar Tikrar Tahfidz &rarr;
+              </Button>
+            </Link>
+            <Link href="/pendaftaran/pra-tikrar" className="w-full sm:w-auto">
+              <Button variant="outline" className="w-full sm:w-auto border-emerald-300 text-emerald-800 hover:bg-emerald-50 font-bold rounded-xl text-xs sm:text-sm">
+                Daftar Pra-Tikrar (Juz 30) &rarr;
               </Button>
             </Link>
           </div>

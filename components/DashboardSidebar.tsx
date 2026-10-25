@@ -6,7 +6,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { 
   X, BookOpen, GraduationCap, Users, LogOut, ChevronLeft, ChevronRight, Eye,
   LayoutGrid, ClipboardList, FileText, UserCheck, BarChart3, Calendar, Shield, Settings,
-  MessageSquare, HeartHandshake, HelpCircle, Award, ArrowRightLeft, Video, Database, RotateCcw
+  MessageSquare, HeartHandshake, HelpCircle, Award, ArrowRightLeft, Video, Database, RotateCcw, Sparkles
 } from 'lucide-react';
 import { ROLE_RANKS, hasRequiredRank, isStaff } from '@/lib/roles';
 import { useAuth } from '@/hooks/useAuth';
@@ -131,6 +131,11 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
         icon: <BookOpen className="h-5 w-5" />,
       });
       baseItems.push({
+        href: '/jurnal-pra-tikrar',
+        label: 'Jurnal Pra-Tikrar',
+        icon: <Sparkles className="h-5 w-5 text-indigo-600" />,
+      });
+      baseItems.push({
         href: '/admin/exams',
         label: 'Manajemen Ujian',
         icon: <GraduationCap className="h-5 w-5" />,
@@ -194,6 +199,11 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
         icon: <BookOpen className="h-5 w-5 text-blue-600" />,
       });
       baseItems.push({
+        href: '/jurnal-pra-tikrar',
+        label: 'Jurnal Pra-Tikrar',
+        icon: <Sparkles className="h-5 w-5 text-blue-600" />,
+      });
+      baseItems.push({
         href: '/admin/jadwal-harian',
         label: 'Jadwal Harian',
         icon: <Calendar className="h-5 w-5" />,
@@ -240,6 +250,11 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
         icon: <BookOpen className="h-5 w-5 text-emerald-600" />,
       });
       baseItems.push({
+        href: '/jurnal-pra-tikrar',
+        label: 'Jurnal Pra-Tikrar',
+        icon: <Sparkles className="h-5 w-5 text-emerald-600" />,
+      });
+      baseItems.push({
         href: '/tashih',
         label: 'Tashih Bacaan Santri',
         icon: <FileText className="h-5 w-5 text-emerald-600" />,
@@ -281,6 +296,11 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
         href: '/jurnal-harian',
         label: 'Jurnal Harian',
         icon: <BookOpen className="h-5 w-5" />,
+      });
+      baseItems.push({
+        href: '/jurnal-pra-tikrar',
+        label: 'Jurnal Pra-Tikrar',
+        icon: <Sparkles className="h-5 w-5 text-purple-600" />,
       });
       baseItems.push({
         href: '/tashih',
@@ -342,6 +362,11 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
         href: '/jurnal-harian',
         label: 'Jurnal Harian',
         icon: <BookOpen className="h-5 w-5" />,
+      });
+      baseItems.push({
+        href: '/jurnal-pra-tikrar',
+        label: 'Jurnal Pra-Tikrar',
+        icon: <Sparkles className="h-5 w-5 text-indigo-600" />,
       });
       baseItems.push({
         href: '/sit-in',
