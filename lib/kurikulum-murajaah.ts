@@ -223,7 +223,7 @@ export function generateMurajaahWeeklyRecap({
   text += `📲 *Panduan Teknis Thalibah di Web Apps:*\n`;
   text += `1. Pada pekan ini *tidak ada materi ziyadah baru*.\n`;
   text += `2. Silakan baca berulang-ulang porsi halaman hari ini hingga lancar mengalir.\n`;
-  text += `3. Buka menu **Jurnal Harian** di web Tikrar, centang checklist *Selesai Murajaah* sesuai hari yang aktif (M1 s.d. M7).\n`;
+  text += `3. Buka menu *Jurnal Harian* di web Tikrar, centang checklist *Selesai Murajaah* sesuai hari yang aktif (M1 s.d. M7).\n`;
   text += `4. Persiapkan hafalan dengan matang untuk menyongsong masa Ujian Akhir (Tasmi' Lisan & Ujian Tulis).\n\n`;
 
   text += `Semoga Allah ta'ala memudahkan lisan dan hafalan kita semua. Aamiin 🤲🤍\n\n`;
