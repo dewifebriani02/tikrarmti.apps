@@ -20,7 +20,7 @@ interface JurnalEntryFormProps {
 const activityOptions = [
   { id: 'rabth_completed', name: 'Rabth', sub: 'Menyambung (+10 Blok Terakhir)', desc: '1x per Hari', icon: BookOpen },
   { id: 'murajaah_completed', name: 'Murajaah', sub: 'Ulang Blok Kemarin', desc: '5x per Hari', icon: Headphones },
-  { id: 'simak_murattal_completed', name: 'Simak Murattal', sub: 'Mendengar Qori', desc: '5x per Hari', icon: Headphones },
+  { id: 'simak_murattal_completed', name: 'Simak Murattal', sub: 'Mendengar Qori', desc: '3x per Hari', icon: Headphones },
   { id: 'tikrar_bi_an_nadzar_completed', name: 'Tikrar Bi An Nadzar', sub: 'Baca Melihat Mushaf', desc: '40x per Blok', icon: Sparkles },
   { id: 'tasmi_record_completed', name: 'Tasmi Record', sub: 'Rekam Tanpa Mushaf', desc: '3x Rekaman Lancar', icon: Mic },
   { id: 'simak_record_completed', name: 'Simak Record', sub: 'Dengar Rekaman Sendiri', desc: '1x per Blok', icon: Headphones },

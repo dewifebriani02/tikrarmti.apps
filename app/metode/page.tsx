@@ -117,7 +117,7 @@ export default function MetodePage() {
                 <div className="flex-1 w-full">
                   <h3 className="text-xl sm:text-2xl font-bold text-main mb-3 mobile-text-wrap">Simak Murattal</h3>
                   <p className="text-secondary leading-relaxed text-sm sm:text-base mobile-text-wrap">
-                    Dengarkan bacaan murattal dari qari terpercaya untuk blok hafalan hari ini sebanyak 5 kali. Tahap ini membantu membiasakan lisan dengan irama, makhraj, dan tajwid yang benar.
+                    Dengarkan bacaan murattal dari qari terpercaya untuk blok hafalan hari ini sebanyak 3 kali. Tahap ini membantu membiasakan lisan dengan irama, makhraj, dan tajwid yang benar.
                   </p>
                 </div>
               </div>
