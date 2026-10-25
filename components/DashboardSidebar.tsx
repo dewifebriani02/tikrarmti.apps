@@ -138,8 +138,8 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
 
       baseItems.push({ type: 'header', label: 'Alur Kelulusan' });
       baseItems.push({
-        href: '/kelulusan-sertifikat',
-        label: 'Penerbitan Syahadah',
+        href: '/admin/sertifikat',
+        label: 'Manajemen Syahadah',
         icon: <Award className="h-5 w-5 text-amber-600" />,
       });
       baseItems.push({
@@ -307,6 +307,11 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
         label: 'Ruang Alumni',
         icon: <Users className="h-5 w-5" />,
       });
+      baseItems.push({
+        href: '/kelulusan-sertifikat',
+        label: 'Syahadah & Kelulusan',
+        icon: <Award className="h-5 w-5 text-amber-600" />,
+      });
 
       baseItems.push({ type: 'header', label: 'Profil' });
       baseItems.push({
@@ -367,6 +372,11 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
         href: '/alumni',
         label: 'Ruang Alumni',
         icon: <Users className="h-5 w-5" />,
+      });
+      baseItems.push({
+        href: '/kelulusan-sertifikat',
+        label: 'Syahadah & Kelulusan',
+        icon: <Award className="h-5 w-5 text-amber-600" />,
       });
 
       baseItems.push({ type: 'header', label: 'Profil' });

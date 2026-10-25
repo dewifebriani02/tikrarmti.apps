@@ -1,0 +1,189 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getAuthorizationContext, hasAnyRole } from '@/lib/rbac';
+import { ApiResponses } from '@/lib/api-responses';
+import { query } from '@/lib/db';
+import { extractAndStampSingleCertificate, QrStampPosition } from '@/lib/certificates/pdf-stamper';
+import { toHijri } from '@/lib/utils/date-helpers';
+import fs from 'fs/promises';
+import path from 'path';
+
+export const dynamic = 'force-dynamic';
+
+export async function POST(request: NextRequest) {
+  try {
+    const authContext = await getAuthorizationContext();
+    if (!authContext) {
+      return ApiResponses.unauthorized('Authentication required');
+    }
+
+    const allowedRoles = ['admin', 'superadmin', 'musyrifah'] as any[];
+    if (!hasAnyRole(authContext, allowedRoles)) {
+      return ApiResponses.forbidden('Hanya Admin dan Musyrifah yang dapat memproses sertifikat.');
+    }
+
+    const body = await request.json();
+    const { sessionId, batchId, items, qrPosition } = body as {
+      sessionId: string;
+      batchId?: string;
+      items: Array<{
+        tempFileName: string;
+        pageIndex: number;
+        userId: string;
+        juzNumber?: string;
+        predicate?: string;
+        customCertNumber?: string;
+      }>;
+      qrPosition: QrStampPosition;
+    };
+
+    if (!sessionId || !items || !Array.isArray(items) || items.length === 0) {
+      return ApiResponses.badRequest('Data proses tidak lengkap.');
+    }
+
+    const tempDir = path.join('/tmp', 'mti_cert_sessions', sessionId);
+    const outputDir = path.join(process.cwd(), 'public', 'uploads', 'certificates');
+    await fs.mkdir(outputDir, { recursive: true });
+
+    // Fetch batch information for naming prefix
+    let batchCode = 'GEN';
+    if (batchId) {
+      const { rows: batchRows } = await query('SELECT name FROM batches WHERE id = $1', [batchId]);
+      if (batchRows.length > 0) {
+        const bName = batchRows[0].name.toLowerCase();
+        if (bName.includes('batch 1')) batchCode = 'B1';
+        else if (bName.includes('batch 2')) batchCode = 'B2';
+        else if (bName.includes('batch 3')) batchCode = 'B3';
+      }
+    }
+
+    const now = new Date();
+    const yearStr = now.getFullYear().toString().slice(-2);
+    const hijriDateStr = toHijri(now.toISOString().split('T')[0]);
+
+    const createdCertificates: any[] = [];
+    const errors: any[] = [];
+
+    // Get current max count for certificate numbering
+    const { rows: countRows } = await query('SELECT COUNT(*)::int as total FROM certificates');
+    let seqCounter = (countRows[0]?.total || 0) + 1;
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (!item.userId) {
+        errors.push({ index: i, error: 'Santriwati belum dipilih' });
+        continue;
+      }
+
+      try {
+        const sourceFilePath = path.join(tempDir, item.tempFileName);
+        const sourcePdfBuffer = await fs.readFile(sourceFilePath);
+
+        // Fetch student detail (including NIT)
+        const { rows: userRows } = await query(
+          'SELECT full_name, student_id_number, current_juz FROM users WHERE id = $1',
+          [item.userId]
+        );
+        const student = userRows[0];
+
+        // Format certificate number: MTI-SYH-[YEAR][BATCH]-[0001]
+        const certSeqStr = String(seqCounter).padStart(4, '0');
+        const certNumber = item.customCertNumber?.trim() || `MTI-SYH-${yearStr}${batchCode}-${certSeqStr}`;
+        seqCounter++;
+
+        const verificationUrl = `https://markaztikrar.id/verify/${certNumber}`;
+
+        // Stamp dynamic QR Code onto the single certificate page
+        const stampedPdfBytes = await extractAndStampSingleCertificate(
+          sourcePdfBuffer,
+          item.pageIndex,
+          verificationUrl,
+          certNumber,
+          qrPosition || { preset: 'bottom-right', size: 70, margin: 36 }
+        );
+
+        // Save stamped PDF
+        const targetFileName = `${certNumber}.pdf`;
+        const targetFilePath = path.join(outputDir, targetFileName);
+        await fs.writeFile(targetFilePath, Buffer.from(stampedPdfBytes));
+
+        const publicPdfUrl = `/uploads/certificates/${targetFileName}`;
+        const juzToRecord = item.juzNumber || (student?.current_juz ? `Juz ${student.current_juz}` : 'Juz 30');
+        const predicateToRecord = item.predicate || 'Mumtaz';
+
+        // Insert or update in database
+        const insertQuery = `
+          INSERT INTO certificates (
+            certificate_number,
+            user_id,
+            batch_id,
+            juz_number,
+            predicate,
+            issue_date,
+            hijri_date,
+            pdf_url,
+            qr_code_url,
+            metadata,
+            status,
+            updated_at
+          ) VALUES ($1, $2, $3, $4, $5, CURRENT_DATE, $6, $7, $8, $9, 'issued', NOW())
+          ON CONFLICT (certificate_number) DO UPDATE SET
+            user_id = EXCLUDED.user_id,
+            batch_id = EXCLUDED.batch_id,
+            juz_number = EXCLUDED.juz_number,
+            predicate = EXCLUDED.predicate,
+            pdf_url = EXCLUDED.pdf_url,
+            qr_code_url = EXCLUDED.qr_code_url,
+            metadata = EXCLUDED.metadata,
+            updated_at = NOW()
+          RETURNING id, certificate_number, user_id, juz_number, predicate, pdf_url, created_at;
+        `;
+
+        const { rows: certRows } = await query(insertQuery, [
+          certNumber,
+          item.userId,
+          batchId || null,
+          juzToRecord,
+          predicateToRecord,
+          hijriDateStr,
+          publicPdfUrl,
+          verificationUrl,
+          JSON.stringify({
+            originalTempFile: item.tempFileName,
+            pageIndex: item.pageIndex,
+            studentName: student?.full_name,
+            nit: student?.student_id_number,
+            qrPosition
+          })
+        ]);
+
+        createdCertificates.push({
+          ...certRows[0],
+          studentName: student?.full_name,
+          nit: student?.student_id_number,
+          verificationUrl
+        });
+      } catch (err: any) {
+        console.error(`[PROCESS ITEM ${i} ERROR]`, err);
+        errors.push({ index: i, error: err.message || 'Gagal memproses lembar sertifikat' });
+      }
+    }
+
+    // Optional: Clean up temp directory
+    try {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    } catch (e) {
+      console.warn('Failed to clean temp directory:', e);
+    }
+
+    return NextResponse.json({
+      success: true,
+      totalProcessed: createdCertificates.length,
+      totalErrors: errors.length,
+      certificates: createdCertificates,
+      errors
+    });
+  } catch (error: any) {
+    console.error('[CERTIFICATE PROCESS API ERROR]', error);
+    return NextResponse.json({ success: false, error: error.message || 'Internal Server Error' }, { status: 500 });
+  }
+}
