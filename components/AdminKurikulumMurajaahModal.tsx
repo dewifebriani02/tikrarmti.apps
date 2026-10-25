@@ -3,12 +3,14 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { BookOpen, Copy, CheckCircle2, Calendar, Sparkles, X } from 'lucide-react';
+import { BookOpen, Copy, CheckCircle2, Calendar, Sparkles, GraduationCap, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { 
   MURAJAAH_SCHEDULE, 
   generateMurajaahDailyText, 
   generateMurajaahWeeklyRecap,
+  generatePengumumanUjianAkhir,
+  generatePanduanMurajaah40x,
   JuzOptionLike,
   MurajaahScheduleItem
 } from '@/lib/kurikulum-murajaah';
@@ -25,7 +27,7 @@ export function AdminKurikulumMurajaahModal({
   juzOptions: initialJuzOptions,
 }: AdminKurikulumMurajaahModalProps) {
   const [juzList, setJuzList] = useState<JuzOptionLike[]>(initialJuzOptions || []);
-  const [selectedMode, setSelectedMode] = useState<'recap' | string>('recap');
+  const [selectedMode, setSelectedMode] = useState<'recap' | 'ujian' | 'panduan40x' | string>('recap');
   const [customText, setCustomText] = useState<string>('');
   const [isCopied, setIsCopied] = useState<boolean>(false);
   const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
@@ -52,6 +54,12 @@ export function AdminKurikulumMurajaahModal({
     if (selectedMode === 'recap') {
       const text = generateMurajaahWeeklyRecap({ startDate: dateObj, juzOptions: juzList });
       setCustomText(text);
+    } else if (selectedMode === 'ujian') {
+      const text = generatePengumumanUjianAkhir();
+      setCustomText(text);
+    } else if (selectedMode === 'panduan40x') {
+      const text = generatePanduanMurajaah40x();
+      setCustomText(text);
     } else {
       const scheduleItem = MURAJAAH_SCHEDULE.find(m => m.code === selectedMode) || MURAJAAH_SCHEDULE[0];
       const text = generateMurajaahDailyText({ item: scheduleItem, date: dateObj, juzOptions: juzList });
@@ -63,7 +71,7 @@ export function AdminKurikulumMurajaahModal({
     try {
       await navigator.clipboard.writeText(customText);
       setIsCopied(true);
-      toast.success('Teks Kurikulum Murajaah berhasil disalin!');
+      toast.success('Teks berhasil disalin ke clipboard!');
       setTimeout(() => setIsCopied(false), 2000);
     } catch (err) {
       toast.error('Gagal menyalin teks ke clipboard');
@@ -76,20 +84,21 @@ export function AdminKurikulumMurajaahModal({
         <DialogHeader className="space-y-1 pb-2 border-b border-gray-100">
           <div className="flex items-center gap-2 text-amber-600 text-xs font-bold uppercase tracking-wider">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Pekan 11 Kurikulum Tikrar</span>
+            <span>Template Broadcast & Kurikulum WhatsApp</span>
           </div>
           <DialogTitle className="text-lg sm:text-xl font-black text-gray-900 flex items-center gap-2">
             <BookOpen className="w-5 h-5 text-emerald-700" />
-            Generator Teks Kurikulum Muraja'ah
+            Template Chat & Kurikulum Muraja'ah
           </DialogTitle>
           <DialogDescription className="text-xs text-gray-500">
-            Pilih target kurikulum M1–M7 atau rekap sepekan penuh untuk disalin dan dibagikan ke WhatsApp.
+            Pilih template kurikulum muraja'ah, pengumuman ujian akhir, atau panduan 40x untuk disalin langsung ke WhatsApp.
           </DialogDescription>
         </DialogHeader>
 
         {/* Tab Mode Selector */}
-        <div className="space-y-3 pt-3">
-          <div className="flex flex-wrap items-center gap-1.5">
+        <div className="space-y-2.5 pt-3">
+          {/* Main Category Tabs */}
+          <div className="flex flex-wrap items-center gap-1.5 border-b border-gray-100 pb-2">
             <button
               type="button"
               onClick={() => setSelectedMode('recap')}
@@ -99,26 +108,60 @@ export function AdminKurikulumMurajaahModal({
                   : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200/60'
               }`}
             >
-              📢 Sepekan (M1 – M7)
+              📢 Muraja'ah Sepekan (M1–M7)
             </button>
 
-            {MURAJAAH_SCHEDULE.map((m) => (
-              <button
-                key={m.code}
-                type="button"
-                onClick={() => setSelectedMode(m.code)}
-                className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                  selectedMode === m.code
-                    ? 'bg-amber-600 text-white shadow-sm'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-transparent'
-                }`}
-              >
-                {m.code} ({m.day.slice(0, 3)})
-              </button>
-            ))}
+            <button
+              type="button"
+              onClick={() => setSelectedMode('ujian')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                selectedMode === 'ujian'
+                  ? 'bg-purple-800 text-white shadow-sm'
+                  : 'bg-purple-50 text-purple-800 hover:bg-purple-100 border border-purple-200/60'
+              }`}
+            >
+              <GraduationCap className="w-3.5 h-3.5" />
+              <span>Pengumuman Ujian Akhir</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedMode('panduan40x')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                selectedMode === 'panduan40x'
+                  ? 'bg-teal-800 text-white shadow-sm'
+                  : 'bg-teal-50 text-teal-800 hover:bg-teal-100 border border-teal-200/60'
+              }`}
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Panduan Muraja'ah 40x</span>
+            </button>
           </div>
 
-          {selectedMode !== 'recap' && (
+          {/* Daily Sub-buttons (M1 - M7) */}
+          <div className="space-y-1">
+            <div className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+              Target Harian Pekan Muraja'ah:
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {MURAJAAH_SCHEDULE.map((m) => (
+                <button
+                  key={m.code}
+                  type="button"
+                  onClick={() => setSelectedMode(m.code)}
+                  className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    selectedMode === m.code
+                      ? 'bg-amber-600 text-white shadow-sm ring-2 ring-amber-500/20'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-transparent'
+                  }`}
+                >
+                  {m.code} ({m.day.slice(0, 3)})
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {!['recap', 'ujian', 'panduan40x'].includes(selectedMode) && (
             <div className="flex items-center gap-2 text-xs bg-amber-50/70 text-amber-900 px-3 py-1.5 rounded-xl border border-amber-200/50">
               <Calendar className="w-3.5 h-3.5 text-amber-600 shrink-0" />
               <span className="font-semibold">
@@ -134,7 +177,7 @@ export function AdminKurikulumMurajaahModal({
             value={customText}
             onChange={(e) => setCustomText(e.target.value)}
             className="w-full h-full min-h-[260px] sm:min-h-[340px] p-3.5 sm:p-4 bg-[#fdfbf7] border border-[#e8e4d9] rounded-xl text-xs sm:text-sm text-gray-800 font-mono leading-relaxed focus:ring-2 focus:ring-emerald-500/20 resize-none shadow-inner"
-            placeholder="Teks kurikulum muraja'ah..."
+            placeholder="Teks template..."
           />
         </div>
 

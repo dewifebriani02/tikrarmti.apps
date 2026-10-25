@@ -236,3 +236,123 @@ export function generateMurajaahWeeklyRecap({
 
   return text.trim();
 }
+
+/**
+ * Generate announcement for Ujian Akhir (Tasmi' Lisan & Ujian Tulis)
+ */
+export function generatePengumumanUjianAkhir(): string {
+  let text = `╔❀◎🎓◎❀════════════════╗\n`;
+  text += ` 🔸𝗠𝗔𝗥𝗞𝗔𝗭 𝗧𝗜𝗞𝗥𝗔𝗥 𝗜𝗡𝗗𝗢𝗡𝗘𝗦𝗜𝗔🔸\n`;
+  text += `  𝗣𝗘𝗡𝗚𝗨𝗠𝗨𝗠𝗔𝗡 𝗨𝗝𝗜𝗔𝗡 𝗔𝗞𝗛𝗜𝗥\n`;
+  text += `  (𝗧𝗮𝘀𝗺𝗶' 𝗟𝗶𝘀𝗮𝗻 & 𝗨𝗷𝗶𝗮𝗻 𝗧𝘂𝗹𝗶𝘀)\n`;
+  text += `╚════════════════❀◎🎓◎❀╝\n\n`;
+
+  text += `بِسْــــــــــــــــــمِ اللهِ الرَّحْمَنِ الرَّحِيْمِ\n\n`;
+  text += `السَّلاَمُ عَلَيْكُمْ وَرَحْمَةُ اللهِ وَبَرَكَاتُهُ\n\n`;
+
+  text += `Alhamdulillahilladzi bi ni’matihi tatimmush shalihat 🌸\n\n`;
+  text += `Ahlan wa sahlan Shalihah fillah, thalibah Program Tikrar Tahfidz MTI yang dirahmati Allah ta’ala.\n\n`;
+
+  text += `Seiring berjalannya masa *Pekan Muraja'ah*, insya Allah kita akan segera memasuki tahap evaluasi kelulusan yaitu *Ujian Akhir Tahfidz (Tasmi' Lisan & Ujian Tulis)* untuk mengukur kemutqinan hafalan 10 halaman yang telah dipelajari.\n\n`;
+
+  text += `══════════════════════\n`;
+  text += `📋 *2 KOMPONEN UJIAN AKHIR*\n`;
+  text += `══════════════════════\n\n`;
+
+  text += `1️⃣ *UJIAN LISAN (TASMI' 1/2 JUZ)* 🎙️\n`;
+  text += `• *Materi:* Memperdengarkan hafalan 10 halaman (1/2 Juz) secara *bil ghaib* (tanpa melihat mushaf) di hadapan Penguji/Mu'allimah via Zoom.\n`;
+  text += `• *Jadwal:* Sesuai sesi jadwal yang dipilih thalibah di web aplikasi.\n`;
+  text += `• *Ketentuan:* Kuota sesi penguji terbatas, thalibah wajib mengonfirmasi jadwal lebih awal.\n\n`;
+
+  text += `2️⃣ *UJIAN TULIS (PILIHAN GANDA)* 📝\n`;
+  text += `• *Materi:* Sambung ayat, arti/makna ayat, dan pemahaman tajwid dasar dari juz yang diujikan.\n`;
+  text += `• *Media:* Dikerjakan langsung secara daring melalui menu *Ujian* di web Tikrar.\n`;
+  text += `• *Waktu Pengerjaan:* Fleksibel dalam rentang periode ujian yang telah ditentukan.\n\n`;
+
+  text += `══════════════════════\n`;
+  text += `📲 *CARA MEMILIH & MEMASTIKAN JADWAL UJIAN DI WEB*\n`;
+  text += `══════════════════════\n`;
+  text += `1. Login ke web: https://markaztikrar.id/login\n`;
+  text += `2. Masuk ke menu *Ujian* (ikon 🎓 di sidebar atau banner dashboard).\n`;
+  text += `3. Pada tab *Ujian Akhir*:\n`;
+  text += `   • Pilih jadwal hari, jam, dan penguji untuk sesi *Tasmi' Lisan*.\n`;
+  text += `   • Klik tombol konfirmasi jadwal.\n`;
+  text += `4. Pastikan jadwal yang dipilih tidak bentrok dengan kesibukan harian Ukhti.\n\n`;
+
+  text += `══════════════════════\n`;
+  text += `💡 *TIPS PERSIAPAN THALIBAH*\n`;
+  text += `══════════════════════\n`;
+  text += `✨ *Matangkan di Pekan Muraja'ah:* Tuntaskan seluruh target kurikulum M1 s.d. M7 dan puncaknya di hari Ahad (10 halaman penuh).\n`;
+  text += `✨ *Saling Tasmi' Bersama Pasangan:* Simak tuntas 10 halaman bersama pasangan tikrar sebelum jadwal ujian resmi.\n`;
+  text += `✨ *Kondisi Sinyal & Ruangan:* Pastikan koneksi internet stabil dan gunakan earphone saat ujian lisan via Zoom.\n\n`;
+
+  text += `🎯 *Syarat Kelulusan:*\n`;
+  text += `Nilai kelulusan ujian merupakan syarat diterbitkannya *Sertifikat Kelulusan Resmi* dan hak untuk mendaftar ke jenjang juz berikutnya di Batch mendatang.\n\n`;
+
+  text += `Luruskan niat semata-mata mengharap wajah Allah ta’ala. Semoga Allah mudahkan hafalan kita, kuatkan ingatan kita, dan berikan hasil terbaik yang berkah. Aamiin ya Rabbal 'alamin. 🤲🌿\n\n`;
+
+  text += `جزاكن الله خيرا وبارك الله فيكن 🌹\n\n`;
+  text += `━━━━━━━━━━━━━━━━❁❁\n`;
+  text += `𝗠𝗔𝗥𝗞𝗔𝗭 𝗧𝗜𝗞𝗥𝗔𝗥 𝗜𝗡𝗗𝗢𝗡𝗘𝗦𝗜𝗔\n`;
+  text += `📱 *MTI Official : 081330000784*\n`;
+  text += `🪩 *Website : markaztikrar.id*`;
+
+  return text.trim();
+}
+
+/**
+ * Generate guide for Fitur Muraja'ah 40X Pasca-Kelulusan
+ */
+export function generatePanduanMurajaah40x(): string {
+  let text = `╔❀◎📖◎❀════════════════╗\n`;
+  text += ` 🔸𝗠𝗔𝗥𝗞𝗔𝗭 𝗧𝗜𝗞𝗥𝗔𝗥 𝗜𝗡𝗗𝗢𝗡𝗘𝗦𝗜𝗔🔸\n`;
+  text += `  𝗣𝗔𝗡𝗗𝗨𝗔𝗡 𝗠𝗨𝗥𝗔𝗝𝗔'𝗔𝗛 𝟰𝟬𝗫\n`;
+  text += `╚════════════════❀◎📖◎❀╝\n\n`;
+
+  text += `بِسْــــــــــــــــــمِ اللهِ الرَّحْمَنِ الرَّحِيْمِ\n\n`;
+  text += `Assalamu’alaikum warahmatullah wabarakatuh, Shalihah fillah 🌸\n\n`;
+
+  text += `Alhamdulillah, kini fitur *Muraja'ah 40x* sudah dapat diakses dengan mudah melalui menu mandiri di web Tikrar MTI.\n\n`;
+
+  text += `Bagi Ukhti yang telah menyelesaikan masa pembelajaran, yuk cicil setoran 40 putaran sebagai ikhtiar menjaga hafalan tetap *mutqin* sekaligus *syarat wajib naik juz* ke jenjang berikutnya. 🌿\n\n`;
+
+  text += `══════════════════════\n`;
+  text += `📖 *CARA MENGAKSES & MENGISI MURAJA'AH 40X*\n`;
+  text += `══════════════════════\n\n`;
+
+  text += `1️⃣ *Buka Menu Muraja'ah:*\n`;
+  text += `• 📱 *Lewat HP:* Klik ikon *[ 🔄 Murajaah ]* di bar menu navigasi bawah.\n`;
+  text += `• 💻 *Lewat Laptop/PC:* Klik menu *[ 🔄 Muraja'ah 40x ]* di sidebar sebelah kiri.\n\n`;
+
+  text += `2️⃣ *Pilih Segmen & Catat Putaran:*\n`;
+  text += `• Pilih segmen hafalan yang dimurojaah (Juz Utama / Bagian A).\n`;
+  text += `• Klik tombol hijau *[ + Catat Putaran ]* (atau klik kotak putaran aktif).\n\n`;
+
+  text += `3️⃣ *Pilih Metode Murojaah:*\n`;
+  text += `Centang metode yang Ukhti gunakan:\n`;
+  text += `• 👥 *Pasangan Tikrar* (simak bersama partner via Zoom/WA/offline)\n`;
+  text += `• 🎙️ *Tarteel AI* (evaluasi mandiri dengan Tarteel)\n`;
+  text += `• 🧭 *Dibaca Saat Sholat* (sholat fardhu, dhuha, atau qiyamul lail)\n`;
+  text += `• 🔥 *Sambil Aktivitas Lain* (memasak, menyetir, beres-beres rumah)\n`;
+  text += `Lalu klik *[ Simpan ]*.\n\n`;
+
+  text += `4️⃣ *Pantau Progres (1 s.d. 40):*\n`;
+  text += `Kotak nomor putaran akan langsung tercentang hijau dan progres Ukhti akan otomatis terakumulasi!\n\n`;
+
+  text += `══════════════════════\n`;
+  text += `⚡ *TIPS & TANTANGAN SPESIAL*\n`;
+  text += `══════════════════════\n`;
+  text += `✨ *Bebas >1 Putaran/Hari:* Boleh setor lebih dari 1 kali sehari (misal: 2–3 putaran per hari).\n`;
+  text += `✨ *Tantangan Murojaah Warrior:* Selesaikan 40 putaran dalam kurun waktu *≤ 20 hari* sejak dibuka untuk meraih badge kehormatan *Murojaah Warrior*! 🛡️🏆\n`;
+  text += `✨ *Syarat Naik Juz:* Wajib tuntas 40 putaran sebelum mendaftar kelas juz baru di batch selanjutnya.\n\n`;
+
+  text += `Semoga Allah ta'ala senantiasa memudahkan langkah kita dalam membersamai kalam-Nya. Aamiin ya Rabbal 'alamin. 🤲🌿\n\n`;
+
+  text += `جزاكن الله خيرا وبارك الله فيكن 🌹\n\n`;
+  text += `━━━━━━━━━━━━━━━━❁❁\n`;
+  text += `𝗠𝗔𝗥𝗞𝗔𝗭 𝗧𝗜𝗞𝗥𝗔𝗥 𝗜𝗡𝗗𝗢𝗡𝗘𝗦𝗜𝗔\n`;
+  text += `📱 *MTI Official : 081330000784*\n`;
+  text += `🪩 *Website : markaztikrar.id*`;
+
+  return text.trim();
+}
