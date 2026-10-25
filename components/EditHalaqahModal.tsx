@@ -61,7 +61,7 @@ export function EditHalaqahModal({ halaqah, onClose, onSuccess }: EditHalaqahMod
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [existingAssistant, setExistingAssistant] = useState<any>(
-    halaqah.mentors?.find(m => m.role === 'musyrifah' || m.role === 'roisah') || null
+    halaqah.mentors?.find(m => m.role === 'musyrifah' || m.role === 'roisah' || m.role === 'raisah') || null
   );
   const [assigningUserId, setAssigningUserId] = useState<string | null>(null);
 

@@ -1531,14 +1531,14 @@ export function HalaqahManagementTab() {
               </div>
               <div>
                 <p className="text-sm text-gray-500">Musyrifah / Roisah</p>
-                {selectedHalaqah.mentors && selectedHalaqah.mentors.filter(m => m.role === 'musyrifah' || m.role === 'roisah').length > 0 ? (
+                {selectedHalaqah.mentors && selectedHalaqah.mentors.filter(m => m.role === 'musyrifah' || m.role === 'roisah' || m.role === 'raisah').length > 0 ? (
                   <div className="flex flex-col mt-1 gap-1">
-                    {selectedHalaqah.mentors.filter(m => m.role === 'musyrifah' || m.role === 'roisah').map((mentor) => (
+                    {selectedHalaqah.mentors.filter(m => m.role === 'musyrifah' || m.role === 'roisah' || m.role === 'raisah').map((mentor) => (
                       <p key={mentor.id} className="font-medium text-sm flex items-center gap-1.5">
                         <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                          mentor.role === 'roisah' ? 'bg-purple-50 text-purple-700 border border-purple-100' : 'bg-blue-50 text-blue-700 border border-blue-100'
+                          (mentor.role === 'roisah' || mentor.role === 'raisah') ? 'bg-purple-50 text-purple-700 border border-purple-100' : 'bg-blue-50 text-blue-700 border border-blue-100'
                         }`}>
-                          {mentor.role === 'roisah' ? 'ROISAH' : 'MUSYRIFAH'}
+                          {(mentor.role === 'roisah' || mentor.role === 'raisah') ? 'RAISAH' : 'MUSYRIFAH'}
                         </span>
                         <span>{mentor.users?.full_name || 'Unknown'}</span>
                       </p>
@@ -1726,14 +1726,14 @@ export function HalaqahManagementTab() {
                           </p>
                         </td>
                         <td className="px-6 py-4">
-                          {halaqah.mentors && halaqah.mentors.filter(m => m.role === 'musyrifah' || m.role === 'roisah').length > 0 ? (
+                          {halaqah.mentors && halaqah.mentors.filter(m => m.role === 'musyrifah' || m.role === 'roisah' || m.role === 'raisah').length > 0 ? (
                             <div className="flex flex-col gap-1">
-                              {halaqah.mentors.filter(m => m.role === 'musyrifah' || m.role === 'roisah').map((mentor) => (
+                              {halaqah.mentors.filter(m => m.role === 'musyrifah' || m.role === 'roisah' || m.role === 'raisah').map((mentor) => (
                                 <p key={mentor.id} className="text-sm text-gray-900 flex items-center gap-1.5">
                                   <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                                    mentor.role === 'roisah' ? 'bg-purple-50 text-purple-700 border border-purple-100' : 'bg-blue-50 text-blue-700 border border-blue-100'
+                                    (mentor.role === 'roisah' || mentor.role === 'raisah') ? 'bg-purple-50 text-purple-700 border border-purple-100' : 'bg-blue-50 text-blue-700 border border-blue-100'
                                   }`}>
-                                    {mentor.role === 'roisah' ? 'ROISAH' : 'MUSYRIFAH'}
+                                    {(mentor.role === 'roisah' || mentor.role === 'raisah') ? 'RAISAH' : 'MUSYRIFAH'}
                                   </span>
                                   <span>{mentor.users?.full_name || 'Unknown'}</span>
                                 </p>
@@ -1874,14 +1874,14 @@ export function HalaqahManagementTab() {
                       </div>
                       <div className="col-span-2 flex flex-col gap-0.5">
                         <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Musyrifah/Roisah</span>
-                        {halaqah.mentors && halaqah.mentors.filter(m => m.role === 'musyrifah' || m.role === 'roisah').length > 0 ? (
+                        {halaqah.mentors && halaqah.mentors.filter(m => m.role === 'musyrifah' || m.role === 'roisah' || m.role === 'raisah').length > 0 ? (
                           <div className="flex flex-wrap gap-1 mt-0.5">
-                            {halaqah.mentors.filter(m => m.role === 'musyrifah' || m.role === 'roisah').map((mentor) => (
+                            {halaqah.mentors.filter(m => m.role === 'musyrifah' || m.role === 'roisah' || m.role === 'raisah').map((mentor) => (
                               <span key={mentor.id} className="truncate font-semibold flex items-center gap-1">
                                 <span className={`px-1 rounded text-[8px] font-bold ${
-                                  mentor.role === 'roisah' ? 'bg-purple-50 text-purple-700' : 'bg-blue-50 text-blue-700'
+                                  (mentor.role === 'roisah' || mentor.role === 'raisah') ? 'bg-purple-50 text-purple-700' : 'bg-blue-50 text-blue-700'
                                 }`}>
-                                  {mentor.role === 'roisah' ? 'ROISAH' : 'MUSYRIFAH'}
+                                  {(mentor.role === 'roisah' || mentor.role === 'raisah') ? 'RAISAH' : 'MUSYRIFAH'}
                                 </span>
                                 {mentor.users?.full_name?.split(' ')[0] || 'Unknown'}
                               </span>

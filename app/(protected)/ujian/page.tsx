@@ -396,7 +396,7 @@ export default function UjianPage() {
                     Ujian Tulisan Akhir Juz
                   </h3>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    Tes pemahaman materi, kaidah tajwid, dan makna ayat melalui soal evaluasi pilihan ganda CBT.
+                    Evaluasi mutqin hafalan juz melalui soal pilihan ganda CBT: sambung potongan ayat, tebak nama surat, dan letak halaman.
                   </p>
                 </div>
               </div>

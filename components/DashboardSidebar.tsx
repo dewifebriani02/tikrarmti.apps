@@ -13,7 +13,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { useState, useEffect } from 'react';
 import { LogoutConfirmModal } from '@/components/LogoutConfirmModal';
 import { usePersona } from '@/hooks/usePersona';
-import { PersonaSwitcher } from '@/components/PersonaSwitcher';
 import { formatDynamicNit } from '@/lib/nit';
 
 interface UniversalSidebarProps {
@@ -475,24 +474,6 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
           </button>
         </div>
 
-        {/* User Card with Name & NIT + Persona Switcher in Sidebar (When not collapsed) */}
-        {!isCollapsed && isMounted && (
-          <div className="px-3 pt-3 pb-1 flex-shrink-0">
-            <div className="bg-gradient-to-r from-emerald-50 to-green-50/70 border border-emerald-100/80 rounded-2xl p-2.5 mb-2 shadow-2xs">
-              <p className="text-xs font-bold text-gray-900 truncate">
-                {user?.full_name || 'Hamba Allah'}
-              </p>
-              {user?.student_id_number && (
-                <div className="mt-0.5">
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-100/90 text-emerald-800 border border-emerald-200" title="Nomor Induk Tholibah">
-                    NIT: {formatDynamicNit(user.student_id_number, (user as any)?.current_juz)}
-                  </span>
-                </div>
-              )}
-            </div>
-            <PersonaSwitcher variant="sidebar" />
-          </div>
-        )}
 
         {/* Navigation */}
         <nav className={`flex-1 py-4 sm:py-6 space-y-1 sm:space-y-2 overflow-y-auto scrollbar-thin scrollbar-thumb-green-900/20 scrollbar-track-transparent -webkit-overflow-scrolling:touch ${isCollapsed ? 'px-2' : 'px-3 sm:px-4'}`}>
@@ -565,26 +546,56 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
           })}
 
 
-          {/* Logout Button */}
-          <div className={`py-3 sm:py-4 border-t border-green-900/20 ${isCollapsed ? 'px-2' : 'px-3 sm:px-4'}`}>
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setShowLogoutModal(true);
-              }}
-              type="button"
-              aria-label="Keluar dari akun"
-              title="Keluar"
-              className={`flex items-center w-full rounded-lg text-base sm:text-sm font-medium text-red-600 hover:bg-red-50 hover:text-red-700 active:bg-red-100 active:text-red-800 transition-all duration-300 group focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 touch-manipulation min-h-[48px] sm:min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed ${
-                isCollapsed ? 'justify-center px-2 py-3' : 'justify-center sm:justify-start px-4 py-4 sm:px-3 sm:py-2.5'
-              }`}
-            >
-              <LogOut className={`w-6 h-6 sm:w-5 sm:h-5 flex-shrink-0 ${isCollapsed ? '' : 'mr-3'}`} />
-              {!isCollapsed && <span>Keluar</span>}
-            </button>
+          </nav>
+
+        {/* Footer: Compact Name & NIT with Icon Logout Button */}
+        {isMounted && (
+          <div className="border-t border-gray-100 bg-gray-50/70 p-2.5 flex-shrink-0">
+            {isCollapsed ? (
+              <div className="flex justify-center">
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowLogoutModal(true);
+                  }}
+                  type="button"
+                  aria-label="Keluar dari akun"
+                  title="Keluar"
+                  className="p-2 rounded-xl text-red-600 hover:bg-red-100/80 hover:text-red-700 active:bg-red-200 transition-colors border border-red-200/50 shadow-2xs group focus:outline-none focus:ring-2 focus:ring-red-500"
+                >
+                  <LogOut className="w-5 h-5 flex-shrink-0" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold text-gray-900 truncate" title={user?.full_name || "Hamba Allah"}>
+                    {user?.full_name || "Hamba Allah"}
+                  </p>
+                  {user?.student_id_number && (
+                    <p className="text-[10px] font-mono font-bold text-emerald-800 truncate mt-0.5" title="Nomor Induk Tholibah">
+                      NIT: {formatDynamicNit(user.student_id_number, (user as any)?.current_juz)}
+                    </p>
+                  )}
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowLogoutModal(true);
+                  }}
+                  type="button"
+                  aria-label="Keluar dari akun"
+                  title="Keluar"
+                  className="p-2 rounded-xl text-red-600 hover:bg-red-100/80 hover:text-red-700 active:bg-red-200 transition-colors border border-red-200/50 shadow-2xs group focus:outline-none focus:ring-2 focus:ring-red-500 shrink-0"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </div>
-        </nav>
+        )}
       </div>
 
       <LogoutConfirmModal 
