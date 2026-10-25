@@ -38,6 +38,7 @@ export async function GET() {
       pekerjaan: user.pekerjaan,
       alasan_daftar: user.alasan_daftar,
       student_id_number: user.student_id_number,
+      current_juz: user.current_juz,
     };
 
     return NextResponse.json({

@@ -24,6 +24,7 @@ import { createClient } from '@/lib/supabase/client'
 import { toast } from 'react-hot-toast'
 import { Textarea } from '@/components/ui/textarea'
 import { hasRequiredRank, ROLE_RANKS } from '@/lib/roles'
+import { formatDynamicNit } from '@/lib/nit'
 
 type ProfileMode = 'view' | 'edit'
 
@@ -447,9 +448,9 @@ export default function ProfilePage() {
                     <p className="text-green-100 text-sm">{formData.namaKunyah}</p>
                   )}
                   {user?.student_id_number && (
-                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-white/20 text-white border border-white/30 backdrop-blur-sm mt-1">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-white/20 text-white border border-white/30 backdrop-blur-sm mt-1.5 mb-0.5">
                       <Award className="w-3 h-3 text-emerald-200" />
-                      <span>NIT: {user.student_id_number}</span>
+                      <span>NIT: {formatDynamicNit(user.student_id_number, user.current_juz)}</span>
                     </div>
                   )}
                   <p className="text-green-100 text-sm flex items-center mt-1">
@@ -470,7 +471,7 @@ export default function ProfilePage() {
                       <Award className="h-5 w-5 text-emerald-600" />
                       <div>
                         <p className="text-xs font-bold text-emerald-800 uppercase tracking-wider">Nomor Induk Tholibah (NIT)</p>
-                        <p className="text-base font-mono font-bold text-emerald-950">{user.student_id_number}</p>
+                        <p className="text-base font-mono font-bold text-emerald-950">{formatDynamicNit(user.student_id_number, user.current_juz)}</p>
                       </div>
                     </div>
                     <span className="px-2 py-0.5 text-[11px] font-semibold bg-white text-emerald-700 rounded border border-emerald-300 shadow-2xs">

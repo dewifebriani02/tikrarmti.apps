@@ -184,7 +184,12 @@ export async function getCurrentUser() {
     `SELECT id, email, full_name, role, roles, avatar_url, is_active, is_blacklisted,
             must_change_password, whatsapp, telegram, negara, provinsi, kota, alamat, zona_waktu,
             tanggal_lahir, tempat_lahir, jenis_kelamin, pekerjaan, alasan_daftar, created_at, student_id_number, current_tikrar_batch_id,
-            session_version
+            session_version,
+            COALESCE(
+              (SELECT h.preferred_juz FROM halaqah_students hs JOIN halaqah h ON hs.halaqah_id = h.id WHERE hs.thalibah_id = users.id AND hs.status = '''active''' ORDER BY hs.assigned_at DESC LIMIT 1),
+              (SELECT du.confirmed_chosen_juz FROM daftar_ulang_submissions du WHERE du.user_id = users.id ORDER BY du.created_at DESC LIMIT 1),
+              (SELECT p.chosen_juz FROM pendaftaran_tikrar_tahfidz p WHERE p.user_id = users.id ORDER BY p.created_at DESC LIMIT 1)
+            ) as current_juz
      FROM users WHERE id = $1`,
     [latestPayload.sub]
   );

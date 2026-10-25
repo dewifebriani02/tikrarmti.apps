@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { X, Save, RefreshCw, User, Mail, Phone, MapPin, Briefcase } from 'lucide-react';
 import { AdminUser } from './types';
+import { formatDynamicNit } from '@/lib/nit';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { updateUser } from '@/app/(protected)/admin/actions';
@@ -92,7 +93,7 @@ export function EditUserModal({ user, isOpen, onClose, onSuccess }: EditUserModa
               <div className="md:col-span-2 bg-emerald-50 border border-emerald-200 rounded-2xl p-3 flex items-center justify-between">
                 <div>
                   <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider block">Nomor Induk Tholibah (NIT)</span>
-                  <span className="text-sm font-mono font-bold text-emerald-950">{user.student_id_number}</span>
+                  <span className="text-sm font-mono font-bold text-emerald-950">{formatDynamicNit(user.student_id_number, user.current_juz)}</span>
                 </div>
                 <span className="text-[11px] font-semibold bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full border border-emerald-300">
                   Resmi & Permanen

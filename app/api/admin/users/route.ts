@@ -122,6 +122,40 @@ export async function GET(request: Request) {
     let formattedUsers = users || [];
     const totalCount = count || 0;
 
+    // Enrich users with current_juz for dynamic NIT display
+    if (formattedUsers.length > 0) {
+      const userIds = formattedUsers.map(u => u.id);
+      const [duRes, regRes] = await Promise.all([
+        supabase
+          .from('daftar_ulang_submissions')
+          .select('user_id, confirmed_chosen_juz, created_at')
+          .in('user_id', userIds)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('pendaftaran_tikrar_tahfidz')
+          .select('user_id, chosen_juz, created_at')
+          .in('user_id', userIds)
+          .order('created_at', { ascending: false })
+      ]);
+
+      const juzMap = new Map<string, string>();
+      (regRes.data || []).forEach(r => {
+        if (!juzMap.has(r.user_id) && r.chosen_juz) {
+          juzMap.set(r.user_id, r.chosen_juz);
+        }
+      });
+      (duRes.data || []).forEach(d => {
+        if (d.confirmed_chosen_juz) {
+          juzMap.set(d.user_id, d.confirmed_chosen_juz);
+        }
+      });
+
+      formattedUsers = formattedUsers.map(u => ({
+        ...u,
+        current_juz: juzMap.get(u.id) || null,
+      }));
+    }
+
     // 4. Enrich data if detectDuplicates is true
     if (detectDuplicates && formattedUsers.length > 0) {
       const userIds = formattedUsers.map(u => u.id);

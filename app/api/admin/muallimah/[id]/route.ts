@@ -109,6 +109,53 @@ export async function PATCH(
       );
     }
 
+    // If approving, automatically add 'muallimah' role to users table
+    if (updateData.status === 'approved') {
+      const { data: regData } = await supabaseAdmin
+        .from('muallimah_registrations')
+        .select('user_id')
+        .eq('id', params.id)
+        .single();
+
+      if (regData?.user_id) {
+        const { data: targetUser } = await supabaseAdmin
+          .from('users')
+          .select('id, role, roles')
+          .eq('id', regData.user_id)
+          .single();
+
+        if (targetUser) {
+          const currentRoles = Array.isArray(targetUser.roles) ? [...targetUser.roles] : [];
+          let needsUpdate = false;
+          let newRole = targetUser.role;
+
+          if (!currentRoles.includes('muallimah')) {
+            currentRoles.push('muallimah');
+            needsUpdate = true;
+          }
+
+          if (['thalibah', 'calon_thalibah'].includes(targetUser.role)) {
+            newRole = 'muallimah';
+            needsUpdate = true;
+          }
+
+          if (needsUpdate) {
+            const { error: roleUpdateError } = await supabaseAdmin
+              .from('users')
+              .update({
+                role: newRole,
+                roles: currentRoles
+              })
+              .eq('id', regData.user_id);
+
+            if (roleUpdateError) {
+              console.error('[Muallimah PATCH] Failed to update user roles:', roleUpdateError);
+            }
+          }
+        }
+      }
+    }
+
     return NextResponse.json({
       success: true,
       message: 'Muallimah registration updated successfully'

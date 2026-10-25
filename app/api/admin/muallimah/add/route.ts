@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
     // Verify user exists
     const { data: existingUser, error: userCheckError } = await supabaseAdmin
       .from('users')
-      .select('id, email, full_name, role')
+      .select('id, email, full_name, role, roles')
       .eq('id', data.user_id)
       .single();
 
@@ -143,11 +143,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update user role to 'ustadzah' if not already
-    if (existingUser.role !== 'ustadzah') {
+    // Update user roles to include 'muallimah' and update primary role if applicable
+    const currentRoles = Array.isArray(existingUser.roles) ? [...existingUser.roles] : [];
+    let needsUpdate = false;
+    let newRole = existingUser.role;
+
+    if (!currentRoles.includes('muallimah')) {
+      currentRoles.push('muallimah');
+      needsUpdate = true;
+    }
+
+    if (['thalibah', 'calon_thalibah', 'ustadzah'].includes(existingUser.role)) {
+      newRole = 'muallimah';
+      needsUpdate = true;
+    }
+
+    if (needsUpdate) {
       await supabaseAdmin
         .from('users')
-        .update({ role: 'ustadzah' })
+        .update({
+          role: newRole,
+          roles: currentRoles
+        })
         .eq('id', data.user_id);
     }
 
@@ -162,9 +179,6 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('[Add Muallimah] Server error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

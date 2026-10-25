@@ -5,10 +5,12 @@ import { Card, CardContent } from '@/components/ui/card'
 import { User, Mail, Phone, Calendar, MapPin, Users } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Info } from 'lucide-react'
+import { formatDynamicNit } from '@/lib/nit'
 
 interface UserProfile {
   full_name?: string
   student_id_number?: string
+  current_juz?: string
   email?: string
   whatsapp?: string
   telegram?: string
@@ -107,7 +109,7 @@ export function UserProfileCard({
               <div className="space-y-1 md:col-span-2 bg-white/80 border border-emerald-200 rounded-lg p-2.5 flex items-center justify-between shadow-xs">
                 <div>
                   <p className="text-emerald-700 font-bold text-xs uppercase tracking-wider">Nomor Induk Tholibah (NIT)</p>
-                  <p className="text-gray-900 font-mono font-bold text-base sm:text-lg">{userProfile.student_id_number}</p>
+                  <p className="text-gray-900 font-mono font-bold text-base sm:text-lg">{formatDynamicNit(userProfile.student_id_number, userProfile.current_juz)}</p>
                 </div>
                 <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300">
                   Resmi & Permanen

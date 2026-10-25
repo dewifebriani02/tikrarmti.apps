@@ -24,6 +24,7 @@ interface ProtectedClientLayoutProps {
     primaryRole: string
     roles: string[]
     student_id_number?: string
+    current_juz?: string
     avatar_url?: string
     whatsapp?: string
     telegram?: string

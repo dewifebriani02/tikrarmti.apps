@@ -4,6 +4,7 @@ import { MoreHorizontal, Shield, User, Clock, ChevronLeft, ChevronRight, Ban, Ch
 import { AdminUser } from './types';
 import { cn } from '@/lib/utils';
 import { getWhatsAppUrl } from '@/lib/utils/whatsapp';
+import { formatDynamicNit } from '@/lib/nit';
 
 interface UserTableProps {
   users: AdminUser[];

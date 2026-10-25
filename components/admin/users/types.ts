@@ -2,6 +2,7 @@ export interface AdminUser {
   id: string;
   email: string;
   student_id_number?: string | null;
+  current_juz?: string | null;
   full_name: string | null;
   nama_kunyah: string | null;
   role: string | null;

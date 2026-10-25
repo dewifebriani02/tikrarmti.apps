@@ -273,6 +273,38 @@ export async function updateHalaqah(data: UpdateHalaqahData) {
       }
     }
 
+    // Automatically sync 'muallimah' role if a muallimah is assigned
+    if (updateData.muallimah_id) {
+      const { data: muallimahUser } = await supabaseAdmin
+        .from('users')
+        .select('id, role, roles')
+        .eq('id', updateData.muallimah_id)
+        .single()
+
+      if (muallimahUser) {
+        const currentRoles = Array.isArray(muallimahUser.roles) ? [...muallimahUser.roles] : []
+        let needsRoleUpdate = false
+        let newRole = muallimahUser.role
+
+        if (!currentRoles.includes('muallimah')) {
+          currentRoles.push('muallimah')
+          needsRoleUpdate = true
+        }
+
+        if (['thalibah', 'calon_thalibah'].includes(muallimahUser.role)) {
+          newRole = 'muallimah'
+          needsRoleUpdate = true
+        }
+
+        if (needsRoleUpdate) {
+          await supabaseAdmin
+            .from('users')
+            .update({ role: newRole, roles: currentRoles })
+            .eq('id', updateData.muallimah_id)
+        }
+      }
+    }
+
     // Audit log
     const { ip, userAgent } = getRequestInfo()
     await logAudit({
@@ -1665,7 +1697,7 @@ export async function assignAsisten(halaqahId: string, userId: string, asistenRo
     
     // 3. Add role to user if they don't have it
     const roles = userData.roles || []
-    const roleForUsersTable = asistenRole === 'roisah' ? 'musyrifah' : asistenRole
+    const roleForUsersTable = asistenRole === 'roisah' ? 'raisah' : asistenRole
     if (!roles.includes(roleForUsersTable)) {
       roles.push(roleForUsersTable)
       const { error: updateRoleError } = await supabaseAdmin
