@@ -26,6 +26,13 @@ const envVars: EnvVar[] = [
   { name: 'RESEND_API_KEY', required: false, description: 'Resend API key for emails' },
   { name: 'EMAIL_FROM', required: false, description: 'Sender address for emails, e.g. "MTI <noreply@markaztikrar.id>"' },
 
+  // Optional: WhatsApp (Meta Cloud API & WatZap)
+  { name: 'WHATSAPP_CLOUD_API_TOKEN', required: false, description: 'Meta WhatsApp Cloud API Access Token' },
+  { name: 'WHATSAPP_PHONE_NUMBER_ID', required: false, description: 'Meta Phone Number ID' },
+  { name: 'WHATSAPP_WABA_ID', required: false, description: 'Meta WhatsApp Business Account ID' },
+  { name: 'WATZAP_API_KEY', required: false, description: 'WatZap API Key' },
+  { name: 'WATZAP_NUMBER_KEY', required: false, description: 'WatZap Number Key' },
+
   // Optional: reCAPTCHA
   { name: 'RECAPTCHA_SECRET_KEY', required: false, description: 'reCAPTCHA secret key' },
   { name: 'NEXT_PUBLIC_RECAPTCHA_SITE_KEY', required: false, description: 'reCAPTCHA site key' },
