@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Loader2, Info, Ban, Sparkles, ShieldCheck } from 'lucide-react'
+import { Loader2, Info, Ban, Sparkles, ShieldCheck, BookOpen } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { useAllRegistrations } from '@/hooks/useRegistrations'
@@ -67,21 +67,29 @@ export default function JurnalHarianPage() {
 
   // Deteksi program aktif thalibah
   const isPraTikrarThalibah = React.useMemo(() => {
+    // 1. Jika thalibah terdaftar / memilih juz spesifik Tikrar (30A, 30B, 29A, 1A, dst.), pasti Tikrar Tahfidz
+    const juz = (activeRegistration?.daftar_ulang as any)?.confirmed_chosen_juz ||
+                (activeRegistration as any)?.confirmed_chosen_juz ||
+                (activeRegistration as any)?.chosen_juz || '';
+    if (/^[0-9]+[AB]$/i.test(juz.trim())) {
+      return false;
+    }
+
     const programClassType = (activeRegistration?.program as any)?.class_type || 
                              (activeRegistration as any)?.class_type ||
                              (activeRegistration?.daftar_ulang as any)?.program_class_type;
     return programClassType === 'pra_tahfidz' || activeRegistration?.selection_status === 'waitlist';
   }, [activeRegistration]);
 
-  // Admin preview toggle: jika admin, bisa bebas memilih melihat mode Tikrar atau Pra-Tikrar
-  const [adminProgramPreview, setAdminProgramPreview] = useState<'auto' | 'tikrar' | 'pra-tikrar'>('auto');
+  // Program selector tab: bisa dipilih bebas oleh Thalibah maupun Admin
+  const [selectedProgramTab, setSelectedProgramTab] = useState<'auto' | 'tikrar' | 'pra-tikrar'>('auto');
 
   const currentProgramMode = React.useMemo(() => {
-    if (isAdmin && adminProgramPreview !== 'auto') {
-      return adminProgramPreview;
+    if (selectedProgramTab !== 'auto') {
+      return selectedProgramTab;
     }
     return isPraTikrarThalibah ? 'pra-tikrar' : 'tikrar';
-  }, [isAdmin, adminProgramPreview, isPraTikrarThalibah]);
+  }, [selectedProgramTab, isPraTikrarThalibah]);
 
   const effectiveBatch = activeRegistration?.batch || activeBatch
   const targetBatchId = activeRegistration?.batch_id || activeRegistration?.batch?.id || activeBatch?.id
@@ -144,11 +152,15 @@ export default function JurnalHarianPage() {
   const loadJuzInfo = async (juzCode: string) => {
     setIsLoadingJuz(true)
     try {
-      const supabase = createClient()
-      const { data } = await supabase.from('juz_options').select('*').eq('code', juzCode).single()
-      if (data) {
-        setSelectedJuzInfo(data)
-        setJurnalData(prev => ({ ...prev, juz_code: juzCode, batch_id: targetBatchId }))
+      const response = await fetch('/api/juz')
+      if (response.ok) {
+        const result = await response.json()
+        const juzList = result.data || []
+        const matched = juzList.find((j: any) => j.code?.toUpperCase() === juzCode?.toUpperCase())
+        if (matched) {
+          setSelectedJuzInfo(matched)
+          setJurnalData(prev => ({ ...prev, juz_code: juzCode, batch_id: targetBatchId }))
+        }
       }
     } catch (error) {
       console.error('Error loading juz info:', error)
@@ -265,39 +277,33 @@ export default function JurnalHarianPage() {
 
   return (
     <div className={`mx-auto px-3 sm:px-4 py-6 sm:py-8 space-y-6 animate-fadeInUp ${currentProgramMode === 'pra-tikrar' ? 'max-w-4xl' : 'max-w-2xl'}`}>
-      {/* Admin Switcher Bar (Hanya tampil bagi Admin / Staff) */}
-      {isAdmin && (
-        <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-xs">
-          <div className="flex items-center gap-2 font-bold text-amber-950">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
-            <span>Mode Pratinjau Jurnal (Admin/Staff):</span>
-          </div>
-          <div className="flex items-center gap-1.5 bg-white p-1 rounded-xl border border-amber-200 shadow-xs">
-            <button
-              type="button"
-              onClick={() => setAdminProgramPreview('tikrar')}
-              className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
-                currentProgramMode === 'tikrar' 
-                  ? 'bg-emerald-600 text-white shadow-xs' 
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Tikrar Tahfidz
-            </button>
-            <button
-              type="button"
-              onClick={() => setAdminProgramPreview('pra-tikrar')}
-              className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
-                currentProgramMode === 'pra-tikrar' 
-                  ? 'bg-indigo-600 text-white shadow-xs' 
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Pra-Tikrar (Juz 30)
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Program Selector Tabs - Dapat dipilih bebas oleh Thalibah maupun Admin */}
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 rounded-2xl border border-gray-100 bg-white p-1.5 sm:p-2 shadow-xs">
+        <button
+          type="button"
+          onClick={() => setSelectedProgramTab('tikrar')}
+          className={`flex min-h-[46px] sm:min-h-[52px] items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs sm:text-sm font-bold transition-all ${
+            currentProgramMode === 'tikrar'
+              ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
+              : 'bg-gray-50 text-gray-600 hover:bg-emerald-50 hover:text-emerald-700'
+          }`}
+        >
+          <BookOpen className="h-4 w-4 shrink-0" />
+          <span>Tikrar Tahfidz</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setSelectedProgramTab('pra-tikrar')}
+          className={`flex min-h-[46px] sm:min-h-[52px] items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs sm:text-sm font-bold transition-all ${
+            currentProgramMode === 'pra-tikrar'
+              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
+              : 'bg-gray-50 text-gray-600 hover:bg-indigo-50 hover:text-indigo-700'
+          }`}
+        >
+          <BookOpen className="h-4 w-4 shrink-0" />
+          <span>Pra-Tikrar (Juz 30)</span>
+        </button>
+      </div>
 
       {/* Registration Banner for Unauthorized Users */}
       {hasNoActiveRegistration && (

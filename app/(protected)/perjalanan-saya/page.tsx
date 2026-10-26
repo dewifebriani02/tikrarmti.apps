@@ -363,7 +363,11 @@ export default function PerjalananSaya() {
 
     const isProfileComplete = !!(user.full_name && user.whatsapp && (user as any).tanggal_lahir);
     const isSelectionDone = registrationStatus?.selectionStatus && registrationStatus.selectionStatus !== 'pending';
-    const isPraTikrar = (registrationStatus?.registration?.program as any)?.class_type === 'pra_tahfidz' || registrationStatus?.selectionStatus === 'waitlist';
+    const chosenJuz = (registrationStatus?.registration as any)?.daftar_ulang?.confirmed_chosen_juz ||
+                      (registrationStatus?.registration as any)?.confirmed_chosen_juz ||
+                      (registrationStatus?.registration as any)?.chosen_juz || '';
+    const isHalfJuzTikrar = /^[0-9]+[AB]$/i.test(chosenJuz.trim());
+    const isPraTikrar = !isHalfJuzTikrar && ((registrationStatus?.registration?.program as any)?.class_type === 'pra_tahfidz' || registrationStatus?.selectionStatus === 'waitlist');
     // Lulus jika nilai oral assessment >= 80 atau jika status seleksi sudah 'selected' (misal: alumni yang diluluskan otomatis)
     const isSelectionPassed = (registrationStatus?.oralScore != null && registrationStatus.oralScore >= 80) || registrationStatus?.selectionStatus === 'selected';
     // Pra-Tikrar tidak melalui Daftar Ulang/Akad sama sekali (langsung Jurnal Harian &

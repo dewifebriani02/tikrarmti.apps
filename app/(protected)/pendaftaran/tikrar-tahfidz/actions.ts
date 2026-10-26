@@ -62,22 +62,24 @@ export async function submitTikrarRegistration(formData: any, userProfile: any, 
   let program = null
   let programError = null
 
-  // First attempt: Try to find 'open' program
+  // First attempt: Try to find 'open' program with class_type 'tikrar_tahfidz'
   const { data: openProgram, error: openError } = await supabase
     .from('programs')
     .select('id')
     .eq('batch_id', batch.id)
+    .eq('class_type', 'tikrar_tahfidz')
     .eq('status', 'open')
     .maybeSingle()
 
   if (openProgram) {
     program = openProgram
   } else {
-    // Second attempt: Find any program for this batch (fallback)
+    // Second attempt: Find any program for this batch with class_type 'tikrar_tahfidz'
     const { data: anyProgram, error: anyError } = await supabase
       .from('programs')
       .select('id')
       .eq('batch_id', batch.id)
+      .eq('class_type', 'tikrar_tahfidz')
       .maybeSingle()
 
     if (anyProgram) {
@@ -87,12 +89,13 @@ export async function submitTikrarRegistration(formData: any, userProfile: any, 
     }
   }
 
-  // TEMPORARY WORKAROUND: If program fetch fails, try to fetch ANY program from database
+  // Fallback: If still not found, try to find by class_type 'tikrar_tahfidz'
   if (programError || !program) {
-    // Try to fetch any available program as last resort
     const { data: fallbackProgram } = await supabase
       .from('programs')
       .select('id, batch_id, name, status')
+      .eq('class_type', 'tikrar_tahfidz')
+      .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
 
