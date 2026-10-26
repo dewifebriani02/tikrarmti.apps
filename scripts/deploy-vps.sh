@@ -24,6 +24,7 @@ ssh -o BatchMode=yes -o ConnectTimeout=5 ${VPS_USER}@${VPS_HOST} "echo '✅ SSH 
 # 2. Build Next.js locally on macOS for maximum speed
 echo ""
 echo "Step 2: Building Next.js Locally on Mac..."
+mkdir -p .next/server && echo "{}" > .next/server/pages-manifest.json
 npm run build
 
 # 3. Synchronize Application Code and .next to VPS
@@ -37,6 +38,8 @@ rsync -avz --delete \
   --exclude '.env.local' \
   --exclude '.next/cache' \
   --exclude '.next/types' \
+  --exclude 'app/api/admin/whatsapp/broadcast' \
+  --exclude 'app/api/admin/whatsapp/recipients' \
   ./ ${VPS_USER}@${VPS_HOST}:${REMOTE_PATH}/
 
 # 4. Check & Sync Production Environment Variables
