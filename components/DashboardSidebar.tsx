@@ -6,7 +6,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { 
   X, BookOpen, GraduationCap, Users, LogOut, ChevronLeft, ChevronRight, Eye,
   LayoutGrid, ClipboardList, FileText, UserCheck, BarChart3, Calendar, Shield, Settings,
-  MessageSquare, HeartHandshake, HelpCircle, Award, ArrowRightLeft, Video, Database, RotateCcw, Sparkles
+  MessageSquare, HeartHandshake, HelpCircle, Award, ArrowRightLeft, Video, Database, RotateCcw, Sparkles, Landmark
 } from 'lucide-react';
 import { ROLE_RANKS, hasRequiredRank, isStaff } from '@/lib/roles';
 import { useAuth } from '@/hooks/useAuth';
@@ -152,6 +152,11 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
         href: '/admin/donations',
         label: 'Infaq Bulanan',
         icon: <HeartHandshake className="h-5 w-5" />,
+      });
+      baseItems.push({
+        href: '/admin/keuangan',
+        label: 'Pembukuan & Rekening BSI',
+        icon: <Landmark className="h-5 w-5 text-emerald-600" />,
       });
 
       baseItems.push({ type: 'header', label: 'Pengaturan & Data' });

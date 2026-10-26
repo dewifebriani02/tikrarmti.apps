@@ -77,12 +77,20 @@ export function normalizePhoneNumber(rawPhone: string): string {
 export class WhatsAppService {
   private static instance: WhatsAppService;
 
-  private watzapApiKey: string;
-  private watzapNumberKey: string;
+  private watzapApiKey = '';
+  private watzapNumberKey = '';
 
   private constructor() {
     this.watzapApiKey = process.env.WATZAP_API_KEY?.trim() || '';
     this.watzapNumberKey = process.env.WATZAP_NUMBER_KEY?.trim() || '';
+  }
+
+  private get apiKey(): string {
+    return (process.env.WATZAP_API_KEY || this.watzapApiKey || '').trim();
+  }
+
+  private get numberKey(): string {
+    return (process.env.WATZAP_NUMBER_KEY || this.watzapNumberKey || '').trim();
   }
 
   public static getInstance(): WhatsAppService {
@@ -96,15 +104,17 @@ export class WhatsAppService {
    * Check connection and integration status via WatZap checking_key
    */
   public async getStatus(): Promise<WhatsAppStatusResult> {
-    const isConfigured = Boolean(this.watzapApiKey && this.watzapNumberKey);
+    const key = this.apiKey;
+    const numKey = this.numberKey;
+    const isConfigured = Boolean(key && numKey);
 
     const result: WhatsAppStatusResult = {
       configured: isConfigured,
       provider: 'watzap',
       watzap: {
         configured: isConfigured,
-        apiKeyConfigured: Boolean(this.watzapApiKey),
-        numberKeyConfigured: Boolean(this.watzapNumberKey),
+        apiKeyConfigured: Boolean(key),
+        numberKeyConfigured: Boolean(numKey),
       },
     };
 
@@ -117,8 +127,8 @@ export class WhatsAppService {
         method: 'POST',
         headers: COMMON_HEADERS,
         body: JSON.stringify({
-          api_key: this.watzapApiKey,
-          number_key: this.watzapNumberKey,
+          api_key: key,
+          number_key: numKey,
         }),
       });
 
@@ -132,7 +142,7 @@ export class WhatsAppService {
           // Find license matching our number_key or pick first connected
           const licenses = json.data.licenses_key || [];
           const matchedLicense = licenses.find(
-            (lic: { key?: string }) => lic.key === this.watzapNumberKey
+            (lic: { key?: string }) => lic.key === numKey
           ) || licenses[0];
 
           if (matchedLicense) {
@@ -167,7 +177,10 @@ export class WhatsAppService {
       };
     }
 
-    if (!this.watzapApiKey || !this.watzapNumberKey) {
+    const key = this.apiKey;
+    const numKey = this.numberKey;
+
+    if (!key || !numKey) {
       return {
         success: false,
         provider: 'none',
@@ -180,8 +193,8 @@ export class WhatsAppService {
         method: 'POST',
         headers: COMMON_HEADERS,
         body: JSON.stringify({
-          api_key: this.watzapApiKey,
-          number_key: this.watzapNumberKey,
+          api_key: key,
+          number_key: numKey,
           phone_no: formattedPhone,
           message: message,
         }),

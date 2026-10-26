@@ -1,8 +1,10 @@
 -- Migration: 20261026_cascade_blacklist_triggers.sql
 -- Purpose: Otomatis cascade status blacklist dari users ke daftar_ulang_submissions, halaqah_students, dan study_partners
+--          serta otomatis re-aktifkan akun (is_active = TRUE) ketika di-whitelist.
 
 -- 1. Function & Trigger BEFORE INSERT OR UPDATE pada tabel users:
 -- Memastikan jika user di-blacklist, is_active otomatis FALSE dan blacklisted_at terisi.
+-- Jika di-whitelist (is_blacklisted diubah jadi FALSE), is_active otomatis pulih menjadi TRUE.
 CREATE OR REPLACE FUNCTION trg_fn_users_blacklist_before()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -11,6 +13,8 @@ BEGIN
         IF NEW.blacklisted_at IS NULL THEN
             NEW.blacklisted_at := NOW();
         END IF;
+    ELSIF OLD.is_blacklisted = TRUE AND NEW.is_blacklisted = FALSE THEN
+        NEW.is_active := TRUE;
     END IF;
     RETURN NEW;
 END;
