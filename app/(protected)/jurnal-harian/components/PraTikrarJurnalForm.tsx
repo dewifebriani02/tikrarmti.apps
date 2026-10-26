@@ -184,7 +184,20 @@ export function PraTikrarJurnalForm({ user, activeBatch, activeRegistration }: P
         toast.error(res.error || 'Gagal menyimpan jurnal');
       }
     } catch (e: any) {
-      toast.error(e?.message || 'Gagal menyimpan jurnal');
+      const errMsg = e?.message || "";
+      if (
+        errMsg.includes("reading 'call'") ||
+        errMsg.includes("Server Action") ||
+        errMsg.includes("Failed to find Server Action") ||
+        errMsg.includes("Failed to fetch")
+      ) {
+        toast.error("Versi aplikasi baru saja diperbarui oleh server. Memuat ulang halaman otomatis...", {
+          duration: 4000,
+        });
+        setTimeout(() => window.location.reload(), 1200);
+        return;
+      }
+      toast.error(errMsg || "Gagal menyimpan jurnal");
     } finally {
       setSaving(false);
     }

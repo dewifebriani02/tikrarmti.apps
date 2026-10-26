@@ -106,8 +106,20 @@ export function JurnalEntryForm({
       } else {
         toast.error(result.error || 'Gagal mengunggah screenshot')
       }
-    } catch (error) {
-      toast.error('Terjadi kesalahan saat mengunggah')
+    } catch (error: any) {
+      const errMsg = error?.message || "";
+      if (
+        errMsg.includes("reading 'call'") ||
+        errMsg.includes("Server Action") ||
+        errMsg.includes("Failed to find Server Action")
+      ) {
+        toast.error("Versi aplikasi baru saja diperbarui oleh server. Memuat ulang halaman otomatis...", {
+          duration: 4000,
+        });
+        setTimeout(() => window.location.reload(), 1200);
+        return;
+      }
+      toast.error("Terjadi kesalahan saat mengunggah");
     } finally {
       setIsUploading(false)
     }

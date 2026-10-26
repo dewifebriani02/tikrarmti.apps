@@ -241,7 +241,24 @@ export default function JurnalHarianPage() {
         toast.error(result.error)
       }
     } catch (error: any) {
-      toast.error(error?.message || 'Gagal menyimpan jurnal')
+      const errMsg = error?.message || "";
+      console.error("[handleFormSubmit] Error saving journal:", error);
+
+      if (
+        errMsg.includes("reading 'call'") ||
+        errMsg.includes("Server Action") ||
+        errMsg.includes("Failed to find Server Action") ||
+        errMsg.includes("Failed to fetch")
+      ) {
+        toast.error("Versi aplikasi baru saja diperbarui oleh server. Memuat ulang halaman otomatis...", {
+          duration: 4000,
+        });
+        setTimeout(() => {
+          window.location.reload();
+        }, 1200);
+        return;
+      }
+      toast.error(errMsg || "Gagal menyimpan jurnal");
     } finally {
       setIsSubmitting(false)
     }
