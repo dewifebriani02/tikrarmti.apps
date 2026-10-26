@@ -247,7 +247,8 @@ export default function JurnalHarianPage() {
     }
   }
 
-  if (registrationsLoading || (currentProgramMode === 'tikrar' && (jurnalStatusLoading || isLoadingJuz))) {
+  // Hanya tampilkan loader fullscreen jika registrasi awal user masih dimuat pertama kali
+  if (registrationsLoading && !activeRegistration && !isAdmin) {
     return (
       <div className="flex flex-col justify-center items-center py-24 space-y-3">
         <Loader2 className="h-10 w-10 animate-spin text-emerald-800" />
@@ -331,6 +332,11 @@ export default function JurnalHarianPage() {
           activeBatch={effectiveBatch}
           activeRegistration={activeRegistration}
         />
+      ) : (jurnalStatusLoading || isLoadingJuz) && !jurnalStatus ? (
+        <div className="flex flex-col justify-center items-center py-20 space-y-3 bg-white rounded-3xl border border-gray-100 p-8 shadow-xs">
+          <Loader2 className="h-8 w-8 animate-spin text-emerald-800" />
+          <p className="text-xs text-gray-500 font-medium">Memuat data lembar jurnal...</p>
+        </div>
       ) : (
         /* 2. TAMPILAN FORM TIKRAR TAHFIDZ REGULER */
         <div className="space-y-6">

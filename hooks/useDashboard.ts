@@ -643,51 +643,19 @@ export function useJurnalStatus(userId?: string, batchId?: string) {
   if (userId) queryParams.append('user_id', userId)
   if (batchId) queryParams.append('batch_id', batchId)
   const queryString = queryParams.toString() ? `?${queryParams.toString()}` : ''
-  const { data, error, isLoading, mutate } = useSWR<JurnalStatusData | null>(
+  const { data, error, isLoading, mutate } = useSWR<any>(
     `/api/dashboard/jurnal-status${queryString}`,
-    async (url: string): Promise<JurnalStatusData | null> => {
-      try {
-        console.log('[useJurnalStatus] Fetching...')
-        const response = await fetch(url, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-        })
-
-        console.log('[useJurnalStatus] Response status:', response.status)
-
-        if (!response.ok) {
-          if (response.status === 404 || response.status === 401) {
-            // No active registration or not authorized
-            console.log('[useJurnalStatus] No active registration, returning null')
-            return null
-          }
-          throw new Error('Failed to fetch jurnal status')
-        }
-
-        const result = await response.json()
-        console.log('[useJurnalStatus] Result:', result.success ? 'success' : 'failed', 'data:', result.data ? 'found' : 'null')
-        return result.data || null
-      } catch (error) {
-        console.error('[useJurnalStatus] Error:', error)
-        return null
-      }
-    },
+    getFetcher,
     {
       revalidateOnFocus: true,
       refreshInterval: 60000, // 1 minute
-      dedupingInterval: 120000, // 2 minutes
-      fallbackData: null,
+      dedupingInterval: 30000, // 30 seconds
     }
   )
 
-  console.log('[useJurnalStatus] State:', { isLoading, isError: !!error, hasData: !!data })
-
   return {
-    jurnalStatus: data || null,
-    isLoading,
+    jurnalStatus: (data as JurnalStatusData) || null,
+    isLoading: isLoading && !data,
     isError: !!error,
     error,
     mutate,
