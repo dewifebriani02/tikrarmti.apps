@@ -48,8 +48,6 @@ type MuallimahFormData = {
   preferred_juz: string[]; 
   class_tikrar: boolean;
   class_pratikrar: boolean;
-  class_paid: boolean;
-  paid_class_scheme: string;
   preferred_max_thalibah?: number;
   
   // Jadwal Terpisah
@@ -67,12 +65,6 @@ type MuallimahFormData = {
   schedule_pratikrar_time_start2: string;
   schedule_pratikrar_time_end2: string;
 
-  schedule_paid_day: string;
-  schedule_paid_time_start: string;
-  schedule_paid_time_end: string;
-  schedule_paid_day2: string;
-  schedule_paid_time_start2: string;
-  schedule_paid_time_end2: string;
   
   // Commitment
   understands_commitment: boolean;
@@ -179,20 +171,8 @@ const FALLBACK_QUESTIONS: Record<string, Omit<Question, 'field_key' | 'section' 
     is_required: true,
     is_active: true,
   },
-  class_paid: {
-    label: "Kelas Berbayar (Opsional)",
-    description: "Mengajar kelas berbayar komersial sesuai kebijakan MTI.",
-    warning_text: null,
-    is_required: false,
-    is_active: true,
-  },
-  paid_class_scheme: {
-    label: "Pengajuan Skema Kelas Berbayar",
-    description: "Pilih skema pengajuan kelas berbayar yang diajukan",
-    warning_text: null,
-    is_required: false,
-    is_active: true,
-  },
+
+
   preferred_max_thalibah: {
     label: "Maksimal Tholibah per Kelas",
     description: "Pilih kapasitas maksimal tholibah per kelas",
@@ -267,8 +247,6 @@ function MuallimahRegistrationContent() {
     preferred_juz: [], 
     class_tikrar: true,
     class_pratikrar: false,
-    class_paid: false,
-    paid_class_scheme: 'none',
     preferred_max_thalibah: 10,
     
     schedule_tikrar_day: '',
@@ -285,12 +263,6 @@ function MuallimahRegistrationContent() {
     schedule_pratikrar_time_start2: '',
     schedule_pratikrar_time_end2: '',
 
-    schedule_paid_day: '',
-    schedule_paid_time_start: '',
-    schedule_paid_time_end: '',
-    schedule_paid_day2: '',
-    schedule_paid_time_start2: '',
-    schedule_paid_time_end2: '',
 
     understands_commitment: false,
     agreed_items: [],
@@ -521,7 +493,6 @@ function MuallimahRegistrationContent() {
         
         let class_tikrar = false;
         let class_pratikrar = false;
-        let class_paid = akad.paid_class_scheme && akad.paid_class_scheme !== 'none';
         
         let schedule_tikrar_day = '';
         let schedule_tikrar_time_start = '';
@@ -537,17 +508,10 @@ function MuallimahRegistrationContent() {
         let schedule_pratikrar_time_start2 = '';
         let schedule_pratikrar_time_end2 = '';
 
-        let schedule_paid_day = '';
-        let schedule_paid_time_start = '';
-        let schedule_paid_time_end = '';
-        let schedule_paid_day2 = '';
-        let schedule_paid_time_start2 = '';
-        let schedule_paid_time_end2 = '';
 
         if (isNewFormat) {
           class_tikrar = !!preferredSchedule.tikrar;
           class_pratikrar = !!preferredSchedule.pra_tahfidz;
-          class_paid = !!preferredSchedule.berbayar;
 
           if (class_tikrar) {
             schedule_tikrar_day = preferredSchedule.tikrar.day || '';
@@ -569,16 +533,7 @@ function MuallimahRegistrationContent() {
               schedule_pratikrar_time_end2 = backupSchedule.pra_tahfidz.time_end2 || backupSchedule.pra_tahfidz.time_end || '';
             }
           }
-          if (class_paid) {
-            schedule_paid_day = preferredSchedule.berbayar.day || '';
-            schedule_paid_time_start = preferredSchedule.berbayar.time_start || '';
-            schedule_paid_time_end = preferredSchedule.berbayar.time_end || '';
-            if (backupSchedule?.berbayar) {
-              schedule_paid_day2 = backupSchedule.berbayar.day || '';
-              schedule_paid_time_start2 = backupSchedule.berbayar.time_start2 || backupSchedule.berbayar.time_start || '';
-              schedule_paid_time_end2 = backupSchedule.berbayar.time_end2 || backupSchedule.berbayar.time_end || '';
-            }
-          }
+
         } else {
           // Legacy format mapping
           const legacyClassType = akad.class_type || '';
@@ -607,8 +562,6 @@ function MuallimahRegistrationContent() {
           preferred_max_thalibah: akad.preferred_max_thalibah,
           class_tikrar,
           class_pratikrar,
-          class_paid,
-          paid_class_scheme: akad.paid_class_scheme || 'none',
           schedule_tikrar_day,
           schedule_tikrar_time_start,
           schedule_tikrar_time_end,
@@ -621,12 +574,6 @@ function MuallimahRegistrationContent() {
           schedule_pratikrar_day2,
           schedule_pratikrar_time_start2,
           schedule_pratikrar_time_end2,
-          schedule_paid_day,
-          schedule_paid_time_start,
-          schedule_paid_time_end,
-          schedule_paid_day2,
-          schedule_paid_time_start2,
-          schedule_paid_time_end2,
           understands_commitment: akad.understands_commitment || false,
         }));
       }
@@ -763,8 +710,6 @@ function MuallimahRegistrationContent() {
     // Validasi Pilihan Kelas Wajib
     const metaTikrar = getQuestionMeta('class_tikrar');
     const metaPratikrar = getQuestionMeta('class_pratikrar');
-    const metaPaid = getQuestionMeta('class_paid');
-    const metaPaidScheme = getQuestionMeta('paid_class_scheme');
 
     const activeRequiredClasses: string[] = [];
     if (metaTikrar.is_active) activeRequiredClasses.push('tikrar');
@@ -791,14 +736,7 @@ function MuallimahRegistrationContent() {
       if (!formData.schedule_pratikrar_time_end) newErrors.schedule_pratikrar_time_end = 'Pilih jam selesai kelas Pra-Tikrar';
     }
 
-    if (metaPaid.is_active && formData.class_paid) {
-      if (!formData.schedule_paid_day) newErrors.schedule_paid_day = 'Pilih hari kelas Berbayar';
-      if (!formData.schedule_paid_time_start) newErrors.schedule_paid_time_start = 'Pilih jam mulai kelas Berbayar';
-      if (!formData.schedule_paid_time_end) newErrors.schedule_paid_time_end = 'Pilih jam selesai kelas Berbayar';
-      if (metaPaidScheme.is_active && (!formData.paid_class_scheme || formData.paid_class_scheme === 'none')) {
-        newErrors.paid_class_scheme = 'Pilih skema kelas berbayar yang diajukan';
-      }
-    }
+
 
     // Deteksi Tumpang Tindih Jadwal (Schedule Conflict Detection)
     if (!newErrors.schedule_tikrar_day && !newErrors.schedule_pratikrar_day) {
@@ -812,27 +750,9 @@ function MuallimahRegistrationContent() {
       }
     }
 
-    if (!newErrors.schedule_tikrar_day && !newErrors.schedule_paid_day) {
-      if (metaTikrar.is_active && formData.class_tikrar && metaPaid.is_active && formData.class_paid) {
-        if (hasScheduleConflict(
-          formData.schedule_tikrar_day, formData.schedule_tikrar_time_start, formData.schedule_tikrar_time_end,
-          formData.schedule_paid_day, formData.schedule_paid_time_start, formData.schedule_paid_time_end
-        )) {
-          newErrors.schedule_conflict = 'Jadwal Utama kelas Tikrar and kelas Berbayar saling bertabrakan';
-        }
-      }
-    }
 
-    if (!newErrors.schedule_pratikrar_day && !newErrors.schedule_paid_day) {
-      if (metaPratikrar.is_active && formData.class_pratikrar && metaPaid.is_active && formData.class_paid) {
-        if (hasScheduleConflict(
-          formData.schedule_pratikrar_day, formData.schedule_pratikrar_time_start, formData.schedule_pratikrar_time_end,
-          formData.schedule_paid_day, formData.schedule_paid_time_start, formData.schedule_paid_time_end
-        )) {
-          newErrors.schedule_conflict = 'Jadwal Utama kelas Pra-Tikrar and kelas Berbayar saling bertabrakan';
-        }
-      }
-    }
+
+
 
     if (!formData.understands_commitment || formData.agreed_items.length < commitmentQuestions.length) {
       newErrors.understands_commitment = 'Harap setujui semua butir akad komitmen';
@@ -1324,68 +1244,20 @@ function MuallimahRegistrationContent() {
                     </div>
                   </div>
                 )}
-
-                {/* Checkbox Kelas Berbayar */}
-                {getQuestionMeta('class_paid').is_active && (
-                  <div className="flex items-start space-x-3 p-4 rounded-xl border border-gray-100 bg-gray-50/30 hover:bg-gray-50 transition-colors">
-                    <input 
-                      type="checkbox"
-                      id="class_paid"
-                      checked={formData.class_paid}
-                      onChange={(e) => {
-                        const checked = e.target.checked;
-                        handleInputChange('class_paid', checked);
-                        if (!checked) {
-                          handleInputChange('paid_class_scheme', 'none');
-                        }
-                      }}
-                      disabled={isFormSubmitted}
-                      className="mt-1 h-5 w-5 rounded border-gray-300 text-green-600 focus:ring-green-500 cursor-pointer shrink-0 accent-green-600"
-                    />
-                    <div className="space-y-1">
-                      <Label htmlFor="class_paid" className="text-sm font-bold text-gray-800 cursor-pointer">
-                        {getQuestionMeta('class_paid').label}
-                      </Label>
-                      <p className="text-xs text-gray-500">{getQuestionMeta('class_paid').description || "Mengajar kelas berbayar komersial sesuai kebijakan MTI."}</p>
-                    </div>
-                  </div>
-                )}
-
               </div>
               {errors.class_selection && <p className="text-sm text-red-500 font-bold mt-2">{errors.class_selection}</p>}
-            </div>
 
-            {/* Jika Kelas Berbayar Aktif, Tampilkan Skema */}
-            {getQuestionMeta('class_paid').is_active && formData.class_paid && getQuestionMeta('paid_class_scheme').is_active && (
-              <div className="space-y-3 bg-amber-50/40 p-5 rounded-2xl border border-amber-100 animate-in slide-in-from-top-4 duration-200">
-                <Label className="text-sm font-bold text-amber-900">{getQuestionMeta('paid_class_scheme').label}</Label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Select 
-                    value={formData.paid_class_scheme} 
-                    onValueChange={(v) => handleInputChange('paid_class_scheme', v)}
-                    disabled={isFormSubmitted}
-                  >
-                    <SelectTrigger className="rounded-xl border-amber-200 bg-white">
-                      <SelectValue placeholder="Pilih skema pengajuan kelas berbayar" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="berbayar_100">Berbayar (100% Muallimah - Mengelola Mandiri)</SelectItem>
-                      <SelectItem value="berbayar_80_20">Berbayar (Skema 80:20 - Didampingi Musyrifah)</SelectItem>
-                      <SelectItem value="berbayar_60_40">Berbayar (Skema 60:40 - Insentif Khusus)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <div className="flex items-center">
-                    <p className="text-xs text-amber-700 italic">
-                      {getQuestionMeta('paid_class_scheme').description || "* Skema akan divalidasi lebih lanjut oleh tim manajemen."}
-                    </p>
-                  </div>
+              {/* Banner Info Kelas Berbayar MTI */}
+              <div className="p-4 rounded-xl border border-emerald-100 bg-gradient-to-r from-emerald-50/60 to-teal-50/40 flex items-start gap-3 mt-4">
+                <span className="text-xl">💡</span>
+                <div className="space-y-1">
+                  <h4 className="text-sm font-bold text-emerald-950">Informasi Kelas Berbayar MTI</h4>
+                  <p className="text-xs text-emerald-800 leading-relaxed">
+                    Pendaftaran awal ini difokuskan pada kualifikasi pengajar program reguler MTI (Tikrar Tahfidz & Pra-Tikrar). Pengajuan pembukaan <strong>Kelas Berbayar MTI</strong> (dengan skema bagi hasil transparan, fasilitas ruang zoom, serta auto-flyer generator) dapat diajukan secara terpisah melalui menu <strong>Kelas Berbayar</strong> di Dashboard Mu'allimah setelah pendaftaran terverifikasi.
+                  </p>
                 </div>
-                {errors.paid_class_scheme && <p className="text-xs text-red-500 font-medium">{errors.paid_class_scheme}</p>}
-                {getQuestionMeta('paid_class_scheme').warning_text && (
-                  <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded-lg mt-1">{getQuestionMeta('paid_class_scheme').warning_text}</p>
-                )}
               </div>
-            )}
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {getQuestionMeta('preferred_max_thalibah').is_active && (
@@ -1680,109 +1552,7 @@ function MuallimahRegistrationContent() {
                   </div>
                 )}
 
-                {/* JADWAL KELAS BERBAYAR */}
-                {getQuestionMeta('class_paid').is_active && formData.class_paid && (
-                  <div className="space-y-4 bg-amber-50/20 p-6 rounded-2xl border border-amber-100/50 animate-in fade-in duration-200">
-                    <div className="flex items-center justify-between border-b border-amber-100 pb-2">
-                      <h3 className="text-base font-bold text-amber-900">🗓️ Jadwal Kelas Berbayar</h3>
-                      <span className="text-xs font-semibold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">Aktif</span>
-                    </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {/* Berbayar Utama */}
-                      <div className="space-y-2">
-                        <p className="text-xs font-bold text-amber-700 uppercase tracking-wider">Jadwal Pilihan Utama</p>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-3 bg-white rounded-xl border border-amber-100/50">
-                          <div>
-                            <Label className="text-[10px] font-bold text-gray-500">Hari</Label>
-                            <Select 
-                              value={formData.schedule_paid_day} 
-                              onValueChange={(v) => handleInputChange('schedule_paid_day', v)}
-                              disabled={isFormSubmitted}
-                            >
-                              <SelectTrigger className={`h-9 bg-white border-gray-200 text-xs ${errors.schedule_paid_day ? "border-red-500" : ""}`}>
-                                <SelectValue placeholder="Hari" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {dayOptions.map(d => (
-                                  <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <Label className="text-[10px] font-bold text-gray-500">Jam Mulai</Label>
-                            <Input 
-                              type="time" 
-                              value={formData.schedule_paid_time_start}
-                              onChange={(e) => handleInputChange('schedule_paid_time_start', e.target.value)}
-                              disabled={isFormSubmitted}
-                              className={`h-9 bg-white border-gray-200 text-xs ${errors.schedule_paid_time_start ? "border-red-500" : ""}`}
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-[10px] font-bold text-gray-500">Jam Selesai</Label>
-                            <Input 
-                              type="time" 
-                              value={formData.schedule_paid_time_end}
-                              onChange={(e) => handleInputChange('schedule_paid_time_end', e.target.value)}
-                              disabled={isFormSubmitted}
-                              className={`h-9 bg-white border-gray-200 text-xs ${errors.schedule_paid_time_end ? "border-red-500" : ""}`}
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Berbayar Cadangan */}
-                      <div className="space-y-2">
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Jadwal Cadangan (Opsional)</p>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-3 bg-white rounded-xl border border-gray-100">
-                          <div>
-                            <Label className="text-[10px] font-bold text-gray-400">Hari</Label>
-                            <Select 
-                              value={formData.schedule_paid_day2} 
-                              onValueChange={(v) => handleInputChange('schedule_paid_day2', v)}
-                              disabled={isFormSubmitted}
-                            >
-                              <SelectTrigger className="h-9 bg-white border-gray-200 text-xs">
-                                <SelectValue placeholder="Hari" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {dayOptions.map(d => (
-                                  <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <Label className="text-[10px] font-bold text-gray-400">Jam Mulai</Label>
-                            <Input 
-                              type="time" 
-                              value={formData.schedule_paid_time_start2}
-                              onChange={(e) => handleInputChange('schedule_paid_time_start2', e.target.value)}
-                              disabled={isFormSubmitted}
-                              className="h-9 bg-white border-gray-200 text-xs"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-[10px] font-bold text-gray-400">Jam Selesai</Label>
-                            <Input 
-                              type="time" 
-                              value={formData.schedule_paid_time_end2}
-                              onChange={(e) => handleInputChange('schedule_paid_time_end2', e.target.value)}
-                              disabled={isFormSubmitted}
-                              className="h-9 bg-white border-gray-200 text-xs"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    {(errors.schedule_paid_day || errors.schedule_paid_time_start || errors.schedule_paid_time_end) && (
-                      <p className="text-xs text-red-500 font-bold mt-1">Harap lengkapi semua field Jadwal Utama kelas Berbayar.</p>
-                    )}
-                  </div>
-                )}
-              </div>
+                </div>
             )}
 
             <div className="space-y-6">

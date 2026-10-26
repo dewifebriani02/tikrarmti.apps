@@ -257,6 +257,11 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
         label: 'Tashih Bacaan Santri',
         icon: <FileText className="h-5 w-5 text-emerald-600" />,
       });
+      baseItems.push({
+        href: '/muallimah/kelas-berbayar',
+        label: 'Kelas Berbayar MTI',
+        icon: <Sparkles className="h-5 w-5 text-amber-500" />,
+      });
 
       baseItems.push({ type: 'header', label: 'Profil & Akun' });
       baseItems.push({

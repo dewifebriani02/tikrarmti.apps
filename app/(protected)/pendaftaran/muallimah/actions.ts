@@ -19,7 +19,7 @@ export async function submitMuallimahRegistration(formData: any, userData: any, 
   }
 
   try {
-    // 2. Prepare Data
+    // 2. Prepare Data (Tikrar Tahfidz & Pra-Tikrar)
     const preferredScheduleObj: Record<string, any> = {}
     const backupScheduleObj: Record<string, any> = {}
 
@@ -53,25 +53,9 @@ export async function submitMuallimahRegistration(formData: any, userData: any, 
       }
     }
 
-    if (formData.class_paid) {
-      preferredScheduleObj.berbayar = {
-        day: formData.schedule_paid_day,
-        time_start: formData.schedule_paid_time_start,
-        time_end: formData.schedule_paid_time_end,
-      }
-      if (formData.schedule_paid_day2 && formData.schedule_paid_time_start2 && formData.schedule_paid_time_end2) {
-        backupScheduleObj.berbayar = {
-          day: formData.schedule_paid_day2,
-          time_start: formData.schedule_paid_time_start2,
-          time_end: formData.schedule_paid_time_end2,
-        }
-      }
-    }
-
     const classTypesSelected: string[] = []
     if (formData.class_tikrar) classTypesSelected.push('tikrar_tahfidz')
     if (formData.class_pratikrar) classTypesSelected.push('pra_tahfidz')
-    if (formData.class_paid) classTypesSelected.push('tikrar_berbayar')
     
     // 3. Step 1: Upsert Profile (muallimah_registrations)
     // We treat this table as the permanent profile. 
@@ -128,7 +112,7 @@ export async function submitMuallimahRegistration(formData: any, userData: any, 
       batch_id: batchId,
       preferred_juz: Array.isArray(formData.preferred_juz) ? formData.preferred_juz.join(', ') : null,
       class_type: classTypesSelected.join(', ') || 'tikrar_tahfidz',
-      paid_class_scheme: formData.class_paid ? (formData.paid_class_scheme || 'none') : 'none',
+      paid_class_scheme: 'none',
       preferred_max_thalibah: formData.preferred_max_thalibah || 10,
       preferred_schedule: JSON.stringify(preferredScheduleObj),
       backup_schedule: Object.keys(backupScheduleObj).length > 0 ? JSON.stringify(backupScheduleObj) : null,
@@ -194,4 +178,3 @@ export async function getMuallimahRegistrationQuestions() {
 
   return { success: true, data, error: null }
 }
-
