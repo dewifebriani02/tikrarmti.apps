@@ -10,7 +10,7 @@ declare global {
   var __postgresPool: Pool | undefined;
 }
 
-function getPool(): Pool {
+export function getPool(): Pool {
   if (global.__postgresPool) {
     return global.__postgresPool;
   }
@@ -21,9 +21,9 @@ function getPool(): Pool {
     connectionString
       ? {
           connectionString,
-          max: 20,
-          idleTimeoutMillis: 30000,
-          connectionTimeoutMillis: 10000,
+          max: 10,
+          idleTimeoutMillis: 10000,
+          connectionTimeoutMillis: 5000,
         }
       : {
           host: process.env.DB_HOST || '127.0.0.1',
@@ -31,9 +31,9 @@ function getPool(): Pool {
           database: process.env.DB_NAME || 'mti_db',
           user: process.env.DB_USER || 'mti_user',
           password: process.env.DB_PASSWORD,
-          max: 20,
-          idleTimeoutMillis: 30000,
-          connectionTimeoutMillis: 10000,
+          max: 10,
+          idleTimeoutMillis: 10000,
+          connectionTimeoutMillis: 5000,
         }
   );
 
@@ -41,14 +41,20 @@ function getPool(): Pool {
     console.error('[DB Pool Error] Unexpected error on idle PostgreSQL client:', err);
   });
 
-  if (process.env.NODE_ENV !== 'production') {
-    global.__postgresPool = pool;
-  }
+  // Always store singleton on global so both development and production reuse the exact same pool
+  global.__postgresPool = pool;
 
   return pool;
 }
 
-export const db = getPool();
+// Lazy proxy so that getPool() is only called when first accessed (after dotenv / Next.js env init)
+export const db = new Proxy({} as Pool, {
+  get(_target, prop) {
+    const pool = getPool();
+    const val = (pool as any)[prop];
+    return typeof val === 'function' ? val.bind(pool) : val;
+  },
+});
 
 /**
  * Executes a parameterized SQL query with type safety
@@ -59,7 +65,8 @@ export async function query<T extends QueryResultRow = any>(
 ): Promise<{ rows: T[]; rowCount: number }> {
   const start = Date.now();
   try {
-    const res: QueryResult<T> = await db.query<T>(text, params);
+    const pool = getPool();
+    const res: QueryResult<T> = await pool.query<T>(text, params);
     const duration = Date.now() - start;
     if (process.env.DEBUG_SQL === 'true') {
       console.log(`[SQL ${duration}ms]`, { text, rowCount: res.rowCount });
@@ -91,7 +98,8 @@ export async function queryOne<T extends QueryResultRow = any>(
 export async function transaction<T>(
   callback: (client: PoolClient) => Promise<T>
 ): Promise<T> {
-  const client = await db.connect();
+  const pool = getPool();
+  const client = await pool.connect();
   try {
     await client.query('BEGIN');
     const result = await callback(client);
