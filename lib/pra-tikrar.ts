@@ -3,15 +3,15 @@
  */
 
 export const PRA_TIKRAR_TASHIH_CLASS_TYPES = [
-  { id: 'tahsin_juz30', label: "Tahsin Tilawah Al-Qur'an (Juz 30)" },
-  { id: 'makharijul_huruf', label: 'Makharijul Huruf & Sifat Huruf' },
-  { id: 'talaqqi_zoom', label: 'Talaqqi & Musyafahah (Sesi Zoom MTI)' },
-  { id: 'an_nuraniyah', label: 'Metode An-Nuraniyah (Al-Qaidah)' },
-  { id: 'asy_syafii', label: 'Metode Asy-Syafi’i (Tajwid Praktis)' },
-  { id: 'iqro_dewasa', label: 'Metode Iqro’ (Lanjutan / Dewasa)' },
-  { id: 'dauroh_tajwid', label: 'Dauroh / Kajian Matan Tajwid Dasar' },
-  { id: 'bimbingan_luar', label: 'Bimbingan Mandiri / Kajian Luar MTI' },
-  { id: 'lainnya', label: 'Lainnya (Tulis Manual)' },
+  { id: 'iqro_dewasa', label: "Metode Iqro’ (Lanjutan / Dewasa)", icon: '📖', desc: 'Penguatan makhraj & harakat dasar' },
+  { id: 'tahsin_juz30', label: "Tahsin Tilawah Al-Qur'an (Juz 30)", icon: '🌸', desc: 'Perbaikan bacaan surat-surat Juz 30' },
+  { id: 'makharijul_huruf', label: 'Makharijul Huruf & Sifat Huruf', icon: '🎙️', desc: 'Latihan tempat keluar & karakteristik huruf' },
+  { id: 'talaqqi_zoom', label: 'Talaqqi & Musyafahah (Sesi Zoom MTI)', icon: '🎥', desc: 'Simakan langsung tatap muka dengan Ustadzah MTI' },
+  { id: 'an_nuraniyah', label: 'Metode An-Nuraniyah (Al-Qaidah)', icon: '📗', desc: 'Pengejaan harakat & kaidah bunyi Al-Qur’an' },
+  { id: 'asy_syafii', label: 'Metode Asy-Syafi’i (Tajwid Praktis)', icon: '📘', desc: 'Pembahasan hukum-hukum tajwid praktis' },
+  { id: 'dauroh_tajwid', label: 'Dauroh / Kajian Matan Tajwid Dasar', icon: '📜', desc: 'Kajian Tuhfatul Athfal / Jazariyah' },
+  { id: 'bimbingan_luar', label: 'Bimbingan Mandiri / Kajian Luar MTI', icon: '🕌', desc: 'Kelas tahsin/tashih di masjid atau lembaga luar' },
+  { id: 'lainnya', label: 'Lainnya (Tulis Manual)', icon: '✍️', desc: 'Bimbingan atau halaqah tambahan lainnya' },
 ];
 
 export const PRA_TIKRAR_ASAL_BIMBINGAN = [
@@ -53,10 +53,13 @@ export interface PraTikrarEntryInput {
   surat_nama?: string | null;
   ayat_range?: string | null;
   durasi_menit?: number;
+  rekam_mandiri?: boolean;
   catatan_santri?: string;
   halaqah_id?: string | null;
+  halaqah_ids?: string[];
   batch_id?: string | null;
   jenis_kelas?: string;
+  jenis_kelas_list?: string[];
   jenis_kelas_custom?: string;
   asal_bimbingan?: string;
   kategori_kelas?: string;
@@ -82,6 +85,7 @@ export interface PraTikrarStudentRecord {
   surat_nama?: string;
   ayat_range?: string;
   durasi_menit?: number;
+  rekam_mandiri?: boolean;
   catatan_santri?: string;
   status_bacaan?: string;
   catatan_muallimah?: string;
@@ -91,9 +95,11 @@ export interface PraTikrarStudentRecord {
   catatan_musyrifah?: string;
   absen_at?: string;
   jenis_kelas?: string;
+  jenis_kelas_list?: string[];
   jenis_kelas_custom?: string;
   asal_bimbingan?: string;
   kategori_kelas?: string;
+  halaqah_ids?: string[];
 }
 
 export interface PraTikrarContextResponse {
@@ -115,15 +121,21 @@ export interface PraTikrarContextResponse {
 }
 
 export interface TashihPayload {
-  studentId: string;
+  studentId?: string;
   entryId?: string | null;
+  jurnal_id?: string;
   halaqahId?: string | null;
   batchId?: string | null;
   tanggal?: string;
   status_bacaan: string;
   catatan_muallimah?: string;
   evaluasi_tajwid?: any[];
+  kesalahan_makhraj?: string[];
+  kesalahan_sifat?: string[];
+  kesalahan_mad?: string[];
+  kesalahan_ghunnah?: string[];
   jenis_kelas?: string;
+  jenis_kelas_list?: string[];
   jenis_kelas_custom?: string;
   asal_bimbingan?: string;
   kategori_kelas?: string;

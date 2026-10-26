@@ -10,6 +10,10 @@ export interface TashihFormData {
   lokasi_detail?: string | null
   ustadzah_id?: string | null
   nama_pemeriksa?: string | null
+  halaqah_id?: string | null
+  halaqah_ids?: string[]
+  halaqah_names?: string | null
+  jenis_kelas?: string[]
   jumlah_kesalahan_tajwid: number
   masalah_tajwid: string[]
   catatan_tambahan?: string | null
@@ -37,10 +41,12 @@ export async function saveTashihRecord(data: TashihFormData) {
        p.id, 
        p.status, 
        p.chosen_juz, 
+       pr.class_type,
        du.status as du_status, 
        du.confirmed_chosen_juz
      FROM pendaftaran_tikrar_tahfidz p
      JOIN batches b ON p.batch_id = b.id
+     LEFT JOIN programs pr ON p.program_id = pr.id
      LEFT JOIN daftar_ulang_submissions du ON du.user_id = p.user_id AND du.batch_id = p.batch_id
      WHERE p.user_id = $1
        AND p.status IN ('approved', 'selected', 'registered')
@@ -58,12 +64,17 @@ export async function saveTashihRecord(data: TashihFormData) {
     };
   }
 
-  const isDaftarUlangApproved = reg.du_status === 'approved' || reg.status === 'approved';
+  const isPraTikrar = reg.class_type === 'pra_tahfidz' || reg.chosen_juz?.toUpperCase().startsWith('30');
+  const isDaftarUlangApproved = isPraTikrar
+    ? (reg.status === 'approved' || reg.status === 'selected')
+    : (reg.du_status === 'approved' || reg.status === 'approved');
 
   if (!isDaftarUlangApproved) {
     return { 
       success: false, 
-      error: 'Afwan Ukhti, Daftar Ulang Ukhti belum disetujui. Catatan Tashih baru dapat diakses setelah pendaftaran ulang disetujui oleh admin.' 
+      error: isPraTikrar
+        ? 'Afwan Ukhti, status pendaftaran Pra-Tikrar Ukhti belum disetujui.'
+        : 'Afwan Ukhti, Daftar Ulang Ukhti belum disetujui. Catatan Tashih baru dapat diakses setelah pendaftaran ulang disetujui oleh admin.' 
     };
   }
 
@@ -97,13 +108,22 @@ export async function saveTashihRecord(data: TashihFormData) {
       // If reg is null, keep finalUstadzahId as user_id (ustadzah_id in tashih_records is text and has no FK constraint)
     }
 
+    const halaqahIdSingle = data.halaqah_id || (data.halaqah_ids && data.halaqah_ids[0]) || null;
+    const halaqahIdsArray = data.halaqah_ids && data.halaqah_ids.length > 0 
+      ? data.halaqah_ids 
+      : (halaqahIdSingle ? [halaqahIdSingle] : []);
+
     const recordData = {
-      user_id: authUser.id, // Menggunakan authUser.id dari server, dijamin sama dengan auth.uid()
+      user_id: authUser.id,
       blok: data.blok,
       lokasi: data.lokasi,
       lokasi_detail: data.lokasi_detail || null,
       ustadzah_id: finalUstadzahId,
       nama_pemeriksa: finalNamaPemeriksa,
+      halaqah_id: halaqahIdSingle,
+      halaqah_ids: JSON.stringify(halaqahIdsArray),
+      halaqah_names: data.halaqah_names || null,
+      jenis_kelas: JSON.stringify(data.jenis_kelas || []),
       jumlah_kesalahan_tajwid: data.jumlah_kesalahan_tajwid,
       masalah_tajwid: Array.isArray(data.masalah_tajwid) ? JSON.stringify(data.masalah_tajwid) : (data.masalah_tajwid || '[]'),
       catatan_tambahan: data.catatan_tambahan || null,
@@ -179,8 +199,6 @@ export async function getWeekTashihRecords(userId: string, batchId?: string | nu
   try {
     const { query } = await import('@/lib/db')
 
-    // Kode blok (H1A, H2B, ...) sama di semua batch, jadi catatan harus dibatasi ke batch
-    // yang dipakai (filter sama dengan /api/dashboard/tashih-status).
     let dateFilter = '1970-01-01'
     if (batchId) {
       const { rows: batchRows } = await query(
@@ -205,6 +223,53 @@ export async function getWeekTashihRecords(userId: string, batchId?: string | nu
     return rows || [];
   } catch (err) {
     console.error('[getWeekTashihRecords] Error:', err);
+    return [];
+  }
+}
+
+export async function getPraTikrarHalaqahList(batchId?: string | null) {
+  try {
+    const { query } = await import('@/lib/db')
+    const DAYS = ['Ahad', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Ahad'];
+    
+    let batchFilterSql = '';
+    const params: any[] = [];
+    if (batchId) {
+      params.push(batchId);
+      batchFilterSql = `AND (p.batch_id = $1 OR p.batch_id IS NULL)`;
+    }
+
+    const { rows } = await query(
+      `SELECT h.id, h.name, h.day_of_week, h.start_time, h.end_time,
+              (SELECT u.id FROM halaqah_mentors hm JOIN users u ON hm.mentor_id = u.id WHERE hm.halaqah_id = h.id AND hm.role = 'ustadzah' LIMIT 1) as ustadzah_id,
+              (SELECT u.full_name FROM halaqah_mentors hm JOIN users u ON hm.mentor_id = u.id WHERE hm.halaqah_id = h.id AND hm.role = 'ustadzah' LIMIT 1) as ustadzah_name
+       FROM halaqah h
+       JOIN programs p ON h.program_id = p.id
+       WHERE p.class_type = 'pra_tahfidz' AND h.status = 'active'
+       ${batchFilterSql}
+       ORDER BY h.day_of_week ASC, h.start_time ASC`,
+      params
+    );
+
+    return rows.map((r: any) => {
+      const dayName = DAYS[r.day_of_week] || 'Hari';
+      const timeStart = r.start_time ? String(r.start_time).slice(0, 5) : '';
+      const timeEnd = r.end_time ? String(r.end_time).slice(0, 5) : '';
+      const teacher = r.ustadzah_name || 'Ustadzah MTI';
+      return {
+        id: r.id,
+        name: r.name,
+        label: `[${dayName} ${timeStart} - ${timeEnd} WIB] Pra-Tikrar • ${teacher}`,
+        short_label: `${dayName} ${timeStart} - ${timeEnd} WIB (${teacher})`,
+        day_of_week: r.day_of_week,
+        start_time: r.start_time,
+        end_time: r.end_time,
+        ustadzah_id: r.ustadzah_id,
+        ustadzah_name: r.ustadzah_name
+      };
+    });
+  } catch (err) {
+    console.error('[getPraTikrarHalaqahList] Error:', err);
     return [];
   }
 }
