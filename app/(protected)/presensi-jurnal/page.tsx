@@ -1173,6 +1173,11 @@ function PresensiJurnalContent() {
                         {selectedBlockRecords.type === 'presensi' ? (
                           <div className="space-y-1">
                              <div className="text-[10px] text-gray-500 font-medium">Ustadzah: <span className="font-bold text-gray-700">{record.nama_pemeriksa || '-'}</span></div>
+                             {record.halaqah_names && (
+                               <div className="text-[9px] text-indigo-900 bg-indigo-50/80 p-1.5 rounded-lg border border-indigo-100 font-medium">
+                                 <span className="font-bold">Sesi / Halaqah: </span>{record.halaqah_names}
+                               </div>
+                             )}
                              <div className="text-[10px] text-gray-500 font-medium">Kesalahan: <span className="font-bold text-red-600">{record.jumlah_kesalahan_tajwid || 0}</span></div>
                              {record.catatan_tambahan && <div className="text-[10px] text-gray-500 italic mt-2 border-l-2 border-green-200 pl-2">"{record.catatan_tambahan}"</div>}
                           </div>

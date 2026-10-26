@@ -16,6 +16,7 @@ import { TashihHeader } from './components/TashihHeader'
 import { TashihStatusGrid } from './components/TashihStatusGrid'
 import { TashihEntryForm, PraTikrarHalaqahOption } from './components/TashihEntryForm'
 import { TashihSuccessState } from './components/TashihSuccessState'
+import { TashihHistoryList } from './components/TashihHistoryList'
 
 interface JuzOption {
   id: string
@@ -46,6 +47,9 @@ interface TashihData {
   halaqahIds?: string[]
   halaqahNames?: string | null
   jenisKelas?: string[]
+  asalBimbingan?: string | null
+  kategoriKelas?: string | null
+  suratAyat?: string | null
   jumlahKesalahanTajwid: number
   masalahTajwid: string[]
   catatanTambahan: string
@@ -63,6 +67,9 @@ interface TashihRecord {
   halaqah_ids?: any
   halaqah_names?: string | null
   jenis_kelas?: any
+  asal_bimbingan?: string | null
+  kategori_kelas?: string | null
+  surat_ayat?: string | null
   jumlah_kesalahan_tajwid: number | null
   masalah_tajwid: string[] | null
   catatan_tambahan: string | null
@@ -138,6 +145,9 @@ export default function TashihPage() {
     halaqahIds: [],
     halaqahNames: null,
     jenisKelas: ['talaqqi_zoom', 'tahsin_juz30'],
+    asalBimbingan: 'mti',
+    kategoriKelas: 'umum',
+    suratAyat: null,
     jumlahKesalahanTajwid: 0,
     masalahTajwid: [],
     catatanTambahan: '',
@@ -344,6 +354,9 @@ export default function TashihPage() {
                 halaqahIds: parsedHalaqahIds,
                 halaqahNames: (record as any).halaqah_names || null,
                 jenisKelas: parsedJenisKelas.length > 0 ? parsedJenisKelas : ['talaqqi_zoom', 'tahsin_juz30'],
+                asalBimbingan: record.asal_bimbingan || (record.lokasi === 'luar' ? 'luar' : 'mti'),
+                kategoriKelas: record.kategori_kelas || 'umum',
+                suratAyat: record.surat_ayat || null,
                 jumlahKesalahanTajwid: record.jumlah_kesalahan_tajwid || 0,
                 masalahTajwid: record.masalah_tajwid || [],
                 catatanTambahan: record.catatan_tambahan || '',
@@ -368,6 +381,9 @@ export default function TashihPage() {
                 halaqahIds: [],
                 halaqahNames: null,
                 jenisKelas: ['talaqqi_zoom', 'tahsin_juz30'],
+                asalBimbingan: 'mti',
+                kategoriKelas: 'umum',
+                suratAyat: null,
                 jumlahKesalahanTajwid: 0,
                 masalahTajwid: [],
                 catatanTambahan: '',
@@ -393,6 +409,9 @@ export default function TashihPage() {
       halaqah_ids: formData.halaqahIds || [],
       halaqah_names: formData.halaqahNames || null,
       jenis_kelas: formData.jenisKelas || [],
+      asal_bimbingan: formData.asalBimbingan || (formData.lokasi === 'luar' ? 'eksternal' : 'internal'),
+      kategori_kelas: formData.kategoriKelas || 'umum',
+      surat_ayat: formData.suratAyat || null,
       jumlah_kesalahan_tajwid: formData.jumlahKesalahanTajwid,
       masalah_tajwid: formData.masalahTajwid,
       catatan_tambahan: formData.catatanTambahan,
@@ -497,6 +516,58 @@ export default function TashihPage() {
             currentWeekNumber={currentWeekNum}
             onBlockClick={handleBlockClick}
             isAdminPreview={isAdmin && !activeRegistration}
+          />
+
+          {/* Rekapitulasi Riwayat & Log Setoran Tashih Thalibah */}
+          <TashihHistoryList 
+            records={weekRecords as any}
+            onEditRecord={(record) => {
+              let parsedHalaqahIds: string[] = []
+              if (Array.isArray(record.halaqah_ids)) {
+                parsedHalaqahIds = record.halaqah_ids
+              } else if (typeof record.halaqah_ids === 'string') {
+                try { parsedHalaqahIds = JSON.parse(record.halaqah_ids) } catch {}
+              } else if (record.halaqah_id) {
+                parsedHalaqahIds = [record.halaqah_id]
+              }
+
+              let parsedJenisKelas: string[] = []
+              if (Array.isArray(record.jenis_kelas)) {
+                parsedJenisKelas = record.jenis_kelas
+              } else if (typeof record.jenis_kelas === 'string') {
+                try { parsedJenisKelas = JSON.parse(record.jenis_kelas) } catch {}
+              }
+
+              const bloks = parseBlokField(record.blok)
+              setSelectedBlocksForEditing(bloks)
+              setTashihData({
+                id: record.id,
+                blok: bloks,
+                lokasi: (record.lokasi === 'halaqah' ? 'mti' : record.lokasi) as 'mti' | 'luar',
+                lokasiDetail: record.lokasi_detail || '',
+                ustadzahId: record.ustadzah_id || null,
+                ustadzahName: record.nama_pemeriksa,
+                halaqahId: record.halaqah_id || null,
+                halaqahIds: parsedHalaqahIds,
+                halaqahNames: (record as any).halaqah_names || null,
+                jenisKelas: parsedJenisKelas.length > 0 ? parsedJenisKelas : ['talaqqi_zoom', 'tahsin_juz30'],
+                asalBimbingan: record.asal_bimbingan || (record.lokasi === 'luar' ? 'luar' : 'mti'),
+                kategoriKelas: record.kategori_kelas || 'umum',
+                suratAyat: record.surat_ayat || null,
+                jumlahKesalahanTajwid: record.jumlah_kesalahan_tajwid || 0,
+                masalahTajwid: record.masalah_tajwid || [],
+                catatanTambahan: record.catatan_tambahan || '',
+                tanggalTashih: new Date(record.waktu_tashih).toISOString().slice(0, 10)
+              })
+              const match = record.blok.match(/H(\d+)/)
+              if (match) {
+                const bNum = parseInt(match[1], 10)
+                const offset = selectedJuzInfo?.part === 'B' ? 10 : 0
+                setSelectedWeekNumber(Math.max(1, bNum - offset))
+              }
+              setViewMode('form')
+            }}
+            isPraTikrar={currentProgramMode === 'pra-tikrar'}
           />
         </>
       ) : (weekCompleted && !tashihData.id) ? (

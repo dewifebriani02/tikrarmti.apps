@@ -14,6 +14,9 @@ export interface TashihFormData {
   halaqah_ids?: string[]
   halaqah_names?: string | null
   jenis_kelas?: string[]
+  asal_bimbingan?: string | null
+  kategori_kelas?: string | null
+  surat_ayat?: string | null
   jumlah_kesalahan_tajwid: number
   masalah_tajwid: string[]
   catatan_tambahan?: string | null
@@ -124,6 +127,9 @@ export async function saveTashihRecord(data: TashihFormData) {
       halaqah_ids: JSON.stringify(halaqahIdsArray),
       halaqah_names: data.halaqah_names || null,
       jenis_kelas: JSON.stringify(data.jenis_kelas || []),
+      asal_bimbingan: data.asal_bimbingan || (data.lokasi === 'luar' ? 'eksternal' : 'internal'),
+      kategori_kelas: data.kategori_kelas || 'umum',
+      surat_ayat: data.surat_ayat || null,
       jumlah_kesalahan_tajwid: data.jumlah_kesalahan_tajwid,
       masalah_tajwid: Array.isArray(data.masalah_tajwid) ? JSON.stringify(data.masalah_tajwid) : (data.masalah_tajwid || '[]'),
       catatan_tambahan: data.catatan_tambahan || null,
@@ -217,7 +223,7 @@ export async function getWeekTashihRecords(userId: string, batchId?: string | nu
       `SELECT * FROM tashih_records
        WHERE user_id = $1
          AND (waktu_tashih >= $2 OR created_at >= $2)
-       ORDER BY waktu_tashih ASC`,
+       ORDER BY waktu_tashih DESC, updated_at DESC`,
       [userId, dateFilter]
     );
     return rows || [];
