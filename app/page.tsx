@@ -457,7 +457,7 @@ export default async function Home() {
                 <ul className="space-y-2 text-xs sm:text-sm text-gray-700 mb-6">
                   <li className="flex items-start gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
-                    <span>Talaqqi Tahsin Lanjutan, Matan Tajwid Jazariyyah / Tuhfah</span>
+                    <span>Talaqqi Tahsin Lanjutan &amp; Pemantapan Kaidah Tajwid</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
