@@ -119,39 +119,6 @@ export default function TransparansiPublikPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-50 text-gray-800">
-      {/* 1. PUBLIC HEADER NAVBAR */}
-      <header className="border-b border-gray-200/80 bg-white/95 backdrop-blur-md sticky top-0 z-40">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-emerald-900 text-white flex items-center justify-center font-black text-sm shadow-xs">
-              MTI
-            </div>
-            <div>
-              <span className="font-extrabold text-sm sm:text-base text-gray-900 tracking-tight block">
-                Markaz Tikrar Indonesia
-              </span>
-              <span className="text-[10px] text-emerald-800 font-bold uppercase tracking-wider block -mt-0.5">
-                Portal Transparansi Umat
-              </span>
-            </div>
-          </Link>
-
-          <div className="flex items-center gap-2 sm:gap-3">
-            <Link
-              href="/infaq-donasi"
-              className="text-xs font-bold text-gray-600 hover:text-emerald-900 px-3 py-1.5 transition-colors hidden sm:inline-block"
-            >
-              Infaq &amp; Donasi
-            </Link>
-            <Link
-              href="/login"
-              className="text-xs font-bold bg-emerald-900 hover:bg-emerald-800 text-white px-4 py-2 rounded-xl transition-all shadow-xs"
-            >
-              Masuk Akun
-            </Link>
-          </div>
-        </div>
-      </header>
 
       {/* 2. HERO SECTION */}
       <section className="bg-gradient-to-br from-emerald-950 via-emerald-900 to-green-950 text-white py-12 sm:py-16 px-4 relative overflow-hidden">
