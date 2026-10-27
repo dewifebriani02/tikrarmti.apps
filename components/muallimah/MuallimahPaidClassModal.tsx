@@ -149,7 +149,7 @@ export function MuallimahPaidClassModal({
   };
 
   const previewData: FlyerClassData = {
-    class_name: formData.class_name || 'Contoh: Tahsin Al-Jazariyyah',
+    class_name: formData.class_name || 'Contoh: Bimbingan Tahsin & Talaqqi',
     muallimah_name: muallimahName,
     subject_material: formData.subject_material || 'Makharij & Shifatul Huruf',
     schedule_day: formData.schedule_day,
@@ -233,7 +233,7 @@ export function MuallimahPaidClassModal({
                 <input
                   type="text"
                   required
-                  placeholder="Contoh: Tahsin Al-Jazariyyah & Bimbingan Talaqqi"
+                  placeholder="Contoh: Bimbingan Tahsin Lanjutan & Talaqqi"
                   value={formData.class_name}
                   onChange={e => setFormData({ ...formData, class_name: e.target.value })}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all font-medium"
