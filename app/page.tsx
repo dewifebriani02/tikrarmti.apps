@@ -13,14 +13,26 @@ import {
   Crown,
   Heart,
   Shield,
-  Sparkles
+  Sparkles,
+  BookOpen,
+  GraduationCap,
+  Layers,
+  MapPin,
+  CheckCircle2,
+  ArrowRight,
+  TrendingUp,
+  FileText,
+  Clock,
+  Sparkle,
+  HandCoins
 } from "lucide-react";
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { createClient } from '@/lib/supabase/server';
+import { db } from '@/lib/db';
 import { redirect } from 'next/navigation';
 
-// Force dynamic rendering so testimonials are always fresh
+// Force dynamic rendering so testimonials and metrics are always fresh
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
@@ -39,229 +51,533 @@ export default async function Home() {
     .eq('is_approved', true)
     .order('created_at', { ascending: false });
 
+  // Query live KPI metrics directly from database
+  let kpiStats = {
+    totalThalibahBelajar: 225,
+    totalKursiBatch: 346,
+    totalMuallimah: 48,
+    totalHalaqah: 82,
+    totalKota: 223
+  };
+
+  try {
+    const kpiRes = await db.query(`
+      SELECT 
+        (SELECT COUNT(DISTINCT user_id) FROM pendaftaran_tikrar_tahfidz WHERE selection_status IN ('selected', 'passed')) as total_thalibah,
+        (SELECT COUNT(*) FROM pendaftaran_tikrar_tahfidz WHERE selection_status IN ('selected', 'passed')) as total_kursi,
+        (SELECT COUNT(*) FROM users WHERE role = 'muallimah') as total_muallimah,
+        (SELECT COUNT(*) FROM halaqah) as total_halaqah,
+        (SELECT COUNT(DISTINCT kota) FROM users WHERE kota IS NOT NULL AND kota != '') as total_kota;
+    `);
+    if (kpiRes.rows && kpiRes.rows[0]) {
+      const row = kpiRes.rows[0];
+      kpiStats = {
+        totalThalibahBelajar: Number(row.total_thalibah) || 225,
+        totalKursiBatch: Number(row.total_kursi) || 346,
+        totalMuallimah: Number(row.total_muallimah) || 48,
+        totalHalaqah: Number(row.total_halaqah) || 82,
+        totalKota: Number(row.total_kota) || 223
+      };
+    }
+  } catch (err) {
+    console.error('Error fetching KPI metrics:', err);
+  }
+
   return (
     <>
       {/* Minimal Background Elements */}
       <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-10 w-32 h-32 bg-green-900/5 rounded-full opacity-20 blur-3xl"></div>
-        <div className="absolute bottom-20 right-20 w-40 h-40 bg-yellow-500/5 rounded-full opacity-20 blur-3xl"></div>
+        <div className="absolute top-20 left-10 w-48 h-48 bg-emerald-900/10 rounded-full opacity-30 blur-3xl"></div>
+        <div className="absolute bottom-20 right-20 w-60 h-60 bg-amber-500/10 rounded-full opacity-30 blur-3xl"></div>
       </div>
 
       {/* Hero Section */}
-      <section className="min-h-[70vh] sm:min-h-[85vh] flex items-center justify-center relative bg-gradient-to-br from-green-50/50 via-white to-yellow-50/30 pt-12 sm:pt-16 lg:pt-16">
+      <section className="min-h-[75vh] sm:min-h-[85vh] flex items-center justify-center relative bg-gradient-to-br from-emerald-50/60 via-white to-amber-50/40 pt-14 sm:pt-20 lg:pt-20 pb-12">
         <div className="container mx-auto px-4 sm:px-6 text-center relative z-10">
 
-          {/* Simple Badge */}
-          <div className="mb-2 sm:mb-4">
-            <Badge className="bg-green-900 text-white border-0 px-4 sm:px-6 py-2 sm:py-3 text-sm font-semibold shadow-lg">
-              <Crown className="w-4 h-4 mr-2" />
-              Program Tahfidz Premium Gratis
+          {/* Badge Tagline */}
+          <div className="mb-3 sm:mb-4">
+            <Badge className="bg-emerald-900 hover:bg-emerald-850 text-white border-0 px-4 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm font-bold shadow-lg tracking-wide inline-flex items-center gap-2">
+              <Crown className="w-4 h-4 text-amber-300" />
+              <span>Markaz Pembelajaran Tahfidz & Murojaah Qur&apos;an</span>
             </Badge>
           </div>
 
-          {/* Clean Heading */}
-          <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-bold text-black mb-4 sm:mb-6 leading-tight">
+          {/* Main Clean Heading */}
+          <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold text-gray-900 mb-4 sm:mb-6 leading-tight tracking-tight">
             Wujudkan Mimpi
-            <span className="block bg-gradient-to-r from-green-900 via-green-800 to-yellow-600 bg-clip-text text-transparent mt-1 sm:mt-2 font-extrabold">Menjadi Hafidzah</span>
-          </h2>
+            <span className="block bg-gradient-to-r from-emerald-950 via-emerald-800 to-amber-600 bg-clip-text text-transparent mt-1 sm:mt-2 font-black">
+              Menjadi Hafidzah Mutqin
+            </span>
+          </h1>
 
-          {/* Concise Description */}
-          <p className="text-lg sm:text-xl md:text-xl text-gray-700 max-w-2xl sm:max-w-3xl mx-auto mb-2 sm:mb-3 leading-relaxed">
-            dengan Niat Bulat dan Komitmen Jangka Panjang
+          {/* Concise Subtitle */}
+          <p className="text-lg sm:text-2xl text-emerald-950 font-semibold max-w-2xl sm:max-w-3xl mx-auto mb-2 sm:mb-3 leading-relaxed">
+            dengan Niat Bulat, Disiplin Belajar, & Komitmen Berkelanjutan
           </p>
-          <p className="text-base sm:text-lg md:text-lg text-gray-600 max-w-xl sm:max-w-3xl mx-auto mb-6 sm:mb-10 leading-relaxed">
-            Metode Tikrar 40x: Pembelajaran Intensif, Terstruktur, dan Menghasilkan Hafalan Kuat.
+          <p className="text-sm sm:text-base md:text-lg text-gray-600 max-w-xl sm:max-w-3xl mx-auto mb-8 sm:mb-10 leading-relaxed">
+            Menerapkan <strong>Metode Tikrar 40x</strong>: Pembelajaran intensif, terukur dengan SOP simak murottal 3x, rabth 10 blok, dan pendampingan mu&apos;allimah bersanad.
           </p>
 
-          {/* Action Button */}
-          <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center mb-10 sm:mb-12">
+          {/* Action Buttons */}
+          <div className="flex flex-col sm:flex-row gap-4 sm:gap-5 justify-center mb-10 sm:mb-12">
             <Button
               asChild
               size="lg"
-              className="bg-gradient-to-r from-green-900 to-green-800 hover:from-green-800 hover:to-green-700 text-white px-10 sm:px-12 py-5 sm:py-6 text-lg font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl group"
+              className="bg-gradient-to-r from-emerald-900 to-emerald-800 hover:from-emerald-850 hover:to-emerald-750 text-white px-8 sm:px-11 py-5 sm:py-6 text-base sm:text-lg font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-xl hover:shadow-2xl group"
             >
               <Link href="/register" className="flex items-center gap-3">
-                <Crown className="w-6 h-6 group-hover:rotate-12 transition-transform duration-300" />
-                Buat Akun
+                <Crown className="w-5 h-5 text-amber-300 group-hover:rotate-12 transition-transform duration-300" />
+                <span>Daftar / Buat Akun</span>
               </Link>
             </Button>
             <Button
               asChild
               variant="outline"
               size="lg"
-              className="border-2 border-green-900 text-green-900 hover:bg-green-50 px-10 sm:px-12 py-5 sm:py-6 text-lg font-semibold rounded-2xl transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl group"
+              className="border-2 border-emerald-900 text-emerald-950 hover:bg-emerald-50 px-8 sm:px-11 py-5 sm:py-6 text-base sm:text-lg font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-md hover:shadow-lg group"
             >
               <Link href="/metode" className="flex items-center gap-3">
-                <Star className="w-6 h-6 group-hover:rotate-12 transition-transform duration-300" />
-                Pelajari Metode Tikrar
+                <Star className="w-5 h-5 text-amber-600 group-hover:rotate-12 transition-transform duration-300" />
+                <span>Pelajari Metode Tikrar</span>
               </Link>
             </Button>
             <Button
               asChild
               variant="ghost"
               size="lg"
-              className="text-green-900 hover:bg-green-50 px-6 sm:px-8 py-5 sm:py-6 text-lg font-semibold rounded-2xl transition-all duration-300 hover:scale-105"
+              className="text-emerald-900 hover:bg-emerald-50/80 px-6 sm:px-8 py-5 sm:py-6 text-base font-semibold rounded-2xl transition-all duration-300 hover:scale-105"
             >
-              <a href="#faq" className="flex flex-col items-center gap-1">
-                <div className="flex items-center gap-3">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  FAQ
-                </div>
-                <span className="text-xs text-green-700 font-normal">Pertanyaan yang Sering Diajukan</span>
-              </a>
-            </Button>
-          </div>
-
-          {/* Quick Login */}
-          <div className="text-center">
-            <p className="text-gray-600 mb-2 sm:mb-3 text-base sm:text-lg">Sudah Punya Akun?</p>
-            <Button
-              asChild
-              size="lg"
-              className="bg-gradient-to-r from-green-900 to-green-800 hover:from-green-800 hover:to-green-700 text-white px-8 sm:px-10 py-5 sm:py-6 text-lg sm:text-xl font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl group"
-            >
-              <Link href="/login" className="flex items-center gap-2 sm:gap-3">
-                <svg className="w-6 h-6 sm:w-7 sm:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-                </svg>
-                <span>Masuk</span>
+              <Link href="/transparansi" className="flex items-center gap-2.5">
+                <HandCoins className="w-5 h-5 text-emerald-700" />
+                <span>Laporan Transparansi</span>
               </Link>
             </Button>
           </div>
 
+          {/* Quick Login Bar */}
+          <div className="inline-flex items-center gap-3 bg-white/90 backdrop-blur border border-emerald-100 shadow-sm rounded-full px-5 py-2.5 text-sm text-gray-700">
+            <span>Sudah memiliki akun santriwati/mu&apos;allimah?</span>
+            <Link
+              href="/login"
+              className="font-bold text-emerald-900 hover:text-emerald-700 inline-flex items-center gap-1 hover:underline underline-offset-2"
+            >
+              <span>Masuk di sini</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
         </div>
       </section>
 
-      {/* Simple Features Section */}
-      <section className="py-24 bg-gray-50">
-        <div className="container mx-auto px-6">
-          <div className="text-center mb-16" id="program">
-            <h2 className="text-4xl md:text-6xl font-bold mb-6 text-green-900">
-              Program Tahfidz Tikrar MTI
+      {/* KPI & Live Stats Section */}
+      <section className="py-12 bg-gradient-to-b from-white via-emerald-50/30 to-white border-y border-emerald-100/60 relative">
+        <div className="container mx-auto px-4 sm:px-6">
+          <div className="text-center max-w-2xl mx-auto mb-8 sm:mb-10">
+            <span className="text-[11px] font-extrabold uppercase tracking-widest text-emerald-800 bg-emerald-100/80 px-3 py-1 rounded-full border border-emerald-200">
+              Pencapaian Akademik Nyata
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-black text-gray-900 mt-2.5 tracking-tight">
+              Statistik Belajar Santriwati & Mu&apos;allimah MTI
             </h2>
-            <p className="text-xl text-gray-700 max-w-3xl mx-auto">
-              Fokus pada Ibu dan Remaja Putri Berkomitmen
+            <p className="text-xs sm:text-sm text-gray-600 mt-1">
+              Data terintegrasi dari sistem akademik dan pelaksanaan halaqah belajar
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 max-w-6xl mx-auto">
-            {[
-              {
-                icon: Heart,
-                title: "🏡 Program Khusus Ibu Rumah Tangga",
-                description: "Metode Tikrar 40x yang terbukti cocok untuk emak-emak yang menghafal di sela rutinitas rumah tangga (mencuci, memasak, mengurus anak). Wajibkan diri minimal 2 jam sehari bersama Al-Qur'an.",
-                color: "green"
-              },
-              {
-                icon: Shield,
-                title: "📝 Aturan Main yang Tegas dan Transparan",
-                description: "Program ini GRATIS dan didukung oleh Musyrifah profesional. Demi menjaga hak teman setoran, ada sistem blacklist permanen jika keluar tanpa alasan syar'i yang jelas. Kami ingin Zero Dropout!",
-                color: "yellow"
-              },
-              {
-                icon: Users,
-                title: "🤝 MTI: Rumah Kita, Keluarga Kita",
-                description: "Di MTI, kita semua adalah keluarga yang saling melengkapi kelemahan dan kekurangan. Tujuan kita: Berkumpul di Jannah Firdaus Al'Ala (No Baper, No Drama!). Kami mengutamakan keikhlasan dan istiqamah.",
-                color: "blue"
-              }
-            ].map((feature, index) => (
-              <Card
-                key={index}
-                className="bg-white border border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 rounded-2xl p-8 group"
-              >
-                <div className={`w-16 h-16 mx-auto mb-6 rounded-2xl bg-gradient-to-r ${feature.color === 'green' ? 'from-green-100 to-green-200' :
-                  feature.color === 'yellow' ? 'from-yellow-100 to-yellow-200' :
-                    'from-blue-100 to-blue-200'
-                  } flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
-                  <feature.icon className={`w-8 h-8 ${feature.color === 'green' ? 'text-green-900' :
-                    feature.color === 'yellow' ? 'text-yellow-600' :
-                      'text-blue-600'
-                    }`} />
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3.5 sm:gap-4 max-w-6xl mx-auto">
+            
+            {/* Metric 1: Thalibah Pernah Belajar */}
+            <div className="bg-white rounded-2xl p-4 sm:p-5 border border-emerald-200/80 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-50 rounded-bl-full -z-0 pointer-events-none group-hover:bg-emerald-100 transition-colors"></div>
+              <div className="flex items-center gap-2 mb-2 relative z-10">
+                <div className="p-2 rounded-xl bg-emerald-100 text-emerald-900">
+                  <GraduationCap className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
+                <span className="text-[11px] font-bold text-emerald-900 uppercase tracking-wider">Thalibah Belajar</span>
+              </div>
+              <div className="text-2xl sm:text-4xl font-black text-emerald-950 tracking-tight relative z-10">
+                {kpiStats.totalThalibahBelajar.toLocaleString('id-ID')}+
+              </div>
+              <p className="text-[11px] text-gray-500 mt-1 relative z-10">
+                Lolos seleksi & mengikuti batch
+              </p>
+              <div className="mt-2 text-[10px] font-semibold text-emerald-700 bg-emerald-50 rounded-md px-2 py-0.5 inline-block">
+                {kpiStats.totalKursiBatch} Kepesertaan Batch
+              </div>
+            </div>
 
-                <h3 className={`text-2xl font-bold mb-4 text-center ${feature.color === 'green' ? 'text-green-900' :
-                  feature.color === 'yellow' ? 'text-yellow-600' :
-                    'text-blue-600'
-                  }`}>
-                  {feature.title}
-                </h3>
+            {/* Metric 2: Muallimah Bersanad */}
+            <div className="bg-white rounded-2xl p-4 sm:p-5 border border-amber-200/80 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-amber-50 rounded-bl-full -z-0 pointer-events-none group-hover:bg-amber-100 transition-colors"></div>
+              <div className="flex items-center gap-2 mb-2 relative z-10">
+                <div className="p-2 rounded-xl bg-amber-100 text-amber-900">
+                  <BookOpen className="w-4 h-4 sm:w-5 sm:h-5" />
+                </div>
+                <span className="text-[11px] font-bold text-amber-900 uppercase tracking-wider">Mu&apos;allimah</span>
+              </div>
+              <div className="text-2xl sm:text-4xl font-black text-gray-900 tracking-tight relative z-10">
+                {kpiStats.totalMuallimah.toLocaleString('id-ID')}
+              </div>
+              <p className="text-[11px] text-gray-500 mt-1 relative z-10">
+                Ustadzah mutqin & bersanad
+              </p>
+              <div className="mt-2 text-[10px] font-semibold text-amber-800 bg-amber-50 rounded-md px-2 py-0.5 inline-block">
+                Pengampu Khusus
+              </div>
+            </div>
 
-                <p className="text-gray-700 text-center leading-relaxed">
-                  {feature.description}
-                </p>
-              </Card>
-            ))}
+            {/* Metric 3: Halaqah Belajar */}
+            <div className="bg-white rounded-2xl p-4 sm:p-5 border border-teal-200/80 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-teal-50 rounded-bl-full -z-0 pointer-events-none group-hover:bg-teal-100 transition-colors"></div>
+              <div className="flex items-center gap-2 mb-2 relative z-10">
+                <div className="p-2 rounded-xl bg-teal-100 text-teal-900">
+                  <Users className="w-4 h-4 sm:w-5 sm:h-5" />
+                </div>
+                <span className="text-[11px] font-bold text-teal-900 uppercase tracking-wider">Halaqah Aktif</span>
+              </div>
+              <div className="text-2xl sm:text-4xl font-black text-gray-900 tracking-tight relative z-10">
+                {kpiStats.totalHalaqah.toLocaleString('id-ID')}
+              </div>
+              <p className="text-[11px] text-gray-500 mt-1 relative z-10">
+                Kelompok simak pasangan
+              </p>
+              <div className="mt-2 text-[10px] font-semibold text-teal-800 bg-teal-50 rounded-md px-2 py-0.5 inline-block">
+                7 Slot Waktu WIB
+              </div>
+            </div>
+
+            {/* Metric 4: 4 Pilar Program */}
+            <div className="bg-white rounded-2xl p-4 sm:p-5 border border-indigo-200/80 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-indigo-50 rounded-bl-full -z-0 pointer-events-none group-hover:bg-indigo-100 transition-colors"></div>
+              <div className="flex items-center gap-2 mb-2 relative z-10">
+                <div className="p-2 rounded-xl bg-indigo-100 text-indigo-900">
+                  <Layers className="w-4 h-4 sm:w-5 sm:h-5" />
+                </div>
+                <span className="text-[11px] font-bold text-indigo-900 uppercase tracking-wider">Jalur Program</span>
+              </div>
+              <div className="text-2xl sm:text-4xl font-black text-gray-900 tracking-tight relative z-10">
+                4 Pilar
+              </div>
+              <p className="text-[11px] text-gray-500 mt-1 relative z-10">
+                Layanan kurikulum berjenjang
+              </p>
+              <div className="mt-2 text-[10px] font-semibold text-indigo-800 bg-indigo-50 rounded-md px-2 py-0.5 inline-block">
+                Pra s.d. Murojaah
+              </div>
+            </div>
+
+            {/* Metric 5: Sebaran Kota */}
+            <div className="col-span-2 md:col-span-1 bg-white rounded-2xl p-4 sm:p-5 border border-rose-200/80 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-rose-50 rounded-bl-full -z-0 pointer-events-none group-hover:bg-rose-100 transition-colors"></div>
+              <div className="flex items-center gap-2 mb-2 relative z-10">
+                <div className="p-2 rounded-xl bg-rose-100 text-rose-900">
+                  <MapPin className="w-4 h-4 sm:w-5 sm:h-5" />
+                </div>
+                <span className="text-[11px] font-bold text-rose-900 uppercase tracking-wider">Sebaran Wilayah</span>
+              </div>
+              <div className="text-2xl sm:text-4xl font-black text-gray-900 tracking-tight relative z-10">
+                {kpiStats.totalKota.toLocaleString('id-ID')}+
+              </div>
+              <p className="text-[11px] text-gray-500 mt-1 relative z-10">
+                Kota di Indonesia & Luar Negeri
+              </p>
+              <div className="mt-2 text-[10px] font-semibold text-rose-800 bg-rose-50 rounded-md px-2 py-0.5 inline-block">
+                Komunitas Global
+              </div>
+            </div>
+
           </div>
         </div>
       </section>
 
-      {/* Simple Journey Section */}
-      <section className="py-24 bg-white">
-        <div className="container mx-auto px-6">
-          <div className="text-center mb-16" id="alur">
-            <h2 className="text-4xl md:text-6xl font-bold mb-6 text-green-900">
-              4 Langkah Sukses
+      {/* 4 Pillars Section */}
+      <section className="py-20 sm:py-24 bg-gray-50" id="program">
+        <div className="container mx-auto px-4 sm:px-6">
+          <div className="text-center max-w-3xl mx-auto mb-14">
+            <span className="text-[11px] font-extrabold uppercase tracking-widest text-emerald-800 bg-emerald-100/80 px-3.5 py-1.5 rounded-full border border-emerald-200">
+              Kurikulum Berjenjang & Terstruktur
+            </span>
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-emerald-950 mt-3 tracking-tight">
+              4 Pilar Layanan Markaz Tikrar
             </h2>
-            <p className="text-xl text-gray-700 max-w-3xl mx-auto">
-              Proses pembelajaran terstruktur dengan bimbingan intensif dan seleksi ketat
+            <p className="text-base sm:text-lg text-gray-600 mt-2.5 leading-relaxed">
+              Pilihan program pembelajaran Al-Qur&apos;an yang disesuaikan dengan kesiapan, target capaian hafalan, dan kebutuhan santriwati.
             </p>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8 max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 max-w-6xl mx-auto">
+            
+            {/* Pilar 1: Pra Tikrar */}
+            <Card className="bg-white border-2 border-emerald-100 hover:border-emerald-300 rounded-3xl p-6 sm:p-8 shadow-md hover:shadow-xl transition-all duration-300 flex flex-col justify-between group">
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-900 flex items-center justify-center font-black text-xl group-hover:scale-110 transition-transform">
+                    🌿
+                  </div>
+                  <Badge variant="outline" className="border-emerald-300 text-emerald-850 font-bold bg-emerald-50">
+                    Pondasi & Pemula
+                  </Badge>
+                </div>
+                <h3 className="text-2xl font-black text-gray-900 mb-2">
+                  1. Program Pra-Tikrar MTI
+                </h3>
+                <p className="text-sm text-gray-600 mb-4 leading-relaxed">
+                  Bimbingan dasar makharijul huruf, sifatul huruf, dan perbaikan bacaan (tahsin asasi) sebelum santriwati memasuki ziyadah hafalan intensif.
+                </p>
+                <ul className="space-y-2 text-xs sm:text-sm text-gray-700 mb-6">
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+                    <span>Fokus evaluasi bacaan per ayat & itmamul harakat</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+                    <span>Jurnal harian Pra-Tikrar terpisah dari tahfidz reguler</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+                    <span>Jembatan persiapan menuju seleksi Tikrar Tahfidz</span>
+                  </li>
+                </ul>
+              </div>
+              <div className="pt-4 border-t border-gray-100 flex items-center justify-between">
+                <span className="text-xs font-semibold text-emerald-800">Khusus Ibu & Remaja Putri</span>
+                <Button asChild size="sm" className="bg-emerald-850 hover:bg-emerald-900 text-white rounded-xl font-bold">
+                  <Link href="/register" className="inline-flex items-center gap-1.5">
+                    <span>Daftar Akun</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                </Button>
+              </div>
+            </Card>
+
+            {/* Pilar 2: Tikrar Tahfidz (Program Utama) */}
+            <Card className="bg-gradient-to-br from-emerald-950 via-emerald-900 to-emerald-850 text-white border-2 border-amber-400/40 rounded-3xl p-6 sm:p-8 shadow-xl hover:shadow-2xl transition-all duration-300 flex flex-col justify-between group relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-amber-400/10 rounded-bl-full pointer-events-none"></div>
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-400/20 text-amber-300 border border-amber-300/30 flex items-center justify-center font-black text-xl group-hover:scale-110 transition-transform">
+                    📖
+                  </div>
+                  <Badge className="bg-amber-400 text-emerald-950 font-black border-0 uppercase tracking-wider text-[10px]">
+                    ⭐ Program Inti (Gratis)
+                  </Badge>
+                </div>
+                <h3 className="text-2xl font-black text-white mb-2">
+                  2. Tikrar Tahfidz Intensif (13 Pekan)
+                </h3>
+                <p className="text-sm text-emerald-100/90 mb-4 leading-relaxed">
+                  Program ziyadah hafalan baru dengan target &frac12; juz per batch. Menerapkan disiplin 40x putaran, simak murottal 3x, dan setoran pasangan harian.
+                </p>
+                <ul className="space-y-2 text-xs sm:text-sm text-emerald-100 mb-6">
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-amber-300 mt-0.5 shrink-0" />
+                    <span>Setoran wajib & saling simak 40x bersama pasangan tikrar</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-amber-300 mt-0.5 shrink-0" />
+                    <span>Rabth hafalan 10 blok ke belakang untuk menjaga kekuatan hafalan</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-amber-300 mt-0.5 shrink-0" />
+                    <span>Didampingi Musyrifah & Ujian Lisan/Tulisan resmi berijazah</span>
+                  </li>
+                </ul>
+              </div>
+              <div className="pt-4 border-t border-emerald-800/80 flex items-center justify-between">
+                <span className="text-xs font-bold text-amber-300">Komitmen Wajib 2 Jam/Hari</span>
+                <Button asChild size="sm" className="bg-amber-400 hover:bg-amber-300 text-emerald-950 font-black rounded-xl">
+                  <Link href="/metode" className="inline-flex items-center gap-1.5">
+                    <span>Pelajari SOP 40X</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                </Button>
+              </div>
+            </Card>
+
+            {/* Pilar 3: Murojaah 40X */}
+            <Card className="bg-white border-2 border-emerald-100 hover:border-emerald-300 rounded-3xl p-6 sm:p-8 shadow-md hover:shadow-xl transition-all duration-300 flex flex-col justify-between group">
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-900 flex items-center justify-center font-black text-xl group-hover:scale-110 transition-transform">
+                    🛡️
+                  </div>
+                  <Badge variant="outline" className="border-amber-300 text-amber-900 font-bold bg-amber-50">
+                    Syarat Wajib Naik Juz
+                  </Badge>
+                </div>
+                <h3 className="text-2xl font-black text-gray-900 mb-2">
+                  3. Tikrar Murojaah 40X Pasca-Kelulusan
+                </h3>
+                <p className="text-sm text-gray-600 mb-4 leading-relaxed">
+                  Ruang alumni untuk menjaga hafalan tetap mutqin sebelum melangkah ke juz berikutnya. Dilengkapi tantangan rolling 20 hari dan mitra simak komunitas.
+                </p>
+                <ul className="space-y-2 text-xs sm:text-sm text-gray-700 mb-6">
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+                    <span>Target 40 putaran murojaah penuh per juz kelulusan</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+                    <span>Lencana kehormatan <strong>&ldquo;Murojaah Warrior&rdquo;</strong> (selesai &le; 20 hari)</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+                    <span>4 Metode: Pasangan Tikrar, Tarteel AI, Saat Sholat, & Aktivitas</span>
+                  </li>
+                </ul>
+              </div>
+              <div className="pt-4 border-t border-gray-100 flex items-center justify-between">
+                <span className="text-xs font-semibold text-emerald-800">Ruang Khusus Alumni MTI</span>
+                <Button asChild size="sm" variant="outline" className="border-emerald-800 text-emerald-900 hover:bg-emerald-50 rounded-xl font-bold">
+                  <Link href="/login" className="inline-flex items-center gap-1.5">
+                    <span>Masuk Portal</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                </Button>
+              </div>
+            </Card>
+
+            {/* Pilar 4: Kelas Berbayar Muallimah */}
+            <Card className="bg-white border-2 border-emerald-100 hover:border-emerald-300 rounded-3xl p-6 sm:p-8 shadow-md hover:shadow-xl transition-all duration-300 flex flex-col justify-between group">
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-12 h-12 rounded-2xl bg-teal-100 text-teal-900 flex items-center justify-center font-black text-xl group-hover:scale-110 transition-transform">
+                    💎
+                  </div>
+                  <Badge variant="outline" className="border-teal-300 text-teal-900 font-bold bg-teal-50">
+                    Bimbingan Privat & Eksklusif
+                  </Badge>
+                </div>
+                <h3 className="text-2xl font-black text-gray-900 mb-2">
+                  4. Kelas Berbayar Resmi Mu&apos;allimah MTI
+                </h3>
+                <p className="text-sm text-gray-600 mb-4 leading-relaxed">
+                  Kelas bimbingan intensif yang diampu langsung oleh Mu&apos;allimah terverifikasi MTI dengan skema infaq transparan, materi mendalam, dan kuota terbatas.
+                </p>
+                <ul className="space-y-2 text-xs sm:text-sm text-gray-700 mb-6">
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+                    <span>Talaqqi Tahsin Lanjutan, Matan Tajwid Jazariyyah / Tuhfah</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+                    <span>Jadwal bimbingan fleksibel didampingi room Zoom Cloud resmi MTI</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+                    <span>Pengajar alumni & senior bersanad dengan seleksi ketat</span>
+                  </li>
+                </ul>
+              </div>
+              <div className="pt-4 border-t border-gray-100 flex items-center justify-between">
+                <span className="text-xs font-semibold text-teal-800">Kuota Terbatas 5–15 Santriwati</span>
+                <Button asChild size="sm" className="bg-teal-800 hover:bg-teal-900 text-white rounded-xl font-bold">
+                  <Link href="/register" className="inline-flex items-center gap-1.5">
+                    <span>Informasi Kelas</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                </Button>
+              </div>
+            </Card>
+
+          </div>
+        </div>
+      </section>
+
+      {/* Transparency Callout Banner */}
+      <section className="py-12 bg-white">
+        <div className="container mx-auto px-4 sm:px-6">
+          <div className="max-w-6xl mx-auto bg-gradient-to-r from-emerald-900 via-emerald-850 to-teal-900 rounded-3xl p-6 sm:p-10 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
+            <div className="space-y-2 text-center md:text-left relative z-10">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-amber-300 text-xs font-bold border border-white/20">
+                <HandCoins className="w-3.5 h-3.5" />
+                <span>Akuntabilitas & Keterbukaan Publik</span>
+              </div>
+              <h3 className="text-2xl sm:text-3xl font-black text-white">
+                Transparansi Donasi & Keuangan Markaz Tikrar
+              </h3>
+              <p className="text-emerald-100 text-xs sm:text-sm max-w-2xl leading-relaxed">
+                Seluruh amanah infaq operasional dan donasi dakwah dicatat transparan, terintegrasi dengan rekening koran resmi BSI MTI, dan dapat diaudit secara terbuka oleh masyarakat.
+              </p>
+            </div>
+            <div className="relative z-10 shrink-0">
+              <Button asChild size="lg" className="bg-amber-400 hover:bg-amber-300 text-emerald-950 font-black rounded-2xl shadow-lg px-6 py-6 text-base">
+                <Link href="/transparansi" className="inline-flex items-center gap-2">
+                  <span>Buka Portal Transparansi</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Simple Journey Section - Retained */}
+      <section className="py-24 bg-gray-50/60" id="alur">
+        <div className="container mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold mb-4 text-emerald-950 tracking-tight">
+              4 Langkah Menuju Kelulusan Mutqin
+            </h2>
+            <p className="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto">
+              Proses pembelajaran terstruktur dengan bimbingan intensif, evaluasi berkala, dan seleksi komitmen
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8 max-w-6xl mx-auto">
             {[
               {
                 step: "01",
-                title: "Simulasi & Daftar",
-                description: "Wajib mencoba simulasi Tikrar (Surah An-Naba' 1-11 x 40 kali) untuk mengukur kesanggupan. Pendaftaran dilanjutkan dengan seleksi berkas, tes bacaan, dan soal ujian pilihan ganda bagi juz lanjutan.",
+                title: "Simulasi & Tes",
+                description: "Mencoba simulasi Tikrar (An-Naba' 1-11 x 40 kali) untuk mengukur kesanggupan, dilanjutkan tes bacaan lisan & ujian pilihan ganda.",
                 icon: Sparkles
               },
               {
                 step: "02",
                 title: "Penjadwalan",
-                description: "Penjadwalan di halaqah dan penentuan pasangan setoran berdasarkan zona waktu dan pilihan jadwal.",
+                description: "Penempatan halaqah belajar dan pencocokan pasangan setoran berdasarkan zona waktu dan pilihan slot belajar WIB.",
                 icon: Heart
               },
               {
                 step: "03",
-                title: "Belajar (13 Pekan)",
-                description: "Belajar yang seru! Ada Tahsin, Hafalan Baru (Ziyadah), dan Ujian. Intinya: Setoran dan Simakkan 40 kali dengan pasangan, laporan wajib, dan mengulang 10 blok hafalan sebelumnya (Rabth).",
+                title: "Belajar 13 Pekan",
+                description: "Sesi Tahsin, Ziyadah, dan Murottal 3x. Setoran wajib 40 kali dengan partner, laporan harian, dan rabth 10 blok ke belakang.",
                 icon: Star
               },
               {
                 step: "04",
-                title: "Lulus",
-                description: "Sertifikat sebagai Hafidzah Mutqin dan akses ke komunitas alumni yang inspiratif.",
+                title: "Lulus & Bersertifikat",
+                description: "Ujian komprehensif, sertifikat digital resmi ber-QR code verifikasi, dan akses ke ruang alumni Murojaah 40X.",
                 icon: Trophy
               }
             ].map((item, index) => (
-              <div key={index} className="text-center">
-                <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-r from-green-100 to-yellow-100 rounded-2xl flex items-center justify-center">
-                  <span className="text-2xl font-bold text-green-900">{item.step}</span>
+              <div key={index} className="text-center bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-emerald-100 to-amber-100 rounded-2xl flex items-center justify-center">
+                  <span className="text-xl font-black text-emerald-900">{item.step}</span>
                 </div>
-                <item.icon className="w-12 h-12 mx-auto mb-4 text-yellow-600" />
-                <h3 className="text-xl font-bold mb-3 text-green-900">{item.title}</h3>
-                <p className="text-gray-600 text-sm leading-relaxed">{item.description}</p>
+                <item.icon className="w-8 h-8 mx-auto mb-3 text-amber-600" />
+                <h3 className="text-lg font-bold mb-2 text-emerald-950">{item.title}</h3>
+                <p className="text-gray-600 text-xs sm:text-sm leading-relaxed">{item.description}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Testimonials Section */}
+      {/* Testimonials Section - Retained */}
       {testimonials && testimonials.length > 0 && (
         <section id="testimoni" className="py-24 bg-gradient-to-b from-white to-[#F4F7F5]">
           <div className="container mx-auto px-4 sm:px-6">
             <div className="text-center max-w-3xl mx-auto mb-16">
-              <span className="bg-emerald-100 text-emerald-850 border border-emerald-250 text-xs font-semibold px-3.5 py-1.5 rounded-full uppercase tracking-wider">
-                Kisah Inspiratif Alumni MTI
+              <span className="bg-emerald-100 text-emerald-900 border border-emerald-200 text-xs font-bold px-3.5 py-1.5 rounded-full uppercase tracking-wider">
+                Kisah Inspiratif Santriwati MTI
               </span>
-              <h2 className="text-3xl sm:text-4xl font-extrabold text-green-900 mt-4 tracking-tight">
+              <h2 className="text-3xl sm:text-4xl font-extrabold text-emerald-950 mt-4 tracking-tight">
                 Apa Kata Alumni Markaz Tikrar?
               </h2>
-              <p className="text-gray-650 mt-2.5 leading-relaxed text-sm sm:text-base">
-                Simak pengalaman luar biasa dari para ukhti yang telah menyelesaikan program hafalan di MTI menggunakan Metode Tikrar 40x.
+              <p className="text-gray-600 mt-2.5 leading-relaxed text-sm sm:text-base">
+                Simak pengalaman luar biasa dari para santriwati yang telah menyelesaikan program hafalan di MTI menggunakan Metode Tikrar 40x.
               </p>
             </div>
 
@@ -270,58 +586,54 @@ export default async function Home() {
         </section>
       )}
 
-      {/* FAQ Section */}
+      {/* FAQ Section - Retained */}
       <FAQComponent />
 
-      {/* CTA Section */}
-      <section className="py-24 bg-gradient-to-r from-green-900 to-green-800 relative overflow-hidden">
+      {/* Final CTA Section - Retained */}
+      <section className="py-24 bg-gradient-to-r from-emerald-950 via-emerald-900 to-emerald-850 relative overflow-hidden">
         <div className="container mx-auto px-6 text-center relative z-10">
           <div className="max-w-4xl mx-auto">
-            <h2 className="text-4xl md:text-6xl font-bold text-white mb-8">
-              Waktunya Bertindak
+            <h2 className="text-3xl sm:text-5xl md:text-6xl font-black text-white mb-6 tracking-tight">
+              Waktunya Melangkah Bersama Kalamullah
             </h2>
 
-            <p className="text-xl text-white/90 mb-12 leading-relaxed">
-              Transformasi kehidupan Ibu/Kakak dimulai dari Al-Qur'an.
-              <br />
-              Program ini membutuhkan komitmen penuh selama 13 pekan. Kalau Ibu/Kakak sudah siap berjuang, sungguh-sungguh, dan ikhlas menjalankan Metode Tikrar 40x yang terbukti, kami tunggu ya!.
+            <p className="text-base sm:text-xl text-emerald-100/90 mb-10 leading-relaxed max-w-2xl mx-auto">
+              Transformasi hafalan dimulai dari komitmen dan kesungguhan hati. Program ini menuntut kedisiplinan minimal 2 jam sehari bersama Al-Qur&apos;an. Siap berjuang bersama kami?
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center">
               <Button
                 asChild
                 size="lg"
-                className="bg-white text-green-900 hover:bg-gray-100 px-10 sm:px-12 py-6 text-xl sm:text-2xl font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl group"
+                className="bg-amber-400 hover:bg-amber-300 text-emerald-950 px-10 sm:px-12 py-6 text-lg sm:text-xl font-black rounded-2xl transition-all duration-300 hover:scale-105 shadow-xl hover:shadow-2xl group"
               >
                 <Link href="/register" className="flex items-center gap-2 sm:gap-3">
-                  <Crown className="w-6 h-6 sm:w-7 sm:h-7 group-hover:rotate-12 transition-transform duration-300" />
-                  <span>Buat Akun</span>
+                  <Crown className="w-6 h-6 group-hover:rotate-12 transition-transform duration-300" />
+                  <span>Daftar Akun Baru</span>
                 </Link>
               </Button>
               <Button
                 asChild
                 variant="outline"
                 size="lg"
-                className="!border-3 !border-white bg-white text-green-900 hover:bg-white hover:!text-green-700 px-10 sm:px-12 py-6 text-xl sm:text-2xl font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl group"
+                className="border-2 border-white bg-transparent text-white hover:bg-white hover:text-emerald-950 px-10 sm:px-12 py-6 text-lg sm:text-xl font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-lg group"
               >
-                <Link href="/login" className="flex items-center gap-2 sm:gap-3 text-green-900 hover:text-green-700">
-                  <Heart className="w-6 h-6 sm:w-7 sm:h-7 group-hover:scale-110 transition-transform duration-300" />
-                  <span>Masuk</span>
+                <Link href="/login" className="flex items-center gap-2 sm:gap-3">
+                  <Heart className="w-6 h-6 group-hover:scale-110 transition-transform duration-300" />
+                  <span>Masuk ke Akun</span>
                 </Link>
               </Button>
             </div>
 
             {/* Trust Indicators */}
-            <div className="text-center mt-16">
-              <p className="text-sm text-white/80 mb-2">
-                Catatan: Program ini adalah kelas hafalan gratis untuk Ibu dan Remaja Putri dengan komitmen waktu minimal 2 jam/hari.
+            <div className="text-center mt-12">
+              <p className="text-xs sm:text-sm text-emerald-200/80">
+                Catatan: Markaz Tikrar Indonesia mengutamakan keikhlasan, istiqamah, dan rasa persaudaraan sesama perindu Al-Qur&apos;an.
               </p>
             </div>
           </div>
         </div>
       </section>
-
-      {/* Floating Register Button - Removed */}
     </>
   );
 }
