@@ -26,7 +26,9 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
     '/lupa-password', 
     '/reset-password', 
     '/verifikasi-otp',
-    '/forgot-password'
+    '/forgot-password',
+    '/ganti-password',
+    '/maintenance'
   ];
 
   // Pendaftaran routes that need authentication
@@ -54,6 +56,7 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
     '/pengaturan',
     '/profile',
     '/admin',
+    '/muallimah',
     '/panel-musyrifah',
     '/panel-muallimah',
     '/presensi-jurnal',
