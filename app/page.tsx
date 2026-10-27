@@ -379,7 +379,7 @@ export default async function Home() {
                   </li>
                   <li className="flex items-start gap-2">
                     <CheckCircle2 className="w-4 h-4 text-amber-300 mt-0.5 shrink-0" />
-                    <span>Didampingi Musyrifah & Ujian Lisan/Tulisan resmi berijazah</span>
+                    <span>Didampingi Musyrifah &amp; Ujian Lisan/Tulisan resmi bersyahadah</span>
                   </li>
                 </ul>
               </div>
