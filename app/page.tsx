@@ -115,7 +115,7 @@ export default async function Home() {
             dengan Niat Bulat, Disiplin Belajar, & Komitmen Berkelanjutan
           </p>
           <p className="text-sm sm:text-base md:text-lg text-gray-600 max-w-xl sm:max-w-3xl mx-auto mb-8 sm:mb-10 leading-relaxed">
-            Menerapkan <strong>Metode Tikrar 40x</strong>: Pembelajaran intensif, terukur dengan SOP simak murottal 3x, rabth 10 blok, dan pendampingan mu&apos;allimah bersanad.
+            Menerapkan <strong>Metode Tikrar 40x</strong>: Pembelajaran intensif, terukur dengan SOP simak murottal 3x, rabth 10 blok, dan pendampingan mu&apos;allimah mutqin &amp; terverifikasi MTI.
           </p>
 
           {/* Action Buttons */}
@@ -206,7 +206,7 @@ export default async function Home() {
               </div>
             </div>
 
-            {/* Metric 2: Muallimah Bersanad */}
+            {/* Metric 2: Muallimah Mutqin & Terverifikasi */}
             <div className="bg-white rounded-2xl p-4 sm:p-5 border border-amber-200/80 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-16 h-16 bg-amber-50 rounded-bl-full -z-0 pointer-events-none group-hover:bg-amber-100 transition-colors"></div>
               <div className="flex items-center gap-2 mb-2 relative z-10">
@@ -219,7 +219,7 @@ export default async function Home() {
                 {kpiStats.totalMuallimah.toLocaleString('id-ID')}
               </div>
               <p className="text-[11px] text-gray-500 mt-1 relative z-10">
-                Ustadzah mutqin & bersanad
+                Ustadzah mutqin & terverifikasi
               </p>
               <div className="mt-2 text-[10px] font-semibold text-amber-800 bg-amber-50 rounded-md px-2 py-0.5 inline-block">
                 Pengampu Khusus
@@ -465,7 +465,7 @@ export default async function Home() {
                   </li>
                   <li className="flex items-start gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
-                    <span>Pengajar alumni & senior bersanad dengan seleksi ketat</span>
+                    <span>Pengajar alumni & senior terverifikasi MTI dengan seleksi ketat</span>
                   </li>
                 </ul>
               </div>
