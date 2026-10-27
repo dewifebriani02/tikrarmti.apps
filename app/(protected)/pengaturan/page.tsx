@@ -6,6 +6,7 @@ import { Settings, Shield } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { ROLE_RANKS, hasRequiredRank } from '@/lib/roles';
 import { AdminBackupCard } from '@/components/AdminBackupCard';
+import { AdminAppFreezeCard } from '@/components/AdminAppFreezeCard';
 
 export default function PengaturanPage() {
   const router = useRouter();
@@ -16,11 +17,12 @@ export default function PengaturanPage() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
         {isAdmin && (
-          <div className="space-y-3">
+          <div className="space-y-4">
             <div className="flex items-center gap-2">
               <Shield className="w-5 h-5 text-emerald-700" />
-              <h2 className="text-lg font-bold text-gray-900">Pemeliharaan & Keamanan Data (Admin)</h2>
+              <h2 className="text-lg font-bold text-gray-900">Pemeliharaan & Keamanan Sistem (Admin)</h2>
             </div>
+            <AdminAppFreezeCard />
             <AdminBackupCard />
           </div>
         )}
@@ -41,7 +43,7 @@ export default function PengaturanPage() {
 
             <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
               <p className="text-sm text-blue-800">
-                <strong>Info:</strong> Halaman pengaturan sedang dalam pengembangan.
+                <strong>Info:</strong> Halaman pengaturan akun pribadi sedang dalam pengembangan.
                 Untuk saat ini, Ukhti dapat mengubah informasi profil di halaman Profil.
               </p>
               <button

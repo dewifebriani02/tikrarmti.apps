@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
   Landmark,
   ShieldCheck,
+  Clock,
   ArrowDownLeft,
   ArrowUpRight,
   Copy,
@@ -59,6 +60,8 @@ interface CategoryAllocation {
   percentage: number;
 }
 
+const IS_DATA_LIVE = false;
+
 export default function TransparansiPublikPage() {
   const [loading, setLoading] = useState(true);
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
@@ -104,7 +107,11 @@ export default function TransparansiPublikPage() {
   };
 
   useEffect(() => {
-    fetchPublicData(selectedProgramSlug);
+    if (IS_DATA_LIVE) {
+      fetchPublicData(selectedProgramSlug);
+    } else {
+      setLoading(false);
+    }
   }, [selectedProgramSlug]);
 
   const handleCopy = (accNumber: string) => {
@@ -147,7 +154,45 @@ export default function TransparansiPublikPage() {
       </section>
 
       {/* 3. MAIN CONTENT CONTAINER */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-8 -mt-8 relative z-20">
+      {!IS_DATA_LIVE ? (
+        <main className="max-w-4xl mx-auto px-4 sm:px-6 py-12 -mt-8 relative z-20">
+          <Card className="rounded-3xl border-none shadow-xl bg-white p-8 sm:p-12 text-center space-y-6">
+            <div className="w-20 h-20 bg-amber-50 text-amber-600 rounded-3xl flex items-center justify-center mx-auto border border-amber-100 shadow-inner">
+              <Clock className="w-10 h-10 text-amber-600" />
+            </div>
+
+            <div className="space-y-3 max-w-xl mx-auto">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100/80 text-amber-900 text-xs font-bold">
+                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                <span>Tahap Rekapitulasi & Verifikasi Data</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">
+                Laporan Keuangan Sedang Dalam Proses Pendataan
+              </h2>
+              <p className="text-sm sm:text-base text-gray-600 leading-relaxed">
+                Afwan, sistem pembukuan multi-rekening BSI dan rekapitulasi data mutasi infaq/donasi saat ini sedang dalam proses sinkronisasi serta audit data oleh tim keuangan Markaz Tikrar Indonesia agar data yang disajikan akurat dan valid seutuhnya.
+              </p>
+              <p className="text-xs text-gray-500 font-medium">
+                Portal ini akan segera dibuka untuk publik setelah seluruh saldo dan transaksi terverifikasi secara resmi.
+              </p>
+            </div>
+
+            <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Button asChild size="lg" className="bg-emerald-850 hover:bg-emerald-900 text-white rounded-2xl px-6 py-5 font-bold shadow-md">
+                <Link href="/">
+                  Kembali ke Beranda
+                </Link>
+              </Button>
+              <Button asChild variant="outline" size="lg" className="border-emerald-800 text-emerald-900 hover:bg-emerald-50 rounded-2xl px-6 py-5 font-bold">
+                <Link href="/infaq-donasi">
+                  Salurkan Infaq & Donasi
+                </Link>
+              </Button>
+            </div>
+          </Card>
+        </main>
+      ) : (
+        <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-8 -mt-8 relative z-20">
         {/* STATS OVERVIEW CARDS */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card className="rounded-3xl border-none shadow-lg bg-white overflow-hidden p-6 space-y-2">
@@ -469,6 +514,7 @@ export default function TransparansiPublikPage() {
           </div>
         </Card>
       </main>
+      )}
 
       {/* 9. PUBLIC FOOTER */}
       <footer className="border-t border-gray-200/80 bg-white py-8 mt-12 text-center text-xs text-gray-500 space-y-1">

@@ -2,12 +2,9 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 
 export default function Header() {
-  const pathname = usePathname();
-
   return (
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-xl shadow-md border-b border-green-900/20 w-full">
       <div className="container mx-auto px-3 sm:px-4 md:px-6 py-3 sm:py-3 md:py-4 flex justify-between items-center">
@@ -34,14 +31,6 @@ export default function Header() {
           </Link>
           <Link href="/#testimoni" className="text-black hover:text-green-900 transition-colors font-medium text-sm xl:text-base">
             Testimoni
-          </Link>
-          <Link
-            href="/transparansi"
-            className={`transition-colors font-medium text-sm xl:text-base ${
-              pathname === '/transparansi' ? 'text-green-900 font-bold underline underline-offset-4' : 'text-black hover:text-green-900'
-            }`}
-          >
-            Transparansi
           </Link>
         </nav>
 

@@ -24,7 +24,6 @@ import {
   FileText,
   Clock,
   Sparkle,
-  HandCoins
 } from "lucide-react";
 
 import { createSupabaseAdmin } from '@/lib/supabase';
@@ -148,10 +147,10 @@ export default async function Home() {
               size="lg"
               className="text-emerald-900 hover:bg-emerald-50/80 px-6 sm:px-8 py-5 sm:py-6 text-base font-semibold rounded-2xl transition-all duration-300 hover:scale-105"
             >
-              <Link href="/transparansi" className="flex items-center gap-2.5">
-                <HandCoins className="w-5 h-5 text-emerald-700" />
-                <span>Laporan Transparansi</span>
-              </Link>
+              <a href="#program" className="flex items-center gap-2">
+                <BookOpen className="w-5 h-5 text-emerald-700" />
+                <span>Pilihan Program</span>
+              </a>
             </Button>
           </div>
 
@@ -481,34 +480,6 @@ export default async function Home() {
               </div>
             </Card>
 
-          </div>
-        </div>
-      </section>
-
-      {/* Transparency Callout Banner */}
-      <section className="py-12 bg-white">
-        <div className="container mx-auto px-4 sm:px-6">
-          <div className="max-w-6xl mx-auto bg-gradient-to-r from-emerald-900 via-emerald-850 to-teal-900 rounded-3xl p-6 sm:p-10 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
-            <div className="space-y-2 text-center md:text-left relative z-10">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-amber-300 text-xs font-bold border border-white/20">
-                <HandCoins className="w-3.5 h-3.5" />
-                <span>Akuntabilitas & Keterbukaan Publik</span>
-              </div>
-              <h3 className="text-2xl sm:text-3xl font-black text-white">
-                Transparansi Donasi & Keuangan Markaz Tikrar
-              </h3>
-              <p className="text-emerald-100 text-xs sm:text-sm max-w-2xl leading-relaxed">
-                Seluruh amanah infaq operasional dan donasi dakwah dicatat transparan, terintegrasi dengan rekening koran resmi BSI MTI, dan dapat diaudit secara terbuka oleh masyarakat.
-              </p>
-            </div>
-            <div className="relative z-10 shrink-0">
-              <Button asChild size="lg" className="bg-amber-400 hover:bg-amber-300 text-emerald-950 font-black rounded-2xl shadow-lg px-6 py-6 text-base">
-                <Link href="/transparansi" className="inline-flex items-center gap-2">
-                  <span>Buka Portal Transparansi</span>
-                  <ArrowRight className="w-4 h-4" />
-                </Link>
-              </Button>
-            </div>
           </div>
         </div>
       </section>
