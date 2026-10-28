@@ -112,6 +112,24 @@ scripts/users_*.sql
 # Local Claude Code settings (per-machine; may contain credentials in permissions)
 .claude/settings.local.json
 
+# One-off debug/patch scripts at the repo root (often contain participant data).
+# Put reusable tooling in scripts/ without personal data instead.
+/scratch/
+/scratch*
+/check*.js
+/check*.ts
+/check-*.js
+/test*.js
+/test*.ts
+/fix_*.py
+/fix_*.js
+/fix_*.ts
+/query_*.js
+/update_*.py
+/update_*.js
+/gform_data_*.js
+/users.json
+
 # Local uploads
 public/uploads/*
 !public/uploads/.gitkeep

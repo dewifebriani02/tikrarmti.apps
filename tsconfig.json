@@ -42,15 +42,8 @@
     "node_modules",
     "scripts",
     "tikrarmti.apps",
-    "fix-trigger.ts",
-    "fetch-test.ts",
     "check_*.ts",
-    "count-faqs.ts",
     "fix_*.ts",
-    "run-migration.ts",
-    "scratch_policies.ts",
-    "seed-faqs.ts",
-    "test-options.ts",
     "test_*.ts",
     "lib/supabase-new.ts"
   ]
