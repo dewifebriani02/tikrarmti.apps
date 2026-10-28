@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
-import { requireAnyRole, getAuthorizationContext } from '@/lib/rbac';
+import { requireAnyRole, getAuthorizationContext, isUserAdmin } from '@/lib/rbac';
 import { ApiResponses } from '@/lib/api-responses';
 import { parseBlokField } from '@/lib/blok';
 
@@ -16,7 +16,10 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const muallimahId = searchParams.get('muallimah_id');
 
-    // Admin can view specific teacher's (muallimah) halaqah
+    // Only admin may view another muallimah's halaqah; a muallimah always sees her own
+    if (muallimahId && muallimahId !== context.userId && !isUserAdmin(context)) {
+      return ApiResponses.forbidden('Hanya admin yang dapat melihat halaqah muallimah lain');
+    }
     const targetMuallimahId = muallimahId || context.userId;
 
     // Get halaqah where muallimah is assigned

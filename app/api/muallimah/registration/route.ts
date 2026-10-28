@@ -15,8 +15,11 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('user_id');
 
-    // Admin/Muallimah context
+    // Admin/Muallimah context — only admin may look up another user's registration
     const isAdmin = context.roles.includes('admin');
+    if (userId && userId !== context.userId && !isAdmin) {
+      return ApiResponses.forbidden('Hanya admin yang dapat melihat pendaftaran muallimah lain');
+    }
     const targetUserId = userId || context.userId;
 
     // Get muallimah registration
