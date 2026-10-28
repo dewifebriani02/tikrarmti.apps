@@ -104,6 +104,14 @@ backups/
 scripts/users_with_passwords.json
 test_proper.js
 
+# Data exports with personal data (users, registrations, contacts) — never commit
+*.csv
+scripts/users_*.json
+scripts/users_*.sql
+
+# Local Claude Code settings (per-machine; may contain credentials in permissions)
+.claude/settings.local.json
+
 # Local uploads
 public/uploads/*
 !public/uploads/.gitkeep
