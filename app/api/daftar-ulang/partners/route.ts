@@ -94,8 +94,15 @@ export async function GET(request: NextRequest) {
     const userChoices = new Map<string, string>()
     const lockedUsersSet = new Set<string>() // Users who have submitted (any type)
     const usersWithAkadSet = new Set<string>() // Users who have uploaded akad
+    // Self-match choices saved in ANY status (incl. draft from pilih-pasangan) — used only
+    // to decide whose WhatsApp number may be revealed, not for locking/matching.
+    const contactChoices = new Map<string, string>()
 
     submissions.forEach((sub: any) => {
+      if (sub.partner_type === 'self_match' && sub.partner_user_id) {
+        contactChoices.set(sub.user_id, sub.partner_user_id)
+      }
+
       // Track who has uploaded akad
       if (sub.akad_url || sub.akad_files?.length > 0) {
         usersWithAkadSet.add(sub.user_id)
@@ -186,6 +193,12 @@ export async function GET(request: NextRequest) {
         status_label = '⏳ Menunggu Akad';
       }
 
+      // WhatsApp is revealed only once either side has picked the other, so a
+      // participant can't harvest the numbers of the whole batch
+      const canContact =
+        contactChoices.get(reg.user_id) === user.id ||
+        contactChoices.get(user.id) === reg.user_id
+
       // Only what the partner-matching UI needs — no exact birth date, scores or exam status
       const publicRegistration = {
         user_id: reg.user_id,
@@ -196,7 +209,7 @@ export async function GET(request: NextRequest) {
         domicile: reg.domicile,
         timezone: reg.timezone,
         age: calculateAge(reg.birth_date),
-        wa_phone: reg.wa_phone,
+        wa_phone: canContact ? reg.wa_phone : null,
       }
 
       return {
@@ -210,8 +223,9 @@ export async function GET(request: NextRequest) {
           id: reg.user_id,
           full_name: reg.full_name,
           email: null,
-          whatsapp: reg.wa_phone
+          whatsapp: canContact ? reg.wa_phone : null
         },
+        can_contact: canContact,
         registrations: [publicRegistration],
         is_mutual_match: false, // Since we filtered them out, this is technically false for all returned
         has_user_selected_them: selectedByOthersSet.has(reg.user_id),

@@ -1838,7 +1838,9 @@ function PartnerSelectionStep({
                                 Hubungi via WA
                               </a>
                             ) : (
-                              <span className="text-xs text-gray-400">No WA tidak tersedia</span>
+                              <span className="text-xs text-gray-400">
+                                {partner.can_contact ? 'No WA tidak tersedia' : 'No WA tampil setelah salah satu memilih'}
+                              </span>
                             )}
                           </div>
                         </div>

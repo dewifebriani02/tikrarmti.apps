@@ -362,7 +362,11 @@ export default function PilihPasanganPage() {
       partner_user_id: pendingPartner.userId,
       partner_name: pendingPartner.name
     }))
-    toast.success(`Ukhti dan ${pendingPartner.name} sudah sepakat. Silakan lanjutkan dan simpan pilihan.`)
+    toast.success(
+      pendingPartner.whatsapp
+        ? `Ukhti dan ${pendingPartner.name} sudah sepakat. Silakan lanjutkan dan simpan pilihan.`
+        : `${pendingPartner.name} dipilih. Simpan pilihan agar nomor WhatsApp bisa saling tampil.`
+    )
     setPendingPartner(null)
   }
 
@@ -864,6 +868,11 @@ Saya ingin memastikan apakah Ukhti berkenan menjadi pasangan belajar saya. Jika 
                                 
                                 {/* Action Buttons */}
                                 <div className="flex items-center space-x-2 mt-2 pt-3 border-t border-gray-100">
+                                  {!p.users?.whatsapp && (
+                                    <span className="flex-1 text-center text-[11px] leading-tight text-gray-400">
+                                      No WA tampil setelah salah satu memilih
+                                    </span>
+                                  )}
                                   {p.users?.whatsapp && (
                                     <a
                                       href={`https://wa.me/${p.users.whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(buildPartnerWhatsAppMessage({
@@ -1074,25 +1083,38 @@ Saya ingin memastikan apakah Ukhti berkenan menjadi pasangan belajar saya. Jika 
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-pink-100 text-2xl">
               ❤️
             </div>
-            <h3 className="text-center text-xl font-bold text-gray-900">Sudah Menghubungi dan Sepakat?</h3>
-            <p className="mt-3 text-center text-sm leading-6 text-gray-600">
-              Pastikan Ukhti sudah menghubungi <strong>{pendingPartner.name}</strong> dan beliau setuju menjadi pasangan belajar Ukhti. Self match baru lengkap setelah beliau memilih Ukhti kembali.
-            </p>
+            {pendingPartner.whatsapp ? (
+              <>
+                <h3 className="text-center text-xl font-bold text-gray-900">Sudah Menghubungi dan Sepakat?</h3>
+                <p className="mt-3 text-center text-sm leading-6 text-gray-600">
+                  Pastikan Ukhti sudah menghubungi <strong>{pendingPartner.name}</strong> dan beliau setuju menjadi pasangan belajar Ukhti. Self match baru lengkap setelah beliau memilih Ukhti kembali.
+                </p>
+              </>
+            ) : (
+              <>
+                <h3 className="text-center text-xl font-bold text-gray-900">Pilih {pendingPartner.name}?</h3>
+                <p className="mt-3 text-center text-sm leading-6 text-gray-600">
+                  Untuk menjaga privasi, nomor WhatsApp baru tampil setelah salah satu memilih. Setelah Ukhti menyimpan pilihan ini, nomor <strong>{pendingPartner.name}</strong> akan tampil untuk Ukhti dan nomor Ukhti tampil untuk beliau, sehingga bisa saling menghubungi. Self match baru lengkap setelah beliau memilih Ukhti kembali.
+                </p>
+              </>
+            )}
             <div className="mt-6 space-y-3">
               <button
                 type="button"
                 onClick={confirmSelfMatchPartner}
                 className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700"
               >
-                Ya, Kami Sudah Sepakat
+                {pendingPartner.whatsapp ? 'Ya, Kami Sudah Sepakat' : 'Ya, Pilih Beliau'}
               </button>
-              <button
-                type="button"
-                onClick={contactPendingPartner}
-                className="w-full rounded-lg border border-green-300 bg-green-50 px-4 py-2.5 text-sm font-semibold text-green-700 hover:bg-green-100"
-              >
-                Belum, Hubungi via WhatsApp
-              </button>
+              {pendingPartner.whatsapp && (
+                <button
+                  type="button"
+                  onClick={contactPendingPartner}
+                  className="w-full rounded-lg border border-green-300 bg-green-50 px-4 py-2.5 text-sm font-semibold text-green-700 hover:bg-green-100"
+                >
+                  Belum, Hubungi via WhatsApp
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setPendingPartner(null)}
