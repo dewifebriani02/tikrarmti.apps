@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth';
+import { getAuthorizationContext } from '@/lib/rbac';
+import { isStaff } from '@/lib/roles';
 import { query } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
+    const context = await getAuthorizationContext();
+    if (!context) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    // Zoom host key and thalibah phone numbers are only for staff (muallimah and up)
+    const canSeeSensitive = isStaff(context.roles);
 
     const { searchParams } = new URL(request.url);
     const batchId = searchParams.get('batch_id');
@@ -35,7 +38,7 @@ export async function GET(request: NextRequest) {
             'url', bzl.url,
             'meeting_id', bzl.meeting_id,
             'passcode', bzl.passcode,
-            'claim_host', bzl.claim_host
+            'claim_host', CASE WHEN $2 THEN bzl.claim_host ELSE NULL END
           )
         ELSE NULL END as zoom,
         CASE WHEN u.id IS NOT NULL THEN
@@ -60,7 +63,7 @@ export async function GET(request: NextRequest) {
                 'thalibah_id', hs.thalibah_id,
                 'thalibah', json_build_object(
                   'full_name', tu.full_name,
-                  'whatsapp', tu.whatsapp
+                  'whatsapp', CASE WHEN $2 THEN tu.whatsapp ELSE NULL END
                 )
               )
             )
@@ -97,7 +100,7 @@ export async function GET(request: NextRequest) {
       ORDER BY h.day_of_week ASC, h.start_time ASC;
     `;
 
-    const { rows } = await query(sql, [batchId]);
+    const { rows } = await query(sql, [batchId, canSeeSensitive]);
 
     return NextResponse.json({ data: rows });
   } catch (error) {
