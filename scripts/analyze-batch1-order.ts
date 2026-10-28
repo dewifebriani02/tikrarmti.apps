@@ -1,9 +1,21 @@
+import dotenv from 'dotenv';
 import { Client } from 'pg';
 import { parseBatch1Raw } from './parse-batch-1';
 
+dotenv.config({ path: '.env.local' });
+
+function requireDatabaseUrl(): string {
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    console.error('DATABASE_URL is not set. Add it to .env.local (never hardcode credentials).');
+    process.exit(1);
+  }
+  return url;
+}
+
 async function main() {
   const client = new Client({
-    connectionString: 'postgresql://mti_user:kFrBgSUxMY1JFLIUkCfVfdlgaDGTQwaE@127.0.0.1:5432/mti_db'
+    connectionString: requireDatabaseUrl()
   });
 
   await client.connect();

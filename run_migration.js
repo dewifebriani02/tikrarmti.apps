@@ -1,7 +1,13 @@
 const { Client } = require('pg');
+require('dotenv').config({ path: '.env.local' });
+
+if (!process.env.DATABASE_URL) {
+  console.error('DATABASE_URL is not set. Add it to .env.local (never hardcode credentials).');
+  process.exit(1);
+}
 
 const client = new Client({
-  connectionString: 'postgresql://postgres:postgres@127.0.0.1:54322/postgres',
+  connectionString: process.env.DATABASE_URL,
 });
 
 async function run() {
