@@ -186,6 +186,19 @@ export async function GET(request: NextRequest) {
         status_label = '⏳ Menunggu Akad';
       }
 
+      // Only what the partner-matching UI needs — no exact birth date, scores or exam status
+      const publicRegistration = {
+        user_id: reg.user_id,
+        full_name: reg.full_name,
+        chosen_juz: reg.chosen_juz,
+        main_time_slot: reg.main_time_slot,
+        backup_time_slot: reg.backup_time_slot,
+        domicile: reg.domicile,
+        timezone: reg.timezone,
+        age: calculateAge(reg.birth_date),
+        wa_phone: reg.wa_phone,
+      }
+
       return {
         user_id: reg.user_id,
         readiness_level,
@@ -199,7 +212,7 @@ export async function GET(request: NextRequest) {
           email: null,
           whatsapp: reg.wa_phone
         },
-        registrations: [reg],
+        registrations: [publicRegistration],
         is_mutual_match: false, // Since we filtered them out, this is technically false for all returned
         has_user_selected_them: selectedByOthersSet.has(reg.user_id),
         has_selected_them: currentUserChoice === reg.user_id,
@@ -248,6 +261,18 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     )
   }
+}
+
+/** Age in whole years from a birth date, or null if unknown/invalid */
+function calculateAge(birthDate: string | null | undefined): number | null {
+  if (!birthDate) return null
+  const birth = new Date(birthDate)
+  if (Number.isNaN(birth.getTime())) return null
+  const today = new Date()
+  let age = today.getFullYear() - birth.getFullYear()
+  const m = today.getMonth() - birth.getMonth()
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--
+  return age
 }
 
 /**

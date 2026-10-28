@@ -744,18 +744,8 @@ Saya ingin memastikan apakah Ukhti berkenan menjadi pasangan belajar saya. Jika 
                         {filteredPartners.map((p) => {
                           const reg = p.registrations?.[0]
                           
-                          // Calculate age
-                          let ageText = '-'
-                          if (reg?.birth_date) {
-                            const today = new Date()
-                            const birthDate = new Date(reg.birth_date)
-                            let age = today.getFullYear() - birthDate.getFullYear()
-                            const m = today.getMonth() - birthDate.getMonth()
-                            if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-                              age--
-                            }
-                            ageText = `${age} thn`
-                          }
+                          // Age is computed server-side; the exact birth date is not sent
+                          const ageText = typeof reg?.age === 'number' ? `${reg.age} thn` : '-'
 
                           const ownSlots = [registrationData?.main_time_slot, registrationData?.backup_time_slot].filter(Boolean)
                           const mainTimeCompatible = Boolean(reg?.main_time_slot && ownSlots.includes(reg.main_time_slot))

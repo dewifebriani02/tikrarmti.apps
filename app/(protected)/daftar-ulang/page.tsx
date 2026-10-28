@@ -1741,18 +1741,8 @@ function PartnerSelectionStep({
                     {filteredPartners.map((partner) => {
                       const reg = partner.registrations?.[0]
                       
-                      // Calculate age
-                      let ageText = '-'
-                      if (reg?.birth_date) {
-                        const today = new Date()
-                        const birthDate = new Date(reg.birth_date)
-                        let age = today.getFullYear() - birthDate.getFullYear()
-                        const m = today.getMonth() - birthDate.getMonth()
-                        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-                          age--
-                        }
-                        ageText = `${age} thn`
-                      }
+                      // Age is computed server-side; the exact birth date is not sent
+                      const ageText = typeof reg?.age === 'number' ? `${reg.age} thn` : '-'
 
                       // Format wa phone
                       const cleanPhone = reg?.wa_phone?.replace(/\D/g, '') || ''
