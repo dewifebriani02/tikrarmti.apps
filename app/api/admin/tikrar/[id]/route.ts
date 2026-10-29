@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireAdmin } from '@/lib/rbac';
+import { transaction } from '@/lib/db';
+import { deleteDaftarUlangSubmissions } from '@/lib/daftar-ulang-cleanup';
 
 const supabaseAdmin = createSupabaseAdmin();
 
@@ -201,16 +203,16 @@ export async function DELETE(
     if (authError) return authError;
 
     const { id } = await params;
-    const { data, error } = await supabaseAdmin
-      .from('pendaftaran_tikrar_tahfidz')
-      .delete()
-      .eq('id', id)
-      .select('id')
-      .single();
+    // Submissions cascade-delete with the registration, but their halaqah roster rows do not:
+    // clean those up first, then delete the registration, all in one transaction.
+    const deletedCount = await transaction(async (client) => {
+      await deleteDaftarUlangSubmissions(client, { registrationId: id });
+      const result = await client.query('DELETE FROM pendaftaran_tikrar_tahfidz WHERE id = $1', [id]);
+      return result.rowCount ?? 0;
+    });
 
-    if (error || !data) {
-      console.error('[DELETE admin/tikrar] Error:', error);
-      return NextResponse.json({ error: error?.message || 'Pendaftaran tidak ditemukan' }, { status: error ? 500 : 404 });
+    if (deletedCount === 0) {
+      return NextResponse.json({ error: 'Pendaftaran tidak ditemukan' }, { status: 404 });
     }
 
     return NextResponse.json({ success: true });

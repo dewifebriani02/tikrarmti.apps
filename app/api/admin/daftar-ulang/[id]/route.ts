@@ -2,6 +2,8 @@ import { createServerClient } from '@/lib/supabase/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireAdmin } from '@/lib/rbac';
 import { ApiResponses } from '@/lib/api-responses';
+import { transaction } from '@/lib/db';
+import { deleteDaftarUlangSubmissions } from '@/lib/daftar-ulang-cleanup';
 
 const ALLOWED_UPDATE_FIELDS = [
   'confirmed_full_name',
@@ -118,7 +120,8 @@ export async function PUT(
 }
 
 /**
- * DELETE /api/admin/daftar-ulang/[id] — admin permanently deletes a daftar ulang submission.
+ * DELETE /api/admin/daftar-ulang/[id] — admin permanently deletes a daftar ulang submission,
+ * together with the halaqah roster rows it created and the re-enrollment flag, in one transaction.
  */
 export async function DELETE(
   _request: Request,
@@ -128,19 +131,10 @@ export async function DELETE(
     const authError = await requireAdmin();
     if (authError) return authError;
 
-    const supabaseAdmin = createSupabaseAdmin();
-    const { data, error } = await supabaseAdmin
-      .from('daftar_ulang_submissions')
-      .delete()
-      .eq('id', params.id)
-      .select('id')
-      .single();
-
-    if (error || !data) {
-      if (error && error.code !== 'PGRST116') {
-        console.error('[Admin Daftar Ulang Delete API] Error:', error);
-        return ApiResponses.databaseError(error);
-      }
+    const deleted = await transaction(client =>
+      deleteDaftarUlangSubmissions(client, { submissionId: params.id })
+    );
+    if (deleted.length === 0) {
       return ApiResponses.notFound('Data daftar ulang tidak ditemukan');
     }
 
