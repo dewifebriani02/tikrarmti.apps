@@ -172,20 +172,20 @@ export async function getH1ExamCandidates(targetDate: string): Promise<ExamRemin
       s.location_link,
       s.notes as schedule_notes,
       u.full_name,
-      COALESCE(NULLIF(TRIM(u.whatsapp), ''), NULLIF(TRIM(u.phone_number), ''), NULLIF(TRIM(p.whatsapp), '')) as raw_phone,
-      COALESCE(p.confirmed_chosen_juz, '30') as target_juz,
+      COALESCE(NULLIF(TRIM(u.whatsapp), ''), NULLIF(TRIM(vat.whatsapp), '')) as raw_phone,
+      COALESCE(vat.confirmed_chosen_juz, '30') as target_juz,
       COALESCE(examiner.full_name, 'Ustadzah Najah Sungkar') as examiner_name
     FROM final_exam_registrations r
     JOIN final_exam_schedules s ON r.schedule_id = s.id
     JOIN users u ON r.user_id = u.id
     LEFT JOIN users examiner ON s.examiner_id = examiner.id
-    LEFT JOIN pendaftaran_tikrar_tahfidz p ON p.user_id = u.id AND p.status = 'approved'
+    LEFT JOIN v_active_thalibah vat ON vat.user_id = u.id
     WHERE s.exam_type = 'oral'
       AND s.status = 'active'
       AND r.status IN ('registered', 'confirmed')
       AND s.exam_date = $1
-      AND u.is_blacklisted = false
-      AND u.is_active = true
+      AND (u.is_blacklisted IS NOT TRUE)
+      AND (u.is_active IS NOT FALSE)
     ORDER BY s.start_time ASC, u.full_name ASC;
   `;
 
