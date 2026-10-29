@@ -114,12 +114,21 @@ export async function GET(request: Request) {
 
         const { data: pReg } = await supabaseAdmin
           .from('pendaftaran_tikrar_tahfidz')
-          .select('chosen_juz, main_time_slot, backup_time_slot, timezone')
+          .select('chosen_juz, main_time_slot, backup_time_slot, timezone, selection_status, oral_total_score')
           .eq('user_id', lockedPartnerId)
           .eq('batch_id', batchId)
           .maybeSingle()
 
-        if (pDetails || pReg) {
+        // Defense-in-depth: only reveal partner details & WhatsApp if candidate passed selection
+        const isPartnerEligible = Boolean(
+          pReg && (
+            pReg.selection_status === 'selected' ||
+            pReg.selection_status === 'waitlist' ||
+            (Number(pReg.oral_total_score) || 0) >= 80
+          )
+        )
+
+        if ((pDetails || pReg) && isPartnerEligible) {
           partnerDetailsExt = {
             zona_waktu: pReg?.timezone || pDetails?.zona_waktu || 'WIB',
             chosen_juz: pReg?.chosen_juz || 'N/A',

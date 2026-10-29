@@ -159,8 +159,9 @@ export async function GET(request: NextRequest) {
     // chosen/locked partner may be filtered out of all_available_partners below, but the
     // user must still be able to contact her (same rule as can_contact).
     const chosenPartnerId = contactChoices.get(user.id)
+    // Defense-in-depth: limit chosen_partner to thalibah who passed selection
     const chosenPartnerReg = chosenPartnerId
-      ? (rawAllThalibah || []).find((reg: any) => reg.user_id === chosenPartnerId)
+      ? (allSelectedThalibah || []).find((reg: any) => reg.user_id === chosenPartnerId)
       : null
     const chosen_partner = chosenPartnerReg
       ? {
