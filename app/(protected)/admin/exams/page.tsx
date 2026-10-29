@@ -11,6 +11,7 @@ import { AdminExamImport } from '@/components/AdminExamImport';
 import { AdminAddQuestion } from '@/components/AdminAddQuestion';
 import { AdminExamConfigurations } from '@/components/admin/AdminExamConfigurations';
 import { ExamSimulationTab } from '@/components/admin/exam-simulation/ExamSimulationTab';
+import { ExamReminderH1Modal } from '@/components/admin/ExamReminderH1Modal';
 import Link from 'next/link';
 
 export default function AdminExamsPage() {
@@ -49,6 +50,10 @@ export default function AdminExamsPage() {
                   </span>
                 </h1>
               </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <ExamReminderH1Modal />
             </div>
           </div>
         </div>
