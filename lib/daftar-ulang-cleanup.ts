@@ -6,7 +6,10 @@ type SubmissionRow = {
   registration_id: string;
   ujian_halaqah_id: string | null;
   tashih_halaqah_id: string | null;
+  status: string;
 };
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Delete daftar ulang submissions and everything derived from them, inside the caller's
@@ -22,17 +25,24 @@ export async function deleteDaftarUlangSubmissions(
   target: { submissionId: string } | { registrationId: string }
 ): Promise<SubmissionRow[]> {
   const byId = 'submissionId' in target;
+  const targetId = byId ? target.submissionId : target.registrationId;
+  if (!targetId || !UUID_REGEX.test(targetId)) {
+    return [];
+  }
+
   const { rows } = await client.query<SubmissionRow>(
-    `SELECT id, user_id, registration_id, ujian_halaqah_id, tashih_halaqah_id
+    `SELECT id, user_id, registration_id, ujian_halaqah_id, tashih_halaqah_id, status
        FROM daftar_ulang_submissions
       WHERE ${byId ? 'id' : 'registration_id'} = $1
       FOR UPDATE`,
-    [byId ? target.submissionId : target.registrationId]
+    [targetId]
   );
 
   for (const sub of rows) {
     const halaqahIds = [sub.ujian_halaqah_id, sub.tashih_halaqah_id].filter((id): id is string => Boolean(id));
-    if (halaqahIds.length > 0) {
+    // Only delete from halaqah_students if this submission was approved, preventing accidental deletion
+    // of manual roster assignments for unapproved/draft submissions.
+    if (sub.status === 'approved' && halaqahIds.length > 0) {
       await client.query(
         'DELETE FROM halaqah_students WHERE thalibah_id = $1 AND halaqah_id = ANY($2::uuid[])',
         [sub.user_id, halaqahIds]

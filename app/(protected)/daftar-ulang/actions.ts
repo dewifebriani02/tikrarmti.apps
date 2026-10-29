@@ -301,6 +301,14 @@ export async function submitDaftarUlang(
     // Re-submitting (e.g. adding akad) must not rewrite a locked partner choice
     const writesPartnerChoice = !isPartnerChoiceLocked(existing)
 
+    // If partner choice is already locked, reject attempts to change it rather than silently discarding
+    if (!writesPartnerChoice && data.partner_type && (
+      data.partner_type !== existing?.partner_type ||
+      (data.partner_type === 'self_match' && data.partner_user_id && data.partner_user_id !== existing?.partner_user_id)
+    )) {
+      return { success: false, error: PARTNER_LOCKED_ERROR }
+    }
+
     // Never trust the client's candidate id: it decides whose WhatsApp number is revealed
     if (writesPartnerChoice && partnerChoice.partner_user_id) {
       const partnerError = await validateSelfMatchPartner(authUser.id, registration.batch_id, partnerChoice.partner_user_id)

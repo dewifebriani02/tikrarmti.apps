@@ -10,6 +10,7 @@ import { CheckCircle, AlertCircle, Clock, Users, Calendar, Upload, Download, Che
 import { submitDaftarUlang, saveDaftarUlangDraft, uploadAkad, updateAkadFiles, approveDaftarUlangSubmission, getReregistrationQuestions, resetAkadThalibah } from './actions'
 import { UserProfileCard } from '@/components/UserProfileCard'
 import { parseAkadFiles } from '@/lib/utils'
+import { isPartnerChoiceLocked } from '@/lib/partner-choice'
 
 type Step = 'confirm' | 'pengabdian' | 'akad' | 'halaqah' | 'partner' | 'success'
 
@@ -865,6 +866,7 @@ function DaftarUlangContent() {
                 onChange={setFormData}
                 registrationId={registrationData?.id}
                 reregQuestions={reregQuestions}
+                isLocked={isPartnerChoiceLocked(existingSubmission)}
               />
             )}
 
@@ -1601,12 +1603,14 @@ function PartnerSelectionStep({
   formData,
   onChange,
   registrationId,
-  reregQuestions
+  reregQuestions,
+  isLocked = false
 }: {
   formData: any
   onChange: (data: any) => void
   registrationId?: string
   reregQuestions: any[]
+  isLocked?: boolean
 }) {
   const [partners, setPartners] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -1646,6 +1650,7 @@ function PartnerSelectionStep({
 
   const handlePartnerSelect = (partner: any, e: React.MouseEvent) => {
     e.stopPropagation() // Prevent event from bubbling to parent
+    if (isLocked) return
 
     const updatedData = {
       ...formDataRef.current,
@@ -1671,6 +1676,15 @@ function PartnerSelectionStep({
 
   return (
     <div className="space-y-6">
+      {isLocked && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start space-x-3">
+          <Info className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+          <div className="text-sm text-amber-800">
+            <span className="font-semibold">Pilihan Pasangan Terkunci:</span> Pilihan pasangan Ukhti sudah tersimpan dan terkunci. Perubahan pilihan hanya dapat dilakukan melalui admin.
+          </div>
+        </div>
+      )}
+
       <div>
         <h2 className="text-xl font-semibold text-gray-900 mb-4">
           {partnerTypeQuestion?.label || "Pilih Pasangan Belajar"}
@@ -1684,12 +1698,14 @@ function PartnerSelectionStep({
         {/* Self Match */}
         {isSelfActive && (
           <div
-            className={`border rounded-lg p-4 cursor-pointer transition-all ${
+            className={`border rounded-lg p-4 transition-all ${
+              isLocked ? 'cursor-default' : 'cursor-pointer hover:border-gray-300'
+            } ${
               formData.partner_type === 'self_match'
                 ? 'border-green-500 bg-green-50 ring-2 ring-green-500'
-                : 'border-gray-200 hover:border-gray-300'
+                : 'border-gray-200'
             }`}
-            onClick={() => onChange({ ...formData, partner_type: 'self_match' })}
+            onClick={() => !isLocked && onChange({ ...formData, partner_type: 'self_match' })}
           >
             <div className="flex items-start space-x-3">
               <Users className="w-6 h-6 text-green-600 mt-1" />
@@ -1714,16 +1730,18 @@ function PartnerSelectionStep({
                 <p className="text-sm text-gray-600 mb-3">Cari nama pasangan belajar:</p>
 
                 {/* Search Input */}
-                <div className="mb-3">
-                  <input
-                    type="text"
-                    placeholder="Ketik nama thalibah..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                </div>
+                {!isLocked && (
+                  <div className="mb-3">
+                    <input
+                      type="text"
+                      placeholder="Ketik nama thalibah..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
+                )}
 
                 {isLoading ? (
                   <div className="text-center py-8">
@@ -1751,12 +1769,13 @@ function PartnerSelectionStep({
                       return (
                         <div
                           key={partner.user_id}
-                          onClick={(e) => handlePartnerSelect(partner, e)}
+                          onClick={(e) => !isLocked && handlePartnerSelect(partner, e)}
                           className={`
-                            relative p-4 border rounded-xl cursor-pointer transition-all hover:shadow-md flex flex-col justify-between
+                            relative p-4 border rounded-xl transition-all flex flex-col justify-between
+                            ${isLocked ? 'cursor-default' : 'cursor-pointer hover:shadow-md hover:border-green-300'}
                             ${formData.partner_user_id === partner.user_id
                               ? 'bg-green-50 border-green-500 ring-1 ring-green-500'
-                              : 'bg-white border-gray-200 hover:border-green-300'
+                              : 'bg-white border-gray-200'
                             }
                           `}
                         >
@@ -1851,10 +1870,10 @@ function PartnerSelectionStep({
 
                 {formData.partner_user_id && (
                   <p className="mt-3 text-xs text-gray-600">
-                    Setelah daftar ulang dikirim, pilihan ini terkunci dan hanya bisa diubah lewat admin. Nomor WhatsApp pasangan pilihan Ukhti akan tampil di halaman Pilih Pasangan, dan nomor Ukhti tampil untuk beliau.
+                    Setelah daftar ulang dikirim, pilihan ini terkunci dan hanya bisa diubah lewat admin. Nomor WhatsApp pasangan pilihan Ukhti akan tampil di halaman Pilih Pasangan agar Ukhti dapat menghubungi beliau.
                   </p>
                 )}
-                {formData.partner_user_id && (
+                {formData.partner_user_id && !isLocked && (
                   <button
                     type="button"
                     onClick={(e) => {
@@ -1878,12 +1897,14 @@ function PartnerSelectionStep({
         {/* System Match */}
         {isSystemActive && (
           <div
-            className={`border rounded-lg p-4 cursor-pointer transition-all ${
+            className={`border rounded-lg p-4 transition-all ${
+              isLocked ? 'cursor-default' : 'cursor-pointer hover:border-gray-300'
+            } ${
               formData.partner_type === 'system_match'
                 ? 'border-green-500 bg-green-50 ring-2 ring-green-500'
-                : 'border-gray-200 hover:border-gray-300'
+                : 'border-gray-200'
             }`}
-            onClick={() => onChange({ ...formData, partner_type: 'system_match' })}
+            onClick={() => !isLocked && onChange({ ...formData, partner_type: 'system_match' })}
           >
             <div className="flex items-start space-x-3">
               <Clock className="w-6 h-6 text-blue-600 mt-1" />
@@ -1908,12 +1929,14 @@ function PartnerSelectionStep({
         {/* Family */}
         {isFamilyActive && (
           <div
-            className={`border rounded-lg p-4 cursor-pointer transition-all ${
+            className={`border rounded-lg p-4 transition-all ${
+              isLocked ? 'cursor-default' : 'cursor-pointer hover:border-gray-300'
+            } ${
               formData.partner_type === 'family'
                 ? 'border-green-500 bg-green-50 ring-2 ring-green-500'
-                : 'border-gray-200 hover:border-gray-300'
+                : 'border-gray-200'
             }`}
-            onClick={() => onChange({ ...formData, partner_type: 'family' })}
+            onClick={() => !isLocked && onChange({ ...formData, partner_type: 'family' })}
           >
             <div className="flex items-start space-x-3">
               <Users className="w-6 h-6 text-purple-600 mt-1" />
@@ -1946,14 +1969,16 @@ function PartnerSelectionStep({
                 <input
                   type="text"
                   placeholder="Nama lengkap"
+                  disabled={isLocked}
                   value={formData.partner_name}
                   onChange={e => onChange({ ...formData, partner_name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
                 />
                 <select
                   value={formData.partner_relationship}
+                  disabled={isLocked}
                   onChange={e => onChange({ ...formData, partner_relationship: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
                 >
                   <option value="">Pilih hubungan</option>
                   <option value="ayah">Ayah</option>
@@ -1966,16 +1991,18 @@ function PartnerSelectionStep({
                 <input
                   type="text"
                   placeholder="Nomor WhatsApp keluarga"
+                  disabled={isLocked}
                   value={formData.partner_wa_phone}
                   onChange={e => onChange({ ...formData, partner_wa_phone: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
                 />
                 <textarea
                   placeholder="Catatan tambahan (opsional)"
+                  disabled={isLocked}
                   value={formData.partner_notes}
                   onChange={e => onChange({ ...formData, partner_notes: e.target.value })}
                   rows={2}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
                 />
               </div>
             )}
@@ -1986,13 +2013,14 @@ function PartnerSelectionStep({
         {isTarteelActive && (
           <div
             className={`border rounded-lg p-4 transition-all ${
-              !isTarteelEligible 
+              !isTarteelEligible || isLocked
                 ? 'border-gray-100 bg-gray-50/50 cursor-not-allowed opacity-60' 
                 : formData.partner_type === 'tarteel'
                 ? 'border-green-500 bg-green-50 ring-2 ring-green-500 cursor-pointer'
                 : 'border-gray-200 hover:border-gray-300 cursor-pointer'
             }`}
             onClick={() => {
+              if (isLocked) return
               if (isTarteelEligible) {
                 onChange({ ...formData, partner_type: 'tarteel' })
               } else {
