@@ -77,7 +77,12 @@ export async function POST(
       if (submission.status !== 'approved') {
         updateData.approved_at = new Date().toISOString();
       }
-    } else if (newAkadStatus === 'submitted' || newPartnerStatus === 'submitted') {
+    } else if (
+      newAkadStatus === 'submitted' ||
+      newPartnerStatus === 'submitted' ||
+      newAkadStatus === 'approved' ||
+      newPartnerStatus === 'approved'
+    ) {
       globalStatus = 'submitted';
     } else {
       globalStatus = 'draft';

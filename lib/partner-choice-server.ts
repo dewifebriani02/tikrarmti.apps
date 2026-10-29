@@ -73,7 +73,13 @@ export async function validateSelfMatchPartner(
   const candidate = await queryOne(
     `SELECT id FROM pendaftaran_tikrar_tahfidz
       WHERE user_id = $1 AND batch_id = $2
-        AND (selection_status IN ('selected', 'waitlist') OR COALESCE(oral_total_score, 0) >= 80)
+        AND (
+          selection_status IN ('selected', 'waitlist')
+          OR (
+            oral_total_score ~ '^[0-9]+(\\.[0-9]+)?$'
+            AND oral_total_score::numeric >= 80
+          )
+        )
       LIMIT 1`,
     [partnerUserId, batchId]
   )
