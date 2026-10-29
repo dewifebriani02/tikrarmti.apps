@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { X, Calendar, Clock, ChevronRight, Save, Sparkles } from 'lucide-react';
+import { X, Calendar, Clock, ChevronRight, Save, Sparkles, Wand2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Batch, BATCH_STATUSES } from './types';
@@ -93,6 +93,13 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
   const [saving, setSaving] = useState(false);
   const [showTimeline, setShowTimeline] = useState(false);
   const [holidayInput, setHolidayInput] = useState('');
+  const [autoGenerateAnchorDate, setAutoGenerateAnchorDate] = useState(() => {
+    return (
+      extractDateTime(batch?.first_week_start_date, '00:01').split('T')[0] ||
+      extractDateTime(batch?.start_date, '00:01').split('T')[0] ||
+      ''
+    );
+  });
 
   // Handle name change to automatically suggest defaults for batch 3+
   const handleNameChange = (name: string) => {
@@ -136,6 +143,93 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
       holiday_dates: [...formData.holiday_dates, holidayInput].sort(),
     });
     setHolidayInput('');
+  };
+
+  // Auto-Generate complete, standardized MTI timeline based on Pekan 1 Mulai (Senin)
+  const handleAutoGenerateTimeline = (customStartDate?: string) => {
+    const rawDate = customStartDate || autoGenerateAnchorDate || formData.first_week_start_date || formData.start_date || '';
+    const datePart = rawDate.split('T')[0];
+
+    if (!datePart) {
+      toast.error('Silakan tentukan Tanggal Mulai Pekan 1 (Senin) terlebih dahulu.');
+      return;
+    }
+
+    const base = new Date(datePart + 'T00:00:00Z');
+    if (isNaN(base.getTime())) {
+      toast.error('Format tanggal tidak valid');
+      return;
+    }
+
+    const formatOffset = (days: number, timeStr: string = '00:01') => {
+      const d = new Date(base);
+      d.setDate(d.getDate() + days);
+      const iso = d.toISOString().split('T')[0];
+      return iso + "T" + timeStr;
+    };
+
+    // Standardized MTI 14-week timeline based on Pekan 1 (Day 0, Senin):
+    const regStart = formatOffset(-35, '00:01');      // 5 pekan sebelum Pekan 1 (Senin 00:01)
+    const regEnd = formatOffset(-16, '23:59');        // 16 hari sebelum Pekan 1 (Sabtu 23:59)
+    const selStart = formatOffset(-15, '00:01');      // 15 hari sebelum Pekan 1 (Ahad 00:01)
+    const selEnd = formatOffset(-12, '23:59');        // 12 hari sebelum Pekan 1 (Rabu 23:59)
+    const selResult = formatOffset(-11, '09:00');     // 11 hari sebelum Pekan 1 (Kamis 09:00)
+    const reEnroll = formatOffset(-10, '00:01');      // 10 hari sebelum Pekan 1 (Jumat 00:01)
+    const openingClass = formatOffset(-1, '09:00');    // H-1 sebelum Pekan 1 (Ahad 09:00)
+
+    const week1Start = formatOffset(0, '00:01');      // Pekan 1 Mulai (Senin 00:01)
+    const week1End = formatOffset(6, '23:59');        // Pekan 1 Selesai (Ahad 23:59)
+    const transferEnd = formatOffset(13, '23:59');    // Batas Mutasi Halaqah (Ahad Pekan 2 23:59)
+    const revWeekStart = formatOffset(77, '00:01');   // Pekan 12 Review Mulai (Senin 00:01)
+    const revWeekEnd = formatOffset(83, '23:59');     // Pekan 12 Review Selesai (Ahad 23:59)
+
+    const examStart = formatOffset(84, '00:01');      // Pekan 13 Ujian Akhir Mulai (Senin 00:01)
+    const examEnd = formatOffset(97, '23:59');        // Pekan 14 Ujian Akhir Selesai (Ahad 23:59)
+    const gradStart = formatOffset(98, '00:01');      // Pekan 15 Wisuda Mulai (Senin 00:01)
+    const gradEnd = formatOffset(104, '23:59');       // Pekan 15 Wisuda Selesai (Ahad 23:59)
+
+    setFormData(prev => ({
+      ...prev,
+      start_date: regStart,
+      end_date: gradEnd,
+      duration_weeks: 14,
+      registration_start_date: regStart,
+      registration_end_date: regEnd,
+      selection_start_date: selStart,
+      selection_end_date: selEnd,
+      selection_result_date: selResult,
+      re_enrollment_date: reEnroll,
+      opening_class_date: openingClass,
+      first_week_start_date: week1Start,
+      first_week_end_date: week1End,
+      review_week_start_date: revWeekStart,
+      review_week_end_date: revWeekEnd,
+      final_exam_start_date: examStart,
+      final_exam_end_date: examEnd,
+      graduation_start_date: gradStart,
+      graduation_end_date: gradEnd,
+      transfer_schedule_end_date: transferEnd,
+    }));
+
+    // Auto sync program registration dates
+    setTikrarData(prev => ({
+      ...prev,
+      registration_start_date: regStart,
+      registration_end_date: regEnd,
+    }));
+    setPratikrarData(prev => ({
+      ...prev,
+      registration_start_date: regStart,
+      registration_end_date: regEnd,
+    }));
+    setMuallimahData(prev => ({
+      ...prev,
+      registration_start_date: regStart,
+      registration_end_date: regEnd,
+    }));
+
+    setShowTimeline(true);
+    toast.success('⚡ Seluruh jadwal timeline berhasil di-generate secara otomatis!');
   };
 
   const dateWarnings = useMemo(() => {
@@ -499,6 +593,47 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
                       />
                     )}
                   </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Auto-Generate Banner */}
+            <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-green-50 p-4 sm:p-5 rounded-2xl border border-emerald-200 shadow-sm">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-emerald-600/20 mt-0.5">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                      Auto-Generate Timeline Praktis
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-600 text-white font-extrabold uppercase tracking-wider">
+                        1-Klik
+                      </span>
+                    </h4>
+                    <p className="text-xs text-gray-600 mt-1 max-w-xl">
+                      Tentukan <strong>Tanggal Mulai Pekan 1 (Senin)</strong>. Sistem akan otomatis menghitung seluruh jadwal pendaftaran, seleksi, daftar ulang, halaqah 1-12 pekan, ujian akhir, hingga wisuda secara berurutan dan anti-salah.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto shrink-0">
+                  <input
+                    type="date"
+                    value={autoGenerateAnchorDate}
+                    onChange={(e) => setAutoGenerateAnchorDate(e.target.value)}
+                    placeholder="Pilih Senin Pekan 1"
+                    title="Tanggal Mulai Pekan 1 Pembelajaran (Senin)"
+                    className="px-3 py-2 rounded-xl border border-emerald-300 bg-white text-xs font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleAutoGenerateTimeline(autoGenerateAnchorDate)}
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 active:scale-95 text-white font-bold text-xs shadow-md shadow-emerald-700/20 transition-all duration-200 whitespace-nowrap"
+                  >
+                    <Wand2 className="w-4 h-4" />
+                    Hitung Jadwal Otomatis
+                  </button>
                 </div>
               </div>
             </div>
