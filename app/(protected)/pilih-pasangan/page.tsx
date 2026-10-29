@@ -83,6 +83,7 @@ export default function PilihPasanganPage() {
     userId: string
     name: string
     whatsapp?: string
+    chosenMe: boolean
     registration?: any
     juzCompatible?: boolean
     timezoneCompatible?: boolean
@@ -377,6 +378,9 @@ export default function PilihPasanganPage() {
       userId: partner.user_id,
       name: partner.users?.full_name || 'thalibah ini',
       whatsapp: partner.users?.whatsapp,
+      // This form only renders while the user's own choice is unlocked, so
+      // can_contact here means the candidate has locked in this user
+      chosenMe: Boolean(partner.can_contact),
       registration: partner.registrations?.[0],
       juzCompatible: partner.juz_compatible,
       timezoneCompatible: partner.timezone_compatible
@@ -391,9 +395,9 @@ export default function PilihPasanganPage() {
       partner_name: pendingPartner.name
     }))
     toast.success(
-      pendingPartner.whatsapp
-        ? `Ukhti dan ${pendingPartner.name} sudah sepakat. Silakan lanjutkan dan simpan pilihan.`
-        : `${pendingPartner.name} dipilih. Simpan pilihan agar nomor WhatsApp bisa saling tampil.`
+      pendingPartner.chosenMe
+        ? `Ukhti dan ${pendingPartner.name} sudah sepakat. Tekan Simpan & Selesai untuk mengunci pilihan.`
+        : `${pendingPartner.name} dipilih. Tekan Simpan & Selesai untuk mengunci pilihan; nomor WhatsApp lalu saling tampil.`
     )
     setPendingPartner(null)
   }
@@ -898,7 +902,7 @@ Saya ingin memastikan apakah Ukhti berkenan menjadi pasangan belajar saya. Jika 
                                 <div className="flex items-center space-x-2 mt-2 pt-3 border-t border-gray-100">
                                   {!p.users?.whatsapp && (
                                     <span className="flex-1 text-center text-[11px] leading-tight text-gray-400">
-                                      No WA tampil setelah salah satu memilih
+                                      No WA tampil setelah salah satu mengunci pilihan
                                     </span>
                                   )}
                                   {p.users?.whatsapp && (
@@ -1111,18 +1115,18 @@ Saya ingin memastikan apakah Ukhti berkenan menjadi pasangan belajar saya. Jika 
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-pink-100 text-2xl">
               ❤️
             </div>
-            {pendingPartner.whatsapp ? (
+            {pendingPartner.chosenMe ? (
               <>
                 <h3 className="text-center text-xl font-bold text-gray-900">Sudah Menghubungi dan Sepakat?</h3>
                 <p className="mt-3 text-center text-sm leading-6 text-gray-600">
-                  Pastikan Ukhti sudah menghubungi <strong>{pendingPartner.name}</strong> dan beliau setuju menjadi pasangan belajar Ukhti. Self match baru lengkap setelah beliau memilih Ukhti kembali.
+                  <strong>{pendingPartner.name}</strong> sudah memilih Ukhti. Pastikan Ukhti sudah menghubungi beliau dan sepakat menjadi pasangan belajar. Setelah Ukhti menekan <strong>Simpan &amp; Selesai</strong>, pasangan self match langsung terbentuk dan pilihan Ukhti terkunci (perubahan hanya lewat admin).
                 </p>
               </>
             ) : (
               <>
                 <h3 className="text-center text-xl font-bold text-gray-900">Pilih {pendingPartner.name}?</h3>
                 <p className="mt-3 text-center text-sm leading-6 text-gray-600">
-                  Untuk menjaga privasi, nomor WhatsApp baru tampil setelah salah satu memilih. Setelah Ukhti menyimpan pilihan ini, nomor <strong>{pendingPartner.name}</strong> akan tampil untuk Ukhti dan nomor Ukhti tampil untuk beliau, sehingga bisa saling menghubungi. Self match baru lengkap setelah beliau memilih Ukhti kembali.
+                  Untuk menjaga privasi, nomor WhatsApp baru tampil setelah salah satu pihak mengunci pilihannya. Setelah Ukhti menekan <strong>Simpan &amp; Selesai</strong>, pilihan ini langsung terkunci (perubahan hanya lewat admin). Nomor <strong>{pendingPartner.name}</strong> lalu tampil di halaman ini untuk Ukhti dan nomor Ukhti tampil untuk beliau, sehingga bisa saling menghubungi. Self match baru lengkap setelah beliau memilih Ukhti kembali.
                 </p>
               </>
             )}
@@ -1132,7 +1136,7 @@ Saya ingin memastikan apakah Ukhti berkenan menjadi pasangan belajar saya. Jika 
                 onClick={confirmSelfMatchPartner}
                 className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700"
               >
-                {pendingPartner.whatsapp ? 'Ya, Kami Sudah Sepakat' : 'Ya, Pilih Beliau'}
+                {pendingPartner.chosenMe ? 'Ya, Kami Sudah Sepakat' : 'Ya, Pilih Beliau'}
               </button>
               {pendingPartner.whatsapp && (
                 <button

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createSupabaseAdmin } from '@/lib/supabase'
+import { lockedSelfMatchPartnerId } from '@/lib/partner-choice'
 
 export const dynamic = 'force-dynamic'
 
@@ -81,7 +82,7 @@ export async function GET(request: NextRequest) {
     // Fetch all submissions in this batch to determine who is locked or selected who
     const { data: allSubmissions, error: errSub } = await adminClient
       .from('daftar_ulang_submissions')
-      .select('user_id, partner_user_id, partner_type, akad_url, akad_files, status')
+      .select('user_id, partner_user_id, partner_type, partner_status, akad_url, akad_files, status')
       .eq('batch_id', registration.batch_id)
       
     if (errSub) {
@@ -94,13 +95,16 @@ export async function GET(request: NextRequest) {
     const userChoices = new Map<string, string>()
     const lockedUsersSet = new Set<string>() // Users who have submitted (any type)
     const usersWithAkadSet = new Set<string>() // Users who have uploaded akad
-    // Self-match choices saved in ANY status (incl. draft from pilih-pasangan) — used only
-    // to decide whose WhatsApp number may be revealed, not for locking/matching.
+    // Self-match choices that are locked server-side — used only to decide whose
+    // WhatsApp number may be revealed, not for marketplace locking/matching. Drafts
+    // don't count: they can be rewritten freely and would let one account harvest
+    // the whole batch's numbers.
     const contactChoices = new Map<string, string>()
 
     submissions.forEach((sub: any) => {
-      if (sub.partner_type === 'self_match' && sub.partner_user_id) {
-        contactChoices.set(sub.user_id, sub.partner_user_id)
+      const lockedPartnerId = lockedSelfMatchPartnerId(sub)
+      if (lockedPartnerId) {
+        contactChoices.set(sub.user_id, lockedPartnerId)
       }
 
       // Track who has uploaded akad
@@ -154,9 +158,9 @@ export async function GET(request: NextRequest) {
     // Current user's own choice
     const currentUserChoice = userChoices.get(user.id)
 
-    // The self-match partner this user has saved (any status). Returned separately because
-    // a chosen/locked partner may be filtered out of all_available_partners below, but the
-    // user must still be able to contact her (same rule as can_contact: she was chosen).
+    // The self-match partner this user has locked in. Returned separately because a
+    // chosen/locked partner may be filtered out of all_available_partners below, but the
+    // user must still be able to contact her (same rule as can_contact).
     const chosenPartnerId = contactChoices.get(user.id)
     const chosenPartnerReg = chosenPartnerId
       ? (rawAllThalibah || []).find((reg: any) => reg.user_id === chosenPartnerId)
@@ -209,7 +213,7 @@ export async function GET(request: NextRequest) {
         status_label = '⏳ Menunggu Akad';
       }
 
-      // WhatsApp is revealed only once either side has picked the other, so a
+      // WhatsApp is revealed only once either side has locked in the other, so a
       // participant can't harvest the numbers of the whole batch
       const canContact =
         contactChoices.get(reg.user_id) === user.id ||

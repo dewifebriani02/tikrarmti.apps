@@ -5,6 +5,7 @@ import { createSupabaseAdmin } from '@/lib/supabase'
 import { syncApprovedSubmissionToHalaqahStudents } from '@/lib/halaqah-students-sync'
 import { saveUploadedFile, deleteUploadedFile } from '@/lib/storage'
 import { sniffFileType } from '@/lib/file-type'
+import { isPartnerChoiceLocked, withoutPartnerChoiceFields } from '@/lib/partner-choice'
 
 const parseDonationAmount = (value: string | number | null | undefined): number | null => {
   if (value === null || value === undefined || value === '') return null
@@ -74,7 +75,7 @@ export async function saveDaftarUlangDraft(
     // Check for existing draft
     const { data: existing } = await supabase
       .from('daftar_ulang_submissions')
-      .select('id')
+      .select('id, status, partner_type, partner_status')
       .eq('user_id', authUser.id)
       .eq('registration_id', registrationId)
       .maybeSingle()
@@ -82,7 +83,7 @@ export async function saveDaftarUlangDraft(
     // Convert empty strings to null for UUID and optional fields
     // IMPORTANT: For draft status, do NOT save halaqah data - only save partner and akad data
     // This ensures draft submissions don't accidentally reserve halaqah slots
-    const cleanedData = {
+    const draftData = {
       confirmed_full_name: data.confirmed_full_name,
       confirmed_chosen_juz: data.confirmed_chosen_juz,
       confirmed_main_time_slot: data.confirmed_main_time_slot,
@@ -103,6 +104,9 @@ export async function saveDaftarUlangDraft(
       // DO NOT overwrite halaqah data for draft because Halaqah selection is now handled independently in Pilih Pasangan
       akad_files: data.akad_files || null,
     }
+
+    // A locked partner choice can only be changed by an admin
+    const cleanedData = isPartnerChoiceLocked(existing) ? withoutPartnerChoiceFields(draftData) : draftData
 
     // Use the admin client for the actual write + read-back. Doing the
     // .select().single() immediately after an insert/update through the
@@ -269,7 +273,7 @@ export async function submitDaftarUlang(
     // Check for existing submission
     const { data: existing, error: existingError } = await supabase
       .from('daftar_ulang_submissions')
-      .select('id, status, ujian_halaqah_id, tashih_halaqah_id')
+      .select('id, status, ujian_halaqah_id, tashih_halaqah_id, partner_type, partner_status')
       .eq('user_id', authUser.id)
       .eq('registration_id', registrationId)
       .maybeSingle()
@@ -283,7 +287,7 @@ export async function submitDaftarUlang(
       existingErrorCode: existingError?.code
     })
 
-    const submissionData = {
+    const fullSubmissionData = {
       user_id: authUser.id,
       registration_id: registrationId,
       batch_id: registration.batch_id,
@@ -329,6 +333,11 @@ export async function submitDaftarUlang(
       submitted_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     }
+
+    // Re-submitting (e.g. adding akad) must not rewrite a locked partner choice
+    const submissionData = isPartnerChoiceLocked(existing)
+      ? withoutPartnerChoiceFields(fullSubmissionData)
+      : fullSubmissionData
 
     let result
 

@@ -1839,7 +1839,7 @@ function PartnerSelectionStep({
                               </a>
                             ) : (
                               <span className="text-xs text-gray-400">
-                                {partner.can_contact ? 'No WA tidak tersedia' : 'No WA tampil setelah salah satu memilih'}
+                                {partner.can_contact ? 'No WA tidak tersedia' : 'No WA tampil setelah salah satu mengunci pilihan'}
                               </span>
                             )}
                           </div>
@@ -1849,6 +1849,11 @@ function PartnerSelectionStep({
                   </div>
                 )}
 
+                {formData.partner_user_id && (
+                  <p className="mt-3 text-xs text-gray-600">
+                    Setelah daftar ulang dikirim, pilihan ini terkunci dan hanya bisa diubah lewat admin. Nomor WhatsApp pasangan pilihan Ukhti akan tampil di halaman Pilih Pasangan, dan nomor Ukhti tampil untuk beliau.
+                  </p>
+                )}
                 {formData.partner_user_id && (
                   <button
                     type="button"

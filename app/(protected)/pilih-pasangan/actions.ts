@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createSupabaseAdmin } from '@/lib/supabase'
 import { revalidatePath } from 'next/cache'
+import { isPartnerChoiceLocked } from '@/lib/partner-choice'
 
 export interface PilihPasanganFormData {
   // Halaqah selection
@@ -69,6 +70,20 @@ export async function submitPilihPasangan(
   try {
     const { queryOne, query } = await import('@/lib/db');
 
+    const existingSub = await queryOne(
+      `SELECT id, status, partner_type, partner_status FROM daftar_ulang_submissions
+       WHERE user_id = $1 AND registration_id = $2`,
+      [authUser.id, registrationId]
+    );
+
+    // A saved choice is final (it reveals WhatsApp numbers); only an admin can reopen it
+    if (isPartnerChoiceLocked(existingSub)) {
+      return {
+        success: false,
+        error: 'Pilihan halaqah dan pasangan Ukhti sudah terkunci. Silakan hubungi admin jika perlu perubahan.'
+      };
+    }
+
     // 4. Validate halaqah existence and check capacity
     const halaqah = await queryOne(
       `SELECT id, name, max_students, status FROM halaqah WHERE id = $1`,
@@ -95,11 +110,6 @@ export async function submitPilihPasangan(
     }
 
     // 5. Update or create daftar_ulang_submissions record
-    const existingSub = await queryOne(
-      `SELECT id FROM daftar_ulang_submissions WHERE user_id = $1 AND registration_id = $2`,
-      [authUser.id, registrationId]
-    );
-
     if (existingSub) {
       await query(
         `UPDATE daftar_ulang_submissions
