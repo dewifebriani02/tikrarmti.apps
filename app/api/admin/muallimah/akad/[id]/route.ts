@@ -69,23 +69,27 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     if (akad.status !== undefined && !AKAD_STATUSES.includes(String(akad.status))) {
       return NextResponse.json({ error: 'Status tidak valid' }, { status: 400 });
     }
-    if (akad.status === 'approved' || akad.status === 'rejected') {
-      akad.reviewed_by = context!.userId;
-      akad.reviewed_at = new Date().toISOString();
-    }
-    if (Object.keys(akad).length > 0) akad.updated_at = new Date().toISOString();
+
     if ('birth_date' in profile && !profile.birth_date) profile.birth_date = null;
 
     if (!Object.keys(akad).length && !Object.keys(profile).length && !Object.keys(userUpdate).length) {
       return NextResponse.json({ error: 'Tidak ada data yang diubah' }, { status: 400 });
     }
 
-    const { rows } = await query<{ id: string; user_id: string }>(
-      'SELECT id, user_id FROM muallimah_akads WHERE id = $1',
+    const { rows } = await query<{ id: string; user_id: string; status: string }>(
+      'SELECT id, user_id, status FROM muallimah_akads WHERE id = $1',
       [params.id]
     );
     const current = rows[0];
     if (!current) return NextResponse.json({ error: 'Akad tidak ditemukan' }, { status: 404 });
+
+    // The edit modal always sends the current status — only record a review when it changes
+    if (akad.status !== undefined && akad.status !== current.status
+        && (akad.status === 'approved' || akad.status === 'rejected')) {
+      akad.reviewed_by = context!.userId;
+      akad.reviewed_at = new Date().toISOString();
+    }
+    if (Object.keys(akad).length > 0) akad.updated_at = new Date().toISOString();
 
     await transaction(async (client) => {
       await updateRow(client, 'muallimah_akads', current.id, akad);
