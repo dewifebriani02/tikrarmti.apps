@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { createClient } from '@/lib/supabase/server'
 import { createSupabaseAdmin } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
-import { lockedSelfMatchPartnerId } from '@/lib/partner-choice'
+import { lockedSelfMatchPartnerId, isPartnerChoiceLocked } from '@/lib/partner-choice'
 
 /**
  * GET /api/user/pairing
@@ -132,7 +132,7 @@ export async function GET(request: Request) {
         // Check mutual match
         const { data: partnerSubmission } = await supabaseAdmin
           .from('daftar_ulang_submissions')
-          .select('id, status, partner_status')
+          .select('id, status, partner_status, partner_type')
           .eq('user_id', lockedPartnerId)
           .eq('partner_user_id', user.id)
           .eq('batch_id', batchId)
@@ -140,11 +140,7 @@ export async function GET(request: Request) {
           .maybeSingle();
         
         isMutualMatch = Boolean(
-          partnerSubmission &&
-          (partnerSubmission.partner_status === 'submitted' ||
-            partnerSubmission.partner_status === 'approved' ||
-            partnerSubmission.status === 'submitted' ||
-            partnerSubmission.status === 'approved')
+          partnerSubmission && isPartnerChoiceLocked(partnerSubmission)
         );
       }
         

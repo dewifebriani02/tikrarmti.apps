@@ -195,18 +195,14 @@ export async function submitPilihPasangan(
     let isMutualMatch = false;
     if (choice.partner_type === 'self_match' && choice.partner_user_id) {
       const reverseSelection = await queryOne(
-        `SELECT id, status, partner_status
+        `SELECT id, status, partner_status, partner_type
          FROM daftar_ulang_submissions
          WHERE user_id = $1 AND partner_user_id = $2 AND batch_id = $3 AND partner_type = 'self_match'`,
         [choice.partner_user_id, authUser.id, registration.batch_id]
       );
 
       isMutualMatch = Boolean(
-        reverseSelection &&
-        (reverseSelection.partner_status === 'submitted' ||
-          reverseSelection.partner_status === 'approved' ||
-          reverseSelection.status === 'submitted' ||
-          reverseSelection.status === 'approved')
+        reverseSelection && isPartnerChoiceLocked(reverseSelection)
       );
     }
 

@@ -681,7 +681,7 @@ function DaftarUlangContent() {
   // If user already submitted or approved, show read-only info page (not the form)
   const isGlobalSubmitted = existingSubmission?.status === 'submitted' || existingSubmission?.status === 'approved'
   const isAkadDraft = existingSubmission?.akad_status === 'draft'
-  const isPartnerDraft = existingSubmission?.partner_status === 'draft'
+  const isPartnerDraft = existingSubmission?.partner_status === 'draft' || existingSubmission?.partner_status === 'rejected'
   const isSubmissionLocked = isGlobalSubmitted && !isAkadEditMode && !isAkadDraft && !isPartnerDraft
 
   if (isSubmissionLocked) {
