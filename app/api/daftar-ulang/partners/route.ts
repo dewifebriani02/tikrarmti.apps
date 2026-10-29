@@ -154,6 +154,22 @@ export async function GET(request: NextRequest) {
     // Current user's own choice
     const currentUserChoice = userChoices.get(user.id)
 
+    // The self-match partner this user has saved (any status). Returned separately because
+    // a chosen/locked partner may be filtered out of all_available_partners below, but the
+    // user must still be able to contact her (same rule as can_contact: she was chosen).
+    const chosenPartnerId = contactChoices.get(user.id)
+    const chosenPartnerReg = chosenPartnerId
+      ? (rawAllThalibah || []).find((reg: any) => reg.user_id === chosenPartnerId)
+      : null
+    const chosen_partner = chosenPartnerReg
+      ? {
+          user_id: chosenPartnerReg.user_id,
+          full_name: chosenPartnerReg.full_name,
+          wa_phone: chosenPartnerReg.wa_phone || null,
+          has_chosen_back: contactChoices.get(chosenPartnerReg.user_id) === user.id,
+        }
+      : null
+
     // Filter available partners based on logic
     const partners = (allSelectedThalibah || []).filter((reg: any) => {
       const partnerId = reg.user_id
@@ -264,6 +280,7 @@ export async function GET(request: NextRequest) {
         all_available_partners: partners, // Now filtered based on marketplace logic
         partners_selected_by_others,
         partners_selected_by_user,
+        chosen_partner,
         mutual_matches: Array.from(mutualMatchesSet)
       }
     })

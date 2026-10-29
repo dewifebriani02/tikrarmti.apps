@@ -72,6 +72,12 @@ export default function PilihPasanganPage() {
   const [existingSubmission, setExistingSubmission] = useState<any>(null)
   
   const [partners, setPartners] = useState<any[]>([])
+  const [chosenPartner, setChosenPartner] = useState<{
+    user_id: string
+    full_name: string
+    wa_phone: string | null
+    has_chosen_back: boolean
+  } | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [pendingPartner, setPendingPartner] = useState<{
     userId: string
@@ -165,6 +171,7 @@ export default function PilihPasanganPage() {
       if (response.ok) {
         const data = await response.json()
         setPartners(data.data?.all_available_partners || [])
+        setChosenPartner(data.data?.chosen_partner || null)
       }
     } catch (error) {
       console.error('Fetch partners error:', error)
@@ -272,6 +279,27 @@ export default function PilihPasanganPage() {
                       {existingSubmission.partner_type === 'self_match' && (existingSubmission.partner_name || 'Memilih Sendiri')}
                       {existingSubmission.partner_type === 'family' && `${existingSubmission.partner_name} (${existingSubmission.partner_relationship})`}
                     </div>
+                    {existingSubmission.partner_type === 'self_match' && chosenPartner && chosenPartner.user_id === existingSubmission.partner_user_id && (
+                      <div className="mt-3 space-y-2">
+                        <p className="text-xs text-gray-600">
+                          {chosenPartner.has_chosen_back
+                            ? 'Alhamdulillah, beliau juga sudah memilih Ukhti.'
+                            : 'Beliau belum memilih Ukhti kembali. Silakan hubungi beliau agar memilih Ukhti di halaman Pilih Pasangan.'}
+                        </p>
+                        {chosenPartner.wa_phone ? (
+                          <a
+                            href={`https://wa.me/${chosenPartner.wa_phone.replace(/[^0-9]/g, '').replace(/^0/, '62')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center rounded-md border border-green-200 bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-100"
+                          >
+                            Hubungi {chosenPartner.full_name} via WhatsApp
+                          </a>
+                        ) : (
+                          <span className="text-xs text-gray-400">Nomor WhatsApp beliau belum tersedia.</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
