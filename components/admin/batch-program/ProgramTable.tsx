@@ -89,7 +89,7 @@ export function ProgramTable({ programs, isLoading, pagination, onPageChange, on
                     </td>
                     <td className="px-6 py-4">
                       <span className="text-sm font-medium text-gray-700">
-                        {program.duration_weeks ? `${program.duration_weeks} minggu` : '-'}
+                        {program.duration_weeks ? `${program.duration_weeks} pekan` : '-'}
                       </span>
                     </td>
                     <td className="px-6 py-4">

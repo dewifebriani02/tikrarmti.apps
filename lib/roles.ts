@@ -232,8 +232,7 @@ export function getAvailablePersonas(roles: string[] | null | undefined): UserRo
   const extracted = extractRoles(roles) as UserRole[];
   if (extracted.length === 0) return ['calon_thalibah'];
 
-  // Normalisasi roisah / raisah agar rapi
-  const hasRaisahRole = extracted.some((r) => r === 'roisah' || r === 'raisah');
+  const isAdminUser = extracted.includes('admin') || extracted.includes('super_admin');
   const distinctPersonas = new Set<UserRole>();
 
   for (const r of extracted) {
@@ -242,6 +241,12 @@ export function getAvailablePersonas(roles: string[] | null | undefined): UserRo
     } else {
       distinctPersonas.add(r);
     }
+  }
+
+  // Jika user adalah admin, berikan hak eksplisit untuk berpindah ke Thalibah (Batch Berjalan) & Calon Thalibah
+  if (isAdminUser) {
+    distinctPersonas.add('thalibah');
+    distinctPersonas.add('calon_thalibah');
   }
 
   return Array.from(distinctPersonas).sort((a, b) => getRoleRank(b) - getRoleRank(a));
@@ -264,7 +269,7 @@ export function getPersonaLabel(role: string): string {
     case 'raisah':
       return 'Raisah';
     case 'thalibah':
-      return 'Thalibah';
+      return 'Thalibah (Batch Berjalan)';
     case 'calon_thalibah':
       return 'Calon Thalibah';
     default:

@@ -222,7 +222,7 @@ export default function ProgramPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Durasi (Minggu)
+                Durasi (Pekan)
               </label>
               <input
                 type="number"

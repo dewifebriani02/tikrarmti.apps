@@ -142,7 +142,7 @@ export function AdminJuzTab() {
           <p className="opacity-90">
             Centang atau aktifkan juz yang ingin dibuka untuk pendaftaran Thalibah di menu <strong>Tikrar Tahfidz</strong>. 
             Pilihan juz yang dinonaktifkan (checklist mati) otomatis disembunyikan dari dropdown registrasi. 
-            Semua juz dibagi menjadi <strong>setengah juz (Bagian A dan B)</strong> untuk kemudahan target mingguan program MTI.
+            Semua juz dibagi menjadi <strong>setengah juz (Bagian A dan B)</strong> untuk kemudahan target pekanan program MTI.
           </p>
         </div>
       </div>

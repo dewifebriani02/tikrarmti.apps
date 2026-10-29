@@ -183,7 +183,7 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
       // Save programs
       if (batchId) {
         const programConfigs = [
-          { name: 'Tahfidz Tikrar', data: tikrarData },
+          { name: 'Tikrar Tahfidz', data: tikrarData },
           { name: 'Pra-Tikrar', data: pratikrarData },
           { name: 'Muallimah', data: muallimahData }
         ];
@@ -387,7 +387,7 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Durasi (Minggu)</label>
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Durasi (Pekan)</label>
                   <input
                     type="number"
                     min="1"
@@ -657,7 +657,7 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
             </div>
             </div>
 
-            {activeTab === 'tikrar' && renderProgramTab('Tahfidz Tikrar', tikrarData, setTikrarData)}
+            {activeTab === 'tikrar' && renderProgramTab('Tikrar Tahfidz', tikrarData, setTikrarData)}
             {activeTab === 'pratikrar' && renderProgramTab('Pra-Tikrar', pratikrarData, setPratikrarData)}
             {activeTab === 'muallimah' && renderProgramTab('Muallimah', muallimahData, setMuallimahData)}
           </div>

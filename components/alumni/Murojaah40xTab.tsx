@@ -460,44 +460,60 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
       {/* TAB 1: TRACKER 40 PUTARAN */}
       {activeMainTab === 'tracker' && (
         <div className="space-y-6">
-          {/* Segment Switcher (For Part B Participants) */}
+          {/* Segment Switcher (For Part B Participants: Opsi Murojaah 1 Juz Lengkap A+B) */}
           {juz_info?.is_part_b && (
-            <div className="bg-gray-100 p-1.5 rounded-2xl flex items-center gap-2 max-w-xl">
-              <button
-                type="button"
-                onClick={() => setActiveSegment('primary')}
-                className={`flex-1 py-2.5 px-4 rounded-xl font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 ${
-                  activeSegment === 'primary'
-                    ? 'bg-white text-emerald-900 shadow-md border border-gray-200/60'
-                    : 'text-gray-500 hover:text-gray-900'
-                }`}
-              >
-                <BookOpen className="w-4 h-4 text-emerald-700" />
-                <span>Juz Utama ({juz_info.code})</span>
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
-                  activeSegment === 'primary' ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-200 text-gray-600'
-                }`}>
-                  {primary_logs.length}/40 {primary_logs.length >= 40 ? '✓' : ''}
+            <div className="space-y-2 max-w-xl">
+              <div className="bg-emerald-50/90 border border-emerald-200/80 rounded-2xl p-3 flex items-center gap-2.5 text-xs">
+                <span className="p-1.5 rounded-xl bg-emerald-100 text-emerald-800 shrink-0">
+                  <Sparkles className="w-4 h-4 text-emerald-700" />
                 </span>
-              </button>
+                <div>
+                  <span className="font-extrabold text-emerald-950 block">
+                    Opsi Murojaah 1 Juz Lengkap (Bagian A + B)
+                  </span>
+                  <p className="text-[11px] text-emerald-800/80">
+                    Khusus peserta Paket B, Ukhti dapat memurojaah Bagian A ({juz_info.optional_part_a_code}) secara opsional untuk menyempurnakan murojaah 1 juz penuh.
+                  </p>
+                </div>
+              </div>
 
-              <button
-                type="button"
-                onClick={() => setActiveSegment('part_a_optional')}
-                className={`flex-1 py-2.5 px-4 rounded-xl font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 ${
-                  activeSegment === 'part_a_optional'
-                    ? 'bg-white text-emerald-900 shadow-md border border-gray-200/60'
-                    : 'text-gray-500 hover:text-gray-900'
-                }`}
-              >
-                <Layers className="w-4 h-4 text-emerald-700" />
-                <span>Bagian A ({juz_info.optional_part_a_code}) • Opsional</span>
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
-                  activeSegment === 'part_a_optional' ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-200 text-gray-600'
-                }`}>
-                  {part_a_logs.length}/40 {part_a_logs.length >= 40 ? '✓' : ''}
-                </span>
-              </button>
+              <div className="bg-gray-100 p-1.5 rounded-2xl flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveSegment('primary')}
+                  className={`flex-1 py-2.5 px-4 rounded-xl font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 ${
+                    activeSegment === 'primary'
+                      ? 'bg-white text-emerald-900 shadow-md border border-gray-200/60'
+                      : 'text-gray-500 hover:text-gray-900'
+                  }`}
+                >
+                  <BookOpen className="w-4 h-4 text-emerald-700" />
+                  <span>Juz Utama ({juz_info.code})</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                    activeSegment === 'primary' ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-200 text-gray-600'
+                  }`}>
+                    {primary_logs.length}/40 {primary_logs.length >= 40 ? '✓' : ''}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveSegment('part_a_optional')}
+                  className={`flex-1 py-2.5 px-4 rounded-xl font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 ${
+                    activeSegment === 'part_a_optional'
+                      ? 'bg-white text-emerald-900 shadow-md border border-gray-200/60'
+                      : 'text-gray-500 hover:text-gray-900'
+                  }`}
+                >
+                  <Layers className="w-4 h-4 text-emerald-700" />
+                  <span>Bagian A ({juz_info.optional_part_a_code}) • Opsional 1 Juz</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                    activeSegment === 'part_a_optional' ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-200 text-gray-600'
+                  }`}>
+                    {part_a_logs.length}/40 {part_a_logs.length >= 40 ? '✓' : ''}
+                  </span>
+                </button>
+              </div>
             </div>
           )}
 

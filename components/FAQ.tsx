@@ -254,7 +254,7 @@ export default function FAQ() {
                   Hubungi WhatsApp
                 </a>
                 <a
-                  href="https://instagram.com/tikrarmti"
+                  href="https://www.instagram.com/markaztikrar.id/"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-3 rounded-lg hover:opacity-90 transition-opacity duration-200"

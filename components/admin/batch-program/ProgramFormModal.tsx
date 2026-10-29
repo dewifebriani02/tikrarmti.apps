@@ -152,7 +152,7 @@ export function ProgramFormModal({ program, batches, programs = [], isOpen, onCl
                       <option key={name} value={name}>{name}</option>
                     ))}
                     {!uniqueProgramNames.includes('Pra-Tikrar MTI') && <option value="Pra-Tikrar MTI">Pra-Tikrar MTI</option>}
-                    {!uniqueProgramNames.includes('Tahfidz Tikrar MTI') && <option value="Tahfidz Tikrar MTI">Tahfidz Tikrar MTI</option>}
+                    {!uniqueProgramNames.includes('Tikrar Tahfidz MTI') && <option value="Tikrar Tahfidz MTI">Tikrar Tahfidz MTI</option>}
                     {!uniqueProgramNames.includes('Muallimah MTI') && <option value="Muallimah MTI">Muallimah MTI</option>}
                     <option value="custom">Lainnya (Ketik Manual)...</option>
                   </select>
@@ -199,7 +199,7 @@ export function ProgramFormModal({ program, batches, programs = [], isOpen, onCl
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Durasi (Minggu)</label>
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Durasi (Pekan)</label>
                   <input
                     type="number"
                     min="0"

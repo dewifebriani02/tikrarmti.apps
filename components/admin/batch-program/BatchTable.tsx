@@ -91,7 +91,7 @@ export function BatchTable({ batches, isLoading, pagination, onPageChange, onEdi
                   </td>
                   <td className="px-6 py-4">
                     <span className="text-sm font-medium text-gray-700">
-                      {batch.duration_weeks ? `${batch.duration_weeks} minggu` : '-'}
+                      {batch.duration_weeks ? `${batch.duration_weeks} pekan` : '-'}
                     </span>
                   </td>
                   <td className="px-6 py-4">

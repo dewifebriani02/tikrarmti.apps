@@ -23,7 +23,11 @@ const COMMON_JUZ_OPTIONS = [
   { code: '29A', label: 'Juz 29 Bagian A (Al-Mulk s.d Al-Jinn)' },
   { code: '29B', label: 'Juz 29 Bagian B (Al-Muzzammil s.d Al-Mursalat)' },
   { code: '28A', label: 'Juz 28 Bagian A (Al-Mujadilah s.d At-Talaq)' },
-  { code: '28B', label: 'Juz 28 Bagian B (At-Tahrim s.d Al-Mulk)' },
+  { code: '28B', label: 'Juz 28 Bagian B (At-Tahrim)' },
+  { code: '27A', label: 'Juz 27 Bagian A (Adz-Dzariyat 31 s.d An-Najm)' },
+  { code: '27B', label: 'Juz 27 Bagian B (Al-Qamar s.d Al-Hadid)' },
+  { code: '1A', label: 'Juz 1 Bagian A (Al-Fatihah s.d Al-Baqarah 76)' },
+  { code: '1B', label: 'Juz 1 Bagian B (Al-Baqarah 77 s.d Al-Baqarah 141)' },
 ];
 
 export function MurojaahEnrollModal({
