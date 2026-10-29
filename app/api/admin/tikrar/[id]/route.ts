@@ -144,7 +144,7 @@ const EDITABLE_FIELDS = [
 ] as const;
 const NUMERIC_FIELDS = new Set(['age', 'oral_total_score', 'written_quiz_score']);
 // Nullable columns where the edit form sends '' for "no value"
-const NULL_IF_EMPTY_FIELDS = new Set(['birth_date', 'ready_for_team', 'status', 'selection_status']);
+const NULL_IF_EMPTY_FIELDS = new Set(['birth_date', 'ready_for_team', 'status', 'selection_status', 'infaq_amount']);
 // NOT NULL boolean columns (rendered as checkboxes)
 const BOOLEAN_FIELDS = new Set([
   'understands_program', 'understands_commitment', 'time_commitment', 'tried_simulation',
@@ -160,23 +160,39 @@ const ENUM_FIELDS: Record<string, readonly (string | null)[]> = {
 
 /** Normalize one form value to what the column accepts. */
 function normalizeField(field: string, value: unknown): unknown {
-  if (NUMERIC_FIELDS.has(field) || NULL_IF_EMPTY_FIELDS.has(field)) {
+  if (typeof value === 'string') {
+    value = value.trim();
+  }
+  if (NUMERIC_FIELDS.has(field)) {
+    if (value === '' || value === undefined || value === null) return null;
+    const num = Number(value);
+    return isNaN(num) ? null : num;
+  }
+  if (NULL_IF_EMPTY_FIELDS.has(field)) {
     if (value === '' || value === undefined || value === null) return null;
   }
   if (field === 'birth_date') {
     if (value === '' || value === undefined || value === null) return null;
+    if (value instanceof Date) {
+      return value.toISOString().slice(0, 10);
+    }
     if (typeof value === 'string') {
-      const trimmed = value.trim();
-      if (!trimmed) return null;
-      const dateMatch = trimmed.match(/^(\d{4}-\d{2}-\d{2})/);
+      const dateMatch = value.match(/^(\d{4}-\d{2}-\d{2})/);
       if (dateMatch) return dateMatch[1];
     }
+    return null;
   }
   if (BOOLEAN_FIELDS.has(field)) return value === true || value === 'true';
+  if (field === 'ready_for_team') {
+    // Map legacy or alternative values
+    if (value === 'yes' || value === 'true') return 'ready';
+    if (value === 'no' || value === 'false') return 'not_ready';
+  }
   if (field === 'has_permission') {
-    // Older form versions rendered this varchar column as a checkbox
-    if (value === true || value === 'true') return 'yes';
-    if (value === false || value === null || value === undefined || value === 'false') return '';
+    // Older form versions rendered this varchar column as a checkbox or yes/no
+    if (value === true || value === 'true' || value === 'yes') return 'yes';
+    if (value === 'janda') return 'janda';
+    if (value === false || value === null || value === undefined || value === 'false' || value === 'no' || value === '') return '';
   }
   return value;
 }
@@ -201,7 +217,13 @@ export async function PATCH(
     const updateData: Record<string, unknown> = {};
     for (const field of EDITABLE_FIELDS) {
       if (!(field in body)) continue;
-      const value = normalizeField(field, body[field]);
+      const rawValue = body[field];
+      // If status or selection_status is sent as empty string (or null/undefined when unselected),
+      // leave the field unchanged rather than wiping existing status or rejecting the edit.
+      if ((field === 'status' || field === 'selection_status') && (rawValue === '' || rawValue === null || rawValue === undefined)) {
+        continue;
+      }
+      const value = normalizeField(field, rawValue);
       const allowed = ENUM_FIELDS[field];
       if (allowed && !allowed.includes(value as string | null)) {
         return NextResponse.json({ error: `Nilai ${field} tidak valid: ${String(value)}` }, { status: 400 });

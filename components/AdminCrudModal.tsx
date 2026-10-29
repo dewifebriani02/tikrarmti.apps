@@ -48,10 +48,14 @@ export function AdminCrudModal({
     if (isOpen) {
       const newFormData = fields.reduce((acc, field) => {
         let value = initialData?.[field.name];
-        if (field.type === 'date' && typeof value === 'string') {
-          const dateMatch = value.match(/^(\d{4}-\d{2}-\d{2})/);
-          if (dateMatch) {
-            value = dateMatch[1];
+        if (field.type === 'date') {
+          if (value instanceof Date) {
+            value = value.toISOString().slice(0, 10);
+          } else if (typeof value === 'string') {
+            const dateMatch = value.match(/^(\d{4}-\d{2}-\d{2})/);
+            if (dateMatch) {
+              value = dateMatch[1];
+            }
           }
         }
         acc[field.name] = value !== undefined && value !== null
