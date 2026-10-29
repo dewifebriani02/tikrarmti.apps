@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { X, Calendar, Clock, ChevronRight, Save, Sparkles, Wand2 } from 'lucide-react';
+import { X, Calendar, Clock, Save, Sparkles, Wand2, Info, Layers, MessageCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Batch, BATCH_STATUSES } from './types';
@@ -45,7 +45,7 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
     end_date: extractDateTime(batch?.end_date, '23:59'),
     registration_start_date: extractDateTime(batch?.registration_start_date, '00:01'),
     registration_end_date: extractDateTime(batch?.registration_end_date, '23:59'),
-    duration_weeks: batch?.duration_weeks || 0,
+    duration_weeks: batch?.duration_weeks || 14,
     status: batch?.status || 'draft',
     program_type: batch?.program_type || '',
     total_quota: batch?.total_quota || 0,
@@ -58,9 +58,9 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
     group_diskusi_link: batch?.group_diskusi_link || '',
     selection_start_date: extractDateTime(batch?.selection_start_date, '00:01'),
     selection_end_date: extractDateTime(batch?.selection_end_date, '23:59'),
-    selection_result_date: extractDateTime(batch?.selection_result_date, '00:01'),
+    selection_result_date: extractDateTime(batch?.selection_result_date, '09:00'),
     re_enrollment_date: extractDateTime(batch?.re_enrollment_date, '00:01'),
-    opening_class_date: extractDateTime(batch?.opening_class_date, '00:01'),
+    opening_class_date: extractDateTime(batch?.opening_class_date, '09:00'),
     first_week_start_date: extractDateTime(batch?.first_week_start_date, '00:01'),
     first_week_end_date: extractDateTime(batch?.first_week_end_date, '23:59'),
     review_week_start_date: extractDateTime(batch?.review_week_start_date, '00:01'),
@@ -91,14 +91,21 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
   const [muallimahData, setMuallimahData] = useState(() => getProgramData('muallimah'));
 
   const [saving, setSaving] = useState(false);
-  const [showTimeline, setShowTimeline] = useState(false);
   const [holidayInput, setHolidayInput] = useState('');
+  
+  // Anchor date defaults to first_week_start_date, or start_date, or next Monday
   const [autoGenerateAnchorDate, setAutoGenerateAnchorDate] = useState(() => {
-    return (
+    const existing = (
       extractDateTime(batch?.first_week_start_date, '00:01').split('T')[0] ||
       extractDateTime(batch?.start_date, '00:01').split('T')[0] ||
       ''
     );
+    if (existing) return existing;
+    const d = new Date();
+    const day = d.getDay();
+    const diff = (8 - day) % 7 || 7;
+    d.setDate(d.getDate() + diff);
+    return d.toISOString().split('T')[0];
   });
 
   // Handle name change to automatically suggest defaults for batch 3+
@@ -120,7 +127,7 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
   };
 
   const handleStartDateChange = (value: string) => {
-    const newData = { ...formData, start_date: value };
+    const newData = { ...formData, start_date: value, first_week_start_date: value };
     if (formData.duration_weeks > 0) {
       newData.end_date = calculateEndDate(value, formData.duration_weeks);
     }
@@ -151,7 +158,7 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
     const datePart = rawDate.split('T')[0];
 
     if (!datePart) {
-      toast.error('Silakan tentukan Tanggal Mulai Pekan 1 (Senin) terlebih dahulu.');
+      toast.error('Silakan tentukan Tanggal Mulai Pekan 1 (Senin KBM) terlebih dahulu.');
       return;
     }
 
@@ -165,10 +172,11 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
       const d = new Date(base);
       d.setDate(d.getDate() + days);
       const iso = d.toISOString().split('T')[0];
-      return iso + "T" + timeStr;
+      return iso + 'T' + timeStr;
     };
 
-    // Standardized MTI 14-week timeline based on Pekan 1 (Day 0, Senin):
+    // Standardized MTI 14-week timeline based on Pekan 1 (Day 0, Senin KBM):
+    // Pre-KBM Phase (5 weeks prior)
     const regStart = formatOffset(-35, '00:01');      // 5 pekan sebelum Pekan 1 (Senin 00:01)
     const regEnd = formatOffset(-16, '23:59');        // 16 hari sebelum Pekan 1 (Sabtu 23:59)
     const selStart = formatOffset(-15, '00:01');      // 15 hari sebelum Pekan 1 (Ahad 00:01)
@@ -177,6 +185,7 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
     const reEnroll = formatOffset(-10, '00:01');      // 10 hari sebelum Pekan 1 (Jumat 00:01)
     const openingClass = formatOffset(-1, '09:00');    // H-1 sebelum Pekan 1 (Ahad 09:00)
 
+    // KBM 12 Weeks + Final Exam + Graduation (14 Weeks total)
     const week1Start = formatOffset(0, '00:01');      // Pekan 1 Mulai (Senin 00:01)
     const week1End = formatOffset(6, '23:59');        // Pekan 1 Selesai (Ahad 23:59)
     const transferEnd = formatOffset(13, '23:59');    // Batas Mutasi Halaqah (Ahad Pekan 2 23:59)
@@ -184,13 +193,13 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
     const revWeekEnd = formatOffset(83, '23:59');     // Pekan 12 Review Selesai (Ahad 23:59)
 
     const examStart = formatOffset(84, '00:01');      // Pekan 13 Ujian Akhir Mulai (Senin 00:01)
-    const examEnd = formatOffset(97, '23:59');        // Pekan 14 Ujian Akhir Selesai (Ahad 23:59)
-    const gradStart = formatOffset(98, '00:01');      // Pekan 15 Wisuda Mulai (Senin 00:01)
-    const gradEnd = formatOffset(104, '23:59');       // Pekan 15 Wisuda Selesai (Ahad 23:59)
+    const examEnd = formatOffset(90, '23:59');        // Pekan 13 Ujian Akhir Selesai (Ahad 23:59)
+    const gradStart = formatOffset(91, '00:01');      // Pekan 14 Wisuda Mulai (Senin 00:01)
+    const gradEnd = formatOffset(97, '23:59');        // Pekan 14 Wisuda Selesai (Ahad 23:59)
 
     setFormData(prev => ({
       ...prev,
-      start_date: regStart,
+      start_date: week1Start,
       end_date: gradEnd,
       duration_weeks: 14,
       registration_start_date: regStart,
@@ -228,27 +237,34 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
       registration_end_date: regEnd,
     }));
 
-    setShowTimeline(true);
-    toast.success('⚡ Seluruh jadwal timeline berhasil di-generate secara otomatis!');
+    toast.success('⚡ Seluruh alur jadwal batch berhasil di-generate secara runtut dan otomatis!');
   };
 
   const dateWarnings = useMemo(() => {
     const warnings: string[] = [];
-    const dates = [
-      { name: 'Mulai Pendaftaran', value: formData.registration_start_date },
-      { name: 'Selesai Pendaftaran', value: formData.registration_end_date },
+    const sequence = [
+      { name: 'Pendaftaran Mulai', value: formData.registration_start_date },
+      { name: 'Pendaftaran Selesai', value: formData.registration_end_date },
       { name: 'Mulai Penilaian Seleksi', value: formData.selection_start_date },
       { name: 'Selesai Penilaian Seleksi', value: formData.selection_end_date },
       { name: 'Pengumuman Seleksi', value: formData.selection_result_date },
       { name: 'Mulai Daftar Ulang', value: formData.re_enrollment_date },
       { name: 'Opening Class', value: formData.opening_class_date },
+      { name: 'Pekan 1 Mulai (KBM)', value: formData.first_week_start_date },
+      { name: 'Pekan 1 Selesai', value: formData.first_week_end_date },
+      { name: 'Pekan 12 Review Mulai', value: formData.review_week_start_date },
+      { name: 'Pekan 12 Review Selesai', value: formData.review_week_end_date },
+      { name: 'Ujian Akhir Mulai', value: formData.final_exam_start_date },
+      { name: 'Ujian Akhir Selesai', value: formData.final_exam_end_date },
+      { name: 'Wisuda Mulai', value: formData.graduation_start_date },
+      { name: 'Wisuda Selesai', value: formData.graduation_end_date },
     ];
 
-    for (let i = 0; i < dates.length - 1; i++) {
-      const current = dates[i];
-      const next = dates[i + 1];
+    for (let i = 0; i < sequence.length - 1; i++) {
+      const current = sequence[i];
+      const next = sequence[i + 1];
       if (current.value && next.value) {
-        if (new Date(current.value) > new Date(next.value)) {
+        if (new Date(current.value).getTime() > new Date(next.value).getTime()) {
           warnings.push(`Tanggal ${current.name} tidak boleh lebih lambat dari ${next.name}.`);
         }
       }
@@ -370,7 +386,7 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
 
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-3xl w-full max-h-[92vh] overflow-hidden flex flex-col animate-in fade-in zoom-in duration-300">
+      <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[92vh] overflow-hidden flex flex-col animate-in fade-in zoom-in duration-300">
         {/* Header */}
         <div className="bg-gradient-to-r from-green-900 to-green-800 p-6 flex items-center justify-between text-white relative">
           <button
@@ -397,28 +413,28 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
           <button
             type="button"
             onClick={() => setActiveTab('batch')}
-            className={cn("px-4 py-3 text-sm font-medium border-b-2 transition-colors", activeTab === 'batch' ? "border-green-600 text-green-600" : "border-transparent text-gray-500 hover:text-gray-700")}
+            className={cn("px-4 py-3 text-sm font-medium border-b-2 transition-colors", activeTab === 'batch' ? "border-green-600 text-green-600 font-bold" : "border-transparent text-gray-500 hover:text-gray-700")}
           >
             General Info (Batch)
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('tikrar')}
-            className={cn("px-4 py-3 text-sm font-medium border-b-2 transition-colors", activeTab === 'tikrar' ? "border-green-600 text-green-600" : "border-transparent text-gray-500 hover:text-gray-700")}
+            className={cn("px-4 py-3 text-sm font-medium border-b-2 transition-colors", activeTab === 'tikrar' ? "border-green-600 text-green-600 font-bold" : "border-transparent text-gray-500 hover:text-gray-700")}
           >
             Tahfidz Tikrar
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('pratikrar')}
-            className={cn("px-4 py-3 text-sm font-medium border-b-2 transition-colors", activeTab === 'pratikrar' ? "border-green-600 text-green-600" : "border-transparent text-gray-500 hover:text-gray-700")}
+            className={cn("px-4 py-3 text-sm font-medium border-b-2 transition-colors", activeTab === 'pratikrar' ? "border-green-600 text-green-600 font-bold" : "border-transparent text-gray-500 hover:text-gray-700")}
           >
             Pra-Tikrar
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('muallimah')}
-            className={cn("px-4 py-3 text-sm font-medium border-b-2 transition-colors", activeTab === 'muallimah' ? "border-green-600 text-green-600" : "border-transparent text-gray-500 hover:text-gray-700")}
+            className={cn("px-4 py-3 text-sm font-medium border-b-2 transition-colors", activeTab === 'muallimah' ? "border-green-600 text-green-600 font-bold" : "border-transparent text-gray-500 hover:text-gray-700")}
           >
             Muallimah
           </button>
@@ -426,370 +442,576 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
 
         {/* Body */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
-          <div className="p-8 space-y-6">
-            <div className={cn(activeTab === 'batch' ? 'block' : 'hidden')}>
-              {/* Basic Info */}
+          <div className="p-6 sm:p-8 space-y-8">
+            <div className={cn(activeTab === 'batch' ? 'block space-y-8' : 'hidden')}>
+              
+              {/* TOP BANNER: Auto-Generate Timeline Praktis (1-Klik) */}
+              <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-green-50 p-5 rounded-2xl border-2 border-emerald-300 shadow-sm relative overflow-hidden">
+                <div className="absolute -right-10 -bottom-10 w-36 h-36 bg-emerald-200/40 rounded-full blur-2xl pointer-events-none" />
+                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 relative z-10">
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-11 h-11 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-emerald-600/30 mt-0.5">
+                      <Wand2 className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-600 text-white uppercase tracking-wider">
+                          Fitur Otomatis
+                        </span>
+                        <span className="text-xs font-semibold text-emerald-800">
+                          Standar MTI (14 Pekan)
+                        </span>
+                      </div>
+                      <h4 className="text-base font-black text-gray-900 mt-1">
+                        Hitung Jadwal &amp; Timeline Otomatis (1-Klik)
+                      </h4>
+                      <p className="text-xs text-gray-600 mt-1 max-w-xl leading-relaxed">
+                        Tentukan tanggal <strong>Senin Pekan 1 (Mulai KBM)</strong>. Sistem otomatis menyusun seluruh alur tanggal secara runtut: <em>Pendaftaran &rarr; Seleksi &rarr; Daftar Ulang &rarr; Opening &rarr; KBM 1-12 &rarr; Ujian &rarr; Wisuda</em>.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full md:w-auto shrink-0">
+                    <div className="flex flex-col">
+                      <label className="text-[10px] font-bold text-emerald-800 uppercase mb-1">
+                        Senin Pekan 1 KBM
+                      </label>
+                      <input
+                        type="date"
+                        value={autoGenerateAnchorDate}
+                        onChange={(e) => setAutoGenerateAnchorDate(e.target.value)}
+                        className="px-3.5 py-2 rounded-xl border border-emerald-300 bg-white text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 shadow-sm"
+                      />
+                    </div>
+                    <div className="sm:self-end">
+                      <button
+                        type="button"
+                        onClick={() => handleAutoGenerateTimeline(autoGenerateAnchorDate)}
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 active:scale-95 text-white font-bold text-xs shadow-md shadow-emerald-700/25 transition-all duration-200 whitespace-nowrap"
+                      >
+                        <Sparkles className="w-4 h-4" />
+                        Hitung Jadwal Otomatis
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 1. Informasi Dasar & Ketentuan Kelas */}
+              <div className="bg-gray-50/50 p-5 rounded-2xl border border-gray-200/80 space-y-4">
+                <div className="flex items-center gap-2 text-gray-800 font-bold text-sm border-b border-gray-200/60 pb-2.5">
+                  <Info className="w-4 h-4 text-green-700" />
+                  <h3>1. Informasi Dasar &amp; Ketentuan Program</h3>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1.5">
+                      Nama Batch <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.name}
+                      onChange={(e) => handleNameChange(e.target.value)}
+                      placeholder="cth. Batch 4 - Tahun 2026"
+                      className="w-full px-4 py-2.5 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600 transition-all text-sm font-medium"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1.5">
+                      Status Batch <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={formData.status}
+                      onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                      className="w-full px-4 py-2.5 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600 text-sm font-medium"
+                    >
+                      {BATCH_STATUSES.map(s => (
+                        <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1.5">Deskripsi Batch</label>
+                  <textarea
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    rows={2}
+                    placeholder="Keterangan singkat mengenai batch ini..."
+                    className="w-full px-4 py-2.5 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600 transition-all text-sm"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1.5">Kuota Total Peserta</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.total_quota || ''}
+                      onChange={(e) => setFormData({ ...formData, total_quota: parseInt(e.target.value) || 0 })}
+                      placeholder="cth. 100"
+                      className="w-full px-4 py-2.5 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1.5">Biaya Pendaftaran / Program</label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, is_free: !formData.is_free, price: formData.is_free ? formData.price : 0 })}
+                        className={cn(
+                          'px-4 py-2.5 rounded-xl border text-xs font-extrabold transition-all',
+                          formData.is_free
+                            ? 'bg-emerald-50 border-emerald-300 text-emerald-800 shadow-sm'
+                            : 'bg-white border-gray-300 text-gray-600'
+                        )}
+                      >
+                        {formData.is_free ? 'GRATIS' : 'BERBAYAR'}
+                      </button>
+                      {!formData.is_free && (
+                        <input
+                          type="number"
+                          min="0"
+                          value={formData.price || ''}
+                          onChange={(e) => setFormData({ ...formData, price: parseInt(e.target.value) || 0 })}
+                          placeholder="Nominal Rp"
+                          className="flex-1 px-4 py-2.5 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600 text-sm font-semibold"
+                        />
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1.5">Nilai Minimum Seleksi Masuk</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      required
+                      value={formData.min_exam_score}
+                      onChange={(e) => setFormData({ ...formData, min_exam_score: parseInt(e.target.value) || 0 })}
+                      className="w-full px-4 py-2.5 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600 text-sm font-bold"
+                    />
+                    <p className="text-[10px] text-gray-500 mt-1">Ambang batas kelulusan tes tulis seleksi masuk</p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1.5">Nilai Minimum Ujian Akhir (Kelulusan)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      required
+                      value={formData.min_final_exam_score}
+                      onChange={(e) => setFormData({ ...formData, min_final_exam_score: parseInt(e.target.value) || 0 })}
+                      className="w-full px-4 py-2.5 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600 text-sm font-bold"
+                    />
+                    <p className="text-[10px] text-gray-500 mt-1">Ambang batas kelulusan program (Pekan 13)</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. Periode Utama Batch (KBM) */}
+              <div className="bg-gray-50/50 p-5 rounded-2xl border border-gray-200/80 space-y-4">
+                <div className="flex items-center gap-2 text-gray-800 font-bold text-sm border-b border-gray-200/60 pb-2.5">
+                  <Calendar className="w-4 h-4 text-green-700" />
+                  <h3>2. Periode Utama Batch</h3>
+                  <span className="text-[11px] text-gray-500 font-normal ml-auto">(Rentang Waktu KBM sampai Wisuda)</span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1.5">
+                      Mulai KBM (Pekan 1) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="datetime-local"
+                      required
+                      value={formData.start_date}
+                      onChange={(e) => handleStartDateChange(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600 text-sm font-semibold"
+                    />
+                    <p className="text-[10px] text-gray-500 mt-1">Hari Senin dimulainya halaqah Pekan 1</p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1.5">
+                      Durasi Batch (Pekan) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="52"
+                      value={formData.duration_weeks || ''}
+                      onChange={(e) => handleDurationChange(parseInt(e.target.value) || 0)}
+                      placeholder="14"
+                      className="w-full px-4 py-2.5 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600 text-sm font-bold text-center"
+                    />
+                    <p className="text-[10px] text-gray-500 mt-1">Standar MTI: 14 Pekan (12 KBM + 1 Ujian + 1 Wisuda)</p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1.5">
+                      Selesai Batch (Wisuda) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="datetime-local"
+                      required
+                      value={formData.end_date}
+                      readOnly
+                      className="w-full px-4 py-2.5 rounded-xl border border-gray-300 bg-gray-100 text-gray-700 text-sm font-semibold"
+                    />
+                    <p className="text-[10px] text-gray-500 mt-1">Dihitung otomatis (Mulai + Durasi pekan)</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Alur Timeline Runtut (Kronologis & Tanpa Pengulangan) */}
               <div className="space-y-4">
-              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-[0.2em]">Informasi Dasar</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Nama Batch</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.name}
-                    onChange={(e) => handleNameChange(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600 transition-all"
-                  />
+                <div className="flex items-center justify-between border-b border-gray-200 pb-2">
+                  <div className="flex items-center gap-2 text-gray-800 font-bold text-sm">
+                    <Layers className="w-4 h-4 text-green-700" />
+                    <h3>3. Rincian Alur Timeline (Runtut &amp; Anti-Bentrok)</h3>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded-md bg-green-100 text-green-800 font-bold">
+                    Kronologis
+                  </span>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Status</label>
-                  <select
-                    value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600 bg-white"
-                  >
-                    {BATCH_STATUSES.map(s => (
-                      <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Deskripsi</label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  rows={3}
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600 transition-all"
-                />
-              </div>
-            </div>
 
-            {/* Schedule */}
-            <div className="space-y-4">
-              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-[0.2em]">Jadwal Batch</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Tanggal Mulai</label>
-                  <input
-                    type="datetime-local"
-                    required
-                    value={formData.start_date}
-                    onChange={(e) => handleStartDateChange(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Durasi (Pekan)</label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="52"
-                    value={formData.duration_weeks || ''}
-                    onChange={(e) => handleDurationChange(parseInt(e.target.value) || 0)}
-                    placeholder="cth. 13"
-                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Tanggal Selesai</label>
-                  <input
-                    type="datetime-local"
-                    required
-                    value={formData.end_date}
-                    readOnly
-                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-gray-700"
-                    placeholder="Otomatis"
-                  />
-                  <p className="text-[10px] text-gray-400 mt-1">Dihitung otomatis dari mulai + durasi</p>
-                </div>
-              </div>
+                {/* Fase 1: Pendaftaran & Seleksi Masuk */}
+                <div className="bg-blue-50/60 p-4 sm:p-5 rounded-2xl border border-blue-200 space-y-3.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[11px] font-black flex items-center justify-center">
+                        1
+                      </span>
+                      <h4 className="text-xs font-bold text-blue-900 uppercase tracking-wider">
+                        Fase Pendaftaran &amp; Seleksi (Pra-KBM)
+                      </h4>
+                    </div>
+                    <span className="text-[10px] text-blue-700 font-semibold">H-35 s.d. H-1 sebelum KBM</span>
+                  </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Pendaftaran Mulai</label>
-                  <input
-                    type="datetime-local"
-                    value={formData.registration_start_date}
-                    onChange={(e) => setFormData({ ...formData, registration_start_date: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Pendaftaran Selesai</label>
-                  <input
-                    type="datetime-local"
-                    value={formData.registration_end_date}
-                    onChange={(e) => setFormData({ ...formData, registration_end_date: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600"
-                  />
-                </div>
-              </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">
+                        Pendaftaran Mulai (H-35)
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={formData.registration_start_date}
+                        onChange={(e) => setFormData({ ...formData, registration_start_date: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs font-medium focus:ring-2 focus:ring-blue-500/20"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">
+                        Pendaftaran Selesai (H-16)
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={formData.registration_end_date}
+                        onChange={(e) => setFormData({ ...formData, registration_end_date: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs font-medium focus:ring-2 focus:ring-blue-500/20"
+                      />
+                    </div>
+                  </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Nilai Minimum Ujian Seleksi</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    required
-                    value={formData.min_exam_score}
-                    onChange={(e) => setFormData({ ...formData, min_exam_score: parseInt(e.target.value) || 0 })}
-                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600"
-                  />
-                  <p className="text-[10px] text-gray-400 mt-1">Nilai minimum kelulusan ujian seleksi masuk (tulis)</p>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Nilai Minimum Ujian Akhir (Kelulusan)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    required
-                    value={formData.min_final_exam_score}
-                    onChange={(e) => setFormData({ ...formData, min_final_exam_score: parseInt(e.target.value) || 0 })}
-                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600"
-                  />
-                  <p className="text-[10px] text-gray-400 mt-1">Nilai minimum kelulusan program (final exam)</p>
-                </div>
-              </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 pt-1 border-t border-blue-100">
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">
+                        Mulai Penilaian Seleksi (H-15)
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={formData.selection_start_date}
+                        onChange={(e) => setFormData({ ...formData, selection_start_date: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs font-medium focus:ring-2 focus:ring-blue-500/20"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">
+                        Selesai Penilaian Seleksi (H-12)
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={formData.selection_end_date}
+                        onChange={(e) => setFormData({ ...formData, selection_end_date: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs font-medium focus:ring-2 focus:ring-blue-500/20"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">
+                        Pengumuman Hasil Seleksi (H-11)
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={formData.selection_result_date}
+                        onChange={(e) => setFormData({ ...formData, selection_result_date: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs font-medium focus:ring-2 focus:ring-blue-500/20"
+                      />
+                    </div>
+                  </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Kuota Total</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={formData.total_quota || ''}
-                    onChange={(e) => setFormData({ ...formData, total_quota: parseInt(e.target.value) || 0 })}
-                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600"
-                  />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-1 border-t border-blue-100">
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">
+                        Mulai Daftar Ulang (H-10)
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={formData.re_enrollment_date}
+                        onChange={(e) => setFormData({ ...formData, re_enrollment_date: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs font-medium focus:ring-2 focus:ring-blue-500/20"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">
+                        Kelas Pembuka / Opening Class (H-1)
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={formData.opening_class_date}
+                        onChange={(e) => setFormData({ ...formData, opening_class_date: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs font-medium focus:ring-2 focus:ring-blue-500/20"
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Biaya</label>
-                  <div className="flex items-center gap-2">
+
+                {/* Fase 2: KBM Halaqah (Pekan 1 - 12) */}
+                <div className="bg-purple-50/60 p-4 sm:p-5 rounded-2xl border border-purple-200 space-y-3.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-purple-600 text-white text-[11px] font-black flex items-center justify-center">
+                        2
+                      </span>
+                      <h4 className="text-xs font-bold text-purple-900 uppercase tracking-wider">
+                        Fase KBM Halaqah (Pekan 1 s.d. 12)
+                      </h4>
+                    </div>
+                    <span className="text-[10px] text-purple-700 font-semibold">12 Pekan Pembelajaran</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">
+                        Pekan 1 Mulai
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={formData.first_week_start_date}
+                        onChange={(e) => setFormData({ ...formData, first_week_start_date: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs font-medium focus:ring-2 focus:ring-purple-500/20"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">
+                        Pekan 1 Selesai
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={formData.first_week_end_date}
+                        onChange={(e) => setFormData({ ...formData, first_week_end_date: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs font-medium focus:ring-2 focus:ring-purple-500/20"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">
+                        Batas Akhir Mutasi Halaqah
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={formData.transfer_schedule_end_date}
+                        onChange={(e) => setFormData({ ...formData, transfer_schedule_end_date: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs font-medium focus:ring-2 focus:ring-purple-500/20"
+                      />
+                      <p className="text-[9px] text-purple-700 mt-1 font-semibold">Ahad Pekan ke-2</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-1 border-t border-purple-100">
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">
+                        Pekan 12 (Review / Muraja&apos;ah) Mulai
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={formData.review_week_start_date}
+                        onChange={(e) => setFormData({ ...formData, review_week_start_date: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs font-medium focus:ring-2 focus:ring-purple-500/20"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">
+                        Pekan 12 (Review / Muraja&apos;ah) Selesai
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={formData.review_week_end_date}
+                        onChange={(e) => setFormData({ ...formData, review_week_end_date: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs font-medium focus:ring-2 focus:ring-purple-500/20"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-purple-700 italic">* Pekan 2 s/d 11 dihitung otomatis berkelanjutan setiap pekan.</p>
+                </div>
+
+                {/* Fase 3: Evaluasi Akhir & Wisuda */}
+                <div className="bg-amber-50/60 p-4 sm:p-5 rounded-2xl border border-amber-200 space-y-3.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-amber-600 text-white text-[11px] font-black flex items-center justify-center">
+                        3
+                      </span>
+                      <h4 className="text-xs font-bold text-amber-900 uppercase tracking-wider">
+                        Fase Evaluasi Akhir &amp; Wisuda (Pekan 13 - 14)
+                      </h4>
+                    </div>
+                    <span className="text-[10px] text-amber-700 font-semibold">Ujian &amp; Kelulusan</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">
+                        Pekan 13 (Ujian Akhir) Mulai
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={formData.final_exam_start_date}
+                        onChange={(e) => setFormData({ ...formData, final_exam_start_date: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs font-medium focus:ring-2 focus:ring-amber-500/20"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">
+                        Pekan 13 (Ujian Akhir) Selesai
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={formData.final_exam_end_date}
+                        onChange={(e) => setFormData({ ...formData, final_exam_end_date: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs font-medium focus:ring-2 focus:ring-amber-500/20"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-1 border-t border-amber-100">
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">
+                        Pekan 14 (Wisuda / Tasyakkur) Mulai
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={formData.graduation_start_date}
+                        onChange={(e) => setFormData({ ...formData, graduation_start_date: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs font-medium focus:ring-2 focus:ring-amber-500/20"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">
+                        Pekan 14 (Wisuda / Tasyakkur) Selesai
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={formData.graduation_end_date}
+                        onChange={(e) => setFormData({ ...formData, graduation_end_date: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs font-medium focus:ring-2 focus:ring-amber-500/20"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Fase 4: Tanggal Libur & Break */}
+                <div className="bg-red-50/50 p-4 sm:p-5 rounded-2xl border border-red-200 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold text-red-900 uppercase tracking-wider flex items-center gap-2">
+                      <Clock className="w-3.5 h-3.5 text-red-600" />
+                      Tanggal Libur &amp; Break (Opsional)
+                    </h4>
+                    <span className="text-[10px] text-red-600 italic">Pekan KBM akan bergeser otomatis</span>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <input
+                      type="date"
+                      value={holidayInput}
+                      onChange={(e) => setHolidayInput(e.target.value)}
+                      className="flex-1 px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-red-500/20"
+                    />
                     <button
                       type="button"
-                      onClick={() => setFormData({ ...formData, is_free: !formData.is_free, price: formData.is_free ? formData.price : 0 })}
-                      className={cn(
-                        'px-3 py-2.5 rounded-xl border text-xs font-bold transition-all',
-                        formData.is_free
-                          ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                          : 'bg-white border-gray-200 text-gray-600'
-                      )}
+                      onClick={handleAddHoliday}
+                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
                     >
-                      {formData.is_free ? 'GRATIS' : 'BERBAYAR'}
+                      Tambah
                     </button>
-                    {!formData.is_free && (
-                      <input
-                        type="number"
-                        min="0"
-                        value={formData.price || ''}
-                        onChange={(e) => setFormData({ ...formData, price: parseInt(e.target.value) || 0 })}
-                        placeholder="Rp"
-                        className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600"
-                      />
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {formData.holiday_dates.length === 0 ? (
+                      <p className="text-[11px] text-gray-400 italic">Belum ada tanggal libur yang ditambahkan.</p>
+                    ) : (
+                      formData.holiday_dates.map((date) => (
+                        <div key={date} className="flex items-center gap-1.5 bg-white border border-red-200 px-3 py-1 rounded-full text-xs font-semibold text-red-800 shadow-sm">
+                          <span>{new Date(date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Jakarta' })}</span>
+                          <button
+                            type="button"
+                            onClick={() => setFormData({ ...formData, holiday_dates: formData.holiday_dates.filter(d => d !== date) })}
+                            className="text-red-400 hover:text-red-700 ml-1"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))
                     )}
                   </div>
                 </div>
-              </div>
-            </div>
 
-            {/* Quick Auto-Generate Banner */}
-            <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-green-50 p-4 sm:p-5 rounded-2xl border border-emerald-200 shadow-sm">
-              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-emerald-600/20 mt-0.5">
-                    <Sparkles className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                      Auto-Generate Timeline Praktis
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-600 text-white font-extrabold uppercase tracking-wider">
-                        1-Klik
-                      </span>
-                    </h4>
-                    <p className="text-xs text-gray-600 mt-1 max-w-xl">
-                      Tentukan <strong>Tanggal Mulai Pekan 1 (Senin)</strong>. Sistem akan otomatis menghitung seluruh jadwal pendaftaran, seleksi, daftar ulang, halaqah 1-12 pekan, ujian akhir, hingga wisuda secara berurutan dan anti-salah.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto shrink-0">
-                  <input
-                    type="date"
-                    value={autoGenerateAnchorDate}
-                    onChange={(e) => setAutoGenerateAnchorDate(e.target.value)}
-                    placeholder="Pilih Senin Pekan 1"
-                    title="Tanggal Mulai Pekan 1 Pembelajaran (Senin)"
-                    className="px-3 py-2 rounded-xl border border-emerald-300 bg-white text-xs font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleAutoGenerateTimeline(autoGenerateAnchorDate)}
-                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 active:scale-95 text-white font-bold text-xs shadow-md shadow-emerald-700/20 transition-all duration-200 whitespace-nowrap"
-                  >
-                    <Wand2 className="w-4 h-4" />
-                    Hitung Jadwal Otomatis
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Timeline (collapsible) */}
-            <div className="border-t border-gray-100 pt-4">
-              <button
-                type="button"
-                onClick={() => setShowTimeline(!showTimeline)}
-                className="flex items-center gap-2 w-full text-left group"
-              >
-                <ChevronRight className={cn('h-5 w-5 text-gray-400 transition-transform', showTimeline && 'rotate-90')} />
-                <h3 className="text-sm font-bold text-gray-700 group-hover:text-green-700 transition-colors">
-                  Konfigurasi Timeline
-                </h3>
-                <span className="text-[10px] text-gray-400 italic">opsional — untuk halaman Perjalanan Saya</span>
-              </button>
-
-              {showTimeline && (
-                <div className="mt-4 space-y-4 pl-7">
-                  {/* Selection Phase */}
-                  <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
-                    <h4 className="text-xs font-bold text-blue-700 uppercase tracking-wider mb-3">Fase Seleksi</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <div>
-                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Mulai</label>
-                        <input type="datetime-local" value={formData.selection_start_date} onChange={(e) => setFormData({ ...formData, selection_start_date: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Selesai</label>
-                        <input type="datetime-local" value={formData.selection_end_date} onChange={(e) => setFormData({ ...formData, selection_end_date: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Pengumuman</label>
-                        <input type="datetime-local" value={formData.selection_result_date} onChange={(e) => setFormData({ ...formData, selection_result_date: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Re-enrollment & Opening */}
-                  <div className="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100">
-                    <h4 className="text-xs font-bold text-emerald-700 uppercase tracking-wider mb-3">Daftar Ulang & Pembukaan</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Daftar Ulang</label>
-                        <input type="datetime-local" value={formData.re_enrollment_date} onChange={(e) => setFormData({ ...formData, re_enrollment_date: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Kelas Pembuka</label>
-                        <input type="datetime-local" value={formData.opening_class_date} onChange={(e) => setFormData({ ...formData, opening_class_date: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Learning Weeks */}
-                  <div className="bg-purple-50/50 p-4 rounded-2xl border border-purple-100">
-                    <h4 className="text-xs font-bold text-purple-700 uppercase tracking-wider mb-3">Pekan Pembelajaran</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Pekan 1 Mulai</label>
-                        <input type="datetime-local" value={formData.first_week_start_date} onChange={(e) => setFormData({ ...formData, first_week_start_date: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Pekan 1 Selesai</label>
-                        <input type="datetime-local" value={formData.first_week_end_date} onChange={(e) => setFormData({ ...formData, first_week_end_date: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Pekan 12 (Review) Mulai</label>
-                        <input type="datetime-local" value={formData.review_week_start_date} onChange={(e) => setFormData({ ...formData, review_week_start_date: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Pekan 12 Selesai</label>
-                        <input type="datetime-local" value={formData.review_week_end_date} onChange={(e) => setFormData({ ...formData, review_week_end_date: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
-                      </div>
-                    </div>
-                    <p className="text-[10px] text-purple-700 mt-2 italic">Pekan 2-11 akan dihitung otomatis</p>
-                  </div>
-
-                  {/* Final Exam & Graduation */}
-                  <div className="bg-amber-50/50 p-4 rounded-2xl border border-amber-100">
-                    <h4 className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-3">Ujian & Wisuda</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Pekan 13 (Ujian) Mulai</label>
-                        <input type="datetime-local" value={formData.final_exam_start_date} onChange={(e) => setFormData({ ...formData, final_exam_start_date: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Pekan 13 Selesai</label>
-                        <input type="datetime-local" value={formData.final_exam_end_date} onChange={(e) => setFormData({ ...formData, final_exam_end_date: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Pekan 14 (Wisuda) Mulai</label>
-                        <input type="datetime-local" value={formData.graduation_start_date} onChange={(e) => setFormData({ ...formData, graduation_start_date: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Pekan 14 Selesai</label>
-                        <input type="datetime-local" value={formData.graduation_end_date} onChange={(e) => setFormData({ ...formData, graduation_end_date: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Transfer Schedule */}
-                  <div className="bg-orange-50/50 p-4 rounded-2xl border border-orange-100">
-                    <h4 className="text-xs font-bold text-orange-700 uppercase tracking-wider mb-3">Mutasi Halaqah</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Batas Akhir Pindah Jadwal</label>
-                        <input type="datetime-local" value={formData.transfer_schedule_end_date} onChange={(e) => setFormData({ ...formData, transfer_schedule_end_date: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Holidays */}
-                  <div className="bg-red-50/50 p-4 rounded-2xl border border-red-100">
-                    <h4 className="text-xs font-bold text-red-700 uppercase tracking-wider mb-3 flex items-center justify-between">
-                      <span>Tanggal Libur & Break</span>
-                      <span className="text-[9px] font-normal italic text-red-600">Pekan akan bergeser otomatis</span>
-                    </h4>
-                    <div className="flex gap-2 mb-3">
+                {/* Link Komunikasi WhatsApp */}
+                <div className="bg-gray-50/50 p-4 sm:p-5 rounded-2xl border border-gray-200/80 space-y-3">
+                  <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-2">
+                    <MessageCircle className="w-3.5 h-3.5 text-green-700" />
+                    Link Komunikasi &amp; Grup WhatsApp (Opsional)
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Grup Utama Batch</label>
                       <input
-                        type="date"
-                        value={holidayInput}
-                        onChange={(e) => setHolidayInput(e.target.value)}
-                        className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20"
+                        type="url"
+                        value={formData.whatsapp_group_link}
+                        onChange={(e) => setFormData({ ...formData, whatsapp_group_link: e.target.value })}
+                        placeholder="https://chat.whatsapp.com/..."
+                        className="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs"
                       />
-                      <button
-                        type="button"
-                        onClick={handleAddHoliday}
-                        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm"
-                      >
-                        Tambah
-                      </button>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      {formData.holiday_dates.length === 0 ? (
-                        <p className="text-[10px] text-gray-400 italic">Belum ada tanggal libur.</p>
-                      ) : (
-                        formData.holiday_dates.map((date) => (
-                          <div key={date} className="flex items-center gap-2 bg-white border border-red-200 px-2.5 py-1 rounded-full text-xs font-semibold text-red-800 shadow-sm">
-                            <Clock className="w-3 h-3" />
-                            {new Date(date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Jakarta' })}
-                            <button
-                              type="button"
-                              onClick={() => setFormData({ ...formData, holiday_dates: formData.holiday_dates.filter(d => d !== date) })}
-                              className="text-red-400 hover:text-red-700"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        ))
-                      )}
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Grup Pengingat (Reminder)</label>
+                      <input
+                        type="url"
+                        value={formData.group_reminder_link}
+                        onChange={(e) => setFormData({ ...formData, group_reminder_link: e.target.value })}
+                        placeholder="https://chat.whatsapp.com/..."
+                        className="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Grup Diskusi</label>
+                      <input
+                        type="url"
+                        value={formData.group_diskusi_link}
+                        onChange={(e) => setFormData({ ...formData, group_diskusi_link: e.target.value })}
+                        placeholder="https://chat.whatsapp.com/..."
+                        className="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs"
+                      />
                     </div>
                   </div>
                 </div>
-              )}
-            </div>
+
+              </div>
             </div>
 
             {activeTab === 'tikrar' && renderProgramTab('Tikrar Tahfidz', tikrarData, setTikrarData)}
@@ -798,34 +1020,36 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
           </div>
 
           {/* Footer */}
-          <div className="px-8 py-5 border-t border-gray-100 bg-gray-50/30 flex items-center justify-between gap-3">
+          <div className="px-6 sm:px-8 py-5 border-t border-gray-200 bg-gray-50/50 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
             <div className="flex-1">
               {dateWarnings.length > 0 && (
-                <div className="bg-yellow-50 text-yellow-800 text-xs px-3 py-2 rounded-lg border border-yellow-200 mr-4">
-                  <p className="font-bold mb-1">Perhatian (Urutan Tanggal Kurang Pas):</p>
-                  <ul className="list-disc list-inside">
+                <div className="bg-amber-50 text-amber-900 text-xs px-3.5 py-2.5 rounded-xl border border-amber-200 mr-0 sm:mr-4 shadow-sm">
+                  <p className="font-bold mb-1 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                    Perhatian Urutan Tanggal:
+                  </p>
+                  <ul className="list-disc list-inside space-y-0.5 text-[11px]">
                     {dateWarnings.map((w, i) => <li key={i}>{w}</li>)}
                   </ul>
                 </div>
               )}
             </div>
-            <div className="flex items-center gap-3">
-
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-5 py-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-sm font-bold text-gray-700 transition-all"
-            >
-              Batal
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="px-5 py-2.5 rounded-xl bg-green-700 hover:bg-green-800 disabled:bg-gray-300 text-white text-sm font-bold transition-all shadow-sm flex items-center gap-2"
-            >
-              <Save className="h-4 w-4" />
-              {saving ? 'Menyimpan...' : 'Simpan Batch'}
-            </button>
+            <div className="flex items-center justify-end gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-5 py-2.5 rounded-xl border border-gray-300 bg-white hover:bg-gray-50 text-sm font-bold text-gray-700 transition-all shadow-sm"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="px-6 py-2.5 rounded-xl bg-green-700 hover:bg-green-800 disabled:bg-gray-300 text-white text-sm font-bold transition-all shadow-md shadow-green-700/20 flex items-center gap-2"
+              >
+                <Save className="h-4 w-4" />
+                {saving ? 'Menyimpan...' : 'Simpan Batch'}
+              </button>
             </div>
           </div>
         </form>
