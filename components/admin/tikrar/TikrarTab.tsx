@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
-import { createClient } from '@/lib/supabase/client';
+import { apiRequest } from '@/lib/fetch-wrapper';
 import { RefreshCw, Trash2, CheckCircle, XCircle } from 'lucide-react';
 
 import { TikrarTahfidz, TikrarStatsData as TikrarStatsType } from './types';
@@ -15,7 +15,6 @@ import { AdminDeleteModal } from '@/components/AdminDeleteModal';
 import { useJuzOptions } from '@/hooks/useJuzOptions';
 
 export function TikrarTab({ user }: { user: any }) {
-  const supabase = createClient();
   const { juzOptions } = useJuzOptions();
   
   // State
@@ -151,7 +150,7 @@ export function TikrarTab({ user }: { user: any }) {
     } finally {
       setIsLoading(false);
     }
-  }, [filters, supabase]);
+  }, [filters]);
 
   useEffect(() => {
     fetchBatches();
@@ -175,12 +174,7 @@ export function TikrarTab({ user }: { user: any }) {
   const handleDeleteConfirm = async () => {
     if (!selectedRegistration) return;
     try {
-      const { error } = await supabase
-        .from('pendaftaran_tikrar_tahfidz')
-        .delete()
-        .eq('id', selectedRegistration.id);
-      
-      if (error) throw error;
+      await apiRequest(`/api/admin/tikrar/${selectedRegistration.id}`, { method: 'DELETE' });
       toast.success('Pendaftaran berhasil dihapus');
       fetchTikrarData();
     } catch (error: any) {
@@ -194,15 +188,10 @@ export function TikrarTab({ user }: { user: any }) {
   const handleUnapproveConfirm = async (reason: string) => {
     if (!selectedRegistration) return;
     try {
-      const { error } = await supabase
-        .from('pendaftaran_tikrar_tahfidz')
-        .update({
-          status: 'pending',
-          review_notes: reason
-        })
-        .eq('id', selectedRegistration.id);
-      
-      if (error) throw error;
+      await apiRequest('/api/admin/tikrar/unapprove', {
+        method: 'POST',
+        body: { applicationId: selectedRegistration.id, reason },
+      });
       toast.success('Persetujuan dibatalkan');
       fetchTikrarData();
     } catch (error: any) {
@@ -217,17 +206,14 @@ export function TikrarTab({ user }: { user: any }) {
     if (selectedIds.length === 0 || !bulkAction) return;
     setIsBulkProcessing(true);
     try {
-      const { error } = await supabase
-        .from('pendaftaran_tikrar_tahfidz')
-        .update({
-          status: bulkAction === 'approve' ? 'approved' : 'rejected',
-          reviewed_at: new Date().toISOString(),
-          reviewed_by: user?.id,
-          review_notes: bulkAction === 'reject' ? bulkRejectionReason : null
-        })
-        .in('id', selectedIds);
-      
-      if (error) throw error;
+      await apiRequest('/api/admin/tikrar/bulk-approve', {
+        method: 'POST',
+        body: {
+          ids: selectedIds,
+          action: bulkAction,
+          rejectionReason: bulkAction === 'reject' ? bulkRejectionReason : undefined,
+        },
+      });
       toast.success(`${selectedIds.length} pendaftaran berhasil di-${bulkAction}`);
       setSelectedIds([]);
       fetchTikrarData();
@@ -378,20 +364,11 @@ export function TikrarTab({ user }: { user: any }) {
         onSubmit={async (formData) => {
           if (!selectedRegistration) return;
           try {
-            // Sanitize empty strings to null for integer/numeric fields
-            const cleanedData = { ...formData };
-            ['age', 'oral_total_score', 'written_quiz_score'].forEach(field => {
-              if (cleanedData[field] === '') {
-                cleanedData[field] = null;
-              }
+            // The API keeps only editable fields and turns empty numeric fields into null
+            await apiRequest(`/api/admin/tikrar/${selectedRegistration.id}`, {
+              method: 'PATCH',
+              body: formData,
             });
-
-            const { error } = await supabase
-              .from('pendaftaran_tikrar_tahfidz')
-              .update(cleanedData)
-              .eq('id', selectedRegistration.id);
-            
-            if (error) throw error;
             toast.success('Pendaftaran berhasil diupdate');
             fetchTikrarData();
             setShowEditModal(false);
