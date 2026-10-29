@@ -5,7 +5,7 @@ import dotenv from 'dotenv';
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
 // Safeguard API Keys
-if (!process.env.WATZAP_API_KEY) process.env.WATZAP_API_KEY = 'TUEMR1E3NSJD2BDV';
+if (!process.env.WATZAP_API_KEY) process.env.WATZAP_API_KEY = '09NEKGYZ4RHEB1EY';
 if (!process.env.WATZAP_NUMBER_KEY) process.env.WATZAP_NUMBER_KEY = '4R49U9Cu5y5YWdLE';
 
 import { query } from '../lib/db';
