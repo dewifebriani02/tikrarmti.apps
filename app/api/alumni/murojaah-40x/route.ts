@@ -14,13 +14,23 @@ const VALID_METHODS: MurojaahMethod[] = ['pasangan', 'tarteel', 'sholat', 'aktif
  * Helper to check whether user has completed all mandatory Murojaah blocks (M1..M7)
  * in their active/latest batch before allowing Murojaah 40x.
  */
-async function checkMurojaahWajibStatus(userId: string, targetBatchId?: string | null): Promise<{
+async function checkMurojaahWajibStatus(userId: string, targetBatchId?: string | null, isAdmin?: boolean): Promise<{
   is_locked: boolean;
   reason?: string;
   wajib_completed: number;
   wajib_total: number;
   completed_codes: string[];
 }> {
+  // Admin and staff always have full access for previewing and testing
+  if (isAdmin) {
+    return {
+      is_locked: false,
+      wajib_completed: 7,
+      wajib_total: 7,
+      completed_codes: ['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7']
+    };
+  }
+
   let batchId = targetBatchId;
   if (!batchId) {
     const reg = await queryOne(
@@ -241,7 +251,7 @@ export async function GET(request: NextRequest) {
     const hasAnyWarriorBadge = Boolean(userBadge) || Boolean(progress.is_warrior_eligible);
 
     // 7. Check if Murojaah 40x is locked pending mandatory murojaah (M1..M7)
-    const wajibStatus = await checkMurojaahWajibStatus(targetId, batchId);
+    const wajibStatus = await checkMurojaahWajibStatus(targetId, batchId, isAdminOrStaff);
 
     return NextResponse.json({
       success: true,
@@ -340,7 +350,8 @@ export async function POST(request: NextRequest) {
     }
 
     // 4. Check if mandatory murojaah (M1..M7) is completed
-    const wajibCheck = await checkMurojaahWajibStatus(user.id, progress.batch_id);
+    const isAdminOrStaff = (user.roles || []).some((r: string) => ['admin', 'musyrifah', 'muallimah'].includes(r)) || user.role === 'admin';
+    const wajibCheck = await checkMurojaahWajibStatus(user.id, progress.batch_id, isAdminOrStaff);
     if (wajibCheck.is_locked) {
       return NextResponse.json({
         success: false,

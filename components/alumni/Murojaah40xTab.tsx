@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { 
   Award, 
+  Check,
   CheckCircle2, 
   Clock, 
   Flame, 
@@ -28,8 +29,7 @@ import {
   MessageCircle,
   AlertTriangle,
   RefreshCw,
-  Lock,
-  LayoutGrid
+  Lock
 } from 'lucide-react';
 import { MurojaahMethod, MurojaahSegment, Murojaah40xLog, Murojaah40xProgress } from '@/types/database';
 import { MurojaahCommunityDirectory } from './MurojaahCommunityDirectory';
@@ -67,12 +67,18 @@ const METHOD_OPTIONS: { id: MurojaahMethod; label: string; desc: string; icon: a
   }
 ];
 
+const METHOD_LABEL: Record<string, string> = {
+  pasangan: 'Pasangan Tikrar',
+  tarteel: 'Tarteel AI',
+  sholat: 'Dibaca Saat Sholat',
+  aktifitas_lain: 'Aktifitas Lain'
+};
+
 export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>(null);
   const [activeSegment, setActiveSegment] = useState<MurojaahSegment>('primary');
   const [activeMainTab, setActiveMainTab] = useState<'tracker' | 'komunitas' | 'panduan'>('tracker');
-  const [viewMode, setViewMode] = useState<'daily' | 'grid'>('daily');
   
   // Modal states
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
@@ -126,7 +132,7 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
     });
   };
 
-  const handleOpenLogModal = () => {
+  const handleOpenLogModal = (targetRound?: number) => {
     if (wajib_murojaah?.is_locked) {
       toast.error(wajib_murojaah.reason || 'Program Murojaah 40x terkunci sebelum Murojaah Wajib Pekan 11 tuntas.');
       return;
@@ -227,7 +233,7 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
   if (loading && !data) {
     return (
       <div className="py-24 text-center space-y-3">
-        <div className="w-10 h-10 border-3 border-green-800 border-t-transparent rounded-full animate-spin mx-auto" />
+        <div className="w-10 h-10 border-3 border-emerald-800 border-t-transparent rounded-full animate-spin mx-auto" />
         <p className="text-xs text-gray-500 font-medium">Memuat data Murojaah 40x...</p>
       </div>
     );
@@ -380,7 +386,7 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
         </div>
       )}
 
-            {/* WAJIB MUROJAAH LOCKED WARNING BANNER */}
+      {/* WAJIB MUROJAAH LOCKED WARNING BANNER */}
       {wajib_murojaah?.is_locked && (
         <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-sm animate-fadeIn">
           <div className="flex items-start gap-3 text-amber-950">
@@ -421,7 +427,7 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
           }`}
         >
           <BookOpen className="w-4 h-4 text-emerald-700" />
-          <span>Tracker 40x</span>
+          <span>Presensi 40x</span>
           <span className="hidden sm:inline-block px-2 py-0.2 bg-emerald-100 text-emerald-800 text-[10px] rounded-full font-black">
             {currentCompletedCount}/40
           </span>
@@ -457,7 +463,7 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
         </button>
       </div>
 
-      {/* TAB 1: TRACKER 40 PUTARAN */}
+      {/* TAB 1: TRACKER 40 PUTARAN (PRESENSI JURNAL HARIAN - 2 KOTAK PER HARI DENGAN CEKLIST) */}
       {activeMainTab === 'tracker' && (
         <div className="space-y-6">
           {/* Segment Switcher (For Part B Participants: Opsi Murojaah 1 Juz Lengkap A+B) */}
@@ -517,72 +523,44 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
             </div>
           )}
 
-          {/* Action Bar & Input Button */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 sm:p-5 rounded-2xl border border-gray-100 shadow-sm">
+          {/* Action Bar & Summary Header (Mirip Header Jurnal Harian) */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 sm:p-5 rounded-2xl border border-gray-100 shadow-sm">
             <div className="space-y-1">
-              <h3 className="font-extrabold text-gray-900 text-base flex items-center gap-2">
-                <span>Rekap Putaran {activeSegment === 'primary' ? 'Juz Utama' : 'Bagian A'}</span>
-                {activeSegment === 'primary' && (
-                  <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full">
-                    Syarat Naik Juz
-                  </span>
-                )}
-              </h3>
-              <p className="text-xs text-gray-500">
-                Format 20 Hari dengan 2 kolom per hari (Target: 2 putaran/hari = 40 putaran).
-              </p>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-black text-xs shadow-inner">
+                  <Calendar className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-gray-900 text-sm sm:text-base leading-tight">
+                    Presensi Jurnal Muraja'ah 40x
+                  </h3>
+                  <p className="text-[11px] text-gray-500">
+                    20 Hari Tantangan • 2 Kotak Putaran per Hari
+                  </p>
+                </div>
+              </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2.5">
-              {/* View Mode Switcher */}
-              <div className="flex items-center bg-gray-100/90 p-1 rounded-xl border border-gray-200/60">
-                <button
-                  type="button"
-                  onClick={() => setViewMode('daily')}
-                  className={cn(
-                    "px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5",
-                    viewMode === 'daily'
-                      ? "bg-white text-emerald-900 shadow-sm"
-                      : "text-gray-500 hover:text-gray-900"
-                  )}
-                >
-                  <Calendar className="w-3.5 h-3.5 text-emerald-700" />
-                  <span>Per Hari (2 Kolom)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewMode('grid')}
-                  className={cn(
-                    "px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5",
-                    viewMode === 'grid'
-                      ? "bg-white text-emerald-900 shadow-sm"
-                      : "text-gray-500 hover:text-gray-900"
-                  )}
-                >
-                  <LayoutGrid className="w-3.5 h-3.5 text-emerald-700" />
-                  <span>Grid 40</span>
-                </button>
-              </div>
-
+            <div className="flex items-center gap-2">
               {currentCompletedCount > 0 && (
                 <Button
                   variant="outline"
                   size="sm"
                   disabled={undoing}
                   onClick={handleUndoLastRound}
-                  className="border-gray-200 text-gray-600 hover:text-rose-600 hover:border-rose-200 rounded-xl text-xs gap-1.5"
+                  className="border-gray-200 text-gray-600 hover:text-rose-600 hover:border-rose-200 rounded-xl text-xs gap-1.5 h-9"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Batalkan Terakhir</span>
+                  <span>Batalkan Terakhir</span>
                 </Button>
               )}
 
               {!isSegmentCompleted && (
                 <Button
-                  onClick={handleOpenLogModal}
+                  onClick={() => handleOpenLogModal(nextRoundNumber)}
                   disabled={wajib_murojaah?.is_locked}
                   className={cn(
-                    "rounded-xl shadow-md font-bold text-xs sm:text-sm px-4 py-2 gap-1.5 transition-all",
+                    "rounded-xl shadow-md font-bold text-xs px-4 h-9 gap-1.5 transition-all",
                     wajib_murojaah?.is_locked
                       ? "bg-gray-200 text-gray-500 cursor-not-allowed shadow-none"
                       : "bg-emerald-800 hover:bg-emerald-700 text-white shadow-emerald-800/10"
@@ -590,13 +568,13 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
                 >
                   {wajib_murojaah?.is_locked ? (
                     <>
-                      <Lock className="w-4 h-4 text-gray-500" />
-                      <span>Terkunci (Selesaikan Wajib)</span>
+                      <Lock className="w-3.5 h-3.5 text-gray-500" />
+                      <span>Terkunci</span>
                     </>
                   ) : (
                     <>
-                      <Plus className="w-4 h-4" />
-                      <span>Catat Putaran ke-{nextRoundNumber}</span>
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Ceklist Putaran {nextRoundNumber}</span>
                     </>
                   )}
                 </Button>
@@ -604,278 +582,307 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
             </div>
           </div>
 
-          {/* Konten Murojaah: Tampilan Per Hari (2 Kolom) atau Grid 40 Putaran */}
-          <Card className="border border-gray-100 shadow-sm rounded-2xl bg-white overflow-hidden">
-            <CardContent className="p-4 sm:p-6 space-y-6">
-              {viewMode === 'daily' ? (
-                <div className="space-y-3.5">
-                  <div className="flex items-center justify-between pb-2 border-b border-gray-100">
-                    <div>
-                      <h4 className="text-xs sm:text-sm font-extrabold text-gray-900 flex items-center gap-1.5">
-                        <Calendar className="w-4 h-4 text-emerald-700" />
-                        Jadwal Muroja'ah Per Hari
-                      </h4>
-                      <p className="text-[11px] text-gray-500">
-                        Setiap hari terdapat 2 kolom putaran yang harus diisi.
-                      </p>
-                    </div>
-                    <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200/60 px-2.5 py-1 rounded-full">
-                      {currentCompletedCount} / 40 Selesai
-                    </span>
-                  </div>
+          {/* LIST 20 HARI: PERSIS JURNAL HARIAN DENGAN 2 KOTAK CEKLIST PER HARI */}
+          <div className="space-y-4">
+            {Array.from({ length: 20 }, (_, idx) => {
+              const dayIndex = idx + 1;
+              const round1Num = (dayIndex - 1) * 2 + 1;
+              const round2Num = (dayIndex - 1) * 2 + 2;
+              const log1 = logsMap.get(round1Num);
+              const log2 = logsMap.get(round2Num);
+              const completedCount = (log1 ? 1 : 0) + (log2 ? 1 : 0);
+              const isCurrentDay = (round1Num === nextRoundNumber || round2Num === nextRoundNumber) && !isSegmentCompleted;
 
-                  <div className="grid grid-cols-1 gap-3">
-                    {Array.from({ length: 20 }, (_, idx) => {
-                      const dayIndex = idx + 1;
-                      const round1Num = (dayIndex - 1) * 2 + 1;
-                      const round2Num = (dayIndex - 1) * 2 + 2;
-                      const log1 = logsMap.get(round1Num);
-                      const log2 = logsMap.get(round2Num);
-                      const completedCount = (log1 ? 1 : 0) + (log2 ? 1 : 0);
-                      const isCurrentDay = (round1Num === nextRoundNumber || round2Num === nextRoundNumber) && !isSegmentCompleted;
+              const renderChecklistBox = (roundNum: number, slotIndex: 1 | 2) => {
+                const log = logsMap.get(roundNum);
+                const isCompleted = !!log;
+                const isNext = roundNum === nextRoundNumber && !isSegmentCompleted;
+                const isLatest = roundNum === currentCompletedCount;
 
-                      const renderRoundSlot = (roundNum: number, slotIndex: 1 | 2) => {
-                        const log = logsMap.get(roundNum);
-                        const isCompleted = !!log;
-                        const isNext = roundNum === nextRoundNumber && !isSegmentCompleted;
-
-                        if (isCompleted) {
-                          return (
-                            <button
-                              key={roundNum}
-                              type="button"
-                              onClick={() => setSelectedRoundDetails(log)}
-                              className="group relative w-full text-left p-3 sm:p-3.5 rounded-xl bg-gradient-to-br from-emerald-600 to-emerald-700 text-white shadow-sm hover:shadow-md hover:scale-[1.01] transition-all cursor-pointer border border-emerald-500/50 flex flex-col justify-between gap-2.5"
-                            >
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="text-xs sm:text-sm font-black tracking-tight">Putaran {roundNum}</span>
-                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-200" />
-                                </div>
-                                <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-800/70 px-2 py-0.5 rounded text-emerald-100">
-                                  Kolom {slotIndex}
-                                </span>
-                              </div>
-
-                              <div className="flex items-center justify-between text-[11px] pt-1.5 border-t border-emerald-500/40">
-                                <span className="text-emerald-100/90 font-medium flex items-center gap-1 text-[11px]">
-                                  <Calendar className="w-3 h-3 text-emerald-200" />
-                                  {new Date(log.completed_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
-                                </span>
-                                <span className="text-[10px] font-semibold text-emerald-200 group-hover:underline">
-                                  Detail &rarr;
-                                </span>
-                              </div>
-                            </button>
-                          );
-                        }
-
-                        if (isNext) {
-                          if (wajib_murojaah?.is_locked) {
-                            return (
-                              <div
-                                key={roundNum}
-                                className="w-full text-left p-3 sm:p-3.5 rounded-xl bg-gray-100 border border-gray-200 text-gray-500 flex flex-col justify-between gap-2 select-none"
-                              >
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-1.5">
-                                    <Lock className="w-3.5 h-3.5 text-gray-400" />
-                                    <span className="text-xs sm:text-sm font-bold text-gray-600">Putaran {roundNum}</span>
-                                  </div>
-                                  <span className="text-[10px] font-bold uppercase tracking-wider bg-gray-200 px-2 py-0.5 rounded text-gray-600">
-                                    Kolom {slotIndex}
-                                  </span>
-                                </div>
-                                <p className="text-[11px] text-gray-400 font-medium">Terkunci (Selesaikan Wajib)</p>
-                              </div>
-                            );
-                          }
-
-                          return (
-                            <button
-                              key={roundNum}
-                              type="button"
-                              onClick={handleOpenLogModal}
-                              className="w-full text-left p-3 sm:p-3.5 rounded-xl bg-amber-50/90 border-2 border-amber-400 text-amber-950 shadow-sm hover:bg-amber-100 hover:border-amber-500 hover:scale-[1.01] transition-all cursor-pointer animate-pulse flex flex-col justify-between gap-2.5"
-                            >
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="text-xs sm:text-sm font-black text-amber-900 tracking-tight">Putaran {roundNum}</span>
-                                  <span className="bg-amber-200/90 text-amber-900 text-[10px] font-black px-1.5 py-0.5 rounded">
-                                    Siap Diisi
-                                  </span>
-                                </div>
-                                <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-200/70 px-2 py-0.5 rounded text-amber-900">
-                                  Kolom {slotIndex}
-                                </span>
-                              </div>
-
-                              <div className="flex items-center justify-between pt-1.5 border-t border-amber-200/60 text-xs font-bold text-amber-800">
-                                <span className="flex items-center gap-1">
-                                  <Plus className="w-3.5 h-3.5 text-amber-700" />
-                                  Catat Sekarang
-                                </span>
-                                <span className="text-[10px] font-semibold text-amber-600">&rarr;</span>
-                              </div>
-                            </button>
-                          );
-                        }
-
-                        return (
-                          <div
-                            key={roundNum}
-                            className="w-full text-left p-3 sm:p-3.5 rounded-xl bg-gray-50/80 border border-gray-100 text-gray-400 flex flex-col justify-between gap-2.5 select-none"
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs sm:text-sm font-semibold text-gray-400">Putaran {roundNum}</span>
-                              <span className="text-[10px] font-medium uppercase tracking-wider bg-gray-100 px-2 py-0.5 rounded text-gray-400">
-                                Kolom {slotIndex}
-                              </span>
-                            </div>
-                            <p className="text-[11px] text-gray-400 font-normal">Belum diisi</p>
-                          </div>
-                        );
-                      };
-
-                      return (
-                        <div
-                          key={dayIndex}
-                          className={cn(
-                            "p-3.5 sm:p-4 rounded-2xl border transition-all",
-                            isCurrentDay
-                              ? "bg-amber-50/25 border-amber-300 ring-2 ring-amber-300/40 shadow-sm"
-                              : completedCount === 2
-                              ? "bg-white border-emerald-100 shadow-sm"
-                              : "bg-white border-gray-100 shadow-sm"
-                          )}
-                        >
-                          {/* Day Header */}
-                          <div className="flex items-center justify-between pb-2.5 border-b border-gray-100 mb-2.5">
-                            <div className="flex items-center gap-2">
-                              <span className="font-black text-xs sm:text-sm text-gray-900">
-                                Hari ke-{dayIndex}
-                              </span>
-                              <span className="text-[11px] text-gray-400 font-medium hidden sm:inline">
-                                (Target: 2 Putaran)
-                              </span>
-                              {isCurrentDay && (
-                                <span className="text-[10px] bg-amber-100 text-amber-900 font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1">
-                                  <Sparkles className="w-3 h-3 text-amber-600" /> Hari Berjalan
-                                </span>
-                              )}
-                            </div>
-
-                            {completedCount === 2 ? (
-                              <span className="text-[10px] sm:text-[11px] bg-emerald-100 text-emerald-800 font-black px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                                <CheckCircle2 className="w-3 h-3 text-emerald-600" /> 2/2 Selesai
-                              </span>
-                            ) : completedCount === 1 ? (
-                              <span className="text-[10px] sm:text-[11px] bg-amber-100 text-amber-800 font-black px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                                <Clock className="w-3 h-3 text-amber-600" /> 1/2 Selesai
-                              </span>
-                            ) : (
-                              <span className="text-[10px] sm:text-[11px] bg-gray-100 text-gray-500 font-bold px-2.5 py-0.5 rounded-full">
-                                0/2 Putaran
-                              </span>
-                            )}
-                          </div>
-
-                          {/* 2 Kolom Input: Kolom 1 & Kolom 2 */}
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
-                            {renderRoundSlot(round1Num, 1)}
-                            {renderRoundSlot(round2Num, 2)}
-                          </div>
+                // 1. KOTAK SUDAH DICEKLIST (COMPLETED)
+                if (isCompleted) {
+                  return (
+                    <div
+                      key={roundNum}
+                      className="p-4 rounded-2xl border-2 border-emerald-300 bg-emerald-50/70 shadow-xs transition-all flex flex-col justify-between gap-3 text-emerald-950"
+                    >
+                      {/* Box Header */}
+                      <div className="flex items-center justify-between pb-2 border-b border-emerald-200/80">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-md">
+                            Sesi {slotIndex}
+                          </span>
+                          <span className="text-xs font-black text-emerald-950">
+                            Putaran ke-{roundNum}
+                          </span>
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : (
-                /* Visual Grid 40 Putaran */
-                <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 gap-2 sm:gap-2.5">
-                  {Array.from({ length: 40 }, (_, idx) => {
-                    const roundNum = idx + 1;
-                    const log = logsMap.get(roundNum);
-                    const isCompleted = !!log;
-                    const isNext = roundNum === nextRoundNumber && !isSegmentCompleted;
+                        <div className="flex items-center gap-1 text-[11px] font-semibold text-emerald-800">
+                          <Calendar className="w-3 h-3 text-emerald-600" />
+                          <span>
+                            {new Date(log.completed_at).toLocaleDateString('id-ID', {
+                              day: 'numeric',
+                              month: 'short'
+                            })}
+                          </span>
+                        </div>
+                      </div>
 
-                    if (isCompleted) {
-                      return (
+                      {/* Checklist Item: Centang Hijau */}
+                      <div className="flex items-start gap-3 p-3 rounded-xl bg-white/90 border border-emerald-200 shadow-2xs">
+                        <div className="w-6 h-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+                          <Check className="w-4 h-4 stroke-[3]" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <span className="font-extrabold text-xs text-emerald-950 block">
+                            Sudah Muraja'ah (Tuntas)
+                          </span>
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            {log.methods.map((m) => (
+                              <span
+                                key={m}
+                                className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800"
+                              >
+                                {METHOD_LABEL[m] || m}
+                              </span>
+                            ))}
+                          </div>
+                          {log.notes && (
+                            <p className="text-[10px] text-emerald-800 italic mt-1.5 line-clamp-2">
+                              "{log.notes}"
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Box Footer Actions */}
+                      <div className="flex items-center justify-between pt-1 text-[11px]">
                         <button
-                          key={roundNum}
                           type="button"
                           onClick={() => setSelectedRoundDetails(log)}
-                          className="group relative flex flex-col items-center justify-center p-3 rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-700 text-white shadow-sm hover:shadow-md hover:scale-105 transition-all text-center cursor-pointer"
+                          className="font-bold text-emerald-700 hover:text-emerald-900 hover:underline flex items-center gap-1"
                         >
-                          <div className="flex items-center gap-0.5 text-xs font-black">
-                            <span>{roundNum}</span>
-                            <CheckCircle2 className="w-3 h-3 text-emerald-200" />
-                          </div>
-                          <span className="text-[8px] opacity-80 mt-1 line-clamp-1">
-                            {new Date(log.completed_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
-                          </span>
+                          <span>Rincian</span>
+                          <ChevronRight className="w-3 h-3" />
                         </button>
-                      );
-                    }
 
-                    if (isNext) {
-                      return (
-                        <button
-                          key={roundNum}
-                          type="button"
-                          onClick={handleOpenLogModal}
-                          className={cn(
-                            "flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all text-center",
-                            wajib_murojaah?.is_locked
-                              ? "bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed"
-                              : "bg-amber-50 border-amber-400 text-amber-900 shadow-sm hover:bg-amber-100 hover:scale-105 animate-pulse cursor-pointer"
-                          )}
-                        >
-                          {wajib_murojaah?.is_locked ? (
-                            <>
-                              <Lock className="w-3.5 h-3.5 text-gray-400" />
-                              <span className="text-[8px] font-bold text-gray-500 mt-0.5">Kunci</span>
-                            </>
-                          ) : (
-                            <>
-                              <span className="text-xs font-black text-amber-900">{roundNum}</span>
-                              <span className="text-[9px] font-bold text-amber-700 mt-0.5">Input</span>
-                            </>
-                          )}
-                        </button>
-                      );
-                    }
+                        {isLatest && (
+                          <button
+                            type="button"
+                            disabled={undoing}
+                            onClick={handleUndoLastRound}
+                            className="text-[10px] font-bold text-rose-600 hover:text-rose-800 hover:underline"
+                          >
+                            Batalkan
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
 
+                // 2. KOTAK SIAP DICEKLIST (ACTIVE ROUND)
+                if (isNext) {
+                  if (wajib_murojaah?.is_locked) {
                     return (
                       <div
                         key={roundNum}
-                        className="flex flex-col items-center justify-center p-3 rounded-2xl bg-gray-50 border border-gray-100 text-gray-400 text-center select-none"
+                        className="p-4 rounded-2xl border border-gray-200 bg-gray-50/80 text-gray-500 flex flex-col justify-between gap-3 select-none"
                       >
-                        <span className="text-xs font-semibold">{roundNum}</span>
-                        <span className="text-[8px] text-gray-300 mt-1">-</span>
+                        <div className="flex items-center justify-between pb-2 border-b border-gray-200">
+                          <span className="text-[10px] font-black uppercase tracking-wider bg-gray-200 text-gray-600 px-2 py-0.5 rounded-md">
+                            Sesi {slotIndex}
+                          </span>
+                          <span className="text-xs font-bold text-gray-600">
+                            Putaran ke-{roundNum}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-3 p-3 rounded-xl border border-dashed border-gray-200 bg-white">
+                          <Lock className="w-5 h-5 text-gray-400 shrink-0" />
+                          <div>
+                            <span className="text-xs font-bold text-gray-500 block">Terkunci</span>
+                            <span className="text-[10px] text-gray-400">Selesaikan Murojaah Wajib Pekan 11</span>
+                          </div>
+                        </div>
                       </div>
                     );
-                  })}
-                </div>
-              )}
+                  }
 
-              {/* Legend */}
-              <div className="flex flex-wrap items-center justify-center gap-6 pt-6 text-xs font-medium text-gray-500 border-t border-gray-100">
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded-lg bg-emerald-600" />
-                  <span>Selesai (Klik untuk rincian)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded-lg bg-amber-50 border-2 border-amber-400" />
-                  <span>Siap Diisi (Klik untuk catat)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded-lg bg-gray-50 border border-gray-200" />
-                  <span>Belum Terbuka</span>
-                </div>
+                  return (
+                    <div
+                      key={roundNum}
+                      className="p-4 rounded-2xl border-2 border-emerald-500 bg-white shadow-md ring-4 ring-emerald-500/10 flex flex-col justify-between gap-3 animate-fadeIn"
+                    >
+                      {/* Box Header */}
+                      <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-900 px-2 py-0.5 rounded-md">
+                            Sesi {slotIndex}
+                          </span>
+                          <span className="text-xs font-black text-gray-900">
+                            Putaran ke-{roundNum}
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-900 px-2 py-0.5 rounded-full animate-pulse">
+                          Siap Diisi
+                        </span>
+                      </div>
+
+                      {/* Interactive Checklist Item (Mirip Ceklist Presensi Jurnal) */}
+                      <button
+                        type="button"
+                        onClick={() => handleOpenLogModal(roundNum)}
+                        className="group w-full text-left flex items-start gap-3 p-3 rounded-xl border-2 border-emerald-400 bg-emerald-50/50 hover:bg-emerald-100/70 hover:border-emerald-600 transition-all cursor-pointer shadow-xs active:scale-[0.99]"
+                      >
+                        <div className="w-6 h-6 rounded-lg border-2 border-emerald-600 bg-white group-hover:bg-emerald-600 group-hover:text-white flex items-center justify-center shrink-0 mt-0.5 transition-all shadow-inner">
+                          <Check className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity stroke-[3]" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <span className="font-black text-xs text-gray-900 group-hover:text-emerald-950 block">
+                            Ceklist Sudah Muraja'ah
+                          </span>
+                          <span className="text-[10px] text-gray-500 group-hover:text-emerald-800">
+                            Klik di sini untuk mengisi presensi putaran ke-{roundNum}
+                          </span>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-emerald-600 group-hover:translate-x-0.5 transition-transform mt-0.5" />
+                      </button>
+
+                      {/* Helper Info */}
+                      <p className="text-[10px] text-gray-400 text-center font-medium">
+                        Target 1/2 Juz • Pilihan metode saat ceklist
+                      </p>
+                    </div>
+                  );
+                }
+
+                // 3. KOTAK BELUM TERBUKA (FUTURE ROUNDS)
+                return (
+                  <div
+                    key={roundNum}
+                    className="p-4 rounded-2xl border border-gray-200/80 bg-gray-50/60 text-gray-400 flex flex-col justify-between gap-3 select-none opacity-75"
+                  >
+                    {/* Box Header */}
+                    <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-500 px-2 py-0.5 rounded-md">
+                          Sesi {slotIndex}
+                        </span>
+                        <span className="text-xs font-semibold text-gray-500">
+                          Putaran ke-{roundNum}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-medium text-gray-400">
+                        Belum Terbuka
+                      </span>
+                    </div>
+
+                    {/* Disabled Checklist Item */}
+                    <div
+                      onClick={() => toast.info(`Selesaikan putaran ke-${nextRoundNumber} terlebih dahulu.`)}
+                      className="flex items-start gap-3 p-3 rounded-xl border border-dashed border-gray-200 bg-gray-100/50 cursor-not-allowed"
+                    >
+                      <div className="w-6 h-6 rounded-lg border-2 border-gray-300 bg-gray-50 flex items-center justify-center shrink-0 mt-0.5 text-gray-300">
+                        <Lock className="w-3 h-3" />
+                      </div>
+                      <div>
+                        <span className="font-bold text-xs text-gray-400 block">Belum Terbuka</span>
+                        <span className="text-[10px] text-gray-400">Menunggu putaran sebelumnya tuntas</span>
+                      </div>
+                    </div>
+
+                    <p className="text-[10px] text-gray-400 text-center font-normal">
+                      Akan terbuka secara berurutan
+                    </p>
+                  </div>
+                );
+              };
+
+              return (
+                <Card
+                  key={dayIndex}
+                  className={cn(
+                    "border rounded-2xl overflow-hidden transition-all",
+                    isCurrentDay
+                      ? "bg-amber-50/25 border-amber-300 ring-2 ring-amber-300/40 shadow-sm"
+                      : completedCount === 2
+                      ? "bg-white border-emerald-100 shadow-sm"
+                      : "bg-white border-gray-100 shadow-sm"
+                  )}
+                >
+                  <CardContent className="p-4 sm:p-5 space-y-4">
+                    {/* Day Header (Persis Jurnal Harian) */}
+                    <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+                      <div className="flex items-center gap-2.5">
+                        <div className={cn(
+                          "w-7 h-7 rounded-xl flex items-center justify-center font-black text-xs text-white shadow-sm",
+                          completedCount === 2 
+                            ? "bg-emerald-600" 
+                            : isCurrentDay 
+                            ? "bg-amber-500" 
+                            : "bg-gray-400"
+                        )}>
+                          {dayIndex}
+                        </div>
+                        <div>
+                          <h4 className="text-xs sm:text-sm font-black text-gray-900 leading-tight">
+                            Hari ke-{dayIndex}
+                          </h4>
+                          <p className="text-[10px] text-gray-400 font-medium">
+                            Target: 2 Putaran Muroja'ah
+                          </p>
+                        </div>
+                        {isCurrentDay && (
+                          <span className="text-[10px] bg-amber-100 text-amber-900 font-extrabold px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs">
+                            <Sparkles className="w-3 h-3 text-amber-600" /> Hari Berjalan
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Day Completion Badge */}
+                      {completedCount === 2 ? (
+                        <span className="text-[10px] sm:text-xs bg-emerald-100 text-emerald-800 font-black px-3 py-1 rounded-full flex items-center gap-1 shadow-2xs">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> 2/2 Selesai
+                        </span>
+                      ) : completedCount === 1 ? (
+                        <span className="text-[10px] sm:text-xs bg-amber-100 text-amber-800 font-black px-3 py-1 rounded-full flex items-center gap-1 shadow-2xs">
+                          <Clock className="w-3.5 h-3.5 text-amber-600" /> 1/2 Selesai
+                        </span>
+                      ) : (
+                        <span className="text-[10px] sm:text-xs bg-gray-100 text-gray-500 font-bold px-2.5 py-1 rounded-full">
+                          0/2 Putaran
+                        </span>
+                      )}
+                    </div>
+
+                    {/* DUA KOTAK PER HARI (KOTAK 1 & KOTAK 2) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                      {renderChecklistBox(round1Num, 1)}
+                      {renderChecklistBox(round2Num, 2)}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+
+          {/* Legend / Status Panduan */}
+          <div className="flex flex-wrap items-center justify-center gap-6 pt-4 text-xs font-medium text-gray-500">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded-md bg-emerald-600 flex items-center justify-center text-white">
+                <Check className="w-3 h-3 stroke-[3]" />
               </div>
-            </CardContent>
-          </Card>
+              <span>Sudah Diceklist</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded-md bg-white border-2 border-emerald-500" />
+              <span>Siap Diisi (Hari Berjalan)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded-md bg-gray-100 border border-gray-300" />
+              <span>Belum Terbuka</span>
+            </div>
+          </div>
         </div>
       )}
 
@@ -933,19 +940,13 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
               <li className="flex gap-2.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-600 mt-1.5 shrink-0" />
                 <span>
-                  <strong>Fleksibilitas Harian:</strong> Ukhti diperbolehkan mengisi lebih dari 1 putaran per hari (misal 2 putaran/hari) agar target 20 hari tercapai.
+                  <strong>Reward Warrior:</strong> Berhak mendapatkan <strong>Free Extension</strong> untuk melanjutkan ke porsi berikutnya secara bebas biaya infaq.
                 </span>
               </li>
               <li className="flex gap-2.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-600 mt-1.5 shrink-0" />
                 <span>
-                  <strong>Bebas Biaya Porsi Berikutnya:</strong> Peserta yang menyelesaikan 40x dalam tempo ≤ 20 hari berhak langsung melanjutkan ke porsi/juz berikutnya secara <strong>100% Bebas Biaya (Gratis)</strong>.
-                </span>
-              </li>
-              <li className="flex gap-2.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-600 mt-1.5 shrink-0" />
-                <span>
-                  <strong>Syarat Wajib Naik Juz:</strong> Murojaah 40x wajib tuntas sebelum thalibah diizinkan mendaftar ke juz baru di Batch 3 atau Batch 4.
+                  <strong>Kelulusan Naik Juz:</strong> Menuntaskan 40x putaran merupakan salah satu syarat utama untuk dapat mendaftar ke porsi juz berikutnya.
                 </span>
               </li>
             </ul>
@@ -953,27 +954,29 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
         </div>
       )}
 
-      {/* MODAL INPUT PUTARAN */}
+      {/* MODAL INPUT PRESENSI / CEKLIST PUTARAN */}
       <Dialog open={isLogModalOpen} onOpenChange={setIsLogModalOpen}>
-        <DialogContent className="max-w-md rounded-2xl p-6">
-          <DialogHeader className="space-y-1">
+        <DialogContent className="max-w-md rounded-3xl p-6 space-y-4">
+          <DialogHeader>
             <DialogTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-emerald-700" />
-              Catat Putaran ke-{nextRoundNumber}
+              <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center">
+                <Check className="w-4 h-4 stroke-[3]" />
+              </div>
+              <span>Presensi Muraja'ah — Putaran ke-{nextRoundNumber}</span>
             </DialogTitle>
             <DialogDescription className="text-xs text-gray-500">
-              Segmen: <strong>{activeSegment === 'primary' ? `Juz Utama (${juz_info?.code || '30A'})` : `Bagian A (${juz_info?.optional_part_a_code || '30A'})`}</strong>
+              Porsi {activeSegment === 'primary' ? `Juz Utama (${juz_info?.code})` : `Bagian A (${juz_info?.optional_part_a_code})`} • Tandai kehadiran dan metode yang digunakan
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 my-2">
+          <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-gray-700">Tanggal Penyelesaian</Label>
+              <Label className="text-xs font-bold text-gray-700">Tanggal Muroja'ah</Label>
               <input
                 type="date"
                 value={logDate}
                 onChange={(e) => setLogDate(e.target.value)}
-                className="w-full text-xs font-semibold p-2.5 border rounded-xl border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-700"
+                className="w-full px-3 py-2 text-xs rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
               />
             </div>
 
@@ -1013,7 +1016,7 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
                       <div className={`w-5 h-5 rounded-md border flex items-center justify-center ${
                         isChecked ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-gray-300 bg-white'
                       }`}>
-                        {isChecked && <CheckCircle2 className="w-3.5 h-3.5" />}
+                        {isChecked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
                       </div>
                     </button>
                   );
@@ -1048,7 +1051,7 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
               onClick={handleSaveLog}
               className="bg-emerald-800 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold px-5"
             >
-              {submitting ? 'Menyimpan...' : `Simpan Putaran ke-${nextRoundNumber}`}
+              {submitting ? 'Menyimpan...' : `✓ Simpan & Ceklist Putaran ke-${nextRoundNumber}`}
             </Button>
           </DialogFooter>
         </DialogContent>
