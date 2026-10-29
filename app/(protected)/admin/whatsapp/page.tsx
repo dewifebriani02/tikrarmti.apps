@@ -191,7 +191,7 @@ export default function AdminWhatsAppPage() {
   const [recipients, setRecipients] = useState<ActiveThalibah[]>([]);
   const [isLoadingRecipients, setIsLoadingRecipients] = useState(false);
   const [broadcastTemplate, setBroadcastTemplate] = useState(BROADCAST_TEMPLATES[0].body);
-  const [selectedBroadcastTmpl, setSelectedBroadcastTmpl] = useState('save_number');
+  const [selectedBroadcastTmpl, setSelectedBroadcastTmpl] = useState('klarifikasi_pekan_murojaah');
 
   // Broadcast Runner state
   const [isBroadcasting, setIsBroadcasting] = useState(false);
