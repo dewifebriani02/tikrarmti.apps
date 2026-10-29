@@ -4,6 +4,14 @@ import { createClient } from '@/lib/supabase/server'
 import { createSupabaseAdmin } from '@/lib/supabase'
 import { revalidatePath } from 'next/cache'
 import { isPartnerChoiceLocked } from '@/lib/partner-choice'
+import {
+  PARTNER_CHOICE_LOCKED_SQL,
+  normalizePartnerChoice,
+  validateSelfMatchPartner,
+} from '@/lib/partner-choice-server'
+
+const CHOICE_LOCKED_ERROR =
+  'Pilihan halaqah dan pasangan Ukhti sudah terkunci. Silakan hubungi admin jika perlu perubahan.'
 
 export interface PilihPasanganFormData {
   // Halaqah selection
@@ -51,19 +59,21 @@ export async function submitPilihPasangan(
     return { success: false, error: 'Pilih paket kelas halaqah.' }
   }
 
-  if (!data.partner_type) {
+  const choice = normalizePartnerChoice(data)
+
+  if (!choice.partner_type) {
     return { success: false, error: 'Pilih jenis pasangan belajar.' }
   }
 
-  if (data.partner_type === 'self_match' && !data.partner_user_id) {
+  if (choice.partner_type === 'self_match' && !choice.partner_user_id) {
     return { success: false, error: 'Pilih pasangan belajar.' }
   }
 
-  if ((data.partner_type === 'family' || data.partner_type === 'tarteel') && !data.partner_name) {
+  if ((choice.partner_type === 'family' || choice.partner_type === 'tarteel') && !choice.partner_name) {
     return { success: false, error: 'Isi nama pasangan belajar.' }
   }
 
-  if (data.partner_type === 'family' && !data.partner_relationship) {
+  if (choice.partner_type === 'family' && !choice.partner_relationship) {
     return { success: false, error: 'Pilih hubungan dengan pasangan belajar.' }
   }
 
@@ -78,10 +88,15 @@ export async function submitPilihPasangan(
 
     // A saved choice is final (it reveals WhatsApp numbers); only an admin can reopen it
     if (isPartnerChoiceLocked(existingSub)) {
-      return {
-        success: false,
-        error: 'Pilihan halaqah dan pasangan Ukhti sudah terkunci. Silakan hubungi admin jika perlu perubahan.'
-      };
+      return { success: false, error: CHOICE_LOCKED_ERROR };
+    }
+
+    // Never trust the client's candidate id: it decides whose WhatsApp number is revealed
+    if (choice.partner_user_id) {
+      const partnerError = await validateSelfMatchPartner(authUser.id, registration.batch_id, choice.partner_user_id);
+      if (partnerError) {
+        return { success: false, error: partnerError };
+      }
     }
 
     // 4. Validate halaqah existence and check capacity
@@ -111,7 +126,9 @@ export async function submitPilihPasangan(
 
     // 5. Update or create daftar_ulang_submissions record
     if (existingSub) {
-      await query(
+      // The lock is re-checked in the UPDATE itself, so a concurrent request that locked
+      // the choice after the check above can't be overwritten
+      const { rowCount } = await query(
         `UPDATE daftar_ulang_submissions
          SET ujian_halaqah_id = $1,
              tashih_halaqah_id = $2,
@@ -123,19 +140,22 @@ export async function submitPilihPasangan(
              partner_notes = $8,
              partner_status = 'submitted',
              updated_at = NOW()
-         WHERE id = $9`,
+         WHERE id = $9 AND NOT ${PARTNER_CHOICE_LOCKED_SQL}`,
         [
           data.ujian_halaqah_id,
           data.tashih_halaqah_id || data.ujian_halaqah_id,
-          data.partner_type,
-          data.partner_user_id || null,
-          data.partner_name || null,
-          data.partner_relationship || null,
-          data.partner_wa_phone || null,
-          data.partner_notes || null,
+          choice.partner_type,
+          choice.partner_user_id,
+          choice.partner_name,
+          choice.partner_relationship,
+          choice.partner_wa_phone,
+          choice.partner_notes,
           existingSub.id
         ]
       );
+      if (rowCount === 0) {
+        return { success: false, error: CHOICE_LOCKED_ERROR };
+      }
     } else {
       const reg = await queryOne(
         `SELECT full_name, chosen_juz, main_time_slot, backup_time_slot, wa_phone, address, batch_id
@@ -162,23 +182,23 @@ export async function submitPilihPasangan(
           reg?.address || null,
           data.ujian_halaqah_id,
           data.tashih_halaqah_id || data.ujian_halaqah_id,
-          data.partner_type,
-          data.partner_user_id || null,
-          data.partner_name || null,
-          data.partner_relationship || null,
-          data.partner_wa_phone || null,
-          data.partner_notes || null,
+          choice.partner_type,
+          choice.partner_user_id,
+          choice.partner_name,
+          choice.partner_relationship,
+          choice.partner_wa_phone,
+          choice.partner_notes,
         ]
       );
     }
 
     let isMutualMatch = false;
-    if (data.partner_type === 'self_match' && data.partner_user_id) {
+    if (choice.partner_type === 'self_match' && choice.partner_user_id) {
       const reverseSelection = await queryOne(
         `SELECT id, status, partner_status
          FROM daftar_ulang_submissions
          WHERE user_id = $1 AND partner_user_id = $2 AND batch_id = $3 AND partner_type = 'self_match'`,
-        [data.partner_user_id, authUser.id, registration.batch_id]
+        [choice.partner_user_id, authUser.id, registration.batch_id]
       );
 
       isMutualMatch = Boolean(
@@ -197,13 +217,17 @@ export async function submitPilihPasangan(
     return {
       success: true,
       isMutualMatch,
-      message: data.partner_type === 'self_match'
+      message: choice.partner_type === 'self_match'
         ? isMutualMatch
-          ? `❤️ Kalian sudah saling memilih. Pasangan belajar dengan ${data.partner_name || 'thalibah pilihan Ukhti'} berhasil terbentuk!`
-          : `Pilihan pasangan berhasil dikirim. Menunggu ${data.partner_name || 'thalibah pilihan Ukhti'} memilih Ukhti kembali.`
+          ? `❤️ Kalian sudah saling memilih. Pasangan belajar dengan ${choice.partner_name || 'thalibah pilihan Ukhti'} berhasil terbentuk!`
+          : `Pilihan pasangan berhasil dikirim. Menunggu ${choice.partner_name || 'thalibah pilihan Ukhti'} memilih Ukhti kembali.`
         : 'Halaqah dan pasangan berhasil disimpan.'
     }
   } catch (error: any) {
+    // Another request created this registration's submission at the same time
+    if (error?.code === '23505') {
+      return { success: false, error: 'Data pilihan Ukhti baru saja berubah. Silakan muat ulang halaman dan coba lagi.' }
+    }
     console.error('Submit pilih pasangan error:', error)
     return {
       success: false,

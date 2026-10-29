@@ -5,7 +5,14 @@ import { createSupabaseAdmin } from '@/lib/supabase'
 import { syncApprovedSubmissionToHalaqahStudents } from '@/lib/halaqah-students-sync'
 import { saveUploadedFile, deleteUploadedFile } from '@/lib/storage'
 import { sniffFileType } from '@/lib/file-type'
-import { isPartnerChoiceLocked, withoutPartnerChoiceFields } from '@/lib/partner-choice'
+import { isPartnerChoiceLocked } from '@/lib/partner-choice'
+import {
+  EMPTY_PARTNER_CHOICE,
+  PARTNER_LOCKED_ERROR,
+  normalizePartnerChoice,
+  validateSelfMatchPartner,
+  writePartnerChoice,
+} from '@/lib/partner-choice-server'
 
 const parseDonationAmount = (value: string | number | null | undefined): number | null => {
   if (value === null || value === undefined || value === '') return null
@@ -83,20 +90,14 @@ export async function saveDaftarUlangDraft(
     // Convert empty strings to null for UUID and optional fields
     // IMPORTANT: For draft status, do NOT save halaqah data - only save partner and akad data
     // This ensures draft submissions don't accidentally reserve halaqah slots
-    const draftData = {
+    const cleanedData = {
       confirmed_full_name: data.confirmed_full_name,
       confirmed_chosen_juz: data.confirmed_chosen_juz,
       confirmed_main_time_slot: data.confirmed_main_time_slot,
       confirmed_backup_time_slot: data.confirmed_backup_time_slot,
       confirmed_wa_phone: data.confirmed_wa_phone || null,
       confirmed_address: data.confirmed_address || null,
-      partner_type: data.partner_type || null,
-      partner_user_id: data.partner_user_id || null,
-      partner_name: data.partner_name || null,
-      partner_relationship: data.partner_relationship || null,
-      partner_wa_phone: data.partner_wa_phone || null,
-      partner_notes: data.partner_notes || null,
-      
+
       // Pengabdian & Donasi
       pengabdian_choice: data.pengabdian_choice || null,
       donasi_amount: parseDonationAmount(data.donasi_amount),
@@ -105,8 +106,13 @@ export async function saveDaftarUlangDraft(
       akad_files: data.akad_files || null,
     }
 
-    // A locked partner choice can only be changed by an admin
-    const cleanedData = isPartnerChoiceLocked(existing) ? withoutPartnerChoiceFields(draftData) : draftData
+    // A draft never holds a self-match candidate: partner_user_id is only accepted
+    // (and validated) when the choice is submitted. Partner fields are written
+    // separately, and only while the partner step is still a draft.
+    const draftPartnerChoice = { ...normalizePartnerChoice(data), partner_user_id: null }
+    if (existing) {
+      await writePartnerChoice(existing.id, draftPartnerChoice, 'draft')
+    }
 
     // Use the admin client for the actual write + read-back. Doing the
     // .select().single() immediately after an insert/update through the
@@ -141,7 +147,8 @@ export async function saveDaftarUlangDraft(
           registration_id: registrationId,
           batch_id: registration.batch_id,
           status: 'draft',
-          ...cleanedData
+          ...cleanedData,
+          ...draftPartnerChoice
         })
         .select()
         .single()
@@ -287,7 +294,23 @@ export async function submitDaftarUlang(
       existingErrorCode: existingError?.code
     })
 
-    const fullSubmissionData = {
+    // Partner selection
+    // If halaqah is not selected yet, partner fields MUST be null to prevent
+    // orphaned partner selections from old drafts.
+    const partnerChoice = data.ujian_halaqah_id ? normalizePartnerChoice(data) : EMPTY_PARTNER_CHOICE
+    // Re-submitting (e.g. adding akad) must not rewrite a locked partner choice
+    const writesPartnerChoice = !isPartnerChoiceLocked(existing)
+
+    // Never trust the client's candidate id: it decides whose WhatsApp number is revealed
+    if (writesPartnerChoice && partnerChoice.partner_user_id) {
+      const partnerError = await validateSelfMatchPartner(authUser.id, registration.batch_id, partnerChoice.partner_user_id)
+      if (partnerError) {
+        return { success: false, error: partnerError }
+      }
+    }
+
+    // Partner fields are written separately (see below), never as part of this payload
+    const submissionData = {
       user_id: authUser.id,
       registration_id: registrationId,
       batch_id: registration.batch_id,
@@ -299,16 +322,6 @@ export async function submitDaftarUlang(
       confirmed_backup_time_slot: data.confirmed_backup_time_slot || registration.backup_time_slot,
       confirmed_wa_phone: data.confirmed_wa_phone || registration.wa_phone,
       confirmed_address: data.confirmed_address || registration.address,
-
-      // Partner selection
-      // If halaqah is not selected yet, partner fields MUST be null to prevent
-      // orphaned partner selections from old drafts.
-      partner_type: data.ujian_halaqah_id ? (data.partner_type || null) : null,
-      partner_user_id: data.ujian_halaqah_id ? (data.partner_user_id || null) : null,
-      partner_name: data.ujian_halaqah_id ? (data.partner_name || null) : null,
-      partner_relationship: data.ujian_halaqah_id ? (data.partner_relationship || null) : null,
-      partner_wa_phone: data.ujian_halaqah_id ? (data.partner_wa_phone || null) : null,
-      partner_notes: data.ujian_halaqah_id ? (data.partner_notes || null) : null,
 
       // Pengabdian & Donasi
       pengabdian_choice: (() => {
@@ -334,15 +347,18 @@ export async function submitDaftarUlang(
       updated_at: new Date().toISOString()
     }
 
-    // Re-submitting (e.g. adding akad) must not rewrite a locked partner choice
-    const submissionData = isPartnerChoiceLocked(existing)
-      ? withoutPartnerChoiceFields(fullSubmissionData)
-      : fullSubmissionData
-
     let result
 
     if (existing && (existing.status === 'draft' || existing.status === 'submitted' || existing.status === 'approved')) {
-      // Update existing draft, submitted, or approved to save new halaqah/partner selections
+      // Submitting locks the partner choice (partner_status='submitted'), independent of
+      // the overall status — resetting the akad must not reopen it. The UPDATE re-checks
+      // the lock itself, so a concurrent request can't rewrite a choice locked meanwhile.
+      // It runs before the status change below, which would otherwise count as a lock.
+      if (writesPartnerChoice && !(await writePartnerChoice(existing.id, partnerChoice, 'lock'))) {
+        return { success: false, error: PARTNER_LOCKED_ERROR }
+      }
+
+      // Update existing draft, submitted, or approved to save new halaqah selections
       result = await supabaseAdmin
         .from('daftar_ulang_submissions')
         .update(submissionData)
@@ -350,10 +366,14 @@ export async function submitDaftarUlang(
         .select()
         .single()
     } else if (!existing) {
-      // Create new submission
+      // Create new submission (a concurrent insert fails on the user/registration unique key)
       result = await supabaseAdmin
         .from('daftar_ulang_submissions')
-        .insert(submissionData)
+        .insert({
+          ...submissionData,
+          ...partnerChoice,
+          ...(partnerChoice.partner_type ? { partner_status: 'submitted' as const } : {})
+        })
         .select()
         .single()
     } else {
@@ -744,7 +764,7 @@ export async function resetAkadThalibah(submissionId: string) {
   // Get current submission
   const { data: submission, error: fetchError } = await supabaseAdmin
     .from('daftar_ulang_submissions')
-    .select('user_id, status, akad_files')
+    .select('user_id, status, akad_files, partner_type, partner_status')
     .eq('id', submissionId)
     .single();
 
@@ -782,13 +802,16 @@ export async function resetAkadThalibah(submissionId: string) {
     }
   }
 
-  // Update submission
+  // Update submission. Older rows lock their partner choice only through `status`;
+  // pin that lock in partner_status so resetting the akad doesn't reopen the choice.
+  const keepPartnerLock = isPartnerChoiceLocked(submission) && !submission.partner_status
   const { error: updateError } = await supabaseAdmin
     .from('daftar_ulang_submissions')
     .update({
       akad_files: null,
       akad_status: 'draft',
       status: 'draft',
+      ...(keepPartnerLock ? { partner_status: 'submitted' } : {}),
       updated_at: new Date().toISOString()
     })
     .eq('id', submissionId);

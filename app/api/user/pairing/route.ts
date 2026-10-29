@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { createClient } from '@/lib/supabase/server'
 import { createSupabaseAdmin } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
+import { lockedSelfMatchPartnerId } from '@/lib/partner-choice'
 
 /**
  * GET /api/user/pairing
@@ -62,7 +63,7 @@ export async function GET(request: Request) {
     // 11. Get submission data for family/tarteel/self_match partner details
     const { data: submissionData } = await supabaseAdmin
       .from('daftar_ulang_submissions')
-      .select('id, partner_name, partner_relationship, partner_notes, partner_wa_phone, partner_type, partner_user_id, status')
+      .select('id, partner_name, partner_relationship, partner_notes, partner_wa_phone, partner_type, partner_user_id, partner_status, status')
       .eq('user_id', user.id)
       .eq('batch_id', batchId)
       .in('status', ['draft', 'submitted', 'approved'])
@@ -97,11 +98,15 @@ export async function GET(request: Request) {
       let isMutualMatch = false;
       let partnerDetailsExt: any = null;
 
-      if (submissionData.partner_type === 'self_match' && submissionData.partner_user_id) {
+      // Same rule as /api/daftar-ulang/partners: the chosen thalibah's details (incl. her
+      // WhatsApp) are revealed only once this user has locked her in — an unlocked
+      // partner_user_id can be rewritten and must not open anyone's number
+      const lockedPartnerId = lockedSelfMatchPartnerId(submissionData)
+      if (lockedPartnerId) {
         const { data: pDetails } = await supabaseAdmin
           .from('users')
           .select('full_name, zona_waktu, whatsapp')
-          .eq('id', submissionData.partner_user_id)
+          .eq('id', lockedPartnerId)
           .single()
         if (pDetails) {
           partnerName = pDetails.full_name;
@@ -110,7 +115,7 @@ export async function GET(request: Request) {
         const { data: pReg } = await supabaseAdmin
           .from('pendaftaran_tikrar_tahfidz')
           .select('chosen_juz, main_time_slot, backup_time_slot, timezone')
-          .eq('user_id', submissionData.partner_user_id)
+          .eq('user_id', lockedPartnerId)
           .eq('batch_id', batchId)
           .maybeSingle()
 
@@ -128,7 +133,7 @@ export async function GET(request: Request) {
         const { data: partnerSubmission } = await supabaseAdmin
           .from('daftar_ulang_submissions')
           .select('id, status, partner_status')
-          .eq('user_id', submissionData.partner_user_id)
+          .eq('user_id', lockedPartnerId)
           .eq('partner_user_id', user.id)
           .eq('batch_id', batchId)
           .eq('partner_type', 'self_match')

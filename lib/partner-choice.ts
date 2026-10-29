@@ -8,7 +8,8 @@
  *
  * Self-match WhatsApp numbers are revealed only for locked choices, so the
  * server must never let a thalibah rewrite a locked choice — otherwise she could
- * cycle partner_user_id to harvest every number in the batch.
+ * cycle partner_user_id to harvest every number in the batch. The server-side
+ * enforcement (validation, atomic writes) lives in lib/partner-choice-server.ts.
  */
 
 export interface PartnerChoiceRow {
@@ -37,11 +38,4 @@ export function isPartnerChoiceLocked(row: PartnerChoiceRow | null | undefined):
 export function lockedSelfMatchPartnerId(row: PartnerChoiceRow | null | undefined): string | null {
   if (!row || row.partner_type !== 'self_match' || !row.partner_user_id) return null
   return isPartnerChoiceLocked(row) ? row.partner_user_id : null
-}
-
-/** Copy of `data` without partner fields, for writes against a locked choice */
-export function withoutPartnerChoiceFields<T extends Record<string, any>>(data: T): T {
-  const copy: Record<string, any> = { ...data }
-  for (const field of PARTNER_CHOICE_FIELDS) delete copy[field]
-  return copy as T
 }

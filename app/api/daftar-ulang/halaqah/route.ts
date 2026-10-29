@@ -139,8 +139,7 @@ export async function GET(request: NextRequest) {
         ),
         partner_user_obj:users!daftar_ulang_submissions_partner_user_id_fkey (
           id,
-          full_name,
-          whatsapp
+          full_name
         )
       `)
       .eq('user_id', user.id)
