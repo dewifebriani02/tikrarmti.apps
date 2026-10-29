@@ -114,8 +114,14 @@ export async function checkRateLimit(
   let result;
 
   if (redis && limiter) {
-    // Use Redis rate limiter
-    result = await limiter.limit(identifier);
+    try {
+      result = await limiter.limit(identifier);
+    } catch (error) {
+      // Redis outage must not take the endpoint down (e.g. login) — degrade to the
+      // per-process limiter instead of failing open or throwing.
+      console.error('[rate-limiter] Redis limiter failed, using in-memory fallback:', error);
+      result = checkInMemoryLimit(identifier, fallback.windowSec, fallback.max);
+    }
   } else {
     // In-memory fallback (per process). Defaults are generous for shared IPs;
     // per-account limits pass their own stricter window.
@@ -138,6 +144,26 @@ export async function checkRateLimit(
   }
 
   return result;
+}
+
+/**
+ * Clear a limiter's counter for `identifier` (e.g. per-account login attempts after a
+ * successful login or password reset). Pass the same fallback used in checkRateLimit.
+ * Never throws.
+ */
+export async function resetRateLimit(
+  identifier: string,
+  limiter: Ratelimit | null,
+  fallback: { windowSec: number; max: number } = { windowSec: 120, max: 200 }
+): Promise<void> {
+  inMemoryCache.delete(`${identifier}:${fallback.windowSec}:${fallback.max}`);
+  if (redis && limiter) {
+    try {
+      await limiter.resetUsedTokens(identifier);
+    } catch (error) {
+      console.error('[rate-limiter] Failed to reset Redis limiter:', error);
+    }
+  }
 }
 
 // Get client IP from request

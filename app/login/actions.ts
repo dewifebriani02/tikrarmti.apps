@@ -8,6 +8,7 @@ import {
   getClientIPFromHeaders,
   loginEmailRateLimit,
   LOGIN_EMAIL_LIMIT,
+  resetRateLimit,
 } from '@/lib/rate-limiter';
 import {
   loginWithEmailPassword,
@@ -51,6 +52,9 @@ export async function loginAction(formData: {
     }
 
     const user = authResult.user;
+
+    // Successful login: clear this account's failed-attempt counter
+    await resetRateLimit(`login-email:${cleanEmail}`, loginEmailRateLimit, LOGIN_EMAIL_LIMIT);
 
     // Generate signed JWT session token
     const token = await createSessionToken(
