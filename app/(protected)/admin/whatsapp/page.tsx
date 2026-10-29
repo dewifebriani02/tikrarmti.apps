@@ -92,6 +92,39 @@ const INDIVIDUAL_TEMPLATES = [
 
 const BROADCAST_TEMPLATES = [
   {
+    id: 'klarifikasi_pekan_murojaah',
+    label: 'Klarifikasi Jurnal Pekan Murajaah vs 40x',
+    body: `Assalamu'alaikum Warahmatullahi Wabarakatuh.
+
+Ykh. Ukhti *{nama}*,
+
+Semoga hafalan dan muroja'ah Juz *{juz}* Ukhti senantiasa diberkahi dan dimudahkan oleh Allah Ta'ala.
+
+Sehubungan dengan berjalannya agenda Pekan Muraja'ah Angkatan saat ini, kami dari Tim Akademik MTI ingin menginformasikan perihal pencatatan setoran:
+
+📌 *PEMBERITAHUAN PENTING:*
+Banyak thalibah yang keliru mengisi laporan harian Pekan Muraja'ah di modul "Muraja'ah 40x". Mohon perhatikan perbedaan kedua menu berikut:
+
+1️⃣ *PEKAN MURAJA'AH WAJIB BATCH 3 (M1 s.d. M7):*
+• Diisi melalui menu: *Jurnal Harian* (Pekan ke-11)
+• Tautan: 🔗 https://markaztikrar.id/jurnal-harian
+• Ini adalah kewajiban angkatan berjalan (Senin s.d. Ahad) sebagai syarat kelulusan dan syarat mengikuti Ujian Akhir Batch 3.
+
+2️⃣ *PROGRAM MURAJA'AH 40X (PASCA-KELULUSAN):*
+• Terletak di menu terpisah: *Muraja'ah 40x*
+• Program ini khusus penguatan hafalan pasca-kelulusan dan baru dapat dibuka setelah seluruh Muroja'ah Wajib Pekan 11 (M1–M7) tuntas disetor.
+
+Bagi Ukhti yang kemarin sempat mengisi di modul Muraja'ah 40x, mohon untuk segera menginputkan kembali setoran hariannya di lembar *Jurnal Harian (Pekan Muraja'ah)* pada tautan di atas.
+
+*(Mohon tidak membalas pesan ini karena dikirim secara otomatis oleh sistem).*
+
+Jazakillahu khairan.
+Wassalamu'alaikum Warahmatullahi Wabarakatuh.
+━━━━━━━━━━━━━━
+Tim Akademik Markaz Tikrar Indonesia
+🌐 https://markaztikrar.id`,
+  },
+  {
     id: 'save_number',
     label: 'Pengumuman Nomor Resmi WhatsApp MTI',
     body: `Assalamu'alaikum Warahmatullahi Wabarakatuh.
