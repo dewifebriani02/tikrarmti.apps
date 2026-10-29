@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { apiRequest } from '@/lib/fetch-wrapper';
 import { toast } from 'sonner';
 import { cn, parseAkadFiles } from '@/lib/utils';
 import {
@@ -1194,12 +1194,7 @@ export function DaftarUlangV2Tab({ batchId: initialBatchId }: DaftarUlangTabProp
     if (!window.confirm('Apakah Ukhti yakin ingin menghapus data daftar ulang ini secara permanen?')) return;
     
     try {
-      const { error } = await createClient()
-        .from('daftar_ulang_submissions')
-        .delete()
-        .eq('id', submissionId);
-        
-      if (error) throw error;
+      await apiRequest(`/api/admin/daftar-ulang/${submissionId}`, { method: 'DELETE' });
       toast.success('Data berhasil dihapus');
       loadSubmissions();
       loadStats();

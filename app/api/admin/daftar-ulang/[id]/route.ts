@@ -116,3 +116,37 @@ export async function PUT(
     return ApiResponses.handleUnknown(error);
   }
 }
+
+/**
+ * DELETE /api/admin/daftar-ulang/[id] — admin permanently deletes a daftar ulang submission.
+ */
+export async function DELETE(
+  _request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const authError = await requireAdmin();
+    if (authError) return authError;
+
+    const supabaseAdmin = createSupabaseAdmin();
+    const { data, error } = await supabaseAdmin
+      .from('daftar_ulang_submissions')
+      .delete()
+      .eq('id', params.id)
+      .select('id')
+      .single();
+
+    if (error || !data) {
+      if (error && error.code !== 'PGRST116') {
+        console.error('[Admin Daftar Ulang Delete API] Error:', error);
+        return ApiResponses.databaseError(error);
+      }
+      return ApiResponses.notFound('Data daftar ulang tidak ditemukan');
+    }
+
+    return ApiResponses.success(null, 'Data berhasil dihapus');
+  } catch (error) {
+    console.error('[Admin Daftar Ulang Delete API] Unexpected error:', error);
+    return ApiResponses.handleUnknown(error);
+  }
+}
