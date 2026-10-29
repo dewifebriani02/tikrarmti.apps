@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -26,7 +27,8 @@ import {
   BookOpen,
   MessageCircle,
   AlertTriangle,
-  RefreshCw
+  RefreshCw,
+  Lock
 } from 'lucide-react';
 import { MurojaahMethod, MurojaahSegment, Murojaah40xLog, Murojaah40xProgress } from '@/types/database';
 import { MurojaahCommunityDirectory } from './MurojaahCommunityDirectory';
@@ -123,6 +125,10 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
   };
 
   const handleOpenLogModal = () => {
+    if (wajib_murojaah?.is_locked) {
+      toast.error(wajib_murojaah.reason || 'Program Murojaah 40x terkunci sebelum Murojaah Wajib Pekan 11 tuntas.');
+      return;
+    }
     if (data?.warrior?.is_expired) {
       toast.error('Tantangan 20 hari telah berakhir. Silakan re-registrasi porsi untuk memulai siklus baru.');
       setIsEnrollModalOpen(true);
@@ -225,7 +231,7 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
     );
   }
 
-  const { progress, primary_logs = [], part_a_logs = [], warrior, juz_info, all_enrolled_juz = [] } = data || {};
+  const { progress, primary_logs = [], part_a_logs = [], warrior, juz_info, all_enrolled_juz = [], wajib_murojaah } = data || {};
   const currentLogs: Murojaah40xLog[] = activeSegment === 'primary' ? primary_logs : part_a_logs;
   const currentCompletedCount = currentLogs.length;
   const nextRoundNumber = currentCompletedCount + 1;
@@ -372,6 +378,35 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
         </div>
       )}
 
+            {/* WAJIB MUROJAAH LOCKED WARNING BANNER */}
+      {wajib_murojaah?.is_locked && (
+        <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-sm animate-fadeIn">
+          <div className="flex items-start gap-3 text-amber-950">
+            <div className="w-10 h-10 rounded-xl bg-amber-200/70 border border-amber-300 flex items-center justify-center shrink-0 mt-0.5">
+              <Lock className="w-5 h-5 text-amber-900" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-black text-amber-950 text-sm">Murojaah 40x Terkunci Sementara</span>
+                <span className="bg-amber-200 text-amber-900 font-extrabold text-[10px] px-2 py-0.5 rounded-full">
+                  {wajib_murojaah.wajib_completed}/{wajib_murojaah.wajib_total} Wajib Tuntas
+                </span>
+              </div>
+              <p className="text-[11px] text-amber-800 mt-1 leading-relaxed">
+                Afwan Ukhti, sesuai kurikulum MTI, peserta angkatan berjalan wajib menuntaskan <strong>Murojaah Wajib Pekan 11 (M1 s.d. M7)</strong> di Jurnal Harian terlebih dahulu sebelum membuka porsi Murojaah 40x pasca-kelulusan.
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            asChild
+            className="bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shrink-0 shadow-xs"
+          >
+            <a href="/jurnal-harian">Isi Murojaah Wajib &rarr;</a>
+          </Button>
+        </div>
+      )}
+
       {/* 2. MAIN 3-TABS NAVIGATION: Tracker vs Komunitas Simak vs Panduan */}
       <div className="grid grid-cols-3 gap-1.5 sm:gap-2 p-1.5 bg-gray-100 rounded-2xl border border-gray-200/80">
         <button
@@ -497,10 +532,25 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
               {!isSegmentCompleted && (
                 <Button
                   onClick={handleOpenLogModal}
-                  className="bg-emerald-800 hover:bg-emerald-700 text-white rounded-xl shadow-md shadow-emerald-800/10 font-bold text-xs sm:text-sm px-4 py-2 gap-1.5"
+                  disabled={wajib_murojaah?.is_locked}
+                  className={cn(
+                    "rounded-xl shadow-md font-bold text-xs sm:text-sm px-4 py-2 gap-1.5 transition-all",
+                    wajib_murojaah?.is_locked
+                      ? "bg-gray-200 text-gray-500 cursor-not-allowed shadow-none"
+                      : "bg-emerald-800 hover:bg-emerald-700 text-white shadow-emerald-800/10"
+                  )}
                 >
-                  <Plus className="w-4 h-4" />
-                  <span>Catat Putaran ke-{nextRoundNumber}</span>
+                  {wajib_murojaah?.is_locked ? (
+                    <>
+                      <Lock className="w-4 h-4 text-gray-500" />
+                      <span>Terkunci (Selesaikan Wajib)</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4" />
+                      <span>Catat Putaran ke-{nextRoundNumber}</span>
+                    </>
+                  )}
                 </Button>
               )}
             </div>
@@ -541,10 +591,24 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
                         key={roundNum}
                         type="button"
                         onClick={handleOpenLogModal}
-                        className="flex flex-col items-center justify-center p-3 rounded-2xl bg-amber-50 border-2 border-amber-400 text-amber-900 shadow-sm hover:bg-amber-100 hover:scale-105 transition-all text-center animate-pulse cursor-pointer"
+                        className={cn(
+                          "flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all text-center",
+                          wajib_murojaah?.is_locked
+                            ? "bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed"
+                            : "bg-amber-50 border-amber-400 text-amber-900 shadow-sm hover:bg-amber-100 hover:scale-105 animate-pulse cursor-pointer"
+                        )}
                       >
-                        <span className="text-xs font-black text-amber-900">{roundNum}</span>
-                        <span className="text-[9px] font-bold text-amber-700 mt-0.5">Input</span>
+                        {wajib_murojaah?.is_locked ? (
+                          <>
+                            <Lock className="w-3.5 h-3.5 text-gray-400" />
+                            <span className="text-[8px] font-bold text-gray-500 mt-0.5">Kunci</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-xs font-black text-amber-900">{roundNum}</span>
+                            <span className="text-[9px] font-bold text-amber-700 mt-0.5">Input</span>
+                          </>
+                        )}
                       </button>
                     );
                   }

@@ -2,11 +2,88 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { query, queryOne } from '@/lib/db';
 import { MurojaahMethod, MurojaahSegment } from '@/types/database';
+import { parseBlokField } from '@/lib/blok';
 import { getTimeSlotLabel } from '@/lib/murojaah';
 
 export const dynamic = 'force-dynamic';
 
 const VALID_METHODS: MurojaahMethod[] = ['pasangan', 'tarteel', 'sholat', 'aktifitas_lain'];
+
+
+/**
+ * Helper to check whether user has completed all mandatory Murojaah blocks (M1..M7)
+ * in their active/latest batch before allowing Murojaah 40x.
+ */
+async function checkMurojaahWajibStatus(userId: string, targetBatchId?: string | null): Promise<{
+  is_locked: boolean;
+  reason?: string;
+  wajib_completed: number;
+  wajib_total: number;
+  completed_codes: string[];
+}> {
+  let batchId = targetBatchId;
+  if (!batchId) {
+    const reg = await queryOne(
+      `SELECT batch_id FROM pendaftaran_tikrar_tahfidz WHERE user_id = $1 AND status = 'approved' ORDER BY created_at DESC LIMIT 1`,
+      [userId]
+    );
+    batchId = reg?.batch_id;
+  }
+
+  // If user has no batch registration at all (e.g. general user / alumni without active batch), do not lock
+  if (!batchId) {
+    return {
+      is_locked: false,
+      wajib_completed: 7,
+      wajib_total: 7,
+      completed_codes: ['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7']
+    };
+  }
+
+  // Get batch start / opening date
+  const batch = await queryOne(`SELECT id, name, start_date, opening_class_date FROM batches WHERE id = $1`, [batchId]);
+  let dateFilter = '1970-01-01';
+  if (batch?.opening_class_date) {
+    const d = new Date(batch.opening_class_date);
+    d.setDate(d.getDate() - 1);
+    dateFilter = d.toISOString().split('T')[0];
+  } else if (batch?.start_date) {
+    const d = new Date(batch.start_date);
+    d.setDate(d.getDate() - 1);
+    dateFilter = d.toISOString().split('T')[0];
+  }
+
+  // Fetch journal records for this user
+  const { rows: jurnalRows } = await query(
+    `SELECT blok FROM jurnal_records WHERE user_id = $1 AND (tanggal_setor >= $2 OR created_at >= $2)`,
+    [userId, dateFilter]
+  );
+
+  const completedCodes = new Set<string>();
+  jurnalRows.forEach((r) => {
+    const bloks = parseBlokField(r.blok);
+    bloks.forEach(b => {
+      const upper = b.toUpperCase();
+      if (/^M[1-7]$/.test(upper)) {
+        completedCodes.add(upper);
+      }
+    });
+  });
+
+  const wajibCompleted = completedCodes.size;
+  const wajibTotal = 7;
+  const isLocked = wajibCompleted < wajibTotal;
+
+  return {
+    is_locked: isLocked,
+    reason: isLocked
+      ? `Afwan Ukhti, Program Murojaah 40x terkunci. Ukhti wajib menuntaskan Murojaah Wajib Pekan 11 (M1 s.d. M7) di angkatan berjalan terlebih dahulu (${wajibCompleted}/7 tuntas).`
+      : undefined,
+    wajib_completed: wajibCompleted,
+    wajib_total: wajibTotal,
+    completed_codes: Array.from(completedCodes)
+  };
+}
 
 /**
  * GET /api/alumni/murojaah-40x
@@ -163,6 +240,9 @@ export async function GET(request: NextRequest) {
     // 6. Check if user is eligible for free renewal / extension
     const hasAnyWarriorBadge = Boolean(userBadge) || Boolean(progress.is_warrior_eligible);
 
+    // 7. Check if Murojaah 40x is locked pending mandatory murojaah (M1..M7)
+    const wajibStatus = await checkMurojaahWajibStatus(targetId, batchId);
+
     return NextResponse.json({
       success: true,
       data: {
@@ -174,6 +254,7 @@ export async function GET(request: NextRequest) {
         primary_logs: primaryLogs,
         part_a_logs: partALogs,
         all_enrolled_juz: allEnrolledRows,
+        wajib_murojaah: wajibStatus,
         warrior: {
           is_eligible: isWarriorEligible,
           has_badge: isWarriorAchieved,
@@ -258,7 +339,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Data progres Murojaah 40x tidak ditemukan. Silakan muat ulang halaman.' }, { status: 404 });
     }
 
-    // 4. Check if 20-day challenge has expired
+    // 4. Check if mandatory murojaah (M1..M7) is completed
+    const wajibCheck = await checkMurojaahWajibStatus(user.id, progress.batch_id);
+    if (wajibCheck.is_locked) {
+      return NextResponse.json({
+        success: false,
+        error: wajibCheck.reason || 'Afwan Ukhti, Program Murojaah 40x terkunci sebelum Murojaah Wajib Pekan 11 (M1 s.d. M7) tuntas.'
+      }, { status: 403 });
+    }
+
+    // 5. Check if 20-day challenge has expired
     if (progress.expires_at) {
       const expiry = new Date(progress.expires_at);
       const now = new Date();
