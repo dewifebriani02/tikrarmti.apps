@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { getAuthorizationContext, hasAnyRole } from '@/lib/rbac'
 
 export interface TashihFormData {
   id?: string
@@ -203,6 +204,14 @@ export async function getJuzOption(code: string) {
 
 export async function getWeekTashihRecords(userId: string, batchId?: string | null) {
   try {
+    // Server actions are callable from any client — never trust the userId argument.
+    // Only the user herself or staff (admin/musyrifah) may read someone's tashih records.
+    const context = await getAuthorizationContext()
+    if (!context) return []
+    if (userId !== context.userId && !hasAnyRole(context, ['admin', 'musyrifah'])) {
+      return []
+    }
+
     const { query } = await import('@/lib/db')
 
     let dateFilter = '1970-01-01'

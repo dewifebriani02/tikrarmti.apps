@@ -17,7 +17,11 @@ export function safeRedirectPath(value: string | null | undefined, fallback = '/
     const base = 'http://safe-redirect.invalid';
     const url = new URL(target, base);
     if (url.origin !== base) return fallback;
-    return `${url.pathname}${url.search}${url.hash}`;
+    const result = `${url.pathname}${url.search}${url.hash}`;
+    // Normalization can turn "/.//evil.com" or "/a/..//evil.com" into "//evil.com",
+    // which browsers treat as protocol-relative — re-check the final value.
+    if (!result.startsWith('/') || result.startsWith('//') || result.startsWith('/\\')) return fallback;
+    return result;
   } catch {
     return fallback;
   }

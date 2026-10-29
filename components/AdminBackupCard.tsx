@@ -142,7 +142,7 @@ export function AdminBackupCard() {
                 <span>Kirimkan Backup Sekarang ke Email:</span>
               </span>
               <span className="text-[11px] font-normal text-gray-500">
-                Bisa diisi email apa saja untuk pengujian/arsip
+                Hanya email default, email Ukhti sendiri, atau yang terdaftar di BACKUP_ALLOWED_RECIPIENTS
               </span>
             </Label>
 

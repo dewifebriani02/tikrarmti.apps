@@ -1,9 +1,26 @@
-import { requireAdmin } from '@/lib/rbac';
+import { requireAdmin, getAuthorizationContext } from '@/lib/rbac';
 import { ApiResponses } from '@/lib/api-responses';
 import { NextRequest, NextResponse } from 'next/server';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import path from 'path';
 import fs from 'fs';
+
+const DEFAULT_BACKUP_RECIPIENT = 'markaztikrarindonesia@gmail.com';
+
+/**
+ * Backups contain the whole database, so they may only be sent to known addresses:
+ * the default/notification address, BACKUP_ALLOWED_RECIPIENTS (comma-separated),
+ * or the requesting admin's own email.
+ */
+function getAllowedRecipients(ownEmail: string | undefined): Set<string> {
+  const list = [
+    DEFAULT_BACKUP_RECIPIENT,
+    process.env.BACKUP_NOTIFICATION_EMAIL,
+    ...(process.env.BACKUP_ALLOWED_RECIPIENTS || '').split(','),
+    ownEmail,
+  ];
+  return new Set(list.map(e => (e || '').trim().toLowerCase()).filter(Boolean));
+}
 
 /**
  * GET /api/admin/backup
@@ -40,7 +57,7 @@ export async function GET(request: NextRequest) {
     }
 
     return ApiResponses.success({
-      recipient_email: process.env.BACKUP_NOTIFICATION_EMAIL || 'markaztikrarindonesia@gmail.com',
+      recipient_email: process.env.BACKUP_NOTIFICATION_EMAIL || DEFAULT_BACKUP_RECIPIENT,
       total_local_backups: files.length,
       backups: files,
       recent_logs: lastLog,
@@ -59,8 +76,9 @@ export async function POST(request: NextRequest) {
   try {
     const authError = await requireAdmin();
     if (authError) return authError;
+    const context = await getAuthorizationContext();
 
-    let targetEmail = 'markaztikrarindonesia@gmail.com';
+    let targetEmail = process.env.BACKUP_NOTIFICATION_EMAIL || DEFAULT_BACKUP_RECIPIENT;
     try {
       const body = await request.json();
       if (body.recipient_email && typeof body.recipient_email === 'string' && body.recipient_email.trim()) {
@@ -68,14 +86,24 @@ export async function POST(request: NextRequest) {
       }
     } catch (e) {}
 
+    targetEmail = targetEmail.toLowerCase();
+    if (!getAllowedRecipients(context?.email).has(targetEmail)) {
+      return NextResponse.json(
+        { success: false, error: 'Email penerima backup tidak diizinkan. Gunakan email default, email Ukhti sendiri, atau tambahkan ke BACKUP_ALLOWED_RECIPIENTS.' },
+        { status: 403 }
+      );
+    }
+
+    console.info(`[Admin Backup] Manual backup requested by ${context?.email} -> ${targetEmail}`);
+
     const scriptPath = path.join(process.cwd(), 'scripts', 'daily-backup-email.js');
 
-    // Run script asynchronously with custom target email
+    // execFile passes the email as a plain argument — no shell, so no command injection
     const result = await new Promise((resolve, reject) => {
-      exec(`node "${scriptPath}" "${targetEmail}"`, { timeout: 120000 }, (error, stdout, stderr) => {
+      execFile(process.execPath, [scriptPath, targetEmail], { timeout: 120000 }, (error, stdout, stderr) => {
         if (error) {
           console.error('[Backup Manual Trigger Error]:', error, stderr);
-          reject(new Error(stderr || error.message));
+          reject(new Error('Gagal menjalankan proses backup'));
         } else {
           resolve(stdout);
         }

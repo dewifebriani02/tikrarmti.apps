@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { queryOne } from '@/lib/db';
 import { changeUserPassword, verifyPasswordResetToken } from '@/lib/auth';
 import { logger } from '@/lib/logger-secure';
+import { loginEmailRateLimit, LOGIN_EMAIL_LIMIT, resetRateLimit } from '@/lib/rate-limiter';
 
 /**
  * Step 3 of password reset: set a new password. The target account comes
@@ -51,6 +52,8 @@ export async function POST(request: NextRequest) {
     }
 
     await changeUserPassword(user.id, new_password);
+    // New password: let the owner log in right away even if the account was locked out
+    await resetRateLimit(`login-email:${email}`, loginEmailRateLimit, LOGIN_EMAIL_LIMIT);
 
     logger.info('Password reset successfully via OTP', {
       email: email.replace(/(.{2}).*(@.*)/, '$1***$2')

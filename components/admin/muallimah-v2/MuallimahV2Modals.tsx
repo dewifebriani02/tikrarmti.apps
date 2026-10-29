@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
-import { createClient } from '@/lib/supabase/client';
+import { apiRequest } from '@/lib/fetch-wrapper';
 import { toast } from 'sonner';
 
 interface BaseModalProps {
@@ -20,30 +20,23 @@ export function MuallimahReviewModal({
   onClose, 
   reviewData, 
   onRefresh, 
-  user 
 }: BaseModalProps & { 
   reviewData: MuallimahV2Type | null, 
   onRefresh: () => void,
-  user: any
+  /** No longer used — the reviewer is recorded server-side. Kept so callers don't break. */
+  user?: unknown
 }) {
   const [isProcessing, setIsProcessing] = useState(false);
-  const supabase = createClient();
 
   if (!isOpen || !reviewData) return null;
 
   const handleAction = async (status: 'approved' | 'rejected') => {
     setIsProcessing(true);
     try {
-      const { error } = await supabase
-        .from('muallimah_akads')
-        .update({
-          status,
-          reviewed_at: new Date().toISOString(),
-          reviewed_by: user?.id
-        })
-        .eq('id', reviewData.id);
-      
-      if (error) throw error;
+      await apiRequest(status === 'approved' ? '/api/admin/muallimah/approve' : '/api/admin/muallimah/reject', {
+        method: 'POST',
+        body: { id: reviewData.id },
+      });
       toast.success(`Pendaftaran berhasil di-${status}`);
       onRefresh();
       onClose();
@@ -408,7 +401,6 @@ export function MuallimahEditModal({
   batches?: any[];
   onRefresh: () => void;
 }) {
-  const supabase = createClient();
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'akad' | 'biodata' | 'latar_belakang'>('akad');
 
@@ -643,21 +635,10 @@ export function MuallimahEditModal({
         akadPayload.batch_id = batchId;
       }
 
-      const { error: akadError } = await supabase
-        .from('muallimah_akads')
-        .update(akadPayload)
-        .eq('id', editData.id);
-
-      if (akadError) {
-        if (akadError.message?.includes('violates unique constraint') || akadError.code === '23505') {
-          throw new Error('Ustadzah ini sudah terdaftar di Batch yang dipilih (Duplikat). Silakan pilih Batch lain atau ubah status pendaftaran yang lama.');
-        }
-        throw akadError;
-      }
-
       // Update Registrations (Profile)
+      let profilePayload: Record<string, unknown> | undefined;
       if (editData.profile_id) {
-        const profilePayload = {
+        profilePayload = {
           full_name: fullName,
           whatsapp,
           email,
@@ -683,26 +664,18 @@ export function MuallimahEditModal({
           examined_juz: examinedJuz,
           certified_juz: certifiedJuz
         };
-        const { error: profileError } = await supabase
-          .from('muallimah_registrations')
-          .update(profilePayload)
-          .eq('id', editData.profile_id);
-
-        if (profileError) throw profileError;
       }
 
-      // Update User if needed
-      if (editData.user_id) {
-        const { error: userError } = await supabase
-          .from('users')
-          .update({
-            full_name: fullName,
-            whatsapp,
-          })
-          .eq('id', editData.user_id);
-          
-        if (userError) console.error("Failed updating user:", userError);
-      }
+      // Akad, profile and user name/WhatsApp are saved together in one transaction
+      await apiRequest(`/api/admin/muallimah/akad/${editData.id}`, {
+        method: 'PATCH',
+        body: {
+          akad: akadPayload,
+          profile_id: editData.profile_id || undefined,
+          profile: profilePayload,
+          user: editData.user_id ? { full_name: fullName, whatsapp } : undefined,
+        },
+      });
 
       toast.success('Data pendaftaran Mu\'allimah berhasil diperbarui');
       onRefresh();

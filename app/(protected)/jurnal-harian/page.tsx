@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Loader2, Info, Ban, Sparkles, ShieldCheck, BookOpen } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
@@ -119,6 +119,7 @@ export default function JurnalHarianPage() {
   // View states
   const [viewMode, setViewMode] = useState<'status' | 'form'>('status')
   const [currentWeekNumber, setCurrentWeekNumber] = useState<number>(1)
+  const mainContainerRef = useRef<HTMLDivElement>(null)
 
   const hasNoActiveRegistration = !activeRegistration && !isAdmin
 
@@ -213,6 +214,15 @@ export default function JurnalHarianPage() {
       catatan_tambahan: ''
     }))
     setViewMode('form')
+    if (typeof window !== 'undefined') {
+      setTimeout(() => {
+        if (mainContainerRef.current) {
+          mainContainerRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        } else {
+          window.scrollTo({ top: 0, behavior: 'smooth' })
+        }
+      }, 50)
+    }
   }
 
   const handleFormSubmit = async (data: any) => {
@@ -237,6 +247,15 @@ export default function JurnalHarianPage() {
         toast.success(result.message || 'Jurnal berhasil disimpan!')
         await mutateJurnalStatus()
         setViewMode('status')
+        if (typeof window !== 'undefined') {
+          setTimeout(() => {
+            if (mainContainerRef.current) {
+              mainContainerRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            } else {
+              window.scrollTo({ top: 0, behavior: 'smooth' })
+            }
+          }, 50)
+        }
       } else {
         toast.error(result.error)
       }
@@ -294,7 +313,7 @@ export default function JurnalHarianPage() {
   const totalBlocks = jurnalStatus?.summary?.total_blocks || 40
 
   return (
-    <div className={`mx-auto px-3 sm:px-4 py-6 sm:py-8 space-y-6 animate-fadeInUp ${currentProgramMode === 'pra-tikrar' ? 'max-w-4xl' : 'max-w-2xl'}`}>
+    <div ref={mainContainerRef} className={`mx-auto px-3 sm:px-4 py-6 sm:py-8 space-y-6 animate-fadeInUp ${currentProgramMode === 'pra-tikrar' ? 'max-w-4xl' : 'max-w-2xl'}`}>
       {/* Program Selector Tabs - Dapat dipilih bebas oleh Thalibah maupun Admin */}
       <div className="grid grid-cols-2 gap-2 sm:gap-3 rounded-2xl border border-gray-100 bg-white p-1.5 sm:p-2 shadow-xs">
         <button
@@ -383,7 +402,18 @@ export default function JurnalHarianPage() {
               initialData={jurnalData}
               isSubmitting={isSubmitting}
               onSubmit={handleFormSubmit}
-              onCancel={() => setViewMode('status')}
+              onCancel={() => {
+                setViewMode('status')
+                if (typeof window !== 'undefined') {
+                  setTimeout(() => {
+                    if (mainContainerRef.current) {
+                      mainContainerRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                    } else {
+                      window.scrollTo({ top: 0, behavior: 'smooth' })
+                    }
+                  }, 50)
+                }
+              }}
             />
           )}
         </div>

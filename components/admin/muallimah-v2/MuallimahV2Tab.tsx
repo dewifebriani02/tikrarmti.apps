@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
-import { createClient } from '@/lib/supabase/client';
+import { apiRequest } from '@/lib/fetch-wrapper';
 import { CheckCircle } from 'lucide-react';
 
 import { MuallimahV2Type, MuallimahV2StatsData } from './types';
@@ -13,7 +13,6 @@ import { MuallimahReviewModal, MuallimahBulkConfirmModal, MuallimahUnapproveModa
 import { AdminDeleteModal } from '@/components/AdminDeleteModal';
 
 export function MuallimahV2Tab({ user }: { user: any }) {
-  const supabase = createClient();
   
   // State
   const [muallimah, setMuallimah] = useState<MuallimahV2Type[]>([]);
@@ -138,12 +137,7 @@ export function MuallimahV2Tab({ user }: { user: any }) {
   const handleDeleteConfirm = async () => {
     if (!selectedRegistration) return;
     try {
-      const { error } = await supabase
-        .from('muallimah_akads')
-        .delete()
-        .eq('id', selectedRegistration.id);
-      
-      if (error) throw error;
+      await apiRequest(`/api/admin/muallimah/akad/${selectedRegistration.id}`, { method: 'DELETE' });
       toast.success('Pendaftaran berhasil dihapus');
       fetchMuallimahData();
     } catch (error: any) {
@@ -157,15 +151,10 @@ export function MuallimahV2Tab({ user }: { user: any }) {
   const handleUnapproveConfirm = async (reason: string) => {
     if (!selectedRegistration) return;
     try {
-      const { error } = await supabase
-        .from('muallimah_akads')
-        .update({
-          status: 'pending',
-          review_notes: reason
-        })
-        .eq('id', selectedRegistration.id);
-      
-      if (error) throw error;
+      await apiRequest('/api/admin/muallimah/unapprove', {
+        method: 'POST',
+        body: { id: selectedRegistration.id, review_notes: reason },
+      });
       toast.success('Persetujuan dibatalkan');
       fetchMuallimahData();
     } catch (error: any) {
@@ -180,17 +169,14 @@ export function MuallimahV2Tab({ user }: { user: any }) {
     if (selectedIds.length === 0 || !bulkAction) return;
     setIsBulkProcessing(true);
     try {
-      const { error } = await supabase
-        .from('muallimah_akads')
-        .update({
-          status: bulkAction === 'approve' ? 'approved' : 'rejected',
-          reviewed_at: new Date().toISOString(),
-          reviewed_by: user?.id,
-          review_notes: null
-        })
-        .in('id', selectedIds);
-      
-      if (error) throw error;
+      const endpoint = bulkAction === 'approve' ? '/api/admin/muallimah/approve' : '/api/admin/muallimah/reject';
+      const results = await Promise.allSettled(
+        selectedIds.map(id => apiRequest(endpoint, { method: 'POST', body: { id } }))
+      );
+      const failed = results.filter(r => r.status === 'rejected').length;
+      if (failed > 0) {
+        throw new Error(`${failed} dari ${selectedIds.length} pendaftaran gagal diproses`);
+      }
       toast.success(`${selectedIds.length} pendaftaran berhasil di-${bulkAction}`);
       setSelectedIds([]);
       fetchMuallimahData();
@@ -243,12 +229,10 @@ export function MuallimahV2Tab({ user }: { user: any }) {
 
   const handleToggleExcludeCapacity = async (id: string, exclude: boolean) => {
     try {
-      const { error } = await supabase
-        .from('muallimah_akads')
-        .update({ exclude_from_capacity: exclude })
-        .eq('id', id);
-      
-      if (error) throw error;
+      await apiRequest(`/api/admin/muallimah/akad/${id}`, {
+        method: 'PATCH',
+        body: { akad: { exclude_from_capacity: exclude } },
+      });
       toast.success(exclude ? 'Muallimah dikecualikan dari kapasitas' : 'Muallimah diikutkan dalam kapasitas');
       fetchMuallimahData();
     } catch (error: any) {

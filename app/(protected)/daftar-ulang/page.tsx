@@ -1741,18 +1741,8 @@ function PartnerSelectionStep({
                     {filteredPartners.map((partner) => {
                       const reg = partner.registrations?.[0]
                       
-                      // Calculate age
-                      let ageText = '-'
-                      if (reg?.birth_date) {
-                        const today = new Date()
-                        const birthDate = new Date(reg.birth_date)
-                        let age = today.getFullYear() - birthDate.getFullYear()
-                        const m = today.getMonth() - birthDate.getMonth()
-                        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-                          age--
-                        }
-                        ageText = `${age} thn`
-                      }
+                      // Age is computed server-side; the exact birth date is not sent
+                      const ageText = typeof reg?.age === 'number' ? `${reg.age} thn` : '-'
 
                       // Format wa phone
                       const cleanPhone = reg?.wa_phone?.replace(/\D/g, '') || ''
@@ -1848,7 +1838,9 @@ function PartnerSelectionStep({
                                 Hubungi via WA
                               </a>
                             ) : (
-                              <span className="text-xs text-gray-400">No WA tidak tersedia</span>
+                              <span className="text-xs text-gray-400">
+                                {partner.can_contact ? 'No WA tidak tersedia' : 'No WA tampil setelah salah satu mengunci pilihan'}
+                              </span>
                             )}
                           </div>
                         </div>
@@ -1857,6 +1849,11 @@ function PartnerSelectionStep({
                   </div>
                 )}
 
+                {formData.partner_user_id && (
+                  <p className="mt-3 text-xs text-gray-600">
+                    Setelah daftar ulang dikirim, pilihan ini terkunci dan hanya bisa diubah lewat admin. Nomor WhatsApp pasangan pilihan Ukhti akan tampil di halaman Pilih Pasangan, dan nomor Ukhti tampil untuk beliau.
+                  </p>
+                )}
                 {formData.partner_user_id && (
                   <button
                     type="button"

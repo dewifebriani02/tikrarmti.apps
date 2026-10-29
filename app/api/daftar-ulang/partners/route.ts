@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createSupabaseAdmin } from '@/lib/supabase'
+import { lockedSelfMatchPartnerId } from '@/lib/partner-choice'
 
 export const dynamic = 'force-dynamic'
 
@@ -81,7 +82,7 @@ export async function GET(request: NextRequest) {
     // Fetch all submissions in this batch to determine who is locked or selected who
     const { data: allSubmissions, error: errSub } = await adminClient
       .from('daftar_ulang_submissions')
-      .select('user_id, partner_user_id, partner_type, akad_url, akad_files, status')
+      .select('user_id, partner_user_id, partner_type, partner_status, akad_url, akad_files, status')
       .eq('batch_id', registration.batch_id)
       
     if (errSub) {
@@ -94,8 +95,18 @@ export async function GET(request: NextRequest) {
     const userChoices = new Map<string, string>()
     const lockedUsersSet = new Set<string>() // Users who have submitted (any type)
     const usersWithAkadSet = new Set<string>() // Users who have uploaded akad
+    // Self-match choices that are locked server-side — used only to decide whose
+    // WhatsApp number may be revealed, not for marketplace locking/matching. Drafts
+    // don't count: they can be rewritten freely and would let one account harvest
+    // the whole batch's numbers.
+    const contactChoices = new Map<string, string>()
 
     submissions.forEach((sub: any) => {
+      const lockedPartnerId = lockedSelfMatchPartnerId(sub)
+      if (lockedPartnerId) {
+        contactChoices.set(sub.user_id, lockedPartnerId)
+      }
+
       // Track who has uploaded akad
       if (sub.akad_url || sub.akad_files?.length > 0) {
         usersWithAkadSet.add(sub.user_id)
@@ -147,6 +158,22 @@ export async function GET(request: NextRequest) {
     // Current user's own choice
     const currentUserChoice = userChoices.get(user.id)
 
+    // The self-match partner this user has locked in. Returned separately because a
+    // chosen/locked partner may be filtered out of all_available_partners below, but the
+    // user must still be able to contact her (same rule as can_contact).
+    const chosenPartnerId = contactChoices.get(user.id)
+    const chosenPartnerReg = chosenPartnerId
+      ? (rawAllThalibah || []).find((reg: any) => reg.user_id === chosenPartnerId)
+      : null
+    const chosen_partner = chosenPartnerReg
+      ? {
+          user_id: chosenPartnerReg.user_id,
+          full_name: chosenPartnerReg.full_name,
+          wa_phone: chosenPartnerReg.wa_phone || null,
+          has_chosen_back: contactChoices.get(chosenPartnerReg.user_id) === user.id,
+        }
+      : null
+
     // Filter available partners based on logic
     const partners = (allSelectedThalibah || []).filter((reg: any) => {
       const partnerId = reg.user_id
@@ -186,6 +213,25 @@ export async function GET(request: NextRequest) {
         status_label = '⏳ Menunggu Akad';
       }
 
+      // WhatsApp is revealed only once either side has locked in the other, so a
+      // participant can't harvest the numbers of the whole batch
+      const canContact =
+        contactChoices.get(reg.user_id) === user.id ||
+        contactChoices.get(user.id) === reg.user_id
+
+      // Only what the partner-matching UI needs — no exact birth date, scores or exam status
+      const publicRegistration = {
+        user_id: reg.user_id,
+        full_name: reg.full_name,
+        chosen_juz: reg.chosen_juz,
+        main_time_slot: reg.main_time_slot,
+        backup_time_slot: reg.backup_time_slot,
+        domicile: reg.domicile,
+        timezone: reg.timezone,
+        age: calculateAge(reg.birth_date),
+        wa_phone: canContact ? reg.wa_phone : null,
+      }
+
       return {
         user_id: reg.user_id,
         readiness_level,
@@ -197,9 +243,10 @@ export async function GET(request: NextRequest) {
           id: reg.user_id,
           full_name: reg.full_name,
           email: null,
-          whatsapp: reg.wa_phone
+          whatsapp: canContact ? reg.wa_phone : null
         },
-        registrations: [reg],
+        can_contact: canContact,
+        registrations: [publicRegistration],
         is_mutual_match: false, // Since we filtered them out, this is technically false for all returned
         has_user_selected_them: selectedByOthersSet.has(reg.user_id),
         has_selected_them: currentUserChoice === reg.user_id,
@@ -237,6 +284,7 @@ export async function GET(request: NextRequest) {
         all_available_partners: partners, // Now filtered based on marketplace logic
         partners_selected_by_others,
         partners_selected_by_user,
+        chosen_partner,
         mutual_matches: Array.from(mutualMatchesSet)
       }
     })
@@ -248,6 +296,18 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     )
   }
+}
+
+/** Age in whole years from a birth date, or null if unknown/invalid */
+function calculateAge(birthDate: string | null | undefined): number | null {
+  if (!birthDate) return null
+  const birth = new Date(birthDate)
+  if (Number.isNaN(birth.getTime())) return null
+  const today = new Date()
+  let age = today.getFullYear() - birth.getFullYear()
+  const m = today.getMonth() - birth.getMonth()
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--
+  return age
 }
 
 /**

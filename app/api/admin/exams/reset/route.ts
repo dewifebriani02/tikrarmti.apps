@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { requireAdmin } from '@/lib/rbac';
 
 const supabaseAdmin = createSupabaseAdmin();
 
 export async function POST(request: Request) {
   try {
+    const authError = await requireAdmin();
+    if (authError) return authError;
+
     const payload = await request.json();
     const { registration_id, target_juz, reset_status } = payload;
 

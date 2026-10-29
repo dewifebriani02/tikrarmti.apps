@@ -2,8 +2,12 @@ const { Client } = require('pg');
 require('dotenv').config({ path: '.env.local' });
 
 async function run() {
+  if (!process.env.DATABASE_URL) {
+    console.error('DATABASE_URL is not set. Add it to .env.local (never hardcode credentials).');
+    process.exit(1);
+  }
   const client = new Client({
-    connectionString: process.env.DATABASE_URL || 'postgres://postgres.nmbvklixthlqtkkgqnjl:Tazkiamti2025@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres' 
+    connectionString: process.env.DATABASE_URL
   });
 
   try {

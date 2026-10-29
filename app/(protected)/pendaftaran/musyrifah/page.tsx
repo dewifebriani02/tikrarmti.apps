@@ -19,44 +19,8 @@ import { toast } from 'sonner';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { z } from 'zod';
+import { musyrifahSchema, type MusyrifahFormData } from '@/lib/schemas/musyrifah-registration';
 
-const musyrifahSchema = z.object({
-  // Personal Information
-  full_name: z.string().min(3, 'Nama lengkap minimal 3 karakter'),
-  birth_date: z.string().min(1, 'Tanggal lahir harus diisi'),
-  birth_place: z.string().min(3, 'Tempat lahir minimal 3 karakter'),
-  address: z.string().min(10, 'Alamat minimal 10 karakter'),
-  whatsapp: z.string().min(10, 'Nomor WhatsApp minimal 10 karakter'),
-  email: z.string().email('Email tidak valid'),
-  education: z.string().min(1, 'Pendidikan terakhir harus dipilih'),
-  occupation: z.string().min(3, 'Pekerjaan minimal 3 karakter'),
-
-  // Leadership Experience
-  leadership_experience: z.string().min(1, 'Pengalaman leadership harus dipilih'),
-  leadership_years: z.string().optional(),
-  leadership_roles: z.string().optional(),
-
-  // Management Skills
-  management_skills: z.array(z.string()).min(1, 'Pilih minimal 1 skill manajemen'),
-  team_management_experience: z.string().min(1, 'Pengalaman manajemen tim harus dipilih'),
-
-  // Schedule Preference
-  preferred_schedule: z.string().min(1, 'Jadwal yang diinginkan harus dipilih'),
-  backup_schedule: z.string().min(1, 'Jadwal cadangan harus dipilih'),
-  timezone: z.string().min(1, 'Zona waktu harus dipilih'),
-
-  // Commitment
-  time_commitment: z.boolean().refine(val => val === true, 'Komitmen waktu harus disetujui'),
-  understands_program: z.boolean().refine(val => val === true, 'Pemahaman program harus disetujui'),
-  agreement: z.boolean().refine(val => val === true, 'Pernyataan persetujuan harus dicentang'),
-
-  // Additional Information
-  motivation: z.string().optional(),
-  leadership_philosophy: z.string().optional(),
-  special_achievements: z.string().optional(),
-});
-
-type MusyrifahFormData = z.infer<typeof musyrifahSchema>;
 
 const educationOptions = [
   { value: 'sma', label: 'SMA/Sederajat' },
@@ -331,36 +295,16 @@ function MusyrifahRegistrationContent() {
         return;
       }
 
-      // Submit musyrifah registration data
-      const { error: submitError } = await supabase
-        .from('musyrifah_registrations')
-        .insert({
-          user_id: user.id,
-          batch_id: batchId,
-          full_name: formData.full_name,
-          birth_date: formData.birth_date,
-          birth_place: formData.birth_place,
-          address: formData.address,
-          whatsapp: formData.whatsapp,
-          email: formData.email,
-          education: formData.education,
-          occupation: formData.occupation,
-          leadership_experience: formData.leadership_experience,
-          leadership_years: formData.leadership_years,
-          leadership_roles: formData.leadership_roles,
-          management_skills: formData.management_skills,
-          team_management_experience: formData.team_management_experience,
-          preferred_schedule: formData.preferred_schedule,
-          backup_schedule: formData.backup_schedule,
-          timezone: formData.timezone,
-          motivation: formData.motivation,
-          leadership_philosophy: formData.leadership_philosophy,
-          special_achievements: formData.special_achievements,
-          status: 'pending',
-          submitted_at: new Date().toISOString(),
-        });
-
-      if (submitError) throw submitError;
+      // Submit through the API — the browser client cannot write to the database
+      const response = await fetch('/api/pendaftaran/musyrifah', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...formData, batch_id: batchId }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Gagal mengirim pendaftaran');
+      }
 
       toast.success('Pendaftaran sebagai Musyrifah berhasil dikirim!');
       router.push('/dashboard');

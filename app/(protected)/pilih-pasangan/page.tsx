@@ -72,11 +72,18 @@ export default function PilihPasanganPage() {
   const [existingSubmission, setExistingSubmission] = useState<any>(null)
   
   const [partners, setPartners] = useState<any[]>([])
+  const [chosenPartner, setChosenPartner] = useState<{
+    user_id: string
+    full_name: string
+    wa_phone: string | null
+    has_chosen_back: boolean
+  } | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [pendingPartner, setPendingPartner] = useState<{
     userId: string
     name: string
     whatsapp?: string
+    chosenMe: boolean
     registration?: any
     juzCompatible?: boolean
     timezoneCompatible?: boolean
@@ -165,6 +172,7 @@ export default function PilihPasanganPage() {
       if (response.ok) {
         const data = await response.json()
         setPartners(data.data?.all_available_partners || [])
+        setChosenPartner(data.data?.chosen_partner || null)
       }
     } catch (error) {
       console.error('Fetch partners error:', error)
@@ -272,6 +280,27 @@ export default function PilihPasanganPage() {
                       {existingSubmission.partner_type === 'self_match' && (existingSubmission.partner_name || 'Memilih Sendiri')}
                       {existingSubmission.partner_type === 'family' && `${existingSubmission.partner_name} (${existingSubmission.partner_relationship})`}
                     </div>
+                    {existingSubmission.partner_type === 'self_match' && chosenPartner && chosenPartner.user_id === existingSubmission.partner_user_id && (
+                      <div className="mt-3 space-y-2">
+                        <p className="text-xs text-gray-600">
+                          {chosenPartner.has_chosen_back
+                            ? 'Alhamdulillah, beliau juga sudah memilih Ukhti.'
+                            : 'Beliau belum memilih Ukhti kembali. Silakan hubungi beliau agar memilih Ukhti di halaman Pilih Pasangan.'}
+                        </p>
+                        {chosenPartner.wa_phone ? (
+                          <a
+                            href={`https://wa.me/${chosenPartner.wa_phone.replace(/[^0-9]/g, '').replace(/^0/, '62')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center rounded-md border border-green-200 bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-100"
+                          >
+                            Hubungi {chosenPartner.full_name} via WhatsApp
+                          </a>
+                        ) : (
+                          <span className="text-xs text-gray-400">Nomor WhatsApp beliau belum tersedia.</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -349,6 +378,9 @@ export default function PilihPasanganPage() {
       userId: partner.user_id,
       name: partner.users?.full_name || 'thalibah ini',
       whatsapp: partner.users?.whatsapp,
+      // This form only renders while the user's own choice is unlocked, so
+      // can_contact here means the candidate has locked in this user
+      chosenMe: Boolean(partner.can_contact),
       registration: partner.registrations?.[0],
       juzCompatible: partner.juz_compatible,
       timezoneCompatible: partner.timezone_compatible
@@ -362,7 +394,11 @@ export default function PilihPasanganPage() {
       partner_user_id: pendingPartner.userId,
       partner_name: pendingPartner.name
     }))
-    toast.success(`Ukhti dan ${pendingPartner.name} sudah sepakat. Silakan lanjutkan dan simpan pilihan.`)
+    toast.success(
+      pendingPartner.chosenMe
+        ? `Ukhti dan ${pendingPartner.name} sudah sepakat. Tekan Simpan & Selesai untuk mengunci pilihan.`
+        : `${pendingPartner.name} dipilih. Tekan Simpan & Selesai untuk mengunci pilihan; nomor WhatsApp lalu saling tampil.`
+    )
     setPendingPartner(null)
   }
 
@@ -744,18 +780,8 @@ Saya ingin memastikan apakah Ukhti berkenan menjadi pasangan belajar saya. Jika 
                         {filteredPartners.map((p) => {
                           const reg = p.registrations?.[0]
                           
-                          // Calculate age
-                          let ageText = '-'
-                          if (reg?.birth_date) {
-                            const today = new Date()
-                            const birthDate = new Date(reg.birth_date)
-                            let age = today.getFullYear() - birthDate.getFullYear()
-                            const m = today.getMonth() - birthDate.getMonth()
-                            if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-                              age--
-                            }
-                            ageText = `${age} thn`
-                          }
+                          // Age is computed server-side; the exact birth date is not sent
+                          const ageText = typeof reg?.age === 'number' ? `${reg.age} thn` : '-'
 
                           const ownSlots = [registrationData?.main_time_slot, registrationData?.backup_time_slot].filter(Boolean)
                           const mainTimeCompatible = Boolean(reg?.main_time_slot && ownSlots.includes(reg.main_time_slot))
@@ -874,6 +900,11 @@ Saya ingin memastikan apakah Ukhti berkenan menjadi pasangan belajar saya. Jika 
                                 
                                 {/* Action Buttons */}
                                 <div className="flex items-center space-x-2 mt-2 pt-3 border-t border-gray-100">
+                                  {!p.users?.whatsapp && (
+                                    <span className="flex-1 text-center text-[11px] leading-tight text-gray-400">
+                                      No WA tampil setelah salah satu mengunci pilihan
+                                    </span>
+                                  )}
                                   {p.users?.whatsapp && (
                                     <a
                                       href={`https://wa.me/${p.users.whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(buildPartnerWhatsAppMessage({
@@ -1084,25 +1115,38 @@ Saya ingin memastikan apakah Ukhti berkenan menjadi pasangan belajar saya. Jika 
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-pink-100 text-2xl">
               ❤️
             </div>
-            <h3 className="text-center text-xl font-bold text-gray-900">Sudah Menghubungi dan Sepakat?</h3>
-            <p className="mt-3 text-center text-sm leading-6 text-gray-600">
-              Pastikan Ukhti sudah menghubungi <strong>{pendingPartner.name}</strong> dan beliau setuju menjadi pasangan belajar Ukhti. Self match baru lengkap setelah beliau memilih Ukhti kembali.
-            </p>
+            {pendingPartner.chosenMe ? (
+              <>
+                <h3 className="text-center text-xl font-bold text-gray-900">Sudah Menghubungi dan Sepakat?</h3>
+                <p className="mt-3 text-center text-sm leading-6 text-gray-600">
+                  <strong>{pendingPartner.name}</strong> sudah memilih Ukhti. Pastikan Ukhti sudah menghubungi beliau dan sepakat menjadi pasangan belajar. Setelah Ukhti menekan <strong>Simpan &amp; Selesai</strong>, pasangan self match langsung terbentuk dan pilihan Ukhti terkunci (perubahan hanya lewat admin).
+                </p>
+              </>
+            ) : (
+              <>
+                <h3 className="text-center text-xl font-bold text-gray-900">Pilih {pendingPartner.name}?</h3>
+                <p className="mt-3 text-center text-sm leading-6 text-gray-600">
+                  Untuk menjaga privasi, nomor WhatsApp baru tampil setelah salah satu pihak mengunci pilihannya. Setelah Ukhti menekan <strong>Simpan &amp; Selesai</strong>, pilihan ini langsung terkunci (perubahan hanya lewat admin). Nomor <strong>{pendingPartner.name}</strong> lalu tampil di halaman ini untuk Ukhti dan nomor Ukhti tampil untuk beliau, sehingga bisa saling menghubungi. Self match baru lengkap setelah beliau memilih Ukhti kembali.
+                </p>
+              </>
+            )}
             <div className="mt-6 space-y-3">
               <button
                 type="button"
                 onClick={confirmSelfMatchPartner}
                 className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700"
               >
-                Ya, Kami Sudah Sepakat
+                {pendingPartner.chosenMe ? 'Ya, Kami Sudah Sepakat' : 'Ya, Pilih Beliau'}
               </button>
-              <button
-                type="button"
-                onClick={contactPendingPartner}
-                className="w-full rounded-lg border border-green-300 bg-green-50 px-4 py-2.5 text-sm font-semibold text-green-700 hover:bg-green-100"
-              >
-                Belum, Hubungi via WhatsApp
-              </button>
+              {pendingPartner.whatsapp && (
+                <button
+                  type="button"
+                  onClick={contactPendingPartner}
+                  className="w-full rounded-lg border border-green-300 bg-green-50 px-4 py-2.5 text-sm font-semibold text-green-700 hover:bg-green-100"
+                >
+                  Belum, Hubungi via WhatsApp
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setPendingPartner(null)}

@@ -30,13 +30,14 @@ import {
   UserX,
   AlertTriangle,
   Lock,
-  Snowflake,
   Trophy,
   Layers,
   ChevronDown,
   ChevronUp,
   ArrowRightLeft,
-  RotateCcw
+  RotateCcw,
+  Compass,
+  HeartHandshake
 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog'
@@ -164,30 +165,7 @@ export default function DashboardContent() {
   }, [searchParams])
 
   const [hasMuallimahReg, setHasMuallimahReg] = useState(false)
-  const [isFrozen, setIsFrozen] = useState<boolean>(false)
-  const isSuperadmin = (user?.roles as string[] | undefined)?.includes('super_admin') || 
-                       (user?.primaryRole as string | undefined) === 'super_admin' || 
-                       (user as any)?.role === 'super_admin' ||
-                       (user?.roles as string[] | undefined)?.includes('admin') || 
-                       user?.primaryRole === 'admin' || 
-                       (user as any)?.role === 'admin' || false;
 
-  useEffect(() => {
-    if (isSuperadmin) {
-      const fetchSettings = async () => {
-        try {
-          const res = await fetch('/api/admin/settings');
-          if (res.ok) {
-            const data = await res.json();
-            if (data.success) {
-              setIsFrozen(data.is_frozen);
-            }
-          }
-        } catch (e) {}
-      };
-      fetchSettings();
-    }
-  }, [isSuperadmin]);
 
   useEffect(() => {
     async function checkMuallimah() {
@@ -1061,50 +1039,92 @@ export default function DashboardContent() {
             <LayoutGrid className="w-5 h-5 text-green-700" />
             Menu Layanan
           </h2>
-          {isSuperadmin && (
-            <Button
-              onClick={async () => {
-                try {
-                  const res = await fetch('/api/admin/settings', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ is_frozen: !isFrozen })
-                  });
-                  if (res.ok) {
-                    setIsFrozen(!isFrozen);
-                    toast.success(!isFrozen ? "Aplikasi berhasil dibekukan" : "Aplikasi dibuka kembali");
-                  }
-                } catch (e) {
-                  toast.error("Gagal mengubah status aplikasi");
-                }
-              }}
-              variant="outline"
-              size="sm"
-              className={cn(
-                "flex items-center gap-2 transition-all",
-                isFrozen 
-                  ? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100 hover:text-red-700" 
-                  : "bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100 hover:text-blue-700"
-              )}
-            >
-              <Snowflake className="w-4 h-4" />
-              {isFrozen ? 'Buka Aplikasi (Unfreeze)' : 'Freeze Aplikasi'}
-            </Button>
-          )}
         </div>
 
         <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4 lg:gap-6 w-full">
           {(() => {
             const menuItems = [
-              { label: 'Perjalanan Saya', icon: Clock, color: 'blue', href: '/perjalanan-saya' },
-              { label: 'Catatan Tashih', icon: ClipboardList, color: 'emerald', href: '/tashih' },
-              { label: 'Jurnal Harian', icon: BookOpen, color: 'indigo', href: '/jurnal-harian' },
-              { label: 'Sit-In / Mutasi', icon: ArrowRightLeft, color: 'rose', href: '/sit-in' },
-              { label: 'Ujian', icon: Award, color: 'blue', href: '/ujian' },
-              { label: "Muraja'ah 40x", icon: RotateCcw, color: 'teal', href: '/murojaah' },
-              { label: 'Sertifikat', icon: CheckCircle, color: 'emerald', href: '/kelulusan-sertifikat' },
-              { label: 'Alumni', icon: GraduationCap, color: 'purple', href: '/alumni' },
-              { label: 'Infaq & Donasi', icon: Wallet, color: 'amber', href: '/infaq-donasi' },
+              {
+                label: 'Perjalanan Saya',
+                desc: 'Peta kurikulum & progress',
+                icon: Compass,
+                href: '/perjalanan-saya',
+                gradient: 'from-blue-500 to-indigo-600',
+                shadowColor: 'shadow-blue-500/25',
+                bgCard: 'hover:border-blue-200 hover:bg-blue-50/20'
+              },
+              {
+                label: 'Catatan Tashih',
+                desc: 'Setoran bacaan ustadzah',
+                icon: ClipboardList,
+                href: '/tashih',
+                gradient: 'from-emerald-500 to-teal-600',
+                shadowColor: 'shadow-emerald-500/25',
+                bgCard: 'hover:border-emerald-200 hover:bg-emerald-50/20'
+              },
+              {
+                label: 'Jurnal Harian',
+                desc: 'Setoran & simak 40x',
+                icon: BookOpen,
+                href: '/jurnal-harian',
+                gradient: 'from-emerald-600 to-green-700',
+                shadowColor: 'shadow-emerald-600/30',
+                bgCard: 'hover:border-emerald-300 hover:bg-emerald-50/30'
+              },
+              {
+                label: 'Sit-In / Mutasi',
+                desc: 'Pindah slot & izin halaqah',
+                icon: ArrowRightLeft,
+                href: '/sit-in',
+                gradient: 'from-rose-500 to-pink-600',
+                shadowColor: 'shadow-rose-500/25',
+                bgCard: 'hover:border-rose-200 hover:bg-rose-50/20'
+              },
+              {
+                label: 'Ujian Akhir',
+                desc: 'Lisan & kuis pilihan ganda',
+                icon: Award,
+                href: '/ujian',
+                gradient: 'from-violet-500 to-purple-600',
+                shadowColor: 'shadow-violet-500/25',
+                bgCard: 'hover:border-violet-200 hover:bg-violet-50/20'
+              },
+              {
+                label: "Muraja'ah 40x",
+                desc: 'Tantangan 20 hari alumni',
+                icon: RotateCcw,
+                href: '/murojaah',
+                gradient: 'from-teal-500 to-cyan-600',
+                shadowColor: 'shadow-teal-500/25',
+                bgCard: 'hover:border-teal-200 hover:bg-teal-50/20'
+              },
+              {
+                label: 'Sertifikat',
+                desc: 'Sertifikat digital terverifikasi',
+                icon: CheckCircle,
+                href: '/kelulusan-sertifikat',
+                gradient: 'from-amber-500 to-yellow-600',
+                shadowColor: 'shadow-amber-500/25',
+                bgCard: 'hover:border-amber-200 hover:bg-amber-50/20'
+              },
+              {
+                label: 'Alumni',
+                desc: 'Komunitas & mitra simak',
+                icon: GraduationCap,
+                href: '/alumni',
+                gradient: 'from-indigo-500 to-blue-600',
+                shadowColor: 'shadow-indigo-500/25',
+                bgCard: 'hover:border-indigo-200 hover:bg-indigo-50/20'
+              },
+              {
+                label: 'Infaq & Donasi',
+                desc: 'Kafalah & operasional dakwah',
+                icon: Wallet,
+                href: '/infaq-donasi',
+                gradient: 'from-amber-600 to-orange-500',
+                shadowColor: 'shadow-amber-600/30',
+                bgCard: 'hover:border-amber-300 hover:bg-amber-50/30'
+              },
             ];
 
             return menuItems.map((item, i) => (
@@ -1115,50 +1135,49 @@ export default function DashboardContent() {
                   if ((item as any).locked) {
                     e.preventDefault();
                     alert(`Maaf Ukhti, menu ini terkunci.`);
-                  } else if (item.label === 'Sit-In / Mutasi') {
+                  } else if (item.label.includes('Sit-In')) {
                     e.preventDefault();
                     setIsScheduleOptionsOpen(true);
                   }
                 }}
-                className="group min-w-0"
+                className="group min-w-0 block focus:outline-none"
               >
                 <div
                   className={cn(
-                    "h-full glass-premium rounded-xl sm:rounded-3xl p-2 sm:p-4 border border-white transition-all duration-300 flex flex-col items-center text-center justify-start sm:justify-center min-h-[95px] sm:min-h-0 relative overflow-hidden",
-                    (item as any).locked 
-                      ? "opacity-50 grayscale cursor-not-allowed" 
-                      : "hover:border-green-100 hover:shadow-xl hover:-translate-y-1 cursor-pointer",
-                    item.label === 'Infaq & Donasi' && "bg-amber-50/90 border-amber-300/80 shadow-md shadow-amber-100/50 hover:border-amber-400",
-                    item.label === 'Sit-In / Mutasi' && "bg-rose-50/50 border-rose-200/60 shadow-sm hover:border-rose-300"
+                    "h-full bg-white/95 backdrop-blur-md rounded-2xl sm:rounded-3xl p-3 sm:p-4 border border-gray-100 shadow-sm transition-all duration-300 flex flex-col items-center text-center justify-between min-h-[110px] sm:min-h-[135px] relative overflow-hidden group-hover:-translate-y-1 group-hover:shadow-lg",
+                    (item as any).locked ? "opacity-50 grayscale cursor-not-allowed" : "cursor-pointer",
+                    item.bgCard
                   )}
                 >
+                  {/* Background Glow */}
                   <div className={cn(
-                    "w-10 h-10 sm:w-14 sm:h-14 rounded-lg sm:rounded-2xl flex items-center justify-center mb-1 sm:mb-3 transition-transform duration-300 shadow-sm flex-shrink-0 relative",
-                    !(item as any).locked && "group-hover:scale-110",
-                    item.label === 'Infaq & Donasi' ? "bg-amber-500 text-white shadow-md shadow-amber-350/50 border border-amber-400/30" :
-                    item.color === 'rose' ? "bg-rose-50 text-rose-600 border border-rose-200/80 shadow-sm shadow-rose-100" :
-                    item.color === 'blue' ? "bg-blue-50 text-blue-600 border border-blue-100/50" :
-                    item.color === 'teal' ? "bg-teal-50 text-teal-600 border border-teal-100/50" :
-                    item.color === 'emerald' ? "bg-emerald-50 text-emerald-600 border border-emerald-100/50" :
-                    item.color === 'indigo' ? "bg-indigo-50 text-indigo-600 border border-indigo-100/50" :
-                    item.color === 'amber' ? "bg-amber-50 text-amber-600 border border-amber-100/50" :
-                    item.color === 'purple' ? "bg-purple-50 text-purple-600 border border-purple-100/50" :
-                    "bg-gray-50 text-gray-400 border border-gray-100/50"
+                    "absolute -top-10 -right-10 w-24 h-24 rounded-full opacity-0 group-hover:opacity-20 blur-xl transition-opacity duration-300 bg-gradient-to-br",
+                    item.gradient
+                  )} />
+
+                  {/* Icon with gradient badge */}
+                  <div className={cn(
+                    "w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center text-white shadow-md transition-all duration-300 bg-gradient-to-br group-hover:scale-110 flex-shrink-0 relative",
+                    item.gradient,
+                    item.shadowColor
                   )}>
-                    <item.icon className="w-5 h-5 sm:w-7 sm:h-7" />
+                    <item.icon className="w-6 h-6 sm:w-7 sm:h-7" strokeWidth={2.2} />
                     {(item as any).locked && (
-                      <div className="absolute -top-1 -right-1 bg-gray-600 text-white p-1 rounded-full shadow-lg">
-                        <Lock className="w-2 h-2 sm:w-3 sm:h-3" />
+                      <div className="absolute -top-1 -right-1 bg-gray-700 text-white p-1 rounded-full shadow-lg">
+                        <Lock className="w-2.5 h-2.5" />
                       </div>
                     )}
                   </div>
-                  <h3 className={cn(
-                    "text-[9px] sm:text-xs lg:text-sm font-bold leading-[1.1] w-full px-0.5 break-words",
-                    item.label === 'Infaq & Donasi' ? "text-amber-950" : 
-                    item.label === 'Sit-In / Mutasi' ? "text-rose-950" : "text-gray-900"
-                  )}>
-                    {item.label}
-                  </h3>
+
+                  {/* Labels */}
+                  <div className="w-full mt-2 space-y-0.5">
+                    <h3 className="text-[11px] sm:text-xs lg:text-sm font-black text-gray-900 leading-tight group-hover:text-emerald-950 transition-colors line-clamp-1">
+                      {item.label}
+                    </h3>
+                    <p className="text-[9px] sm:text-[10px] text-gray-400 font-medium leading-tight hidden sm:block line-clamp-1">
+                      {item.desc}
+                    </p>
+                  </div>
                 </div>
               </Link>
             ));

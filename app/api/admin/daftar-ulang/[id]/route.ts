@@ -2,6 +2,8 @@ import { createServerClient } from '@/lib/supabase/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireAdmin } from '@/lib/rbac';
 import { ApiResponses } from '@/lib/api-responses';
+import { transaction } from '@/lib/db';
+import { deleteDaftarUlangSubmissions } from '@/lib/daftar-ulang-cleanup';
 
 const ALLOWED_UPDATE_FIELDS = [
   'confirmed_full_name',
@@ -113,6 +115,32 @@ export async function PUT(
     return ApiResponses.success(null, 'Data berhasil diperbarui');
   } catch (error) {
     console.error('[Admin Daftar Ulang Edit API] Unexpected error:', error);
+    return ApiResponses.handleUnknown(error);
+  }
+}
+
+/**
+ * DELETE /api/admin/daftar-ulang/[id] — admin permanently deletes a daftar ulang submission,
+ * together with the halaqah roster rows it created and the re-enrollment flag, in one transaction.
+ */
+export async function DELETE(
+  _request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const authError = await requireAdmin();
+    if (authError) return authError;
+
+    const deleted = await transaction(client =>
+      deleteDaftarUlangSubmissions(client, { submissionId: params.id })
+    );
+    if (deleted.length === 0) {
+      return ApiResponses.notFound('Data daftar ulang tidak ditemukan');
+    }
+
+    return ApiResponses.success(null, 'Data berhasil dihapus');
+  } catch (error) {
+    console.error('[Admin Daftar Ulang Delete API] Unexpected error:', error);
     return ApiResponses.handleUnknown(error);
   }
 }
