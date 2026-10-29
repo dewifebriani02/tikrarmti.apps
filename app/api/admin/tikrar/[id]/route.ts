@@ -144,7 +144,7 @@ const EDITABLE_FIELDS = [
 ] as const;
 const NUMERIC_FIELDS = new Set(['age', 'oral_total_score', 'written_quiz_score']);
 // Nullable columns where the edit form sends '' for "no value"
-const NULL_IF_EMPTY_FIELDS = new Set(['birth_date', 'ready_for_team']);
+const NULL_IF_EMPTY_FIELDS = new Set(['birth_date', 'ready_for_team', 'status', 'selection_status']);
 // NOT NULL boolean columns (rendered as checkboxes)
 const BOOLEAN_FIELDS = new Set([
   'understands_program', 'understands_commitment', 'time_commitment', 'tried_simulation',
@@ -152,8 +152,8 @@ const BOOLEAN_FIELDS = new Set([
 ]);
 // Mirrors the CHECK constraints on pendaftaran_tikrar_tahfidz
 const ENUM_FIELDS: Record<string, readonly (string | null)[]> = {
-  status: ['pending', 'approved', 'rejected', 'withdrawn'],
-  selection_status: ['pending', 'selected', 'not_selected', 'waitlist'],
+  status: ['pending', 'approved', 'rejected', 'withdrawn', null],
+  selection_status: ['pending', 'selected', 'not_selected', 'waitlist', null],
   ready_for_team: ['ready', 'not_ready', 'considering', 'infaq', null],
   has_permission: ['yes', 'janda', ''],
 };
@@ -161,7 +161,16 @@ const ENUM_FIELDS: Record<string, readonly (string | null)[]> = {
 /** Normalize one form value to what the column accepts. */
 function normalizeField(field: string, value: unknown): unknown {
   if (NUMERIC_FIELDS.has(field) || NULL_IF_EMPTY_FIELDS.has(field)) {
-    return value === '' || value === undefined ? null : value;
+    if (value === '' || value === undefined || value === null) return null;
+  }
+  if (field === 'birth_date') {
+    if (value === '' || value === undefined || value === null) return null;
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) return null;
+      const dateMatch = trimmed.match(/^(\d{4}-\d{2}-\d{2})/);
+      if (dateMatch) return dateMatch[1];
+    }
   }
   if (BOOLEAN_FIELDS.has(field)) return value === true || value === 'true';
   if (field === 'has_permission') {

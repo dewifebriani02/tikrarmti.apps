@@ -1,4 +1,9 @@
-import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
+import { Pool, PoolClient, QueryResult, QueryResultRow, types } from 'pg';
+
+// Parse DATE columns (OID 1082) as 'YYYY-MM-DD' strings instead of JavaScript Date objects.
+// Without this parser, pg creates a Date at midnight UTC which serializes to ISO string with
+// timezone offset (e.g. UTC+7 shifts to 17:00 of the previous day, moving birth_date back a day).
+types.setTypeParser(1082, (val: string) => val);
 
 /**
  * PostgreSQL Database Singleton Pool

@@ -47,7 +47,13 @@ export function AdminCrudModal({
   useEffect(() => {
     if (isOpen) {
       const newFormData = fields.reduce((acc, field) => {
-        const value = initialData?.[field.name];
+        let value = initialData?.[field.name];
+        if (field.type === 'date' && typeof value === 'string') {
+          const dateMatch = value.match(/^(\d{4}-\d{2}-\d{2})/);
+          if (dateMatch) {
+            value = dateMatch[1];
+          }
+        }
         acc[field.name] = value !== undefined && value !== null
           ? value
           : field.defaultValue ?? (field.type === 'checkbox' ? false : '');
