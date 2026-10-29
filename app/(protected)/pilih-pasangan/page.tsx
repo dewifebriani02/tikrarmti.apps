@@ -398,7 +398,7 @@ export default function PilihPasanganPage() {
     toast.success(
       pendingPartner.chosenMe
         ? `Ukhti dan ${pendingPartner.name} sudah sepakat. Tekan Simpan & Selesai untuk mengunci pilihan.`
-        : `${pendingPartner.name} dipilih. Tekan Simpan & Selesai untuk mengunci pilihan; nomor WhatsApp lalu saling tampil.`
+        : `${pendingPartner.name} dipilih. Tekan Simpan & Selesai untuk mengunci pilihan dan melihat nomor WhatsApp beliau.`
     )
     setPendingPartner(null)
   }
@@ -1127,7 +1127,7 @@ Saya ingin memastikan apakah Ukhti berkenan menjadi pasangan belajar saya. Jika 
               <>
                 <h3 className="text-center text-xl font-bold text-gray-900">Pilih {pendingPartner.name}?</h3>
                 <p className="mt-3 text-center text-sm leading-6 text-gray-600">
-                  Untuk menjaga privasi, nomor WhatsApp baru tampil setelah salah satu pihak mengunci pilihannya. Setelah Ukhti menekan <strong>Simpan &amp; Selesai</strong>, pilihan ini langsung terkunci (perubahan hanya lewat admin). Nomor <strong>{pendingPartner.name}</strong> lalu tampil di halaman ini untuk Ukhti dan nomor Ukhti tampil untuk beliau, sehingga bisa saling menghubungi. Self match baru lengkap setelah beliau memilih Ukhti kembali.
+                  Untuk menjaga privasi, nomor WhatsApp baru tampil setelah salah satu pihak mengunci pilihannya. Setelah Ukhti menekan <strong>Simpan &amp; Selesai</strong>, pilihan ini langsung terkunci (perubahan hanya lewat admin). Nomor <strong>{pendingPartner.name}</strong> lalu tampil di halaman ini agar Ukhti dapat menghubungi beliau. Nomor Ukhti juga akan tampil untuk beliau selama beliau belum mengunci pilihan lain. Self match resmi terbentuk setelah beliau memilih Ukhti kembali.
                 </p>
               </>
             )}

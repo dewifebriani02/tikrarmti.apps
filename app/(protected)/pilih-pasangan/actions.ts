@@ -11,7 +11,7 @@ import {
 } from '@/lib/partner-choice-server'
 
 const CHOICE_LOCKED_ERROR =
-  'Pilihan halaqah dan pasangan Ukhti sudah terkunci. Silakan hubungi admin jika perlu perubahan.'
+  'Pilihan halaqah dan pasangan Ukhti sudah tersimpan dan terkunci. Silakan hubungi admin jika perlu perubahan.'
 
 export interface PilihPasanganFormData {
   // Halaqah selection

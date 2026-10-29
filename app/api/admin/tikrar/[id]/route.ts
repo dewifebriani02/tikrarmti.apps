@@ -244,6 +244,11 @@ export async function DELETE(
     if (authError) return authError;
 
     const { id } = await params;
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!id || !UUID_REGEX.test(id)) {
+      return NextResponse.json({ error: 'Pendaftaran tidak ditemukan' }, { status: 404 });
+    }
+
     // Submissions cascade-delete with the registration, but their halaqah roster rows do not:
     // clean those up first, then delete the registration, all in one transaction.
     const deletedCount = await transaction(async (client) => {

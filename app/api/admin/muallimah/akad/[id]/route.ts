@@ -76,26 +76,26 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       return NextResponse.json({ error: 'Tidak ada data yang diubah' }, { status: 400 });
     }
 
-    const { rows } = await query<{ id: string; user_id: string; status: string }>(
-      'SELECT id, user_id, status FROM muallimah_akads WHERE id = $1',
-      [params.id]
-    );
-    const current = rows[0];
-    if (!current) return NextResponse.json({ error: 'Akad tidak ditemukan' }, { status: 404 });
-
-    // The edit modal always sends the current status — only record a review when it changes
-    if (akad.status !== undefined && akad.status !== current.status
-        && (akad.status === 'approved' || akad.status === 'rejected')) {
-      akad.reviewed_by = context!.userId;
-      akad.reviewed_at = new Date().toISOString();
-    }
-    if (Object.keys(akad).length > 0) akad.updated_at = new Date().toISOString();
-
     await transaction(async (client) => {
+      const { rows } = await client.query<{ id: string; user_id: string; status: string }>(
+        'SELECT id, user_id, status FROM muallimah_akads WHERE id = $1 FOR UPDATE',
+        [params.id]
+      );
+      const current = rows[0];
+      if (!current) throw Object.assign(new Error('Akad tidak ditemukan'), { status: 404 });
+
+      // The edit modal always sends the current status — only record a review when it changes
+      if (akad.status !== undefined && akad.status !== current.status
+          && (akad.status === 'approved' || akad.status === 'rejected')) {
+        akad.reviewed_by = context!.userId;
+        akad.reviewed_at = new Date().toISOString();
+      }
+      if (Object.keys(akad).length > 0) akad.updated_at = new Date().toISOString();
+
       await updateRow(client, 'muallimah_akads', current.id, akad);
       if (Object.keys(profile).length && typeof body?.profile_id === 'string') {
         const { rows: regRows } = await client.query(
-          'SELECT id FROM muallimah_registrations WHERE id = $1 AND user_id = $2',
+          'SELECT id FROM muallimah_registrations WHERE id = $1 AND user_id = $2 FOR UPDATE',
           [body.profile_id, current.user_id]
         );
         if (!regRows[0]) throw Object.assign(new Error('Profil tidak cocok dengan akad'), { status: 400 });
@@ -109,8 +109,8 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     return NextResponse.json({ success: true });
   } catch (caught) {
     const err = caught as { status?: number; code?: string; message?: string };
-    if (err?.status === 400) {
-      return NextResponse.json({ error: err.message }, { status: 400 });
+    if (err?.status === 400 || err?.status === 404) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
     }
     if (err?.code === '23505') {
       return NextResponse.json(
