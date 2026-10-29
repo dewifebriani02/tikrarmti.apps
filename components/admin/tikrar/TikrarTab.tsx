@@ -311,8 +311,7 @@ export function TikrarTab({ user }: { user: any }) {
             { value: 'pending', label: 'Pending' },
             { value: 'approved', label: 'Approved' },
             { value: 'rejected', label: 'Rejected' },
-            { value: 'withdrawn', label: 'Withdrawn' },
-            { value: 'completed', label: 'Completed' }
+            { value: 'withdrawn', label: 'Withdrawn' }
           ] },
           { name: 'selection_status', label: 'Selection Status', type: 'select', options: [
             { value: 'pending', label: 'Pending' },
@@ -343,8 +342,10 @@ export function TikrarTab({ user }: { user: any }) {
           { name: 'permission_name', label: 'Nama Pemberi Izin', type: 'text' },
           { name: 'permission_phone', label: 'No. HP Pemberi Izin', type: 'text' },
           { name: 'ready_for_team', label: 'Bersedia Masuk Tim', type: 'select', options: [
-            { value: 'yes', label: 'Ya' },
-            { value: 'no', label: 'Tidak' }
+            { value: 'ready', label: 'Siap' },
+            { value: 'not_ready', label: 'Belum siap' },
+            { value: 'considering', label: 'Masih mempertimbangkan' },
+            { value: 'infaq', label: 'Infaq bulanan' }
           ] },
           { name: 'motivation', label: 'Motivasi', type: 'textarea' },
           { name: 'questions', label: 'Pertanyaan / Harapan', type: 'textarea' },
@@ -355,7 +356,10 @@ export function TikrarTab({ user }: { user: any }) {
           { name: 'no_negotiation', label: 'Tidak Negosiasi', type: 'checkbox' },
           { name: 'no_travel_plans', label: 'Tidak Ada Rencana Safar', type: 'checkbox' },
           { name: 'saved_contact', label: 'Simpan Kontak', type: 'checkbox' },
-          { name: 'has_permission', label: 'Punya Izin', type: 'checkbox' },
+          { name: 'has_permission', label: 'Punya Izin', type: 'select', options: [
+            { value: 'yes', label: 'Ya, sudah diizinkan' },
+            { value: 'janda', label: 'Janda (tidak memerlukan izin)' }
+          ] },
           { name: 'has_telegram', label: 'Punya Telegram', type: 'checkbox' },
           { name: 'oral_total_score', label: 'Oral Score', type: 'number' },
           { name: 'written_quiz_score', label: 'Written Score', type: 'number' },
