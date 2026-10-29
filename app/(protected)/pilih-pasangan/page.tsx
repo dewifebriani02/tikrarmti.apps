@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { Clock, Users, ChevronRight, ChevronLeft, Info, Calendar, Upload } from 'lucide-react'
 import { submitPilihPasangan } from './actions'
+import { isPartnerChoiceLocked } from '@/lib/partner-choice'
 
 interface HalaqahData {
   id: string
@@ -208,7 +209,7 @@ export default function PilihPasanganPage() {
   }
 
   const getLockStatus = () => {
-    if (existingSubmission?.partner_status === 'submitted' || existingSubmission?.partner_status === 'approved' || existingSubmission?.status === 'submitted' || existingSubmission?.status === 'approved') {
+    if (isPartnerChoiceLocked(existingSubmission)) {
       return { locked: true, reason: 'submitted' };
     }
 

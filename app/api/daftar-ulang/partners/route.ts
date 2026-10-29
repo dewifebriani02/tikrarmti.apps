@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createSupabaseAdmin } from '@/lib/supabase'
-import { lockedSelfMatchPartnerId } from '@/lib/partner-choice'
+import { lockedSelfMatchPartnerId, isPartnerChoiceLocked } from '@/lib/partner-choice'
 
 export const dynamic = 'force-dynamic'
 
@@ -105,6 +105,7 @@ export async function GET(request: NextRequest) {
       const lockedPartnerId = lockedSelfMatchPartnerId(sub)
       if (lockedPartnerId) {
         contactChoices.set(sub.user_id, lockedPartnerId)
+        userChoices.set(sub.user_id, lockedPartnerId)
       }
 
       // Track who has uploaded akad
@@ -112,13 +113,9 @@ export async function GET(request: NextRequest) {
         usersWithAkadSet.add(sub.user_id)
       }
 
-      // Track locks only for submitted/approved forms WHERE a partner choice was actually made.
-      // (Since completing the Akad step now sets status to 'submitted', we must check partner_type to see if they've finished the partner step).
-      if ((sub.status === 'submitted' || sub.status === 'approved') && sub.partner_type) {
+      // Track locks using the unified locking rule (partner_status || status in submitted/approved)
+      if (isPartnerChoiceLocked(sub)) {
         lockedUsersSet.add(sub.user_id)
-        if (sub.partner_type === 'self_match' && sub.partner_user_id) {
-          userChoices.set(sub.user_id, sub.partner_user_id)
-        }
       }
     })
 
