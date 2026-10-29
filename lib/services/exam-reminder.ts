@@ -159,7 +159,7 @@ export async function getH1ExamCandidates(targetDate: string): Promise<ExamRemin
   await ensureReminderColumnExists();
 
   const sql = `
-    SELECT 
+    SELECT DISTINCT ON (r.id)
       r.id as registration_id,
       r.user_id,
       r.schedule_id,
@@ -186,7 +186,7 @@ export async function getH1ExamCandidates(targetDate: string): Promise<ExamRemin
       AND s.exam_date = $1
       AND (u.is_blacklisted IS NOT TRUE)
       AND (u.is_active IS NOT FALSE)
-    ORDER BY s.start_time ASC, u.full_name ASC;
+    ORDER BY r.id, s.start_time ASC, u.full_name ASC;
   `;
 
   const { rows } = await query(sql, [targetDate]);
