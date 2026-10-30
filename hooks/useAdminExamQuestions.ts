@@ -397,5 +397,6 @@ export function useAdminExamQuestions(onSuccess?: () => void) {
     handleAIGenerate,
     handleToggleArchivePackage,
     statistics,
+    loadQuestions,
   };
 }

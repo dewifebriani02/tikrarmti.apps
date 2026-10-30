@@ -422,7 +422,7 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
             onClick={() => setActiveTab('tikrar')}
             className={cn("px-4 py-3 text-sm font-medium border-b-2 transition-colors", activeTab === 'tikrar' ? "border-green-600 text-green-600 font-bold" : "border-transparent text-gray-500 hover:text-gray-700")}
           >
-            Tahfidz Tikrar
+            Tikrar Tahfidz
           </button>
           <button
             type="button"
