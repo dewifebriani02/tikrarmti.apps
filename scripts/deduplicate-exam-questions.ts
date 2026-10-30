@@ -4,6 +4,7 @@
  *
  * MTI Exam Question AI & Heuristic Deduplication Utility
  * Detects and resolves duplicate questions across packages (A, B, Both) and within packages.
+ * Only scans active questions (is_active = true) by default, ignoring archived questions.
  *
  * Usage:
  *   npx tsx scripts/deduplicate-exam-questions.ts --dry-run
@@ -85,11 +86,11 @@ export function normalizeArabicText(text: string): string {
     // Remove Arabic diacritics (harakat), tanwin, sukun, shadda, Quranic marks
     .replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g, '')
     // Normalize alif variants to bare alif
-    .replace(/[إأآٱ]/g, 'ا')
+    .replace(/[\u0625\u0623\u0622\u0671]/g, 'ا')
     // Normalize yaa & alif maqsura
-    .replace(/[ىي]/g, 'ي')
+    .replace(/[\u0649\u064a]/g, 'ي')
     // Normalize taa marbuta to haa
-    .replace(/ة/g, 'ه')
+    .replace(/\u0629/g, 'ه')
     // Normalize common Latin prefix/suffix phrases in exam questions
     .replace(/terdapat pada halaman/gi, '')
     .replace(/ayat ini terletak pada surat/gi, '')
@@ -186,21 +187,28 @@ Format JSON output persis:
 
 /**
  * Scans questions and detects all duplicates
+ * By default, only scans active questions (is_active = true), ignoring archived ones.
  */
 export async function detectDuplicates(
   client: Pool | PoolClient,
-  options: { juz?: number; useAi?: boolean } = {}
+  options: { juz?: number; useAi?: boolean; activeOnly?: boolean } = {}
 ): Promise<{ groups: DuplicateGroup[]; totalQuestions: number; totalDuplicateCount: number }> {
+  const activeOnly = options.activeOnly !== false;
+
   let queryStr = `
     SELECT id, juz_number, juz_code, question_package, section_number, section_title,
            question_number, question_text, question_type, options, correct_answer,
            points, is_active, created_at
     FROM exam_questions
+    WHERE 1=1
   `;
   const params: any[] = [];
+  if (activeOnly) {
+    queryStr += ` AND is_active = true`;
+  }
   if (options.juz) {
-    queryStr += ` WHERE juz_number = $1`;
     params.push(options.juz);
+    queryStr += ` AND juz_number = $${params.length}`;
   }
   queryStr += ` ORDER BY juz_number, question_package, section_number, question_number, created_at ASC`;
 
@@ -236,91 +244,102 @@ export async function detectDuplicates(
     normalizedMap.get(key)!.push(q);
   }
 
-  for (const [key, qList] of Array.from(normalizedMap.entries())) {
+  for (const [, qList] of Array.from(normalizedMap.entries())) {
     if (qList.length > 1) {
-      // Check if answers/options match or if it's a generic question like "Ayat yang terdapat pada surat X"
-      const isGenericQuestion = qList[0].question_text.toLowerCase().includes('ayat yang terdapat pada surat') ||
-                                qList[0].question_text.toLowerCase().includes('nama surat');
+      // Find canonical: question with most student attempts, or earliest created
+      const sorted = [...qList].sort((a, b) => {
+        const attA = getAttemptCount(a.id);
+        const attB = getAttemptCount(b.id);
+        if (attB !== attA) return attB - attA; // higher attempts preferred
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      });
 
-      // If generic, only treat as duplicate if correct_answer matches too
-      const subGroups = new Map<string, QuestionRecord[]>();
-      for (const item of qList) {
-        const subKey = isGenericQuestion
-          ? normalizeArabicText(item.correct_answer || '')
-          : 'match';
-        if (!subGroups.has(subKey)) subGroups.set(subKey, []);
-        subGroups.get(subKey)!.push(item);
-      }
+      const canonical = sorted[0];
+      const duplicates = sorted.slice(1);
 
-      for (const items of Array.from(subGroups.values())) {
-        if (items.length > 1) {
-          // Sort items so canonical is the one with the most attempt references, or active, or earliest created
-          const attemptCounts: Record<string, number> = {};
-          items.forEach(it => {
-            attemptCounts[it.id] = getAttemptCount(it.id);
-          });
+      duplicates.forEach(d => processedIds.add(d.id));
+      processedIds.add(canonical.id);
 
-          items.sort((a, b) => {
-            const countA = attemptCounts[a.id];
-            const countB = attemptCounts[b.id];
-            if (countB !== countA) return countB - countA;
-            if (a.is_active !== b.is_active) return a.is_active ? -1 : 1;
-            return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-          });
+      const referencedInAttempts: Record<string, number> = {};
+      referencedInAttempts[canonical.id] = getAttemptCount(canonical.id);
+      duplicates.forEach(d => {
+        referencedInAttempts[d.id] = getAttemptCount(d.id);
+      });
 
-          const canonical = items[0];
-          const dups = items.slice(1);
-
-          dups.forEach(d => processedIds.add(d.id));
-          processedIds.add(canonical.id);
-
-          duplicateGroups.push({
-            juz_number: canonical.juz_number,
-            matchType: canonical.question_text === dups[0].question_text ? 'exact' : 'normalized',
-            canonical,
-            duplicates: dups,
-            confidence: 1.0,
-            reason: `Teks soal dan kunci jawaban identik (${canonical.question_package} vs ${dups.map(d => d.question_package).join(', ')})`,
-            referencedInAttempts: attemptCounts,
-          });
-        }
-      }
+      duplicateGroups.push({
+        juz_number: canonical.juz_number,
+        matchType: 'normalized',
+        canonical,
+        duplicates,
+        confidence: 1.0,
+        reason: `Teks soal identik secara fonetik/harakat antar paket (${qList.map(x => x.question_package).join(', ')})`,
+        referencedInAttempts,
+      });
     }
   }
 
-  // 2. Fuzzy / Semantic Check for remaining questions within same juz and section
-  if (options.useAi) {
-    const unassigned = questions.filter(q => !processedIds.has(q.id));
-    for (let i = 0; i < unassigned.length; i++) {
-      for (let j = i + 1; j < unassigned.length; j++) {
-        const q1 = unassigned[i];
-        const q2 = unassigned[j];
+  // 2. Fuzzy / Dice similarity for questions within the same Juz not already grouped
+  const remaining = questions.filter(q => !processedIds.has(q.id));
+  const juzGroups = new Map<number, QuestionRecord[]>();
+  for (const q of remaining) {
+    if (!juzGroups.has(q.juz_number)) juzGroups.set(q.juz_number, []);
+    juzGroups.get(q.juz_number)!.push(q);
+  }
 
-        if (q1.juz_number === q2.juz_number && q1.section_number === q2.section_number) {
-          const sim = calculateDiceSimilarity(q1.question_text, q2.question_text);
-          if (sim >= 0.85) {
-            const aiEval = await evaluateWithAI(q1, q2);
-            if (aiEval.isDuplicate && aiEval.confidence >= 0.8) {
-              processedIds.add(q1.id);
-              processedIds.add(q2.id);
+  for (const [, jQuestions] of Array.from(juzGroups.entries())) {
+    for (let i = 0; i < jQuestions.length; i++) {
+      const q1 = jQuestions[i];
+      if (processedIds.has(q1.id)) continue;
 
-              const count1 = getAttemptCount(q1.id);
-              const count2 = getAttemptCount(q2.id);
-              const canonical = count2 > count1 ? q2 : q1;
-              const dup = canonical.id === q1.id ? q2 : q1;
+      const similarGroup: QuestionRecord[] = [];
 
-              duplicateGroups.push({
-                juz_number: canonical.juz_number,
-                matchType: 'semantic',
-                canonical,
-                duplicates: [dup],
-                confidence: aiEval.confidence,
-                reason: `AI Match (${(aiEval.confidence * 100).toFixed(0)}%): ${aiEval.reason}`,
-                referencedInAttempts: { [q1.id]: count1, [q2.id]: count2 },
-              });
-            }
+      for (let j = i + 1; j < jQuestions.length; j++) {
+        const q2 = jQuestions[j];
+        if (processedIds.has(q2.id)) continue;
+
+        const dice = calculateDiceSimilarity(q1.question_text, q2.question_text);
+        if (dice >= 0.88) {
+          // Strong heuristic match
+          similarGroup.push(q2);
+          processedIds.add(q2.id);
+        } else if (options.useAi && dice >= 0.70) {
+          // Ask Gemini AI for confirmation
+          const aiRes = await evaluateWithAI(q1, q2);
+          if (aiRes.isDuplicate && aiRes.confidence >= 0.8) {
+            similarGroup.push(q2);
+            processedIds.add(q2.id);
           }
         }
+      }
+
+      if (similarGroup.length > 0) {
+        processedIds.add(q1.id);
+        const allItems = [q1, ...similarGroup];
+        allItems.sort((a, b) => {
+          const attA = getAttemptCount(a.id);
+          const attB = getAttemptCount(b.id);
+          if (attB !== attA) return attB - attA;
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        });
+
+        const canonical = allItems[0];
+        const duplicates = allItems.slice(1);
+
+        const referencedInAttempts: Record<string, number> = {};
+        referencedInAttempts[canonical.id] = getAttemptCount(canonical.id);
+        duplicates.forEach(d => {
+          referencedInAttempts[d.id] = getAttemptCount(d.id);
+        });
+
+        duplicateGroups.push({
+          juz_number: canonical.juz_number,
+          matchType: options.useAi ? 'semantic' : 'normalized',
+          canonical,
+          duplicates,
+          confidence: 0.92,
+          reason: `Kemiripan teks tinggi (>88%) pada bagian ${canonical.section_number}`,
+          referencedInAttempts,
+        });
       }
     }
   }
@@ -382,6 +401,8 @@ async function main() {
   const isDelete = args.includes('--delete');
   const isArchive = args.includes('--archive');
   const useAi = args.includes('--use-ai');
+  const includeArchived = args.includes('--include-archived');
+  const activeOnly = !includeArchived;
   const juzArg = args.find(a => a.startsWith('--juz='));
   const juz = juzArg ? parseInt(juzArg.split('=')[1], 10) : undefined;
 
@@ -389,6 +410,7 @@ async function main() {
   console.log('🔍 MTI EXAM QUESTION AI & HEURISTIC DEDUPLICATION UTILITY');
   console.log('===============================================================');
   console.log(`Mode: ${isApply ? (isDelete ? 'APPLY (HARD DELETE & REMAP)' : 'APPLY (ARCHIVE & REMAP)') : 'DRY RUN (AUDIT ONLY)'}`);
+  console.log(`Filter Soal: ${activeOnly ? 'HANYA SOAL AKTIF (is_active = true, mengabaikan arsip)' : 'SEMUA SOAL (TERMASUK ARSIP)'}`);
   if (juz) console.log(`Filter Juz: ${juz}`);
   console.log(`AI Semantic Check: ${useAi ? 'ENABLED (Gemini)' : 'DISABLED (Deterministic NLP)'}`);
   console.log('---------------------------------------------------------------');
@@ -397,7 +419,7 @@ async function main() {
   const client = await pool.connect();
 
   try {
-    const { groups, totalQuestions, totalDuplicateCount } = await detectDuplicates(client, { juz, useAi });
+    const { groups, totalQuestions, totalDuplicateCount } = await detectDuplicates(client, { juz, useAi, activeOnly });
 
     console.log(`\n📊 Scan Complete:`);
     console.log(`- Total Soal Diperiksa: ${totalQuestions}`);

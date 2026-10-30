@@ -3,15 +3,15 @@
 -- SQL SCRIPT: DETEKSI & DEDUPLIKASI BANK SOAL UJIAN (EXAM QUESTIONS)
 -- ==============================================================================
 -- Tujuan:
--- 1. Mendeteksi soal duplikat pada tabel exam_questions (baik dalam paket yang sama
---    maupun antar paket A, B, Both).
+-- 1. Mendeteksi soal duplikat pada tabel exam_questions KHUSUS SOAL AKTIF (is_active = true)
+--    (mengabaikan soal yang sudah diarsipkan agar tidak tercampur).
 -- 2. Mempertahankan 1 soal kanonikal (yang sudah memiliki referensi riwayat ujian siswa
 --    atau yang dibuat paling awal).
 -- 3. Me-remap ID soal duplikat di kolom answers exam_attempts agar riwayat ujian aman.
 -- 4. Menghapus / mengarsipkan soal duplikat redundan.
 -- ==============================================================================
 
--- 1. PREVIEW: LIHAT DAFTAR SOAL DUPLIKAT (RUN INI DULU UNTUK INSPEKSI)
+-- 1. PREVIEW: LIHAT DAFTAR SOAL DUPLIKAT AKTIF (RUN INI DULU UNTUK INSPEKSI)
 WITH normalized_questions AS (
   SELECT 
     id,
@@ -27,11 +27,12 @@ WITH normalized_questions AS (
     regexp_replace(
       regexp_replace(
         regexp_replace(question_text, '[\u064B-\u065F\u0670\u06D6-\u06ED]', '', 'g'),
-        '[إأآٱ]', 'ا', 'g'
+        '[\u0625\u0623\u0622\u0671]', '\u0627', 'g'
       ),
       '\s+', ' ', 'g'
     ) AS norm_text
   FROM exam_questions
+  WHERE is_active = true
 ),
 duplicate_candidates AS (
   SELECT 
@@ -47,11 +48,11 @@ duplicate_candidates AS (
     norm_text,
     ROW_NUMBER() OVER (
       PARTITION BY juz_number, norm_text, COALESCE(correct_answer, '')
-      ORDER BY is_active DESC, created_at ASC
+      ORDER BY created_at ASC
     ) AS rank_order,
     FIRST_VALUE(id) OVER (
       PARTITION BY juz_number, norm_text, COALESCE(correct_answer, '')
-      ORDER BY is_active DESC, created_at ASC
+      ORDER BY created_at ASC
     ) AS canonical_id,
     COUNT(*) OVER (
       PARTITION BY juz_number, norm_text, COALESCE(correct_answer, '')
@@ -75,7 +76,7 @@ ORDER BY juz_number, norm_text, rank_order;
 
 
 -- ==============================================================================
--- 2. EKSEKUSI PEMBERSIHAN DENGAN TRANSAKSI AMAN
+-- 2. EKSEKUSI PEMBERSIHAN DENGAN TRANSAKSI AMAN (HANYA SOAL AKTIF)
 -- ==============================================================================
 BEGIN;
 
@@ -95,22 +96,23 @@ WITH normalized_questions AS (
     regexp_replace(
       regexp_replace(
         regexp_replace(question_text, '[\u064B-\u065F\u0670\u06D6-\u06ED]', '', 'g'),
-        '[إأآٱ]', 'ا', 'g'
+        '[\u0625\u0623\u0622\u0671]', '\u0627', 'g'
       ),
       '\s+', ' ', 'g'
     ) AS norm_text
   FROM exam_questions
+  WHERE is_active = true
 ),
 duplicate_ranking AS (
   SELECT 
     id,
     FIRST_VALUE(id) OVER (
       PARTITION BY juz_number, norm_text, COALESCE(correct_answer, '')
-      ORDER BY is_active DESC, created_at ASC
+      ORDER BY created_at ASC
     ) AS canonical_id,
     ROW_NUMBER() OVER (
       PARTITION BY juz_number, norm_text, COALESCE(correct_answer, '')
-      ORDER BY is_active DESC, created_at ASC
+      ORDER BY created_at ASC
     ) AS rank_order
   FROM normalized_questions
 )

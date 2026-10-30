@@ -12,6 +12,7 @@ export const dynamic = 'force-dynamic';
 /**
  * GET /api/admin/exams/deduplicate
  * Scan and return duplicate exam questions across Juz and Packages.
+ * Filters only active questions (is_active = true) by default.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -28,13 +29,14 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const juzParam = searchParams.get('juz');
     const useAi = searchParams.get('use_ai') === 'true';
+    const activeOnly = searchParams.get('active_only') !== 'false'; // default true: hanya soal aktif
     const juz = juzParam && juzParam !== 'all' ? parseInt(juzParam, 10) : undefined;
 
     const pool = getPool();
     const client = await pool.connect();
 
     try {
-      const result = await detectDuplicates(client, { juz, useAi });
+      const result = await detectDuplicates(client, { juz, useAi, activeOnly });
       return NextResponse.json({
         success: true,
         data: result,
@@ -54,6 +56,7 @@ export async function GET(request: NextRequest) {
 /**
  * POST /api/admin/exams/deduplicate
  * Execute deduplication (archive or delete) with automatic exam_attempts re-mapping.
+ * Only targets active questions by default.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -68,7 +71,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { action = 'delete', juz, useAi = false } = body; // action: 'delete' | 'archive'
+    const { action = 'delete', juz, useAi = false, activeOnly = true } = body; // action: 'delete' | 'archive'
 
     const pool = getPool();
     const client = await pool.connect();
@@ -79,6 +82,7 @@ export async function POST(request: NextRequest) {
       const { groups } = await detectDuplicates(client, {
         juz: juz ? parseInt(juz, 10) : undefined,
         useAi,
+        activeOnly: activeOnly !== false,
       });
 
       if (groups.length === 0) {

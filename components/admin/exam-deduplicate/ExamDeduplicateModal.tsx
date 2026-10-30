@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import {
   CopyMinus,
   Sparkles,
-  AlertTriangle,
   CheckCircle2,
   Trash2,
   Archive,
@@ -69,6 +68,7 @@ export function ExamDeduplicateModal({
       const params = new URLSearchParams();
       if (selectedJuz !== 'all') params.append('juz', selectedJuz);
       if (useAi) params.append('use_ai', 'true');
+      params.append('active_only', 'true');
 
       const res = await fetch(`/api/admin/exams/deduplicate?${params.toString()}`);
       const json = await res.json();
@@ -76,9 +76,9 @@ export function ExamDeduplicateModal({
       if (res.ok && json.success) {
         setData(json.data);
         if (json.data.groups.length === 0) {
-          toast.success('Alhamdulillah, tidak ditemukan duplikasi soal!');
+          toast.success('Alhamdulillah, tidak ditemukan duplikasi pada soal aktif!');
         } else {
-          toast.info(`Ditemukan ${json.data.totalDuplicateCount} soal duplikat pada ${json.data.groups.length} grup.`);
+          toast.info(`Ditemukan ${json.data.totalDuplicateCount} soal duplikat pada ${json.data.groups.length} grup soal aktif.`);
         }
       } else {
         toast.error(json.error || 'Gagal memindai duplikasi');
@@ -110,6 +110,7 @@ export function ExamDeduplicateModal({
           action,
           juz: selectedJuz !== 'all' ? selectedJuz : undefined,
           useAi,
+          activeOnly: true,
         }),
       });
 
@@ -138,33 +139,42 @@ export function ExamDeduplicateModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div className="relative bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl border border-gray-100 overflow-hidden">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-emerald-900 to-green-800 p-6 text-white flex items-center justify-between">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/60 backdrop-blur-sm animate-fade-in overflow-y-auto">
+      <div className="relative bg-white rounded-3xl w-full max-w-4xl h-[92dvh] sm:h-auto max-h-[92dvh] sm:max-h-[90vh] flex flex-col shadow-2xl border border-gray-100 overflow-hidden my-auto">
+        {/* Header (Shrink-0) */}
+        <div className="shrink-0 bg-gradient-to-r from-emerald-900 to-green-800 p-4 sm:p-6 text-white flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-white/10 rounded-2xl backdrop-blur-md">
-              <CopyMinus className="w-6 h-6 text-amber-300" />
+            <div className="p-2 sm:p-2.5 bg-white/10 rounded-2xl backdrop-blur-md shrink-0">
+              <CopyMinus className="w-5 h-5 sm:w-6 sm:h-6 text-amber-300" />
             </div>
             <div>
-              <h3 className="text-xl font-black tracking-tight flex items-center gap-2">
+              <h3 className="text-base sm:text-xl font-black tracking-tight flex items-center gap-2">
                 Pembersih Duplikasi Soal Ujian (AI &amp; Heuristik)
               </h3>
-              <p className="text-xs text-emerald-100/90 mt-0.5">
-                Deteksi duplikasi Paket A, B, atau Semua Paket agar total soal sesuai standar (100 soal/juz)
+              <p className="text-[11px] sm:text-xs text-emerald-100/90 mt-0.5 line-clamp-1 sm:line-clamp-none">
+                Deteksi duplikasi Paket A, B, atau Semua Paket pada soal aktif (mengabaikan soal yang diarsipkan)
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all"
+            className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all shrink-0"
+            title="Tutup Modal"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Content Body */}
-        <div className="p-6 space-y-6 overflow-y-auto flex-1">
+        {/* Content Body (Flex-1 & Min-h-0 & Overflow-y-auto) */}
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-5 overflow-y-auto min-h-0 flex-1 overscroll-contain">
+          {/* Active Question Filter Info Badge */}
+          <div className="bg-emerald-50/90 border border-emerald-200/80 rounded-2xl p-3 sm:p-3.5 flex items-center gap-2.5 text-xs text-emerald-900 font-medium">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <div className="text-[11px] sm:text-xs leading-relaxed">
+              <strong className="font-bold text-emerald-950">Mode Soal Aktif:</strong> Pemindaian hanya memeriksa soal yang sedang aktif (<code className="px-1.5 py-0.5 bg-emerald-150 rounded text-[10px] font-mono font-bold">is_active = true</code>). Soal yang telah diarsipkan tidak akan dimasukkan ke dalam deteksi duplikasi.
+            </div>
+          </div>
+
           {/* Controls Bar */}
           <div className="bg-gray-50 p-4 rounded-2xl border border-gray-200/70 flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3 flex-wrap">
@@ -204,7 +214,7 @@ export function ExamDeduplicateModal({
               type="button"
               onClick={handleScan}
               disabled={loading || executing}
-              className="px-5 py-2.5 rounded-xl bg-emerald-800 hover:bg-emerald-900 active:scale-95 text-white font-bold text-xs shadow-md transition-all flex items-center gap-2"
+              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-emerald-800 hover:bg-emerald-900 active:scale-95 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
               <span>{loading ? 'Memindai Bank Soal...' : 'Pindai Duplikasi'}</span>
@@ -217,7 +227,7 @@ export function ExamDeduplicateModal({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-center">
                   <span className="text-2xl font-black text-emerald-900">{data.totalQuestions}</span>
-                  <p className="text-xs font-bold text-emerald-700 uppercase mt-0.5">Total Soal Dicek</p>
+                  <p className="text-xs font-bold text-emerald-700 uppercase mt-0.5">Total Soal Aktif Dicek</p>
                 </div>
                 <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-center">
                   <span className="text-2xl font-black text-amber-900">{data.groups.length}</span>
@@ -232,9 +242,9 @@ export function ExamDeduplicateModal({
               {data.groups.length === 0 ? (
                 <div className="p-8 text-center bg-gray-50 rounded-2xl border border-gray-200">
                   <CheckCircle2 className="w-10 h-10 text-emerald-600 mx-auto mb-2" />
-                  <h4 className="font-bold text-gray-800 text-sm">Bank Soal Sudah Bersih</h4>
+                  <h4 className="font-bold text-gray-800 text-sm">Bank Soal Aktif Sudah Bersih</h4>
                   <p className="text-xs text-gray-500 mt-1">
-                    Tidak ada soal yang terdeteksi ganda di paket yang dipilih.
+                    Tidak ada soal aktif yang terdeteksi ganda di paket yang dipilih.
                   </p>
                 </div>
               ) : (
@@ -245,11 +255,11 @@ export function ExamDeduplicateModal({
                       Daftar Temuan Duplikasi ({data.groups.length} Grup)
                     </h4>
                     <span className="text-[11px] text-gray-500 italic">
-                      Riwayat jawaban ujian akan otomatis diarahkan ke soal kanonikal
+                      Riwayat jawaban ujian otomatis diarahkan ke soal kanonikal
                     </span>
                   </div>
 
-                  <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
+                  <div className="space-y-2.5">
                     {data.groups.map((group, gIdx) => {
                       const isExpanded = !!expandedGroups[gIdx];
                       return (
@@ -344,8 +354,8 @@ export function ExamDeduplicateModal({
           </div>
         </div>
 
-        {/* Footer Actions */}
-        <div className="bg-gray-50 border-t border-gray-200 p-5 flex flex-wrap items-center justify-between gap-3">
+        {/* Footer Actions (Shrink-0) */}
+        <div className="shrink-0 bg-gray-50 border-t border-gray-200 p-4 sm:p-5 flex flex-wrap items-center justify-between gap-3">
           <button
             type="button"
             onClick={onClose}
@@ -363,7 +373,7 @@ export function ExamDeduplicateModal({
                 className="px-4 py-2.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold transition-all flex items-center gap-1.5"
               >
                 <Archive className="w-4 h-4 text-amber-700" />
-                <span>Arsipkan Duplikat ({data.totalDuplicateCount})</span>
+                <span>Arsipkan ({data.totalDuplicateCount})</span>
               </button>
 
               <button
@@ -373,7 +383,7 @@ export function ExamDeduplicateModal({
                 className="px-5 py-2.5 rounded-xl bg-rose-700 hover:bg-rose-800 active:scale-95 text-white text-xs font-bold transition-all shadow-md flex items-center gap-1.5"
               >
                 <Trash2 className="w-4 h-4" />
-                <span>Hapus Permanen &amp; Re-map ({data.totalDuplicateCount})</span>
+                <span>Hapus &amp; Re-map ({data.totalDuplicateCount})</span>
               </button>
             </div>
           )}
