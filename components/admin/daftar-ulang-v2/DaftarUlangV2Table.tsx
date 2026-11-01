@@ -5,6 +5,7 @@ import { useState, useRef, useEffect } from 'react';
 import { DaftarUlangSubmission } from './types';
 import { getWhatsAppUrl } from '@/lib/utils/whatsapp';
 import { cn, parseAkadFiles } from '@/lib/utils';
+import { formatMuallimahName } from '@/lib/roles';
 
 interface DaftarUlangV2TableProps {
   submissions: DaftarUlangSubmission[];
@@ -385,7 +386,7 @@ export function DaftarUlangV2Table({
                   </span>
                   {submission.ujian_halaqah?.muallimah_name && (
                     <span className="text-[10px] text-gray-500 block truncate">
-                      {submission.ujian_halaqah.muallimah_name}
+                      {formatMuallimahName(submission.ujian_halaqah.muallimah_name)}
                     </span>
                   )}
                 </div>
@@ -698,7 +699,7 @@ export function DaftarUlangV2Table({
                         )}
                         {submission.ujian_halaqah?.muallimah_name && (
                           <span className="text-gray-500 text-[11px] mt-0.5">
-                            {submission.ujian_halaqah.muallimah_name}
+                            {formatMuallimahName(submission.ujian_halaqah.muallimah_name)}
                           </span>
                         )}
                       </div>

@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Search, Filter, CheckCircle2, Clock, User, Award, MessageSquare, Save, Loader2, ChevronRight } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { cn } from '@/lib/utils';
+import { formatMuallimahName } from '@/lib/roles';
 
 interface Registration {
   id: string;
@@ -29,13 +30,7 @@ interface Registration {
   };
 }
 
-const formatExaminerName = (name: string) => {
-  if (!name) return '-';
-  if (name.toLowerCase().startsWith('ustadzah') || name.toLowerCase().startsWith('ustadz')) {
-    return name;
-  }
-  return `Ustadzah ${name}`;
-};
+const formatExaminerName = (name: string) => formatMuallimahName(name) || '-';
 
 export function FinalExamParticipants() {
   const [registrations, setRegistrations] = useState<Registration[]>([]);

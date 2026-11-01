@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { X, Loader2, Users, Calendar, Clock, MapPin, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { formatMuallimahName } from '@/lib/roles';
 
 interface Batch {
   id: string;
@@ -334,7 +335,7 @@ export function ManualCreateHalaqahModal({ onClose, onSuccess, batchId }: Manual
               <option value="">Pilih muallimah...</option>
               {muallimahs.map((muallimah) => (
                 <option key={muallimah.id} value={muallimah.id}>
-                  {muallimah.full_name} {muallimah.email ? `(${muallimah.email})` : ''} {muallimah.preferred_juz ? `- Juz ${muallimah.preferred_juz}` : ''}
+                  {formatMuallimahName(muallimah.full_name)} {muallimah.email ? `(${muallimah.email})` : ''} {muallimah.preferred_juz ? `- Juz ${muallimah.preferred_juz}` : ''}
                 </option>
               ))}
             </select>

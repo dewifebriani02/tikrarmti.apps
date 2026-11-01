@@ -1,5 +1,6 @@
 import { query } from '@/lib/db';
 import { whatsappService, normalizePhoneNumber } from '@/lib/services/whatsapp';
+import { formatMuallimahName } from '@/lib/roles';
 
 export interface ExamReminderCandidate {
   registrationId: string;
@@ -7,6 +8,7 @@ export interface ExamReminderCandidate {
   scheduleId: string;
   fullName: string;
   whatsapp: string;
+  batchName?: string;
   examDate: string; // YYYY-MM-DD
   startTime: string; // HH:mm:ss
   endTime: string;
@@ -97,6 +99,7 @@ export function formatTimeRange(start: string, end: string): string {
  */
 export function buildH1OralExamMessage(recipient: {
   fullName: string;
+  batchName?: string;
   examDateFormatted: string;
   timeRangeFormatted: string;
   examinerName: string;
@@ -107,17 +110,24 @@ export function buildH1OralExamMessage(recipient: {
     ? recipient.locationLink
     : 'https://markaztikrar.id/ujian?tab=akhir';
 
+  const examinerFormatted = formatMuallimahName(recipient.examinerName) || 'Ustadzah Najah Sungkar';
+  const cleanJuz = (recipient.targetJuz || '30').trim();
+  const targetJuzDisplay = cleanJuz.toLowerCase().startsWith('juz')
+    ? cleanJuz
+    : `Juz ${cleanJuz}`;
+  const batchDisplay = recipient.batchName || 'Tikrar Tahfidz MTI Batch 3';
+
   return `Assalamu'alaikum Warahmatullahi Wabarakatuh.
 
 Ykh. Ukhti *${recipient.fullName}*,
 
-Baarakallahu fiik. Kami menginformasikan pengingat resmi bahwa jadwal Ujian Akhir Lisan (Tasmi' Zoom) Ukhti pada program Tikrar Tahfidz MTI Batch 3 insya Allah akan dilaksanakan *BESOK*:
+Baarakallahu fiik. Kami menginformasikan pengingat resmi bahwa jadwal Ujian Akhir Lisan (Tasmi' Zoom) Ukhti pada program ${batchDisplay} insya Allah akan dilaksanakan *BESOK*:
 
 📌 *RINCIAN JADWAL UJIAN AKHIR LISAN:*
 • Hari / Tanggal: ${recipient.examDateFormatted}
 • Waktu Sesi: Pukul ${recipient.timeRangeFormatted}
-• Penguji Resmi: ${recipient.examinerName}
-• Target Hafalan: Juz ${recipient.targetJuz}
+• Penguji Resmi: ${examinerFormatted}
+• Target Hafalan: ${targetJuzDisplay}
 • Ruang Temu Zoom / Meeting:
 🔗 ${zoomLink}
 
@@ -165,6 +175,8 @@ export async function getH1ExamCandidates(targetDate: string): Promise<ExamRemin
       r.schedule_id,
       r.status as registration_status,
       r.reminder_h1_sent_at,
+      s.batch_id as schedule_batch_id,
+      b.name as batch_name,
       s.exam_type,
       s.exam_date,
       s.start_time,
@@ -172,14 +184,27 @@ export async function getH1ExamCandidates(targetDate: string): Promise<ExamRemin
       s.location_link,
       s.notes as schedule_notes,
       u.full_name,
-      COALESCE(NULLIF(TRIM(u.whatsapp), ''), NULLIF(TRIM(vat.whatsapp), '')) as raw_phone,
-      COALESCE(vat.confirmed_chosen_juz, '30') as target_juz,
-      COALESCE(examiner.full_name, 'Ustadzah Najah Sungkar') as examiner_name
+      COALESCE(
+        NULLIF(TRIM(u.whatsapp), ''),
+        NULLIF(TRIM(vat.whatsapp), ''),
+        NULLIF(TRIM(du.confirmed_wa_phone), ''),
+        NULLIF(TRIM(ptt.wa_phone), '')
+      ) as raw_phone,
+      COALESCE(
+        vat.confirmed_chosen_juz,
+        du.confirmed_chosen_juz,
+        ptt.chosen_juz,
+        '30'
+      ) as target_juz,
+      COALESCE(examiner.full_name, 'Najah Sungkar') as examiner_name
     FROM final_exam_registrations r
     JOIN final_exam_schedules s ON r.schedule_id = s.id
     JOIN users u ON r.user_id = u.id
     LEFT JOIN users examiner ON s.examiner_id = examiner.id
-    LEFT JOIN v_active_thalibah vat ON vat.user_id = u.id
+    LEFT JOIN batches b ON s.batch_id = b.id
+    LEFT JOIN v_active_thalibah vat ON (vat.user_id = u.id AND vat.batch_id = s.batch_id)
+    LEFT JOIN daftar_ulang_submissions du ON (du.user_id = u.id AND du.batch_id = s.batch_id AND du.status = 'approved')
+    LEFT JOIN pendaftaran_tikrar_tahfidz ptt ON (ptt.user_id = u.id AND ptt.batch_id = s.batch_id AND ptt.status = 'approved')
     WHERE s.exam_type = 'oral'
       AND s.status = 'active'
       AND r.status IN ('registered', 'confirmed')
@@ -197,10 +222,11 @@ export async function getH1ExamCandidates(targetDate: string): Promise<ExamRemin
     scheduleId: r.schedule_id,
     fullName: r.full_name,
     whatsapp: r.raw_phone || '',
+    batchName: r.batch_name,
     examDate: r.exam_date,
     startTime: r.start_time,
     endTime: r.end_time,
-    examinerName: r.examiner_name,
+    examinerName: formatMuallimahName(r.examiner_name),
     targetJuz: r.target_juz,
     locationLink: r.location_link,
     scheduleNotes: r.schedule_notes,
@@ -243,6 +269,7 @@ export async function sendH1ExamReminders(
 
     const messageText = buildH1OralExamMessage({
       fullName: item.fullName,
+      batchName: item.batchName,
       examDateFormatted: formatIndonesianDate(item.examDate),
       timeRangeFormatted: formatTimeRange(item.startTime, item.endTime),
       examinerName: item.examinerName,

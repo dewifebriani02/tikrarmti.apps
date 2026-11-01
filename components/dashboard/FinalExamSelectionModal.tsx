@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Calendar, Clock, Users, GraduationCap, Loader2, CheckCircle2, AlertCircle, Award, MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { formatMuallimahName } from '@/lib/roles';
 import { formatDateWithDayIndo } from '@/lib/utils/date-helpers';
 
 interface Schedule {
@@ -23,24 +24,7 @@ interface Schedule {
   examiner?: { full_name: string };
 }
 
-const formatExaminerName = (name?: string) => {
-  if (!name) return 'TBA';
-  const cleanName = name.trim();
-  const lower = cleanName.toLowerCase();
-  if (
-    lower.startsWith('ustadzah') || 
-    lower.startsWith('ustd') || 
-    lower.startsWith('ustz') || 
-    lower.startsWith('ust.') ||
-    lower.startsWith('ustz.') ||
-    lower.startsWith('ustd.') ||
-    lower.startsWith('ustad ') ||
-    lower.startsWith('ustadz ')
-  ) {
-    return cleanName;
-  }
-  return `Ustadzah ${cleanName}`;
-};
+const formatExaminerName = (name?: string) => formatMuallimahName(name) || 'TBA';
 
 interface FinalExamSelectionModalProps {
   isOpen: boolean;

@@ -1,4 +1,5 @@
 "use client";
+import { formatMuallimahName } from '@/lib/roles';
 
 import { useState, useEffect, Fragment } from "react";
 import {
@@ -816,7 +817,7 @@ export function MuallimahAnalysisTableTab() {
                           <div className="space-y-1.5">
                             {est.halaqah_details.map((h: any) => (
                               <div key={h.id} className="bg-white rounded-lg p-2.5 border border-gray-200/80 text-xs">
-                                <div className="font-bold text-gray-900">{h.muallimah_name}</div>
+                                <div className="font-bold text-gray-900">{formatMuallimahName(h.muallimah_name)}</div>
                                 <div className="text-[11px] text-gray-500 mt-0.5">
                                   {h.class_type?.replace(/_/g, " ")} &bull; Kapasitas: {h.max_students} &bull; Terisi: {h.current_students}
                                 </div>
@@ -842,7 +843,7 @@ export function MuallimahAnalysisTableTab() {
                           <div className="space-y-1.5">
                             {akt.halaqah_details.map((h: any) => (
                               <div key={h.id} className="bg-white rounded-lg p-2.5 border border-gray-200/80 text-xs">
-                                <div className="font-bold text-gray-900">{h.muallimah_name}</div>
+                                <div className="font-bold text-gray-900">{formatMuallimahName(h.muallimah_name)}</div>
                                 <div className="text-[11px] text-gray-500 mt-0.5">
                                   Halaqah: {h.name || h.class_type?.replace(/_/g, " ")} &bull; Kapasitas: {h.max_students} &bull; Terisi: {h.current_students}
                                 </div>
@@ -964,7 +965,7 @@ export function MuallimahAnalysisTableTab() {
                                             <tbody className="divide-y divide-gray-100">
                                               {est.halaqah_details.map((h: any) => (
                                                 <tr key={h.id} className="align-top hover:bg-blue-50/40">
-                                                  <td className="px-3 py-3 font-semibold text-gray-900">{h.muallimah_name}</td>
+                                                  <td className="px-3 py-3 font-semibold text-gray-900">{formatMuallimahName(h.muallimah_name)}</td>
                                                   <td className="px-3 py-3 capitalize text-gray-600">{h.class_type?.replace(/_/g, " ")}{h.preferred_juz ? (h.preferred_juz.toLowerCase().includes('juz') || h.preferred_juz.toLowerCase() === 'topik' ? ` - ${h.preferred_juz}` : ` - Juz ${h.preferred_juz}`) : ''}</td>
                                                   <td className="px-3 py-3 text-center font-semibold">{h.max_students}</td>
                                                   <td className="px-3 py-3 text-center font-semibold">{h.current_students}</td>
@@ -1005,7 +1006,7 @@ export function MuallimahAnalysisTableTab() {
                                             <tbody className="divide-y divide-gray-100">
                                               {akt.halaqah_details.map((h: any) => (
                                                 <tr key={h.id} className="align-top hover:bg-emerald-50/40">
-                                                  <td className="px-3 py-3 font-semibold text-gray-900">{h.muallimah_name}</td>
+                                                  <td className="px-3 py-3 font-semibold text-gray-900">{formatMuallimahName(h.muallimah_name)}</td>
                                                   <td className="px-3 py-3 text-gray-600">{h.name || h.class_type?.replace(/_/g, " ")}</td>
                                                   <td className="px-3 py-3 text-center font-semibold">{h.max_students}</td>
                                                   <td className="px-3 py-3 text-center font-semibold">{h.current_students}</td>

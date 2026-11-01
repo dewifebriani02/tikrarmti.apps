@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { formatMuallimahName } from '@/lib/roles';
 import { ChevronDown, ChevronUp, Loader2, BookOpen, CheckCircle, Users, Trophy, Medal } from 'lucide-react';
 
 interface ThalibahSummary {
@@ -145,7 +146,7 @@ export function HalaqahSummaryTab({ batchId }: HalaqahSummaryTabProps) {
                       {h.name}
                     </h3>
                     <p className="text-sm font-medium text-gray-500 mt-1">
-                      Mu'allimah: <span className="text-gray-700 font-bold">{h.muallimah_name}</span>
+                      Mu'allimah: <span className="text-gray-700 font-bold">{formatMuallimahName(h.muallimah_name)}</span>
                     </p>
                   </div>
                 </div>
@@ -214,7 +215,7 @@ export function HalaqahSummaryTab({ batchId }: HalaqahSummaryTabProps) {
                         {h.name}
                       </h3>
                       <p className="text-xs font-medium text-gray-500 mt-0.5 truncate">
-                        Mu'allimah: <span className="text-gray-700 font-bold">{h.muallimah_name}</span>
+                        Mu'allimah: <span className="text-gray-700 font-bold">{formatMuallimahName(h.muallimah_name)}</span>
                       </p>
                     </div>
                   </div>

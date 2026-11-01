@@ -24,6 +24,7 @@ import { usePersona } from '@/hooks/usePersona';
 import { useActiveBatch } from '@/hooks/useBatches';
 import { FinalExamSelectionModal } from '@/components/dashboard/FinalExamSelectionModal';
 import { cn } from '@/lib/utils';
+import { formatMuallimahName } from '@/lib/roles';
 import { formatDateIndo } from '@/lib/utils/date-helpers';
 import { toast } from 'sonner';
 
@@ -353,7 +354,7 @@ export default function UjianPage() {
                 </div>
                 {oralRegistration.schedule?.examiner?.full_name && (
                   <p className="text-xs text-emerald-800">
-                    Penguji: <span className="font-bold">{oralRegistration.schedule.examiner.full_name}</span>
+                    Penguji: <span className="font-bold">{formatMuallimahName(oralRegistration.schedule.examiner.full_name)}</span>
                   </p>
                 )}
                 {oralRegistration.status === 'graded' && (

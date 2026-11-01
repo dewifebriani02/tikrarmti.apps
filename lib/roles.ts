@@ -276,3 +276,26 @@ export function getPersonaLabel(role: string): string {
       return role;
   }
 }
+
+/**
+ * Memastikan nama Mu'allimah/Penguji/Pengajar selalu diawali dengan gelar kehormatan "Ustadzah".
+ * Jika nama sudah memiliki awalan gelar (Ustadzah, Ustadz, Ust., Ustz., dll), gelar tersebut
+ * distandarisasi menjadi "Ustadzah [Nama]" tanpa duplikasi.
+ */
+export function formatMuallimahName(name?: string | null): string {
+  if (!name || !name.trim()) return '';
+  const cleanName = name.trim();
+  
+  // Deteksi awalan gelar kehormatan umum
+  const match = cleanName.match(/^(ustadzah|ustadz|ustad|ust\.|ustz\.|ustd\.|ustz|ustd)\s+/i);
+  if (match) {
+    const remainder = cleanName.slice(match[0].length).trim();
+    return `Ustadzah ${remainder}`;
+  }
+  
+  if (/^ustadzah$/i.test(cleanName)) {
+    return 'Ustadzah';
+  }
+
+  return `Ustadzah ${cleanName}`;
+}

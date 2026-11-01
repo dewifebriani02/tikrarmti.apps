@@ -10,6 +10,7 @@ import { Plus, Trash2, Calendar as CalendarIcon, Clock, Users, Link as LinkIcon,
 import { toast } from 'react-hot-toast';
 import { useActiveBatch, useBatches } from '@/hooks/useBatches';
 import { cn } from '@/lib/utils';
+import { formatMuallimahName } from '@/lib/roles';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 interface Examiner {
@@ -357,7 +358,7 @@ export function FinalExamSchedules() {
                     </SelectTrigger>
                     <SelectContent>
                       {examiners.map(examiner => (
-                        <SelectItem key={examiner.id} value={examiner.id}>{examiner.full_name}</SelectItem>
+                        <SelectItem key={examiner.id} value={examiner.id}>{formatMuallimahName(examiner.full_name)}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -598,7 +599,7 @@ export function FinalExamSchedules() {
                     <div className="w-5 h-5 rounded-md bg-white border border-gray-100 flex items-center justify-center text-gray-400">
                       <GraduationCap className="w-3.5 h-3.5" />
                     </div>
-                    <span>Penguji: <span className="text-gray-950 font-bold">{schedule.examiner?.full_name || '-'}</span></span>
+                    <span>Penguji: <span className="text-gray-950 font-bold">{formatMuallimahName(schedule.examiner?.full_name) || '-'}</span></span>
                   </div>
                   {schedule.location_link && (
                     <div className="flex items-center gap-2.5 min-w-0">
@@ -652,7 +653,7 @@ export function FinalExamSchedules() {
                   <DialogDescription className="text-white/95 font-medium leading-relaxed">
                     {viewingParticipantsSchedule.exam_type === 'oral' ? 'Ujian Lisan' : 'Ujian Tulisan'} • {new Intl.DateTimeFormat('id-ID', { dateStyle: 'full', timeZone: 'Asia/Jakarta' }).format(new Date(viewingParticipantsSchedule.exam_date))}
                     <div className="text-xs text-white/80 mt-1 font-bold">
-                      Waktu: {viewingParticipantsSchedule.start_time} - {viewingParticipantsSchedule.end_time} WIB | Penguji: {viewingParticipantsSchedule.examiner?.full_name || '-'}
+                      Waktu: {viewingParticipantsSchedule.start_time} - {viewingParticipantsSchedule.end_time} WIB | Penguji: {formatMuallimahName(viewingParticipantsSchedule.examiner?.full_name) || '-'}
                     </div>
                   </DialogDescription>
                 </div>

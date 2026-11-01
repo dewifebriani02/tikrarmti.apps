@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Bell, Calendar, Clock, Send, CheckCircle2, AlertCircle, RefreshCw, Eye, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
+import { formatMuallimahName } from '@/lib/roles';
 
 export function ExamReminderH1Modal() {
   const [isOpen, setIsOpen] = useState(false);
@@ -175,7 +176,7 @@ export function ExamReminderH1Modal() {
                       <div className="font-bold text-gray-900 flex items-center gap-2">
                         <span>{c.fullName}</span>
                         <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.2 rounded font-semibold">
-                          Juz {c.targetJuz}
+                          {c.targetJuz?.toLowerCase().startsWith('juz') ? c.targetJuz : 'Juz ' + c.targetJuz}
                         </span>
                       </div>
                       <div className="text-[11px] text-gray-500 flex items-center gap-2">
@@ -183,7 +184,7 @@ export function ExamReminderH1Modal() {
                         <span>•</span>
                         <span>WA: {c.whatsapp || '-'}</span>
                         <span>•</span>
-                        <span>Penguji: {c.examinerName}</span>
+                        <span>Penguji: {formatMuallimahName(c.examinerName)}</span>
                       </div>
                     </div>
 
