@@ -617,10 +617,10 @@ export default function DashboardContent() {
                   onClick={() => setIsThalibahRankModalOpen(true)}
                 >
                   <div className="absolute inset-0 bg-gradient-to-b from-amber-400/20 to-transparent blur-xl opacity-50 rounded-3xl group-hover:opacity-70 transition-opacity" />
-                  <div className="relative h-16 lg:h-24 px-5 lg:px-0 lg:w-28 rounded-2xl lg:rounded-[2rem] bg-gradient-to-b from-amber-500/10 to-black/40 backdrop-blur-xl border border-amber-500/20 flex flex-col justify-center items-center shadow-2xl transition-all group-hover:border-amber-400/50 group-hover:scale-105" title="Klik untuk evaluasi skor">
+                  <div className="relative h-16 lg:h-24 px-5 lg:px-0 lg:w-32 rounded-2xl lg:rounded-[2rem] bg-gradient-to-b from-amber-500/10 to-black/40 backdrop-blur-xl border border-amber-500/20 flex flex-col justify-center items-center shadow-2xl transition-all group-hover:border-amber-400/50 group-hover:scale-105" title={userRank?.week ? `Klik untuk evaluasi skor kedisiplinan pekan ${userRank.week}` : "Klik untuk evaluasi skor"}>
                     <div className="flex items-center gap-1.5 lg:mb-1">
                        <Trophy className="w-3.5 h-3.5 lg:w-4 lg:h-4 text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.5)]" />
-                       <p className="text-[9px] lg:text-[10px] uppercase font-black text-amber-200/80 tracking-widest drop-shadow-md">Peringkat</p>
+                       <p className="text-[9px] lg:text-[10px] uppercase font-black text-amber-200/80 tracking-wider drop-shadow-md">{userRank?.week ? `Disiplin P${userRank.week}` : "Peringkat"}</p>
                     </div>
                     <div className="flex items-baseline gap-1 mt-0.5 lg:mt-1">
                       <span className="text-2xl lg:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-b from-amber-100 to-amber-400 drop-shadow-sm">{userRank.rank}</span>
@@ -1362,9 +1362,13 @@ export default function DashboardContent() {
                 <Trophy className="w-7 h-7" />
               </div>
               <div className="text-left">
-                <DialogTitle className="text-2xl font-black tracking-tight">Evaluasi Kedisiplinan</DialogTitle>
+                <DialogTitle className="text-2xl font-black tracking-tight">
+                  Evaluasi Kedisiplinan {userRank?.week ? `(Pekan ${userRank.week})` : ""}
+                </DialogTitle>
                 <DialogDescription className="text-amber-900/80 font-semibold mt-1">
-                  Rincian perhitungan skor disiplin Anda
+                  {userRank?.isCurriculumCompleted 
+                    ? `Pekan pembelajaran aktif kurikulum terakhir (Pekan ${userRank?.week || 10})` 
+                    : `Rincian skor ketepatan waktu setor Jurnal & Tashih Pekan ${userRank?.week || ""}`}
                 </DialogDescription>
               </div>
             </div>
@@ -1372,14 +1376,16 @@ export default function DashboardContent() {
           <div className="p-6 space-y-6">
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-amber-100/50 rounded-2xl p-4 flex flex-col items-center justify-center border border-amber-200">
-                <p className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-1">Peringkat</p>
+                <p className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-1">
+                  Peringkat (Pekan {userRank?.week || 10})
+                </p>
                 <div className="flex items-baseline gap-1">
                   <span className="text-4xl font-black text-amber-600">{userRank?.rank}</span>
                   <span className="text-sm font-bold text-amber-500/70">/ {userRank?.total}</span>
                 </div>
               </div>
               <div className="bg-amber-100/50 rounded-2xl p-4 flex flex-col items-center justify-center border border-amber-200">
-                <p className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-1">Total Skor</p>
+                <p className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-1">Skor Disiplin</p>
                 <div className="flex items-baseline gap-1">
                   <span className="text-4xl font-black text-amber-600">{userRank?.score}</span>
                   <span className="text-sm font-bold text-amber-500/70">pts</span>
@@ -1392,8 +1398,14 @@ export default function DashboardContent() {
               <ul className="text-sm text-gray-600 space-y-2">
                 <li className="flex items-start gap-2">
                   <div className="mt-0.5 w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
-                  <p>Skor dihitung berdasarkan <b>ketepatan waktu</b> Anda menyetorkan Jurnal dan Tugas Tashih pekanan.</p>
+                  <p>Peringkat kedisiplinan dievaluasi setiap pekan pembelajaran berdasarkan <b>ketepatan waktu</b> Anda menyetorkan Jurnal dan Tugas Tashih.</p>
                 </li>
+                {userRank?.isCurriculumCompleted && (
+                  <li className="flex items-start gap-2">
+                    <div className="mt-0.5 w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                    <p className="text-amber-900 font-medium">Kurikulum pembelajaran telah selesai di <b>Pekan {userRank?.week || 10}</b>. Peringkat kedisiplinan dikunci pada pekan terakhir kurikulum tersebut dan tidak menurun selama masa muraja'ah & ujian akhir.</p>
+                  </li>
+                )}
                 <li className="flex items-start gap-2">
                   <div className="mt-0.5 w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
                   <p>Setiap blok (Jurnal/Tashih) yang dikumpulkan <b>tepat waktu</b> atau lebih awal mendapatkan skor wajib penuh <b>10 poin</b>.</p>
@@ -1408,7 +1420,7 @@ export default function DashboardContent() {
                 </li>
                 <li className="flex items-start gap-2">
                   <div className="mt-0.5 w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
-                  <p>Total skor maksimal adalah <b>100 Poin</b> (80 poin wajib + 20 poin ekstra kegiatan opsional).</p>
+                  <p>Total skor maksimal per pekan adalah <b>100 Poin</b> (80 poin wajib + 20 poin ekstra kegiatan opsional).</p>
                 </li>
               </ul>
             </div>

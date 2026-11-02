@@ -97,10 +97,11 @@ export async function computeHalaqahOfTheWeek(batchId?: string, authUserId?: str
   );
 
   const batchStart = parseBatchDate(activeBatch.start_date);
+  const MAX_CURRICULUM_WEEKS = 10;
   const currentWeek = batchStart
     ? Math.ceil((Date.now() - batchStart.getTime()) / (7 * 24 * 60 * 60 * 1000))
     : 1;
-  const targetWeek = Math.max(1, currentWeek - 1);
+  const targetWeek = Math.min(MAX_CURRICULUM_WEEKS, Math.max(1, currentWeek - 1));
   const jurnalTargetWeek = Math.max(0, targetWeek - 1);
 
   let weekStartDate = new Date(0);
@@ -388,17 +389,22 @@ export async function computeHalaqahOfTheWeek(batchId?: string, authUserId?: str
     topHalaqah.target_week = targetWeek;
   }
 
-  // Compute global Thalibah rank
-  allStudentsScores.sort((a, b) => b.score - a.score);
+  // Compute global Thalibah rank with deterministic tie-breaking
+  allStudentsScores.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return a.id.localeCompare(b.id);
+  });
   let userRank = null;
   
-  if (isOnlyThalibah && authUserId) {
+  if (authUserId) {
     const rankIndex = allStudentsScores.findIndex(s => s.id === authUserId);
     if (rankIndex !== -1) {
       userRank = {
         rank: rankIndex + 1,
         total: allStudentsScores.length,
-        score: allStudentsScores[rankIndex].score
+        score: allStudentsScores[rankIndex].score,
+        week: targetWeek,
+        isCurriculumCompleted: currentWeek > MAX_CURRICULUM_WEEKS
       };
     }
   }

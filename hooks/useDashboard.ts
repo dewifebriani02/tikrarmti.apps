@@ -690,7 +690,7 @@ export interface HalaqahOfTheWeekData {
 export interface HalaqahRankingResponse {
   topHalaqah: HalaqahOfTheWeekData | null;
   allHalaqahs: HalaqahOfTheWeekData[];
-  userRank?: { rank: number; total: number; score: number } | null;
+  userRank?: { rank: number; total: number; score: number; week?: number; isCurriculumCompleted?: boolean } | null;
 }
 
 /**
