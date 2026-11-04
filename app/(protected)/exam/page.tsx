@@ -15,6 +15,7 @@ import {
   GraduationCap
 } from 'lucide-react';
 import { ExamQuestion, ExamAnswer, JuzNumber } from '@/types/exam';
+import { FormattedQuestionText } from '@/components/exam/FormattedQuestionText';
 
 interface ExamAttempt {
   id: string;
@@ -331,9 +332,10 @@ function ExamContent() {
                 <span className="inline-block px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full mb-3">
                   {currentQuestion.section_title}
                 </span>
-                <h2 className="text-lg font-semibold text-gray-900 whitespace-pre-wrap leading-relaxed">
-                  {currentQuestion.question_text}
-                </h2>
+                <FormattedQuestionText
+                  text={currentQuestion.question_text}
+                  className="mt-1 mb-2"
+                />
               </div>
               <button
                 onClick={handleFlagQuestion}
@@ -354,6 +356,7 @@ function ExamContent() {
             {currentQuestion.options?.map((option, index) => {
               const optText = (option as any).option_text || option.text;
               const isSelected = answers[currentQuestion.id] === optText;
+              const isArabicOpt = /[؀-ۿݐ-ݿࢠ-ࣿ]/.test(optText);
               return (
                 <button
                   key={index}

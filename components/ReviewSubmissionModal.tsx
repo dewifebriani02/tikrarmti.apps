@@ -1,5 +1,7 @@
 'use client';
 
+import { FormattedQuestionText } from "@/components/exam/FormattedQuestionText";
+
 import React, { useState, useEffect } from 'react';
 import {
   Dialog,
@@ -127,9 +129,7 @@ export function ReviewSubmissionModal({
                   {idx + 1}
                 </div>
                 <div className="space-y-4 flex-1">
-                  <p className="text-sm font-bold text-gray-900 leading-relaxed font-arabic">
-                    {q.question_text}
-                  </p>
+                  <FormattedQuestionText text={q.question_text} />
                   
                   <div className="space-y-2">
                     {q.options?.map((opt: any, oIdx: number) => {

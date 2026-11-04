@@ -1,5 +1,7 @@
 'use client';
 
+import { FormattedQuestionText } from "@/components/exam/FormattedQuestionText";
+
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   GraduationCap,
@@ -402,13 +404,10 @@ export function ExamSimulationTab() {
                   <span className="text-[11px] font-bold uppercase tracking-widest text-amber-800 block">
                     Potongan Ayat / Soal
                   </span>
-                  <p
-                    className="text-2xl sm:text-3xl font-serif leading-loose text-gray-900"
-                    dir="rtl"
-                    style={{ fontFamily: 'var(--font-amiri, serif)' }}
-                  >
-                    {questions[currentIndex].question_text}
-                  </p>
+                  <FormattedQuestionText
+                    text={questions[currentIndex].question_text}
+                    arabicClassName="text-2xl sm:text-3xl font-serif leading-loose text-gray-900 text-right"
+                  />
                 </div>
 
                 {/* Multiple Choice Options */}
@@ -622,13 +621,10 @@ export function ExamSimulationTab() {
 
                   {/* Question Text in Arabic */}
                   <div className="p-4 bg-gray-50/70 rounded-xl">
-                    <p
-                      className="text-xl sm:text-2xl font-serif text-gray-900 text-right leading-loose"
-                      dir="rtl"
-                      style={{ fontFamily: 'var(--font-amiri, serif)' }}
-                    >
-                      {item.question_text}
-                    </p>
+                    <FormattedQuestionText
+                      text={item.question_text}
+                      arabicClassName="text-xl sm:text-2xl font-serif text-gray-900 text-right leading-loose"
+                    />
                   </div>
 
                   {/* Options List with Highlighted Correct Answer */}

@@ -91,7 +91,10 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
   const [muallimahData, setMuallimahData] = useState(() => getProgramData('muallimah'));
 
   const [saving, setSaving] = useState(false);
+  const [holidayMode, setHolidayMode] = useState<'range' | 'single'>('range');
   const [holidayInput, setHolidayInput] = useState('');
+  const [holidayRangeStart, setHolidayRangeStart] = useState('');
+  const [holidayRangeEnd, setHolidayRangeEnd] = useState('');
   
   // Anchor date defaults to first_week_start_date, or start_date, or next Monday
   const [autoGenerateAnchorDate, setAutoGenerateAnchorDate] = useState(() => {
@@ -144,12 +147,66 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
 
   const handleAddHoliday = () => {
     if (!holidayInput) return;
-    if (formData.holiday_dates.includes(holidayInput)) return;
+    if (formData.holiday_dates.includes(holidayInput)) {
+      toast.info('Tanggal libur tersebut sudah terdaftar.');
+      return;
+    }
     setFormData({
       ...formData,
       holiday_dates: [...formData.holiday_dates, holidayInput].sort(),
     });
     setHolidayInput('');
+    toast.success('1 tanggal libur berhasil ditambahkan');
+  };
+
+  const handleAddHolidayRange = () => {
+    if (!holidayRangeStart || !holidayRangeEnd) {
+      toast.error('Silakan isi tanggal mulai dan tanggal selesai rentang libur.');
+      return;
+    }
+
+    const [startY, startM, startD] = holidayRangeStart.split('-').map(Number);
+    const [endY, endM, endD] = holidayRangeEnd.split('-').map(Number);
+    const current = new Date(Date.UTC(startY, startM - 1, startD, 12, 0, 0));
+    const end = new Date(Date.UTC(endY, endM - 1, endD, 12, 0, 0));
+
+    if (current > end) {
+      toast.error('Tanggal mulai tidak boleh lebih lambat dari tanggal selesai.');
+      return;
+    }
+
+    const newDates: string[] = [];
+    while (current <= end) {
+      const y = current.getUTCFullYear();
+      const m = String(current.getUTCMonth() + 1).padStart(2, '0');
+      const d = String(current.getUTCDate()).padStart(2, '0');
+      newDates.push(`${y}-${m}-${d}`);
+      current.setUTCDate(current.getUTCDate() + 1);
+    }
+
+    const merged = Array.from(new Set([...formData.holiday_dates, ...newDates])).sort();
+    const addedCount = merged.length - formData.holiday_dates.length;
+
+    setFormData({
+      ...formData,
+      holiday_dates: merged,
+    });
+
+    const startFormatted = new Date(holidayRangeStart + 'T12:00:00Z').toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+    const endFormatted = new Date(holidayRangeEnd + 'T12:00:00Z').toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+    toast.success(`Berhasil menambahkan rentang libur ${startFormatted} - ${endFormatted} (${newDates.length} hari libur, ${addedCount} tanggal baru)`);
+    setHolidayRangeStart('');
+    setHolidayRangeEnd('');
+  };
+
+  const handleClearAllHolidays = () => {
+    if (window.confirm(`Hapus semua ${formData.holiday_dates.length} tanggal libur?`)) {
+      setFormData({
+        ...formData,
+        holiday_dates: [],
+      });
+      toast.info('Semua tanggal libur telah dikosongkan.');
+    }
   };
 
   // Auto-Generate complete, standardized MTI timeline based on Pekan 1 Mulai (Senin)
@@ -927,7 +984,7 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
 
                 {/* Fase 4: Tanggal Libur & Break */}
                 <div className="bg-red-50/50 p-4 sm:p-5 rounded-2xl border border-red-200 space-y-3">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                     <h4 className="text-xs font-bold text-red-900 uppercase tracking-wider flex items-center gap-2">
                       <Clock className="w-3.5 h-3.5 text-red-600" />
                       Tanggal Libur &amp; Break (Opsional)
@@ -935,35 +992,121 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
                     <span className="text-[10px] text-red-600 italic">Pekan KBM akan bergeser otomatis</span>
                   </div>
 
-                  <div className="flex gap-2">
-                    <input
-                      type="date"
-                      value={holidayInput}
-                      onChange={(e) => setHolidayInput(e.target.value)}
-                      className="flex-1 px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-red-500/20"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleAddHoliday}
-                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
-                    >
-                      Tambah
-                    </button>
+                  {/* Mode Selector */}
+                  <div className="flex items-center gap-2 pt-0.5">
+                    <span className="text-[11px] font-bold text-gray-600">Metode Input:</span>
+                    <div className="flex items-center bg-white p-0.5 rounded-lg border border-red-200 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setHolidayMode('range')}
+                        className={cn(
+                          'px-3 py-1 rounded-md font-semibold transition-all',
+                          holidayMode === 'range'
+                            ? 'bg-red-600 text-white shadow-xs'
+                            : 'text-gray-600 hover:text-gray-900'
+                        )}
+                      >
+                        Rentang Tanggal (cth. 1 - 21 Maret)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setHolidayMode('single')}
+                        className={cn(
+                          'px-3 py-1 rounded-md font-semibold transition-all',
+                          holidayMode === 'single'
+                            ? 'bg-red-600 text-white shadow-xs'
+                            : 'text-gray-600 hover:text-gray-900'
+                        )}
+                      >
+                        Satu Tanggal
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="flex flex-wrap gap-2 pt-1">
+                  {/* Input by Range */}
+                  {holidayMode === 'range' ? (
+                    <div className="bg-white p-3 rounded-xl border border-red-200 space-y-2.5 shadow-xs">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">
+                            Mulai Libur (Dari Tanggal)
+                          </label>
+                          <input
+                            type="date"
+                            value={holidayRangeStart}
+                            onChange={(e) => setHolidayRangeStart(e.target.value)}
+                            className="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-red-500/20"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">
+                            Selesai Libur (Sampai Tanggal)
+                          </label>
+                          <input
+                            type="date"
+                            value={holidayRangeEnd}
+                            onChange={(e) => setHolidayRangeEnd(e.target.value)}
+                            className="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-red-500/20"
+                          />
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleAddHolidayRange}
+                        className="w-full py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5"
+                      >
+                        <Calendar className="w-3.5 h-3.5" />
+                        <span>Tambahkan Seluruh Hari Libur dalam Rentang Tanggal</span>
+                      </button>
+                    </div>
+                  ) : (
+                    /* Input Single Date */
+                    <div className="flex gap-2">
+                      <input
+                        type="date"
+                        value={holidayInput}
+                        onChange={(e) => setHolidayInput(e.target.value)}
+                        className="flex-1 px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-red-500/20"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddHoliday}
+                        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
+                      >
+                        Tambah
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Header list & Clear all */}
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-[11px] font-bold text-red-950">
+                      Daftar Tanggal Libur ({formData.holiday_dates.length} Hari)
+                    </span>
+                    {formData.holiday_dates.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleClearAllHolidays}
+                        className="text-[10px] font-bold text-red-600 hover:text-red-800 underline cursor-pointer"
+                      >
+                        Hapus Semua
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5 pt-0.5 max-h-40 overflow-y-auto p-1">
                     {formData.holiday_dates.length === 0 ? (
                       <p className="text-[11px] text-gray-400 italic">Belum ada tanggal libur yang ditambahkan.</p>
                     ) : (
                       formData.holiday_dates.map((date) => (
-                        <div key={date} className="flex items-center gap-1.5 bg-white border border-red-200 px-3 py-1 rounded-full text-xs font-semibold text-red-800 shadow-sm">
-                          <span>{new Date(date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Jakarta' })}</span>
+                        <div key={date} className="flex items-center gap-1.5 bg-white border border-red-200 px-2.5 py-1 rounded-full text-[11px] font-semibold text-red-800 shadow-xs">
+                          <span>{new Date(date + 'T12:00:00Z').toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Jakarta' })}</span>
                           <button
                             type="button"
                             onClick={() => setFormData({ ...formData, holiday_dates: formData.holiday_dates.filter(d => d !== date) })}
-                            className="text-red-400 hover:text-red-700 ml-1"
+                            className="text-red-400 hover:text-red-700 ml-0.5"
                           >
-                            <X className="w-3.5 h-3.5" />
+                            <X className="w-3 h-3" />
                           </button>
                         </div>
                       ))
