@@ -195,7 +195,7 @@ export function ExamSimulationTab() {
             Simulasi Ujian Semua Juz
           </h2>
           <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed">
-            Fitur khusus pengurus untuk menguji alur pengerjaan ujian, validasi pilihan ganda, keutuhan ayat, dan format bank soal <strong>Juz 1 s.d. 30</strong> sebelum dirilis ke thalibah. Pengerjaan di sini <em>tidak mencemari</em> data rekam jejak santriwati asli.
+            Fitur khusus pengurus untuk menguji alur pengerjaan ujian, validasi pilihan ganda, keutuhan ayat, dan format bank soal <strong>Juz 1 s.d. 30</strong> sebelum dirilis ke thalibah. Pengerjaan di sini <em>tidak mencemari</em> data rekam jejak thalibah asli.
           </p>
         </div>
       </div>

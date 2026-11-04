@@ -348,7 +348,7 @@ export function ExamDeduplicateModal({
             <div>
               <span className="font-extrabold block">Integritas Riwayat Ujian Terjamin Aman:</span>
               <p className="text-[11px] text-blue-800/90 mt-0.5">
-                Proses pembersihan menggunakan re-mapping otomatis pada kolom jawaban riwayat ujian siswa (<code>exam_attempts.answers</code>), sehingga nilai, statistik ujian, dan sertifikat kelulusan santriwati tidak akan rusak ataupun terhapus.
+                Proses pembersihan menggunakan re-mapping otomatis pada kolom jawaban riwayat ujian siswa (<code>exam_attempts.answers</code>), sehingga nilai, statistik ujian, dan sertifikat kelulusan thalibah tidak akan rusak ataupun terhapus.
               </p>
             </div>
           </div>

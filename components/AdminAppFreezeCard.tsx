@@ -37,7 +37,7 @@ export function AdminAppFreezeCard() {
     const nextState = !isFrozen;
     const confirmMsg = nextState
       ? 'Apakah Anda yakin ingin MEMBEKUKAN aplikasi? Semua pengguna non-admin akan dialihkan ke halaman pemeliharaan (/maintenance).'
-      : 'Apakah Anda yakin ingin MEMBUKA KEMBALI aplikasi agar santriwati dan muallimah dapat mengakses sistem secara normal?';
+      : 'Apakah Anda yakin ingin MEMBUKA KEMBALI aplikasi agar thalibah dan muallimah dapat mengakses sistem secara normal?';
 
     if (!window.confirm(confirmMsg)) return;
 
@@ -118,8 +118,8 @@ export function AdminAppFreezeCard() {
           </p>
           <p className="text-gray-600 text-xs">
             {isFrozen
-              ? 'Pengguna non-admin (santriwati, thalibah, & muallimah) saat ini dialihkan ke halaman pemberitahuan pemeliharaan (/maintenance) dan tidak dapat mengubah jurnal, tashih, atau pendaftaran.'
-              : 'Ketika aplikasi dibekukan, santriwati tidak dapat login atau mengakses halaman belajar. Akun admin dan pengurus tetap memiliki akses penuh ke sistem.'}
+              ? 'Pengguna non-admin (thalibah, thalibah, & muallimah) saat ini dialihkan ke halaman pemberitahuan pemeliharaan (/maintenance) dan tidak dapat mengubah jurnal, tashih, atau pendaftaran.'
+              : 'Ketika aplikasi dibekukan, thalibah tidak dapat login atau mengakses halaman belajar. Akun admin dan pengurus tetap memiliki akses penuh ke sistem.'}
           </p>
         </div>
       </div>

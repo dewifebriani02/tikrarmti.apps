@@ -560,7 +560,7 @@ export function PraTikrarJurnalForm({ user, activeBatch, activeRegistration }: P
             </label>
           </div>
 
-          {/* OPSIONAL: CATATAN KENDALA SANTRIWATI */}
+          {/* OPSIONAL: CATATAN KENDALA THALIBAH */}
           <div className="space-y-2 pt-5 border-t border-gray-100">
             <div className="flex items-center justify-between">
               <Label htmlFor="catatan-santri" className="text-xs font-bold text-gray-700 flex items-center gap-1.5">

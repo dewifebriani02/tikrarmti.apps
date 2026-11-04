@@ -471,7 +471,7 @@ async function main() {
     console.log('\n===============================================================');
     console.log('🎉 PROSES DEDUPLIKASI BERHASIL!');
     console.log(`- Jumlah soal duplikat yang di-${isDelete ? 'hapus' : 'arsipkan'}: ${resolvedCount}`);
-    console.log(`- Jumlah riwayat ujian santriwati yang di-remap secara aman: ${remappedAttempts}`);
+    console.log(`- Jumlah riwayat ujian thalibah yang di-remap secara aman: ${remappedAttempts}`);
     console.log('===============================================================');
   } catch (err: any) {
     await client.query('ROLLBACK').catch(() => {});

@@ -345,7 +345,7 @@ export function UserJadwalHarian({ user, activeBatch, daftarUlangData }: { user:
             <Sparkles className="w-5 h-5 text-fuchsia-600 shrink-0 mt-0.5" />
             <div className="text-xs text-fuchsia-950">
               <div className="font-bold text-sm mb-0.5">Sistem Sesi Terbuka & Fleksibel (Tanpa Kelas Tetap) 🌸</div>
-              Program Pra-Tikrar tidak mengunci santriwati pada kelas tetap. Ukhti bebas masuk dan mengikuti sesi tatap muka Zoom mana pun di bawah ini sesuai keluangan waktu Ukhti tanpa perlu mengajukan permohonan mutasi/pindah jadwal!
+              Program Pra-Tikrar tidak mengunci thalibah pada kelas tetap. Ukhti bebas masuk dan mengikuti sesi tatap muka Zoom mana pun di bawah ini sesuai keluangan waktu Ukhti tanpa perlu mengajukan permohonan mutasi/pindah jadwal!
             </div>
           </div>
           <div className="grid grid-cols-1 gap-3.5">

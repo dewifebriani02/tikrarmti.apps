@@ -129,7 +129,7 @@ export default function TestimoniPage() {
           </div>
 
           <h1 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight">
-            Kisah Nyata Santriwati &amp; Alumni MTI
+            Kisah Nyata Thalibah &amp; Alumni MTI
           </h1>
 
           <p className="text-sm sm:text-base text-emerald-100/90 max-w-2xl mx-auto leading-relaxed">
@@ -186,7 +186,7 @@ export default function TestimoniPage() {
               <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Cari nama santriwati, kota, atau kata kunci..."
+                placeholder="Cari nama thalibah, kota, atau kata kunci..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50/50 text-xs sm:text-sm font-medium text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-700 focus:bg-white transition-all"
@@ -200,7 +200,7 @@ export default function TestimoniPage() {
                 onClick={() => setSelectedRating('all')}
                 className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
                   selectedRating === 'all'
-                    ? 'bg-emerald-850 text-white shadow-xs'
+                    ? 'bg-emerald-900 text-white shadow-xs'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
@@ -217,7 +217,7 @@ export default function TestimoniPage() {
                     onClick={() => setSelectedRating(stars)}
                     className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1 ${
                       isSelected
-                        ? 'bg-emerald-850 text-white shadow-xs'
+                        ? 'bg-emerald-900 text-white shadow-xs'
                         : count > 0
                         ? 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
                         : 'bg-gray-50 text-gray-400 border border-gray-100 opacity-60'
@@ -338,7 +338,7 @@ export default function TestimoniPage() {
               Apakah Ukhti Alumni Program MTI?
             </h3>
             <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed">
-              Bagikan kisah perjuangan dan manfaat yang Ukhti rasakan selama belajar bersama Al-Qur&apos;an di MTI untuk memotivasi calon santriwati lainnya.
+              Bagikan kisah perjuangan dan manfaat yang Ukhti rasakan selama belajar bersama Al-Qur&apos;an di MTI untuk memotivasi calon thalibah lainnya.
             </p>
           </div>
 

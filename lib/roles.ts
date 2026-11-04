@@ -18,8 +18,8 @@
  *    - roisah / raisah (45): Santri senior / Ketua Kelas di satu halaqah spesifik.
  *      Mengabsen dan mengoordinasikan teman sekelasnya di halaqah tersebut.
  *
- * 5. Santriwati:
- *    - thalibah (40): Santriwati aktif di siklus belajar 7-tahap Tikrar.
+ * 5. Thalibah:
+ *    - thalibah (40): Thalibah aktif di siklus belajar 7-tahap Tikrar.
  *    - calon_thalibah (20): Pendaftar baru dalam fase seleksi / daftar ulang.
  *
  * Multi-Role:
@@ -52,7 +52,7 @@ export const ADMIN_RANK = ROLE_RANKS.admin; // 100
 export const MANAGEMENT_RANK_THRESHOLD = 80; // Threshold untuk manajemen/pengawas lapangan (Musyrifah ke atas)
 export const STAFF_RANK_THRESHOLD = 60; // Threshold untuk pengajar/staf akademik (Muallimah ke atas)
 export const RAISAH_RANK_THRESHOLD = 45; // Threshold untuk ketua kelas (Raisah ke atas)
-export const THALIBAH_RANK_THRESHOLD = 40; // Threshold untuk santriwati aktif
+export const THALIBAH_RANK_THRESHOLD = 40; // Threshold untuk thalibah aktif
 
 /**
  * Mendapatkan nilai numerik rank dari sebuah nama role.

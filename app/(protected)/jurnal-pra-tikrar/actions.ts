@@ -343,7 +343,7 @@ export async function submitTashihByMuallimah(
       revalidatePath('/jurnal-harian');
       return {
         success: true,
-        message: 'Catatan bimbingan dan tashih bacaan santriwati berhasil disimpan.',
+        message: 'Catatan bimbingan dan tashih bacaan thalibah berhasil disimpan.',
         data: rows[0],
       };
     }
@@ -449,7 +449,7 @@ export async function submitPresensiByMusyrifah(
       revalidatePath('/jurnal-harian');
       return {
         success: true,
-        message: 'Presensi kelas Zoom santriwati berhasil dicatat.',
+        message: 'Presensi kelas Zoom thalibah berhasil dicatat.',
         data: rows[0],
       };
     }

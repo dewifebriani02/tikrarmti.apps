@@ -156,7 +156,7 @@ export default async function Home() {
 
           {/* Quick Login Bar */}
           <div className="inline-flex items-center gap-3 bg-white/90 backdrop-blur border border-emerald-100 shadow-sm rounded-full px-5 py-2.5 text-sm text-gray-700">
-            <span>Sudah memiliki akun santriwati/mu&apos;allimah?</span>
+            <span>Sudah memiliki akun thalibah/mu&apos;allimah?</span>
             <Link
               href="/login"
               className="font-bold text-emerald-900 hover:text-emerald-700 inline-flex items-center gap-1 hover:underline underline-offset-2"
@@ -177,7 +177,7 @@ export default async function Home() {
               Pencapaian Akademik Nyata
             </span>
             <h2 className="text-2xl sm:text-3xl font-black text-gray-900 mt-2.5 tracking-tight">
-              Statistik Belajar Santriwati & Mu&apos;allimah MTI
+              Statistik Belajar Thalibah & Mu&apos;allimah MTI
             </h2>
             <p className="text-xs sm:text-sm text-gray-600 mt-1">
               Data terintegrasi dari sistem akademik dan pelaksanaan halaqah belajar
@@ -301,7 +301,7 @@ export default async function Home() {
               4 Pilar Layanan Markaz Tikrar
             </h2>
             <p className="text-base sm:text-lg text-gray-600 mt-2.5 leading-relaxed">
-              Pilihan program pembelajaran Al-Qur&apos;an yang disesuaikan dengan kesiapan, target capaian hafalan, dan kebutuhan santriwati.
+              Pilihan program pembelajaran Al-Qur&apos;an yang disesuaikan dengan kesiapan, target capaian hafalan, dan kebutuhan thalibah.
             </p>
           </div>
 
@@ -322,7 +322,7 @@ export default async function Home() {
                   1. Program Pra-Tikrar MTI
                 </h3>
                 <p className="text-sm text-gray-600 mb-4 leading-relaxed">
-                  Bimbingan dasar makharijul huruf, sifatul huruf, dan perbaikan bacaan (tahsin asasi) sebelum santriwati memasuki ziyadah hafalan intensif.
+                  Bimbingan dasar makharijul huruf, sifatul huruf, dan perbaikan bacaan (tahsin asasi) sebelum thalibah memasuki ziyadah hafalan intensif.
                 </p>
                 <ul className="space-y-2 text-xs sm:text-sm text-gray-700 mb-6">
                   <li className="flex items-start gap-2">
@@ -470,7 +470,7 @@ export default async function Home() {
                 </ul>
               </div>
               <div className="pt-4 border-t border-gray-100 flex items-center justify-between">
-                <span className="text-xs font-semibold text-teal-800">Kuota Terbatas 5–15 Santriwati</span>
+                <span className="text-xs font-semibold text-teal-800">Kuota Terbatas 5–15 Thalibah</span>
                 <Button asChild size="sm" className="bg-teal-800 hover:bg-teal-900 text-white rounded-xl font-bold">
                   <Link href="/register" className="inline-flex items-center gap-1.5">
                     <span>Informasi Kelas</span>
@@ -542,13 +542,13 @@ export default async function Home() {
           <div className="container mx-auto px-4 sm:px-6">
             <div className="text-center max-w-3xl mx-auto mb-16">
               <span className="bg-emerald-100 text-emerald-900 border border-emerald-200 text-xs font-bold px-3.5 py-1.5 rounded-full uppercase tracking-wider">
-                Kisah Inspiratif Santriwati MTI
+                Kisah Inspiratif Thalibah MTI
               </span>
               <h2 className="text-3xl sm:text-4xl font-extrabold text-emerald-950 mt-4 tracking-tight">
                 Apa Kata Alumni Markaz Tikrar?
               </h2>
               <p className="text-gray-600 mt-2.5 leading-relaxed text-sm sm:text-base">
-                Simak pengalaman luar biasa dari para santriwati yang telah menyelesaikan program hafalan di MTI menggunakan Metode Tikrar 40x.
+                Simak pengalaman luar biasa dari para thalibah yang telah menyelesaikan program hafalan di MTI menggunakan Metode Tikrar 40x.
               </p>
             </div>
 

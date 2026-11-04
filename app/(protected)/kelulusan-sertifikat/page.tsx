@@ -127,7 +127,7 @@ export default function KelulusanSertifikatPage() {
               </div>
               <div>
                 <h2 className="text-base sm:text-lg font-bold text-white tracking-wide">
-                  Penerbitan Syahadah Santriwati
+                  Penerbitan Syahadah Thalibah
                 </h2>
                 <p className="text-emerald-100/80 text-xs font-medium">
                   Dokumen legalitas kelulusan resmi dengan sistem verifikasi QR Code terpadu.

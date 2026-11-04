@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
     if (isFreeExtension) {
       successMessage = `Alhamdulillah, Ukhti Warrior berhak atas perpanjangan porsi Juz ${cleanJuzCode} secara Bebas Biaya!`;
     } else if (isFreeEligible) {
-      successMessage = `Alhamdulillah, sebagai santriwati aktif / mu'allimah MTI, porsi Murojaah Juz ${cleanJuzCode} aktif 100% Bebas Biaya!`;
+      successMessage = `Alhamdulillah, sebagai thalibah aktif / mu'allimah MTI, porsi Murojaah Juz ${cleanJuzCode} aktif 100% Bebas Biaya!`;
     }
 
     return NextResponse.json({

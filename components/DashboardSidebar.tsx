@@ -351,7 +351,7 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
         icon: <Settings className="h-5 w-5" />,
       });
     }
-    // 5. THALIBAH / CALON THALIBAH PERSONA (Alur Lengkap Santriwati MTI)
+    // 5. THALIBAH / CALON THALIBAH PERSONA (Alur Lengkap Thalibah MTI)
     else {
       // 1. Pintu Utama (Dasbor & Peta Perjalanan) - Langsung tanpa header "Menu Utama"
       baseItems.push({

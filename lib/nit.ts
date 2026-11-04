@@ -2,7 +2,7 @@
  * lib/nit.ts - Utilitas Standardisasi Nomor Induk Tholibah (NIT) MTI
  * Format Baku Pokok: MTI-YYBB-NNNN (Contoh: MTI-2603-0042)
  * Format Dinamis: MTI-YYBB-NNNN-JXX (Contoh: MTI-2603-0042-J30A)
- * Sifat: Pokok NIT permanen seumur hidup, kode juz di belakangnya dinamis mengikuti juz aktif santriwati.
+ * Sifat: Pokok NIT permanen seumur hidup, kode juz di belakangnya dinamis mengikuti juz aktif thalibah.
  */
 
 export interface ParsedNit {
