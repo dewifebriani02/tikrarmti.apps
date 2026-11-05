@@ -53,17 +53,9 @@ export function BatchRetentionCarousel({
 
   const handleScroll = (direction: 'left' | 'right') => {
     if (!scrollRef.current) return;
-    const items = scrollRef.current.children;
-    const nextIdx =
-      direction === 'left'
-        ? Math.max(0, currentIndex - 1)
-        : Math.min(items.length - 1, currentIndex + 1);
-
-    setCurrentIndex(nextIdx);
-    const target = items[nextIdx] as HTMLElement;
-    if (target) {
-      target.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
-    }
+    const cardWidth = 370;
+    const delta = direction === 'left' ? -cardWidth : cardWidth;
+    scrollRef.current.scrollLeft += delta;
   };
 
   return (
