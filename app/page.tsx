@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 // Import FAQ component as default export
 import FAQComponent from '@/components/FAQ';
 import { LandingTestimonialsCarousel } from '@/components/LandingTestimonialsCarousel';
+import { BatchRetentionCarousel, BatchProgramData } from '@/components/BatchRetentionCarousel';
 import {
   Star,
   Users,
@@ -59,18 +60,40 @@ export default async function Home() {
     totalKota: 223
   };
 
-  interface MurojaahBatchAnalytics {
-    batchId: string;
-    batchName: string;
-    batchStatus: string;
-    totalLulusAkad: number;
-    totalJoinMurojaah: number;
-    totalSelesaiKurikulum: number;
-    persenSelesaiMurojaah: number;
-    persenSelesaiDariAkad: number;
-  }
+  let allBatchesData: BatchProgramData[] = [];
+  let tikrarBatchesData: BatchProgramData[] = [];
+  let praTikrarBatchesData: BatchProgramData[] = [];
 
-  let batchMurojaahStats: MurojaahBatchAnalytics[] = [];
+  const parseBatchNumber = (name: string): number => {
+    const match = name.match(/Batch\s*(\d+)/i);
+    return match ? parseInt(match[1], 10) : 0;
+  };
+
+  const mapBatchRows = (rows: any[]): BatchProgramData[] => {
+    return rows.map((r) => {
+      const batchNum = parseBatchNumber(r.batch_name || "");
+      const totalDaftar = Number(r.total_daftar || 0);
+      const lulusSeleksi = Number(r.lulus_seleksi || 0);
+      const lulusProgram = Number(r.lulus_program || 0);
+      const isOpening =
+        r.batch_status === "draft" ||
+        batchNum === 4 ||
+        (r.batch_name || "").toLowerCase().includes("batch 4");
+
+      return {
+        batchId: r.batch_id,
+        batchName: r.batch_name,
+        batchNumber: batchNum,
+        batchStatus: r.batch_status || "closed",
+        isOpening,
+        totalDaftar,
+        lulusSeleksi,
+        lulusProgram,
+        persenLolosSeleksi: totalDaftar > 0 ? Math.round((lulusSeleksi / totalDaftar) * 100) : 0,
+        persenLulusProgram: lulusSeleksi > 0 ? Math.round((lulusProgram / lulusSeleksi) * 100) : 0,
+      };
+    }).sort((a, b) => a.batchNumber - b.batchNumber);
+  };
 
   try {
     const kpiRes = await db.query(`
@@ -92,41 +115,63 @@ export default async function Home() {
       };
     }
 
-    // Query Analisis Retensi & Kelulusan Murojaah per Batch
-    const batchRes = await db.query(`
+    // 1. Query Total Semua Program per Batch
+    const allRes = await db.query(`
       SELECT 
         b.id as batch_id,
         b.name as batch_name,
         b.status as batch_status,
-        COUNT(DISTINCT p.user_id) as total_lulus_akad,
-        COUNT(DISTINCT mp.user_id) as total_join_murojaah,
-        COUNT(DISTINCT CASE WHEN mp.total_completed >= 40 THEN mp.user_id END) as total_selesai_kurikulum,
-        COALESCE(ROUND(
-          COUNT(DISTINCT CASE WHEN mp.total_completed >= 40 THEN mp.user_id END)::numeric / 
-          NULLIF(COUNT(DISTINCT mp.user_id), 0) * 100, 1
-        ), 0.0) as persen_selesai_murojaah,
-        COALESCE(ROUND(
-          COUNT(DISTINCT CASE WHEN mp.total_completed >= 40 THEN mp.user_id END)::numeric / 
-          NULLIF(COUNT(DISTINCT p.user_id), 0) * 100, 1
-        ), 0.0) as persen_selesai_dari_akad
+        COUNT(p.id) as total_daftar,
+        COUNT(CASE WHEN p.selection_status IN ('selected', 'passed') OR p.status = 'approved' THEN 1 END) as lulus_seleksi,
+        COUNT(CASE WHEN p.exam_status = 'completed' OR (b.name ILIKE '%Batch 1%' AND p.status = 'approved') THEN 1 END) as lulus_program
       FROM batches b
-      LEFT JOIN pendaftaran_tikrar_tahfidz p ON p.batch_id = b.id AND (p.status = 'approved' OR p.selection_status IN ('passed', 'selected'))
-      LEFT JOIN murojaah_40x_progress mp ON mp.batch_id = b.id
+      LEFT JOIN pendaftaran_tikrar_tahfidz p ON p.batch_id = b.id
       GROUP BY b.id, b.name, b.status, b.created_at
       ORDER BY b.created_at ASC;
     `);
+    if (allRes.rows) {
+      allBatchesData = mapBatchRows(allRes.rows);
+    }
 
-    if (batchRes.rows) {
-      batchMurojaahStats = batchRes.rows.map(r => ({
-        batchId: r.batch_id,
-        batchName: r.batch_name,
-        batchStatus: r.batch_status || 'closed',
-        totalLulusAkad: Number(r.total_lulus_akad || 0),
-        totalJoinMurojaah: Number(r.total_join_murojaah || 0),
-        totalSelesaiKurikulum: Number(r.total_selesai_kurikulum || 0),
-        persenSelesaiMurojaah: Number(r.persen_selesai_murojaah || 0),
-        persenSelesaiDariAkad: Number(r.persen_selesai_dari_akad || 0),
-      }));
+    // 2. Query Program Tikrar Tahfidz Only
+    const tikrarRes = await db.query(`
+      SELECT 
+        b.id as batch_id,
+        b.name as batch_name,
+        b.status as batch_status,
+        COUNT(p.id) as total_daftar,
+        COUNT(CASE WHEN p.selection_status IN ('selected', 'passed') OR p.status = 'approved' THEN 1 END) as lulus_seleksi,
+        COUNT(CASE WHEN p.exam_status = 'completed' OR (b.name ILIKE '%Batch 1%' AND p.status = 'approved') THEN 1 END) as lulus_program
+      FROM batches b
+      LEFT JOIN pendaftaran_tikrar_tahfidz p ON p.batch_id = b.id AND (
+        p.program_id IS NULL OR 
+        p.program_id IN (SELECT id FROM programs WHERE class_type = 'tikrar_tahfidz' OR name ILIKE '%tikrar%')
+      )
+      GROUP BY b.id, b.name, b.status, b.created_at
+      ORDER BY b.created_at ASC;
+    `);
+    if (tikrarRes.rows) {
+      tikrarBatchesData = mapBatchRows(tikrarRes.rows);
+    }
+
+    // 3. Query Program Pra-Tikrar Only
+    const praRes = await db.query(`
+      SELECT 
+        b.id as batch_id,
+        b.name as batch_name,
+        b.status as batch_status,
+        COUNT(p.id) as total_daftar,
+        COUNT(CASE WHEN p.selection_status IN ('selected', 'passed') OR p.status = 'approved' THEN 1 END) as lulus_seleksi,
+        COUNT(CASE WHEN p.exam_status = 'completed' THEN 1 END) as lulus_program
+      FROM batches b
+      LEFT JOIN pendaftaran_tikrar_tahfidz p ON p.batch_id = b.id AND (
+        p.program_id IN (SELECT id FROM programs WHERE class_type = 'pra_tahfidz' OR name ILIKE '%pra%')
+      )
+      GROUP BY b.id, b.name, b.status, b.created_at
+      ORDER BY b.created_at ASC;
+    `);
+    if (praRes.rows) {
+      praTikrarBatchesData = mapBatchRows(praRes.rows);
     }
   } catch (err) {
     console.error('Error fetching KPI metrics:', err);
@@ -534,105 +579,26 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Murojaah 40x Batch Retention & Completion Analytics */}
-      <section className="py-16 sm:py-20 bg-white border-b border-gray-150/70" id="analisis-murojaah">
+      {/* Program Retention & Completion Analytics (Tikrar Tahfidz & Pra-Tikrar) */}
+      <section className="py-16 sm:py-20 bg-white border-b border-gray-150/70" id="analisis-program">
         <div className="container mx-auto px-4 sm:px-6">
-          <div className="text-center max-w-3xl mx-auto mb-12">
+          <div className="text-center max-w-3xl mx-auto mb-10">
             <Badge className="bg-amber-100 text-amber-900 border border-amber-300 font-extrabold text-[11px] px-3.5 py-1 rounded-full uppercase tracking-widest mb-3">
-              Analisis Akademik & Kelulusan
+              Analisis Akademik &amp; Kelulusan
             </Badge>
             <h2 className="text-2xl sm:text-4xl font-black text-gray-900 tracking-tight">
-              Retensi Thalibah &amp; Capaian Muroja&apos;ah 40x per Batch
+              Retensi &amp; Kelulusan Thalibah per Batch
             </h2>
             <p className="text-xs sm:text-base text-gray-600 mt-2 leading-relaxed">
-              Transparansi komitmen thalibah mulai dari kelulusan akad, partisipasi program Muraja&apos;ah 40x, hingga tuntas kurikulum penuh 40 putaran di setiap angkatan.
+              Transparansi perjalanan thalibah Program Tikrar Tahfidz &amp; Pra-Tikrar: mulai dari pendaftar masuk, lolos tes seleksi komitmen, hingga tuntas kelulusan program di setiap angkatan.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 max-w-6xl mx-auto">
-            {batchMurojaahStats.map((item) => {
-              const isBatchOngoing = item.batchStatus === 'open';
-              return (
-                <Card
-                  key={item.batchId}
-                  className={`rounded-3xl border-2 transition-all duration-300 overflow-hidden flex flex-col justify-between shadow-xs hover:shadow-lg ${
-                    isBatchOngoing
-                      ? 'border-emerald-300 bg-gradient-to-b from-emerald-50/40 via-white to-white'
-                      : 'border-gray-200/90 bg-white'
-                  }`}
-                >
-                  <CardHeader className="p-5 pb-3 border-b border-gray-150/70 bg-gray-50/40">
-                    <div className="flex items-center justify-between gap-2 mb-1.5">
-                      <span className="text-[10px] font-black uppercase tracking-wider text-gray-500">
-                        Angkatan MTI
-                      </span>
-                      <span
-                        className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                          isBatchOngoing
-                            ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
-                            : 'bg-gray-100 text-gray-700 border border-gray-200'
-                        }`}
-                      >
-                        {isBatchOngoing ? 'Sedang Berjalan' : item.batchStatus === 'draft' ? 'Rencana' : 'Selesai'}
-                      </span>
-                    </div>
-                    <CardTitle className="text-base font-extrabold text-gray-900 tracking-tight leading-snug">
-                      {item.batchName}
-                    </CardTitle>
-                  </CardHeader>
-
-                  <CardContent className="p-5 space-y-4 text-xs">
-                    {/* Row 1: Lulus Akad */}
-                    <div className="flex items-center justify-between pb-2.5 border-b border-gray-100">
-                      <span className="text-gray-600 font-medium">Lulus Akad &amp; Join:</span>
-                      <span className="font-mono font-black text-sm text-gray-900">
-                        {item.totalLulusAkad} <span className="text-[10px] font-normal text-gray-500">Thalibah</span>
-                      </span>
-                    </div>
-
-                    {/* Row 2: Join Murojaah */}
-                    <div className="flex items-center justify-between pb-2.5 border-b border-gray-100">
-                      <span className="text-gray-600 font-medium">Join Muroja&apos;ah 40x:</span>
-                      <span className="font-mono font-black text-sm text-emerald-800">
-                        {item.totalJoinMurojaah} <span className="text-[10px] font-normal text-emerald-600">Thalibah</span>
-                      </span>
-                    </div>
-
-                    {/* Row 3: Selesai 40x Kurikulum */}
-                    <div className="flex items-center justify-between pb-2.5 border-b border-gray-100">
-                      <span className="text-gray-600 font-medium">Tuntas 40 Putaran:</span>
-                      <span className="font-mono font-black text-sm text-amber-800">
-                        {item.totalSelesaiKurikulum} <span className="text-[10px] font-normal text-amber-600">Lulus</span>
-                      </span>
-                    </div>
-
-                    {/* Progress Bar & Percentage */}
-                    <div className="space-y-1.5 pt-1">
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="font-bold text-gray-700">Persentase Tuntas 40x:</span>
-                        <span className="font-black font-mono text-emerald-900 text-xs">
-                          {item.persenSelesaiMurojaah}%
-                        </span>
-                      </div>
-                      <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden p-0.5 border border-gray-200/60">
-                        <div
-                          className="bg-gradient-to-r from-emerald-800 to-amber-500 h-full rounded-full transition-all duration-500"
-                          style={{ width: `${Math.min(100, Math.max(item.persenSelesaiMurojaah, item.totalJoinMurojaah > 0 ? 5 : 0))}%` }}
-                        />
-                      </div>
-                      <p className="text-[10px] text-gray-400 italic pt-0.5">
-                        {isBatchOngoing
-                          ? '*Angkatan sedang berlangsung masa murojaah aktif'
-                          : item.totalJoinMurojaah === 0
-                          ? '*Belum dibuka modul murojaah mandiri'
-                          : '*Data kurikulum tercatat resmi'}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+          <BatchRetentionCarousel
+            allBatches={allBatchesData}
+            tikrarBatches={tikrarBatchesData}
+            praTikrarBatches={praTikrarBatchesData}
+          />
         </div>
       </section>
 
