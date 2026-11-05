@@ -34,7 +34,7 @@ import {
 import { MurojaahMethod, MurojaahSegment, Murojaah40xLog, Murojaah40xProgress } from '@/types/database';
 import { MurojaahCommunityDirectory } from './MurojaahCommunityDirectory';
 import { MurojaahEnrollModal } from './MurojaahEnrollModal';
-import { buildMurojaahSelfReminder, buildMurojaahAfternoonReminder, calculateMurojaahDebt } from '@/lib/murojaah';
+import { calculateMurojaahDebt } from '@/lib/murojaah';
 
 interface Murojaah40xTabProps {
   isAlumni?: boolean;
@@ -214,21 +214,7 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
     }
   };
 
-  const handleSendSelfReminder = () => {
-    const userName = data?.progress?.user?.full_name || 'Thalibah MTI';
-    const juzCode = data?.juz_info?.code || '30A';
-    const currentRound = activeSegment === 'primary' ? (data?.primary_logs?.length || 0) : (data?.part_a_logs?.length || 0);
-    const daysRemaining = data?.warrior?.days_remaining || 0;
 
-    const message = buildMurojaahSelfReminder({
-      userName,
-      juzCode,
-      currentRound,
-      daysRemaining
-    });
-
-    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
-  };
 
 
 
@@ -260,24 +246,7 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
     todayLogsCount: currentSegmentTodayLogs.length,
   });
 
-  const handleSendAfternoonReminder = () => {
-    const userName = data?.progress?.user?.full_name || 'Thalibah MTI';
-    const juzCode = activeSegment === 'primary' ? (data?.juz_info?.code || '30A') : (data?.juz_info?.optional_part_a_code || '30A');
-    const daysRemaining = data?.warrior?.days_remaining || 0;
 
-    const message = buildMurojaahAfternoonReminder({
-      userName,
-      juzCode,
-      todayCount: activeDebt.todayCount,
-      todayRemaining: activeDebt.todayRemaining,
-      previousDebt: activeDebt.previousDebt,
-      totalDebt: activeDebt.totalDebt,
-      currentRound: currentCompletedCount,
-      daysRemaining,
-    });
-
-    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
-  };
   const nextRoundNumber = currentCompletedCount + 1;
   const isSegmentCompleted = currentCompletedCount >= 40;
   const percentage = Math.round((currentCompletedCount / 40) * 100);
@@ -378,14 +347,7 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
 
               {/* Quick Actions in Hero */}
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleSendSelfReminder}
-                  className="px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 text-white font-bold text-[10px] flex items-center gap-1 transition-all"
-                >
-                  <MessageCircle className="w-3 h-3 text-emerald-300" />
-                  <span>Kirim Reminder WA</span>
-                </button>
+
                 <button
                   type="button"
                   onClick={() => setIsEnrollModalOpen(true)}
@@ -454,27 +416,20 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex flex-row md:flex-col items-center md:items-end justify-between gap-2 shrink-0 border-t md:border-t-0 pt-3 md:pt-0 border-gray-200/60">
+              {/* Action Button */}
+              <div className="flex flex-col items-stretch sm:items-end justify-center gap-1.5 shrink-0 border-t md:border-t-0 pt-3 md:pt-0 border-gray-200/60">
                 <Button
                   size="sm"
                   onClick={() => handleOpenLogModal(nextRoundNumber)}
                   disabled={isSegmentCompleted || warrior?.is_expired}
-                  className="bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl text-xs font-bold px-4 py-2 shadow-xs gap-1.5"
+                  className="bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl text-xs font-bold px-5 py-2.5 shadow-xs gap-1.5"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Setor Putaran ke-{nextRoundNumber}</span>
                 </Button>
-
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleSendAfternoonReminder}
-                  className="text-xs font-bold border-gray-300 text-gray-700 hover:text-emerald-900 hover:bg-emerald-50 rounded-xl gap-1.5 bg-white shadow-xs"
-                >
-                  <MessageCircle className="w-3.5 h-3.5 text-emerald-700" />
-                  <span>Bagikan Reminder WA</span>
-                </Button>
+                <span className="text-[10px] text-gray-500 italic text-center sm:text-right">
+                  Pengingat sore dikirim otomatis via WhatsApp pukul 16.30 WIB
+                </span>
               </div>
             </div>
           </CardContent>
