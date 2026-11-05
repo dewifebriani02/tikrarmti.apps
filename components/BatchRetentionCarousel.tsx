@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useRef } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
@@ -11,10 +11,7 @@ import {
   ArrowRight, 
   ChevronLeft, 
   ChevronRight, 
-  Sparkles,
   Calendar,
-  Layers,
-  BookOpen,
   Info
 } from "lucide-react";
 
@@ -34,25 +31,13 @@ export interface BatchProgramData {
 }
 
 interface BatchRetentionCarouselProps {
-  allBatches: BatchProgramData[];
-  tikrarBatches: BatchProgramData[];
-  praTikrarBatches: BatchProgramData[];
+  batches: BatchProgramData[];
 }
 
 export function BatchRetentionCarousel({
-  allBatches,
-  tikrarBatches,
-  praTikrarBatches,
+  batches,
 }: BatchRetentionCarouselProps) {
-  const [selectedProgram, setSelectedProgram] = useState<'all' | 'tikrar' | 'pra'>('all');
   const scrollRef = useRef<HTMLDivElement>(null);
-
-  const activeBatches =
-    selectedProgram === 'tikrar'
-      ? tikrarBatches
-      : selectedProgram === 'pra'
-      ? praTikrarBatches
-      : allBatches;
 
   const handleScroll = (direction: 'left' | 'right') => {
     if (!scrollRef.current) return;
@@ -63,50 +48,8 @@ export function BatchRetentionCarousel({
 
   return (
     <div className="space-y-6">
-      {/* Program Selection Tabs */}
-      <div className="flex flex-col items-center gap-2.5 max-w-2xl mx-auto px-4">
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          <button
-            type="button"
-            onClick={() => setSelectedProgram('all')}
-            className={`px-4 py-2 rounded-full text-xs sm:text-sm font-bold transition-all duration-200 flex items-center gap-1.5 shadow-2xs cursor-pointer ${
-              selectedProgram === 'all'
-                ? 'bg-emerald-900 text-white shadow-md'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200/80'
-            }`}
-          >
-            <Layers className="w-3.5 h-3.5" />
-            <span>Semua Program</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setSelectedProgram('tikrar')}
-            className={`px-4 py-2 rounded-full text-xs sm:text-sm font-bold transition-all duration-200 flex items-center gap-1.5 shadow-2xs cursor-pointer ${
-              selectedProgram === 'tikrar'
-                ? 'bg-emerald-900 text-white shadow-md'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200/80'
-            }`}
-          >
-            <BookOpen className="w-3.5 h-3.5" />
-            <span>Tikrar Tahfidz</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setSelectedProgram('pra')}
-            className={`px-4 py-2 rounded-full text-xs sm:text-sm font-bold transition-all duration-200 flex items-center gap-1.5 shadow-2xs cursor-pointer ${
-              selectedProgram === 'pra'
-                ? 'bg-emerald-900 text-white shadow-md'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200/80'
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Pra-Tikrar</span>
-          </button>
-        </div>
-
-        {/* Info Note: Otomatis masuk Pra-Tikrar */}
+      {/* Info Note: Otomatis masuk Pra-Tikrar */}
+      <div className="flex flex-col items-center max-w-2xl mx-auto px-4">
         <div className="flex items-center gap-1.5 text-emerald-800 text-[11px] sm:text-xs bg-emerald-50 px-3.5 py-1.5 rounded-full border border-emerald-200/70 font-medium">
           <Info className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
           <span>
@@ -143,7 +86,7 @@ export function BatchRetentionCarousel({
           className="flex gap-5 overflow-x-auto snap-x snap-mandatory py-4 px-1 scrollbar-none"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
-          {activeBatches.map((item) => {
+          {batches.map((item) => {
             const isBatchOngoing = item.batchStatus === 'open';
             const isOpening = item.isOpening;
 

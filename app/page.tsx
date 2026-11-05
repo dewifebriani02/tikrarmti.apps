@@ -60,9 +60,7 @@ export default async function Home() {
     totalKota: 223
   };
 
-  let allBatchesData: BatchProgramData[] = [];
-  let tikrarBatchesData: BatchProgramData[] = [];
-  let praTikrarBatchesData: BatchProgramData[] = [];
+  let batchesData: BatchProgramData[] = [];
 
   const parseBatchNumber = (name: string): number => {
     const match = name.match(/Batch\s*(\d+)/i);
@@ -124,8 +122,8 @@ export default async function Home() {
       };
     }
 
-    // 1. Query Total Semua Program per Batch (4 Tahap Corong)
-    const allRes = await db.query(`
+    // Query Retensi & Kelulusan per Batch (4 Tahap Corong)
+    const batchRes = await db.query(`
       SELECT 
         b.id as batch_id,
         b.name as batch_name,
@@ -144,63 +142,8 @@ export default async function Home() {
       GROUP BY b.id, b.name, b.status, b.created_at
       ORDER BY b.created_at ASC;
     `);
-    if (allRes.rows) {
-      allBatchesData = mapBatchRows(allRes.rows);
-    }
-
-    // 2. Query Program Tikrar Tahfidz Only (4 Tahap Corong)
-    const tikrarRes = await db.query(`
-      SELECT 
-        b.id as batch_id,
-        b.name as batch_name,
-        b.status as batch_status,
-        COUNT(DISTINCT p.id) as total_daftar,
-        COUNT(DISTINCT CASE WHEN p.selection_status IN ('selected', 'passed') OR (b.name ILIKE '%Batch 1%' AND p.status = 'approved') THEN p.id END) as lulus_seleksi,
-        COUNT(DISTINCT CASE 
-          WHEN dus.id IS NOT NULL AND (dus.status = 'approved' OR dus.akad_status = 'approved' OR p.re_enrollment_completed = 'true') THEN p.id
-          WHEN b.name ILIKE '%Batch 1%' AND p.status = 'approved' THEN p.id
-          WHEN b.name ILIKE '%Batch 2%' AND p.status = 'approved' AND (dus.status = 'approved' OR p.re_enrollment_completed = 'true') THEN p.id
-        END) as lulus_daftar_ulang,
-        COUNT(DISTINCT CASE WHEN p.exam_status = 'completed' OR (b.name ILIKE '%Batch 1%' AND p.status = 'approved') THEN p.id END) as lulus_program
-      FROM batches b
-      LEFT JOIN pendaftaran_tikrar_tahfidz p ON p.batch_id = b.id AND (
-        p.program_id IS NULL OR 
-        p.program_id IN (SELECT id FROM programs WHERE class_type = 'tikrar_tahfidz' OR name ILIKE '%tikrar%')
-      )
-      LEFT JOIN daftar_ulang_submissions dus ON dus.batch_id = b.id AND dus.user_id = p.user_id
-      GROUP BY b.id, b.name, b.status, b.created_at
-      ORDER BY b.created_at ASC;
-    `);
-    if (tikrarRes.rows) {
-      tikrarBatchesData = mapBatchRows(tikrarRes.rows);
-    }
-
-    // 3. Query Program Pra-Tikrar (Termasuk thalibah yang belum lolos seleksi Tikrar dan dialihkan)
-    const praRes = await db.query(`
-      SELECT 
-        b.id as batch_id,
-        b.name as batch_name,
-        b.status as batch_status,
-        COUNT(DISTINCT p.id) as total_daftar,
-        COUNT(DISTINCT CASE 
-          WHEN p.program_id IN (SELECT id FROM programs WHERE class_type = 'pra_tahfidz' OR name ILIKE '%pra%') AND (p.selection_status IN ('selected', 'passed') OR p.status = 'approved') THEN p.id
-          WHEN p.selection_status IN ('waitlist', 'not_selected') AND (p.status = 'approved' OR dus.id IS NOT NULL) THEN p.id
-        END) as lulus_seleksi,
-        COUNT(DISTINCT CASE 
-          WHEN dus.id IS NOT NULL AND (dus.status = 'approved' OR dus.akad_status = 'approved' OR p.re_enrollment_completed = 'true') THEN p.id
-        END) as lulus_daftar_ulang,
-        COUNT(DISTINCT CASE WHEN p.exam_status = 'completed' THEN p.id END) as lulus_program
-      FROM batches b
-      LEFT JOIN pendaftaran_tikrar_tahfidz p ON p.batch_id = b.id AND (
-        p.program_id IN (SELECT id FROM programs WHERE class_type = 'pra_tahfidz' OR name ILIKE '%pra%') OR
-        p.selection_status IN ('waitlist', 'not_selected')
-      )
-      LEFT JOIN daftar_ulang_submissions dus ON dus.batch_id = b.id AND dus.user_id = p.user_id
-      GROUP BY b.id, b.name, b.status, b.created_at
-      ORDER BY b.created_at ASC;
-    `);
-    if (praRes.rows) {
-      praTikrarBatchesData = mapBatchRows(praRes.rows);
+    if (batchRes.rows) {
+      batchesData = mapBatchRows(batchRes.rows);
     }
   } catch (err) {
     console.error('Error fetching KPI metrics:', err);
@@ -608,10 +551,10 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Program Retention & Completion Analytics (Tikrar Tahfidz & Pra-Tikrar) */}
+      {/* Program Retention & Completion Analytics (Tikrar Tahfidz) */}
       <section className="py-16 sm:py-20 bg-white border-b border-gray-150/70" id="analisis-program">
         <div className="container mx-auto px-4 sm:px-6">
-          <div className="text-center max-w-3xl mx-auto mb-10">
+          <div className="text-center max-w-3xl mx-auto mb-8">
             <Badge className="bg-amber-100 text-amber-900 border border-amber-300 font-extrabold text-[11px] px-3.5 py-1 rounded-full uppercase tracking-widest mb-3">
               Analisis Akademik &amp; Kelulusan
             </Badge>
@@ -619,14 +562,12 @@ export default async function Home() {
               Retensi &amp; Kelulusan Thalibah per Batch
             </h2>
             <p className="text-xs sm:text-base text-gray-600 mt-2 leading-relaxed">
-              Transparansi perjalanan thalibah Program Tikrar Tahfidz &amp; Pra-Tikrar: mulai dari pendaftar masuk, lolos tes seleksi komitmen, hingga tuntas kelulusan program di setiap angkatan.
+              Transparansi perjalanan thalibah Program Tikrar Tahfidz MTI: mulai dari pendaftar masuk, lolos tes seleksi komitmen, daftar ulang, hingga tuntas kelulusan program di setiap angkatan.
             </p>
           </div>
 
           <BatchRetentionCarousel
-            allBatches={allBatchesData}
-            tikrarBatches={tikrarBatchesData}
-            praTikrarBatches={praTikrarBatchesData}
+            batches={batchesData}
           />
         </div>
       </section>
