@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
   Users, 
   CheckCircle2, 
+  UserCheck,
   GraduationCap, 
   ArrowRight, 
   ChevronLeft, 
@@ -13,7 +14,8 @@ import {
   Sparkles,
   Calendar,
   Layers,
-  BookOpen
+  BookOpen,
+  Info
 } from "lucide-react";
 
 export interface BatchProgramData {
@@ -24,8 +26,10 @@ export interface BatchProgramData {
   isOpening: boolean;
   totalDaftar: number;
   lulusSeleksi: number;
+  lulusDaftarUlang: number;
   lulusProgram: number;
   persenLolosSeleksi: number;
+  persenDaftarUlang: number;
   persenLulusProgram: number;
 }
 
@@ -42,7 +46,6 @@ export function BatchRetentionCarousel({
 }: BatchRetentionCarouselProps) {
   const [selectedProgram, setSelectedProgram] = useState<'all' | 'tikrar' | 'pra'>('all');
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [currentIndex, setCurrentIndex] = useState(0);
 
   const activeBatches =
     selectedProgram === 'tikrar'
@@ -61,54 +64,55 @@ export function BatchRetentionCarousel({
   return (
     <div className="space-y-6">
       {/* Program Selection Tabs */}
-      <div className="flex flex-wrap items-center justify-center gap-2 max-w-xl mx-auto px-4">
-        <button
-          type="button"
-          onClick={() => {
-            setSelectedProgram('all');
-            setCurrentIndex(0);
-          }}
-          className={`px-4 py-2 rounded-full text-xs sm:text-sm font-bold transition-all duration-200 flex items-center gap-1.5 shadow-2xs cursor-pointer ${
-            selectedProgram === 'all'
-              ? 'bg-emerald-900 text-white shadow-md'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200/80'
-          }`}
-        >
-          <Layers className="w-3.5 h-3.5" />
-          <span>Semua Program</span>
-        </button>
+      <div className="flex flex-col items-center gap-2.5 max-w-2xl mx-auto px-4">
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <button
+            type="button"
+            onClick={() => setSelectedProgram('all')}
+            className={`px-4 py-2 rounded-full text-xs sm:text-sm font-bold transition-all duration-200 flex items-center gap-1.5 shadow-2xs cursor-pointer ${
+              selectedProgram === 'all'
+                ? 'bg-emerald-900 text-white shadow-md'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200/80'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span>Semua Program</span>
+          </button>
 
-        <button
-          type="button"
-          onClick={() => {
-            setSelectedProgram('tikrar');
-            setCurrentIndex(0);
-          }}
-          className={`px-4 py-2 rounded-full text-xs sm:text-sm font-bold transition-all duration-200 flex items-center gap-1.5 shadow-2xs cursor-pointer ${
-            selectedProgram === 'tikrar'
-              ? 'bg-emerald-900 text-white shadow-md'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200/80'
-          }`}
-        >
-          <BookOpen className="w-3.5 h-3.5" />
-          <span>Tikrar Tahfidz</span>
-        </button>
+          <button
+            type="button"
+            onClick={() => setSelectedProgram('tikrar')}
+            className={`px-4 py-2 rounded-full text-xs sm:text-sm font-bold transition-all duration-200 flex items-center gap-1.5 shadow-2xs cursor-pointer ${
+              selectedProgram === 'tikrar'
+                ? 'bg-emerald-900 text-white shadow-md'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200/80'
+            }`}
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>Tikrar Tahfidz</span>
+          </button>
 
-        <button
-          type="button"
-          onClick={() => {
-            setSelectedProgram('pra');
-            setCurrentIndex(0);
-          }}
-          className={`px-4 py-2 rounded-full text-xs sm:text-sm font-bold transition-all duration-200 flex items-center gap-1.5 shadow-2xs cursor-pointer ${
-            selectedProgram === 'pra'
-              ? 'bg-emerald-900 text-white shadow-md'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200/80'
-          }`}
-        >
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>Pra-Tikrar</span>
-        </button>
+          <button
+            type="button"
+            onClick={() => setSelectedProgram('pra')}
+            className={`px-4 py-2 rounded-full text-xs sm:text-sm font-bold transition-all duration-200 flex items-center gap-1.5 shadow-2xs cursor-pointer ${
+              selectedProgram === 'pra'
+                ? 'bg-emerald-900 text-white shadow-md'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200/80'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Pra-Tikrar</span>
+          </button>
+        </div>
+
+        {/* Info Note: Otomatis masuk Pra-Tikrar */}
+        <div className="flex items-center gap-1.5 text-emerald-800 text-[11px] sm:text-xs bg-emerald-50 px-3.5 py-1.5 rounded-full border border-emerald-200/70 font-medium">
+          <Info className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+          <span>
+            Thalibah yang belum lolos seleksi program Tikrar Tahfidz otomatis dialihkan masuk ke pembinaan <strong>Pra-Tikrar</strong>.
+          </span>
+        </div>
       </div>
 
       {/* Swipeable Container Controls */}
@@ -185,7 +189,7 @@ export function BatchRetentionCarousel({
                     </CardTitle>
                   </CardHeader>
 
-                  <CardContent className="p-5 space-y-4 text-xs flex-1 flex flex-col justify-between">
+                  <CardContent className="p-5 space-y-3.5 text-xs flex-1 flex flex-col justify-between">
                     {isOpening ? (
                       /* Content khusus Batch yang sedang dibuka (Batch 4) */
                       <div className="space-y-4 py-2">
@@ -226,10 +230,10 @@ export function BatchRetentionCarousel({
                         </div>
                       </div>
                     ) : (
-                      /* Content Batch Berjalan & Selesai */
-                      <div className="space-y-4">
-                        {/* Metric 1: Pendaftar */}
-                        <div className="p-3 bg-gray-50 rounded-2xl border border-gray-150 space-y-1.5">
+                      /* Content Batch Berjalan & Selesai: 4 Tahapan Funnel */
+                      <div className="space-y-3">
+                        {/* Tahap 1: Pendaftar */}
+                        <div className="p-2.5 bg-gray-50 rounded-2xl border border-gray-150 space-y-1">
                           <div className="flex items-center justify-between text-gray-600 font-medium">
                             <span className="flex items-center gap-1.5">
                               <Users className="w-3.5 h-3.5 text-blue-600" />
@@ -240,8 +244,7 @@ export function BatchRetentionCarousel({
                               <span className="text-[10px] font-normal text-gray-500">Thalibah</span>
                             </span>
                           </div>
-                          {/* Bar 1: Pendaftar (Full Base 100%) */}
-                          <div className="w-full bg-blue-100 rounded-full h-2 overflow-hidden">
+                          <div className="w-full bg-blue-100 rounded-full h-1.5 overflow-hidden">
                             <div className="bg-blue-600 h-full rounded-full w-full" />
                           </div>
                           <div className="flex justify-between text-[10px] text-gray-400">
@@ -250,8 +253,8 @@ export function BatchRetentionCarousel({
                           </div>
                         </div>
 
-                        {/* Metric 2: Lulus Seleksi */}
-                        <div className="p-3 bg-emerald-50/60 rounded-2xl border border-emerald-150 space-y-1.5">
+                        {/* Tahap 2: Lulus Seleksi */}
+                        <div className="p-2.5 bg-emerald-50/60 rounded-2xl border border-emerald-150 space-y-1">
                           <div className="flex items-center justify-between text-gray-700 font-medium">
                             <span className="flex items-center gap-1.5">
                               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
@@ -262,8 +265,7 @@ export function BatchRetentionCarousel({
                               <span className="text-[10px] font-normal text-emerald-700">Lolos</span>
                             </span>
                           </div>
-                          {/* Bar 2: Seleksi Conversion */}
-                          <div className="w-full bg-emerald-100 rounded-full h-2 overflow-hidden">
+                          <div className="w-full bg-emerald-100 rounded-full h-1.5 overflow-hidden">
                             <div
                               className="bg-emerald-600 h-full rounded-full transition-all duration-500"
                               style={{ width: `${Math.min(100, Math.max(item.persenLolosSeleksi, 5))}%` }}
@@ -275,20 +277,43 @@ export function BatchRetentionCarousel({
                           </div>
                         </div>
 
-                        {/* Metric 3: Lulus Program */}
-                        <div className="p-3 bg-amber-50/60 rounded-2xl border border-amber-150 space-y-1.5">
+                        {/* Tahap 3: Lulus Daftar Ulang */}
+                        <div className="p-2.5 bg-indigo-50/60 rounded-2xl border border-indigo-150 space-y-1">
+                          <div className="flex items-center justify-between text-gray-700 font-medium">
+                            <span className="flex items-center gap-1.5">
+                              <UserCheck className="w-3.5 h-3.5 text-indigo-600" />
+                              3. Lulus Daftar Ulang:
+                            </span>
+                            <span className="font-mono font-black text-sm text-indigo-950">
+                              {item.lulusDaftarUlang}{' '}
+                              <span className="text-[10px] font-normal text-indigo-700">Thalibah</span>
+                            </span>
+                          </div>
+                          <div className="w-full bg-indigo-100 rounded-full h-1.5 overflow-hidden">
+                            <div
+                              className="bg-indigo-600 h-full rounded-full transition-all duration-500"
+                              style={{ width: `${Math.min(100, Math.max(item.persenDaftarUlang, item.lulusDaftarUlang > 0 ? 5 : 0))}%` }}
+                            />
+                          </div>
+                          <div className="flex justify-between text-[10px] text-indigo-800">
+                            <span>Akad &amp; Masuk Halaqah</span>
+                            <span className="font-mono font-bold">{item.persenDaftarUlang}%</span>
+                          </div>
+                        </div>
+
+                        {/* Tahap 4: Lulus Program */}
+                        <div className="p-2.5 bg-amber-50/60 rounded-2xl border border-amber-150 space-y-1">
                           <div className="flex items-center justify-between text-gray-700 font-medium">
                             <span className="flex items-center gap-1.5">
                               <GraduationCap className="w-3.5 h-3.5 text-amber-600" />
-                              3. Lulus Program:
+                              4. Lulus Program:
                             </span>
                             <span className="font-mono font-black text-sm text-amber-900">
                               {item.lulusProgram}{' '}
                               <span className="text-[10px] font-normal text-amber-700">Lulus</span>
                             </span>
                           </div>
-                          {/* Bar 3: Lulus Program Conversion */}
-                          <div className="w-full bg-amber-100 rounded-full h-2 overflow-hidden">
+                          <div className="w-full bg-amber-100 rounded-full h-1.5 overflow-hidden">
                             <div
                               className="bg-gradient-to-r from-amber-500 to-amber-600 h-full rounded-full transition-all duration-500"
                               style={{
@@ -305,7 +330,7 @@ export function BatchRetentionCarousel({
                         </div>
 
                         {/* Footer Note */}
-                        <p className="text-[10px] text-gray-400 italic pt-1 text-center">
+                        <p className="text-[10px] text-gray-400 italic pt-0.5 text-center">
                           {isBatchOngoing
                             ? '*Angkatan sedang aktif berjalan masa ujian akhir semester'
                             : '*Data kelulusan kurikulum & evaluasi resmi'}
