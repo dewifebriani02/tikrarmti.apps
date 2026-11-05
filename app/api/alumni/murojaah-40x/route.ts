@@ -3,7 +3,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { query, queryOne } from '@/lib/db';
 import { MurojaahMethod, MurojaahSegment } from '@/types/database';
 import { parseBlokField } from '@/lib/blok';
-import { getTimeSlotLabel } from '@/lib/murojaah';
+import { getTimeSlotLabel, calculateMurojaahDebt } from '@/lib/murojaah';
 
 export const dynamic = 'force-dynamic';
 
@@ -253,6 +253,28 @@ export async function GET(request: NextRequest) {
     // 7. Check if Murojaah 40x is locked pending mandatory murojaah (M1..M7)
     const wajibStatus = await checkMurojaahWajibStatus(targetId, batchId, isAdminOrStaff);
 
+    // 8. Calculate Today's Progress & Total Debt (Target: 2 rounds/day)
+    const todayDateStr = new Date().toISOString().split('T')[0];
+    const todayLogs = logs.filter(l => {
+      const compDate = typeof l.completed_at === 'string' 
+        ? l.completed_at.split('T')[0] 
+        : new Date(l.completed_at).toISOString().split('T')[0];
+      return compDate === todayDateStr;
+    });
+
+    const primaryTodayLogs = primaryLogs.filter(l => {
+      const compDate = typeof l.completed_at === 'string' 
+        ? l.completed_at.split('T')[0] 
+        : new Date(l.completed_at).toISOString().split('T')[0];
+      return compDate === todayDateStr;
+    });
+
+    const debtInfo = calculateMurojaahDebt({
+      startedAt: progress.started_at,
+      totalCompleted: Number(progress.total_completed || 0),
+      todayLogsCount: primaryTodayLogs.length,
+    });
+
     return NextResponse.json({
       success: true,
       data: {
@@ -263,6 +285,8 @@ export async function GET(request: NextRequest) {
         },
         primary_logs: primaryLogs,
         part_a_logs: partALogs,
+        today_logs: todayLogs,
+        debt: debtInfo,
         all_enrolled_juz: allEnrolledRows,
         wajib_murojaah: wajibStatus,
         warrior: {

@@ -34,7 +34,7 @@ import {
 import { MurojaahMethod, MurojaahSegment, Murojaah40xLog, Murojaah40xProgress } from '@/types/database';
 import { MurojaahCommunityDirectory } from './MurojaahCommunityDirectory';
 import { MurojaahEnrollModal } from './MurojaahEnrollModal';
-import { buildMurojaahSelfReminder } from '@/lib/murojaah';
+import { buildMurojaahSelfReminder, buildMurojaahAfternoonReminder, calculateMurojaahDebt } from '@/lib/murojaah';
 
 interface Murojaah40xTabProps {
   isAlumni?: boolean;
@@ -230,6 +230,8 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
   };
 
+
+
   if (loading && !data) {
     return (
       <div className="py-24 text-center space-y-3">
@@ -242,6 +244,40 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
   const { progress, primary_logs = [], part_a_logs = [], warrior, juz_info, all_enrolled_juz = [], wajib_murojaah } = data || {};
   const currentLogs: Murojaah40xLog[] = activeSegment === 'primary' ? primary_logs : part_a_logs;
   const currentCompletedCount = currentLogs.length;
+
+  // Calculate today's logs & debt for current segment
+  const todayDateStr = new Date().toISOString().split('T')[0];
+  const currentSegmentTodayLogs = currentLogs.filter(l => {
+    const compDate = typeof l.completed_at === 'string'
+      ? l.completed_at.split('T')[0]
+      : new Date(l.completed_at).toISOString().split('T')[0];
+    return compDate === todayDateStr;
+  });
+
+  const activeDebt = calculateMurojaahDebt({
+    startedAt: progress?.started_at || new Date(),
+    totalCompleted: currentCompletedCount,
+    todayLogsCount: currentSegmentTodayLogs.length,
+  });
+
+  const handleSendAfternoonReminder = () => {
+    const userName = data?.progress?.user?.full_name || 'Thalibah MTI';
+    const juzCode = activeSegment === 'primary' ? (data?.juz_info?.code || '30A') : (data?.juz_info?.optional_part_a_code || '30A');
+    const daysRemaining = data?.warrior?.days_remaining || 0;
+
+    const message = buildMurojaahAfternoonReminder({
+      userName,
+      juzCode,
+      todayCount: activeDebt.todayCount,
+      todayRemaining: activeDebt.todayRemaining,
+      previousDebt: activeDebt.previousDebt,
+      totalDebt: activeDebt.totalDebt,
+      currentRound: currentCompletedCount,
+      daysRemaining,
+    });
+
+    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+  };
   const nextRoundNumber = currentCompletedCount + 1;
   const isSegmentCompleted = currentCompletedCount >= 40;
   const percentage = Math.round((currentCompletedCount / 40) * 100);
@@ -363,6 +399,87 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
           </div>
         </CardContent>
       </Card>
+
+      {/* 2. REMINDER SORE & HUTANG PUTARAN CARD */}
+      {!isSegmentCompleted && (
+        <Card className={`rounded-2xl border shadow-xs overflow-hidden transition-all ${activeDebt.totalDebt > 0 ? "bg-gradient-to-r from-amber-500/10 via-amber-50/50 to-emerald-50/30 border-amber-200/90" : "bg-emerald-50/40 border-emerald-200/80"}`}>
+
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-start gap-3.5">
+                <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 shadow-xs ${activeDebt.totalDebt > 0 ? "bg-gradient-to-br from-amber-500 to-amber-600 text-white" : "bg-emerald-800 text-white"}`}>
+                  {activeDebt.totalDebt > 0 ? (
+                    <Clock className="w-5 h-5 animate-pulse" />
+                  ) : (
+                    <CheckCircle2 className="w-5 h-5 text-emerald-200" />
+                  )}
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider ${activeDebt.totalDebt > 0 ? "bg-amber-100 text-amber-900 border border-amber-200" : "bg-emerald-100 text-emerald-900 border border-emerald-200"}`}>
+                      {activeDebt.totalDebt > 0 ? 'Pengingat Sore: Target 2 Putaran/Hari' : 'Target Harian Tuntas'}
+                    </span>
+                    <span className="text-[11px] font-bold text-gray-500">
+                      Hari ke-{activeDebt.daysElapsed} Murojaah
+                    </span>
+                  </div>
+
+                  <h3 className="text-sm sm:text-base font-extrabold text-gray-900 tracking-tight">
+                    {activeDebt.todayCount >= 2 ? (
+                      <span className="text-emerald-800">Alhamdulillah! Target 2 putaran hari ini telah lunas.</span>
+                    ) : (
+                      <span>
+                        Hari ini baru tuntas <strong className="text-amber-800 font-black">{activeDebt.todayCount} dari 2 putaran</strong>.
+                      </span>
+                    )}
+                  </h3>
+
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-600 pt-0.5">
+                    <span className="inline-flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                      Sisa target hari ini: <strong className="text-gray-900 font-bold">{activeDebt.todayRemaining} putaran</strong>
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                      Hutang hari-hari sebelumnya: <strong className="text-gray-900 font-bold">{activeDebt.previousDebt} putaran</strong>
+                    </span>
+                    <span className="inline-flex items-center gap-1 bg-white/80 px-2 py-0.5 rounded-md border border-gray-200/80">
+                      <strong>TOTAL HUTANG PUTARAN:</strong>{' '}
+                      <span className={`font-black font-mono text-sm ${activeDebt.totalDebt > 0 ? "text-rose-700" : "text-emerald-700"}`}>
+                        {activeDebt.totalDebt} Putaran
+                      </span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-row md:flex-col items-center md:items-end justify-between gap-2 shrink-0 border-t md:border-t-0 pt-3 md:pt-0 border-gray-200/60">
+                <Button
+                  size="sm"
+                  onClick={() => handleOpenLogModal(nextRoundNumber)}
+                  disabled={isSegmentCompleted || warrior?.is_expired}
+                  className="bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl text-xs font-bold px-4 py-2 shadow-xs gap-1.5"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Setor Putaran ke-{nextRoundNumber}</span>
+                </Button>
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleSendAfternoonReminder}
+                  className="text-xs font-bold border-gray-300 text-gray-700 hover:text-emerald-900 hover:bg-emerald-50 rounded-xl gap-1.5 bg-white shadow-xs"
+                >
+                  <MessageCircle className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>Bagikan Reminder WA</span>
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* EXPIRED WARNING BANNER */}
       {warrior?.is_expired && !isSegmentCompleted && (

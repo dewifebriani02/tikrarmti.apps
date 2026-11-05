@@ -87,6 +87,12 @@ const INDIVIDUAL_TEMPLATES = [
     label: 'Peringatan Evaluasi Jurnal Harian',
     body: (name: string) => 
       `Assalamu'alaikum Warahmatullahi Wabarakatuh.\n\nYkh. Ukhti ${name || 'Thalibah'},\n\nPemberitahuan Administrasi Akademik MTI:\nBerdasarkan evaluasi sistem, tercatat Ukhti belum melengkapi pengisian Jurnal Harian Tikrar. Mohon segera mengisi jurnal dan konfirmasi ke Musyrifah pendamping sebelum batas waktu evaluasi berakhir.\n\nTautan Jurnal:\n🔗 https://markaztikrar.id/jurnal-harian\n\n*(Mohon tidak membalas pesan ini karena dikirim secara otomatis oleh sistem).*\n\nJazakillahu khairan.\nWassalamu'alaikum Warahmatullahi Wabarakatuh.\n━━━━━━━━━━━━━━\nTim Akademik Markaz Tikrar Indonesia\n🌐 https://markaztikrar.id`,
+    },
+  {
+    id: 'reminder_sore_murojaah_40x',
+    label: 'Pengingat Sore Murojaah 40x (Target 2 Putaran)',
+    body: (name: string) =>
+      `Assalamu'alaikum Warahmatullahi Wabarakatuh Ukhti *${name || 'Thalibah'}* 🌸\n\n*Pengingat Sore Murojaah 40x MTI*\n\nMengingatkan kembali komitmen harian murojaah sore ini:\n• Target Harian: *2 Putaran/Hari*\n• Luangkan waktu sore menjelang maghrib untuk menuntaskan setoran hari ini agar hutang putaran tidak menumpuk.\n\n🔗 Catat putaran murojaah Ukhti di:\nhttps://markaztikrar.id/murojaah\n\nSemangat menjaga Al-Qur'an lillah! 💪🌿\n*(Mohon tidak membalas pesan otomatis ini)*`,
   },
 ];
 
@@ -175,6 +181,23 @@ Wassalamu'alaikum Warahmatullahi Wabarakatuh.
 ━━━━━━━━━━━━━━
 Tim Akademik Markaz Tikrar Indonesia
 🌐 https://markaztikrar.id`,
+    },
+  {
+    id: 'reminder_sore_murojaah_broadcast',
+    label: 'Broadcast Sore Murojaah 40x (Hutang Putaran)',
+    body: `Assalamu'alaikum Warahmatullahi Wabarakatuh Ukhti *{nama}* 🌸
+
+*Pengingat Sore Murojaah 40x MTI*
+
+Waktu sore menjelang maghrib adalah momen terbaik menuntaskan target hafalan harian:
+• Target Harian: *2 Putaran/Hari*
+• Pastikan 2 putaran hari ini lunas dan lunasi akumulasi hutang putaran hari-hari sebelumnya agar target kelulusan 20 hari tetap terjaga!
+
+🔗 Buka lembar murojaah Ukhti di:
+https://markaztikrar.id/murojaah
+
+Semoga Allah memberkahi lisan dan waktu kita bersama kalam-Nya. Aamiin. 🌿
+*(Pesan otomatis dari Sistem MTI)*`,
   },
 ];
 
