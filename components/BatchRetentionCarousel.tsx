@@ -42,6 +42,7 @@ export function BatchRetentionCarousel({
 }: BatchRetentionCarouselProps) {
   const [selectedProgram, setSelectedProgram] = useState<'all' | 'tikrar' | 'pra'>('all');
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
 
   const activeBatches =
     selectedProgram === 'tikrar'
@@ -51,14 +52,17 @@ export function BatchRetentionCarousel({
       : allBatches;
 
   const handleScroll = (direction: 'left' | 'right') => {
-    if (scrollRef.current) {
-      const { scrollLeft } = scrollRef.current;
-      const cardWidth = 360;
-      const scrollAmount = direction === 'left' ? -cardWidth : cardWidth;
-      scrollRef.current.scrollTo({
-        left: scrollLeft + scrollAmount,
-        behavior: 'smooth',
-      });
+    if (!scrollRef.current) return;
+    const items = scrollRef.current.children;
+    const nextIdx =
+      direction === 'left'
+        ? Math.max(0, currentIndex - 1)
+        : Math.min(items.length - 1, currentIndex + 1);
+
+    setCurrentIndex(nextIdx);
+    const target = items[nextIdx] as HTMLElement;
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
     }
   };
 
@@ -68,7 +72,10 @@ export function BatchRetentionCarousel({
       <div className="flex flex-wrap items-center justify-center gap-2 max-w-xl mx-auto px-4">
         <button
           type="button"
-          onClick={() => setSelectedProgram('all')}
+          onClick={() => {
+            setSelectedProgram('all');
+            setCurrentIndex(0);
+          }}
           className={`px-4 py-2 rounded-full text-xs sm:text-sm font-bold transition-all duration-200 flex items-center gap-1.5 shadow-2xs cursor-pointer ${
             selectedProgram === 'all'
               ? 'bg-emerald-900 text-white shadow-md'
@@ -81,7 +88,10 @@ export function BatchRetentionCarousel({
 
         <button
           type="button"
-          onClick={() => setSelectedProgram('tikrar')}
+          onClick={() => {
+            setSelectedProgram('tikrar');
+            setCurrentIndex(0);
+          }}
           className={`px-4 py-2 rounded-full text-xs sm:text-sm font-bold transition-all duration-200 flex items-center gap-1.5 shadow-2xs cursor-pointer ${
             selectedProgram === 'tikrar'
               ? 'bg-emerald-900 text-white shadow-md'
@@ -94,7 +104,10 @@ export function BatchRetentionCarousel({
 
         <button
           type="button"
-          onClick={() => setSelectedProgram('pra')}
+          onClick={() => {
+            setSelectedProgram('pra');
+            setCurrentIndex(0);
+          }}
           className={`px-4 py-2 rounded-full text-xs sm:text-sm font-bold transition-all duration-200 flex items-center gap-1.5 shadow-2xs cursor-pointer ${
             selectedProgram === 'pra'
               ? 'bg-emerald-900 text-white shadow-md'
@@ -113,7 +126,7 @@ export function BatchRetentionCarousel({
           type="button"
           onClick={() => handleScroll('left')}
           aria-label="Geser ke kiri"
-          className="hidden md:flex absolute -left-2 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white/95 border border-gray-200 shadow-md hover:bg-emerald-50 text-emerald-900 items-center justify-center transition-all duration-200 hover:scale-105 cursor-pointer"
+          className="hidden md:flex absolute -left-3 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white/95 border border-gray-200 shadow-md hover:bg-emerald-50 text-emerald-900 items-center justify-center transition-all duration-200 hover:scale-105 cursor-pointer"
         >
           <ChevronLeft className="w-6 h-6" />
         </button>
@@ -123,7 +136,7 @@ export function BatchRetentionCarousel({
           type="button"
           onClick={() => handleScroll('right')}
           aria-label="Geser ke kanan"
-          className="hidden md:flex absolute -right-2 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white/95 border border-gray-200 shadow-md hover:bg-emerald-50 text-emerald-900 items-center justify-center transition-all duration-200 hover:scale-105 cursor-pointer"
+          className="hidden md:flex absolute -right-3 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white/95 border border-gray-200 shadow-md hover:bg-emerald-50 text-emerald-900 items-center justify-center transition-all duration-200 hover:scale-105 cursor-pointer"
         >
           <ChevronRight className="w-6 h-6" />
         </button>
