@@ -115,6 +115,7 @@ export class WhatsAppService {
         configured: isConfigured,
         apiKeyConfigured: Boolean(key),
         numberKeyConfigured: Boolean(numKey),
+        accountName: process.env.WATZAP_SENDER_NAME || "Markaz Tikrar Indonesia",
       },
     };
 
@@ -135,7 +136,7 @@ export class WhatsAppService {
       if (resp.ok) {
         const json = await resp.json();
         if (json.data) {
-          result.watzap.accountName = json.data.name;
+          result.watzap.accountName = process.env.WATZAP_SENDER_NAME || "Markaz Tikrar Indonesia";
           result.watzap.plan = json.data.plan;
           result.watzap.expiresOn = json.data.expires_on;
 

@@ -604,7 +604,7 @@ export default function AdminWhatsAppPage() {
                     <span className="font-semibold text-gray-700 font-mono">
                       {status?.watzap?.displayPhoneNumber || '0813-3000-0784'}
                     </span>
-                    {status?.watzap?.accountName && ` (${status.watzap.accountName})`}
+                    {` (${status?.watzap?.accountName || "Markaz Tikrar Indonesia"})`}
                     {status?.watzap?.plan && ` • Paket ${status.watzap.plan}`}
                   </p>
                 </div>
