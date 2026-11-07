@@ -288,7 +288,6 @@ export default function GlobalAuthenticatedHeader({
     { href: '/jurnal-harian', icon: Bell, label: 'Jurnal' },
     { href: '/tashih', icon: Settings, label: 'Tashih' },
     { href: '/perjalanan-saya', icon: User, label: 'Progres' },
-    { href: '/faq', icon: HelpCircle, label: 'FAQ & Bantuan' },
   ];
 
   return (
@@ -465,7 +464,10 @@ export default function GlobalAuthenticatedHeader({
 
               {/* Profile Dropdown */}
               {isMounted && showProfileDropdown && (
-                <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-green-900/20 overflow-hidden z-[100]">
+                <div 
+                  style={{ WebkitOverflowScrolling: "touch" }}
+                  className="absolute right-0 mt-2 w-72 sm:w-64 max-h-[calc(100vh-6.5rem)] overflow-y-auto overscroll-contain bg-white rounded-xl shadow-2xl border border-green-900/20 z-[100] pb-4"
+                >
                   <div className="bg-gradient-to-r from-green-900 to-green-800 text-white p-4">
                     <div className="flex items-center space-x-3">
                       {/* Avatar in dropdown */}
@@ -515,17 +517,6 @@ export default function GlobalAuthenticatedHeader({
                   {isMounted && <PersonaSwitcher variant="menu" />}
 
                   <div className="p-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowProfileDropdown(false);
-                        window.dispatchEvent(new CustomEvent('open-faq-modal'));
-                      }}
-                      className="flex items-center space-x-3 px-3 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-900 rounded-lg transition-colors duration-200 w-full font-semibold text-left cursor-pointer"
-                    >
-                      <HelpCircle className="w-4 h-4 text-emerald-600" />
-                      <span>Pusat Bantuan &amp; FAQ</span>
-                    </button>
 
                     <Link
                       href="/pengaturan"
@@ -594,35 +585,17 @@ export default function GlobalAuthenticatedHeader({
           <div className="lg:hidden border-t border-green-900/20 py-4 relative z-40">
             {/* Mobile Quick Links */}
             <nav className="grid grid-cols-2 gap-2">
-              {quickLinks.map((link) => {
-                if (link.href === '/faq') {
-                  return (
-                    <button
-                      key={link.href}
-                      type="button"
-                      onClick={() => {
-                        setShowMobileMenu(false);
-                        window.dispatchEvent(new CustomEvent('open-faq-modal'));
-                      }}
-                      className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-900 rounded-lg transition-colors duration-200 text-left cursor-pointer"
-                    >
-                      <link.icon className="w-4 h-4 text-emerald-600" />
-                      <span>{link.label}</span>
-                    </button>
-                  );
-                }
-                return (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    onClick={() => setShowMobileMenu(false)}
-                    className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-900 rounded-lg transition-colors duration-200"
-                  >
-                    <link.icon className="w-4 h-4" />
-                    <span>{link.label}</span>
-                  </Link>
-                );
-              })}
+              {quickLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setShowMobileMenu(false)}
+                  className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-900 rounded-lg transition-colors duration-200"
+                >
+                  <link.icon className="w-4 h-4" />
+                  <span>{link.label}</span>
+                </Link>
+              ))}
             </nav>
 
             {/* Mobile Logout Button */}

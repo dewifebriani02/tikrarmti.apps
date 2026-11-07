@@ -491,33 +491,6 @@ export function RegistrationHubCard({
               </div>
             </div>
 
-            {/* FAQ & Bantuan Banner */}
-            <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-amber-50 border-2 border-emerald-200/80 rounded-2xl p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xs">
-              <div className="flex items-start sm:items-center gap-3.5">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-emerald-100 border border-emerald-200 flex items-center justify-center text-emerald-800 flex-shrink-0 shadow-xs">
-                  <HelpCircle className="w-5 h-5 sm:w-6 sm:h-6" />
-                </div>
-                <div>
-                  <h4 className="text-sm sm:text-base font-black text-gray-900">
-                    Bingung Alur atau Syarat Pendaftaran?
-                  </h4>
-                  <p className="text-xs sm:text-sm text-gray-600 leading-relaxed">
-                    Pelajari panduan lengkap, jadwal belajar, batas waktu, dan aturan program di Pusat Tanya Jawab (FAQ).
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => window.dispatchEvent(new CustomEvent('open-faq-modal'))}
-                  className="w-full sm:w-auto border-emerald-600 bg-white hover:bg-emerald-50 text-emerald-900 font-black text-xs sm:text-sm px-4 py-2.5 rounded-xl shadow-xs cursor-pointer"
-                >
-                  Buka FAQ Pendaftaran
-                </Button>
-              </div>
-            </div>
-
           </div>
         </CardContent>
       </Card>

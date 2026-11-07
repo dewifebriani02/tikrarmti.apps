@@ -489,21 +489,11 @@ export default function PendaftaranPage() {
   return (
     <div className="space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-6">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">Pendaftaran Program</h1>
-            <p className="text-sm text-gray-600">
-              Pilih program yang sesuai dengan kebutuhan dan komitmen Ukhti
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => window.dispatchEvent(new CustomEvent('open-faq-modal'))}
-            className="self-start sm:self-auto inline-flex items-center gap-2 px-3.5 py-2 text-xs sm:text-sm font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl transition-all shadow-2xs cursor-pointer"
-          >
-            <HelpCircle className="w-4 h-4 text-emerald-700" />
-            <span>FAQ Pendaftaran</span>
-          </button>
+        <div className="mb-4 sm:mb-6">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Pendaftaran Program</h1>
+          <p className="text-sm sm:text-base text-gray-600">
+            Pilih program yang sesuai dengan kebutuhan dan minat Ukhti
+          </p>
         </div>
 
         {isAlumniBlocked && (

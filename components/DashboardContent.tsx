@@ -1126,15 +1126,7 @@ export default function DashboardContent() {
                 shadowColor: 'shadow-amber-600/30',
                 bgCard: 'hover:border-amber-300 hover:bg-amber-50/30'
               },
-              {
-                label: 'Tanya Jawab (FAQ)',
-                desc: 'Pusat panduan & aturan program',
-                icon: HelpCircle,
-                href: '/faq',
-                gradient: 'from-emerald-700 to-teal-800',
-                shadowColor: 'shadow-emerald-700/30',
-                bgCard: 'hover:border-emerald-300 hover:bg-emerald-50/30'
-              },
+
             ];
 
             return menuItems.map((item, i) => (
@@ -1148,9 +1140,7 @@ export default function DashboardContent() {
                   } else if (item.label.includes('Sit-In')) {
                     e.preventDefault();
                     setIsScheduleOptionsOpen(true);
-                  } else if (item.href === '/faq' || item.label.includes('FAQ')) {
-                    e.preventDefault();
-                    window.dispatchEvent(new CustomEvent('open-faq-modal'));
+
                   }
                 }}
                 className="group min-w-0 block focus:outline-none"

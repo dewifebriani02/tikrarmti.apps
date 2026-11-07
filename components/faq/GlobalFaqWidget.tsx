@@ -146,35 +146,9 @@ export function GlobalFaqWidget() {
     return results;
   }, [faqData, searchQuery, selectedCategory]);
 
-  // Don't render floating launcher on the dedicated /faq page itself to avoid redundancy
-  const isDedicatedFaqPage = pathname === '/faq';
-
   return (
     <>
-      {/* Floating Launcher Button */}
-      {!isDedicatedFaqPage && (
-        <aside
-          aria-label="Pusat Bantuan dan FAQ"
-          className="fixed bottom-20 right-3.5 sm:bottom-6 sm:right-6 z-[65] flex items-center group pointer-events-auto"
-        >
-          <button
-            onClick={() => setIsOpen(true)}
-            type="button"
-            className="flex items-center gap-2 px-3.5 py-2.5 sm:px-4 sm:py-3 bg-gradient-to-r from-emerald-700 via-emerald-800 to-teal-900 hover:from-emerald-650 hover:to-teal-850 text-white rounded-full shadow-xl hover:shadow-2xl hover:scale-105 active:scale-95 transition-all duration-200 border border-emerald-400/30 backdrop-blur-md focus:outline-none focus:ring-4 focus:ring-emerald-500/40"
-            title="Buka Pusat Bantuan & Pertanyaan Sering Diajukan (FAQ)"
-          >
-            <div className="relative flex items-center justify-center">
-              <HelpCircle className="w-5 h-5 text-amber-300 animate-pulse" />
-              <span className="absolute -top-1 -right-1 w-2 h-2 bg-amber-400 rounded-full animate-ping" />
-            </div>
-            <span className="font-bold text-xs sm:text-sm tracking-wide">
-              FAQ & Bantuan
-            </span>
-          </button>
-        </aside>
-      )}
-
-      {/* Modal / Dialog */}
+      {/* Modal / Dialog (Opened via header button) */}
       {isOpen && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/60 backdrop-blur-sm transition-all duration-300 animate-in fade-in">
           {/* Backdrop click */}
