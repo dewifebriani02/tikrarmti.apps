@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
-import { Crown, Heart, ArrowRight } from "lucide-react";
+import { Crown, Heart, ArrowRight, HelpCircle } from "lucide-react";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { validatePhoneNumberFormat } from "@/lib/utils/sanitize";
 import { negaraList, provinsiList, zonaWaktuList } from "@/lib/data/registration-data";
@@ -735,6 +735,17 @@ function RegisterPageContent() {
             Sudah punya akun?{' '}
             <Link href="/login" className="text-green-600 hover:underline font-medium">
               Login di sini
+            </Link>
+          </div>
+
+          {/* FAQ Helper Link */}
+          <div className="mt-6 pt-4 border-t border-gray-100 text-center">
+            <Link
+              href="/faq"
+              className="inline-flex items-center gap-2 text-xs sm:text-sm font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 px-4 py-2.5 rounded-xl transition-all shadow-2xs"
+            >
+              <HelpCircle className="w-4 h-4 text-emerald-700" />
+              <span>Punya pertanyaan sebelum mendaftar? Baca FAQ</span>
             </Link>
           </div>
         </Card>

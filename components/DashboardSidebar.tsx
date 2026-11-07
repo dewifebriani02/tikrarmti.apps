@@ -594,6 +594,27 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
           })}
         </nav>
 
+        {/* Help & FAQ Quick Pill */}
+        {isMounted && (
+          <div className="px-3 py-2 border-t border-gray-100 bg-emerald-50/50 flex-shrink-0">
+            <Link
+              href="/faq"
+              onClick={() => { if (isMobile) onClose?.(); }}
+              className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-emerald-900 bg-white hover:bg-emerald-100/80 border border-emerald-200/80 transition-all shadow-2xs group ${
+                isCollapsed ? "justify-center px-2" : ""
+              }`}
+              title="Pusat Bantuan & Tanya Jawab (FAQ)"
+            >
+              <HelpCircle className="w-4 h-4 text-emerald-700 shrink-0 group-hover:scale-110 transition-transform" />
+              {!isCollapsed && (
+                <div className="flex-1 truncate">
+                  <span>Tanya Jawab (FAQ)</span>
+                </div>
+              )}
+            </Link>
+          </div>
+        )}
+
         {/* Footer: Compact Name & NIT with Icon Logout Button */}
         {isMounted && (
           <div className="border-t border-gray-100 bg-gray-50/70 p-2.5 flex-shrink-0">

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Eye, EyeOff, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Eye, EyeOff, AlertCircle, CheckCircle2, HelpCircle } from "lucide-react";
 import { loginAction } from '@/app/login/actions';
 import { safeRedirectPath } from '@/lib/utils/safe-redirect';
 
@@ -379,6 +379,17 @@ function LoginPageContent() {
                   className="inline-block text-green-900 hover:text-green-800 font-semibold hover:underline transition-colors text-base sm:text-lg"
                 >
                   Daftar sebagai anggota baru
+                </Link>
+              </div>
+
+              {/* FAQ Helper Link */}
+              <div className="mt-6 pt-4 border-t border-gray-100 text-center">
+                <Link
+                  href="/faq"
+                  className="inline-flex items-center gap-2 text-xs sm:text-sm font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 px-4 py-2.5 rounded-xl transition-all shadow-2xs"
+                >
+                  <HelpCircle className="w-4 h-4 text-emerald-700" />
+                  <span>Ada kendala atau pertanyaan? Baca FAQ &amp; Bantuan</span>
                 </Link>
               </div>
 

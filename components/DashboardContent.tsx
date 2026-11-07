@@ -37,7 +37,8 @@ import {
   ArrowRightLeft,
   RotateCcw,
   Compass,
-  HeartHandshake
+  HeartHandshake,
+  HelpCircle
 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog'
@@ -1124,6 +1125,15 @@ export default function DashboardContent() {
                 gradient: 'from-amber-600 to-orange-500',
                 shadowColor: 'shadow-amber-600/30',
                 bgCard: 'hover:border-amber-300 hover:bg-amber-50/30'
+              },
+              {
+                label: 'Tanya Jawab (FAQ)',
+                desc: 'Pusat panduan & aturan program',
+                icon: HelpCircle,
+                href: '/faq',
+                gradient: 'from-emerald-700 to-teal-800',
+                shadowColor: 'shadow-emerald-700/30',
+                bgCard: 'hover:border-emerald-300 hover:bg-emerald-50/30'
               },
             ];
 

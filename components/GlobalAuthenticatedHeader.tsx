@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import {
   Settings,
+  HelpCircle,
   Bell,
   User,
   Home,
@@ -287,6 +288,7 @@ export default function GlobalAuthenticatedHeader({
     { href: '/jurnal-harian', icon: Bell, label: 'Jurnal' },
     { href: '/tashih', icon: Settings, label: 'Tashih' },
     { href: '/perjalanan-saya', icon: User, label: 'Progres' },
+    { href: '/faq', icon: HelpCircle, label: 'FAQ & Bantuan' },
   ];
 
   return (
@@ -338,6 +340,18 @@ export default function GlobalAuthenticatedHeader({
 
             {/* Persona Switcher Pill */}
             {isMounted && <PersonaSwitcher variant="header" />}
+
+            {/* Quick FAQ Button */}
+            {isMounted && (
+              <Link
+                href="/faq"
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300/80 rounded-lg transition-colors shadow-2xs"
+                title="Pusat Bantuan & FAQ"
+              >
+                <HelpCircle className="w-4 h-4 text-emerald-700" />
+                <span className="hidden sm:inline">FAQ</span>
+              </Link>
+            )}
 
             {/* Notifications - Desktop/Tablet */}
             <div className="relative hidden md:block" ref={notificationRef}>
@@ -500,6 +514,14 @@ export default function GlobalAuthenticatedHeader({
                   {isMounted && <PersonaSwitcher variant="menu" />}
 
                   <div className="p-2">
+                    <Link
+                      href="/faq"
+                      className="flex items-center space-x-3 px-3 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-900 rounded-lg transition-colors duration-200 w-full font-semibold"
+                    >
+                      <HelpCircle className="w-4 h-4 text-emerald-600" />
+                      <span>Pusat Bantuan &amp; FAQ</span>
+                    </Link>
+
                     <Link
                       href="/pengaturan"
                       className="flex items-center space-x-3 px-3 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-900 rounded-lg transition-colors duration-200 w-full"

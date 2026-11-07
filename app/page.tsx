@@ -9,6 +9,7 @@ import { LandingTestimonialsCarousel } from '@/components/LandingTestimonialsCar
 import { BatchRetentionCarousel, BatchProgramData } from '@/components/BatchRetentionCarousel';
 import {
   Star,
+  HelpCircle,
   Users,
   Trophy,
   Crown,
@@ -218,6 +219,17 @@ export default async function Home() {
                 <BookOpen className="w-5 h-5 text-emerald-700" />
                 <span>Pilihan Program</span>
               </a>
+            </Button>
+            <Button
+              asChild
+              variant="outline"
+              size="lg"
+              className="border-2 border-emerald-300 bg-emerald-50/90 text-emerald-900 hover:bg-emerald-100 px-6 sm:px-8 py-5 sm:py-6 text-base font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-sm group"
+            >
+              <Link href="/faq" className="flex items-center gap-2.5">
+                <HelpCircle className="w-5 h-5 text-emerald-700 group-hover:rotate-12 transition-transform" />
+                <span>Tanya Jawab (FAQ)</span>
+              </Link>
             </Button>
           </div>
 

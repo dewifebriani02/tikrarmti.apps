@@ -7,6 +7,7 @@ import ErrorHandlers from '@/components/ErrorHandlers'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { Toaster } from 'sonner'
 import { AutoReloadProvider } from '@/components/AutoReloadProvider'
+import { GlobalFaqWidget } from '@/components/faq/GlobalFaqWidget'
 
 export const metadata: Metadata = {
   title: 'Tikrar MTI Apps',
@@ -44,6 +45,7 @@ export default function RootLayout({
               <AppLayout>
                 {children}
               </AppLayout>
+              <GlobalFaqWidget />
             </SWRProvider>
             <Toaster position="top-center" richColors />
           </ErrorHandlers>
