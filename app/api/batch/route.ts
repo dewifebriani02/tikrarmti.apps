@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search');
     const limit = searchParams.get('limit');
 
-    const VALID_BATCH_STATUSES = ['draft', 'open', 'closed', 'archived'];
+    const VALID_BATCH_STATUSES = ['draft', 'open', 'ongoing', 'closed', 'archived'];
 
     const supabase = supabaseAdmin;
 

@@ -46,7 +46,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
-import { useActiveBatch } from '@/hooks/useBatches'
+import { useActiveBatch, useBatches } from '@/hooks/useBatches'
 import { useDashboardStats, useTashihStatus, useJurnalStatus, useHalaqahOfTheWeek } from '@/hooks/useDashboard'
 import { useMyRegistrations } from '@/hooks/useRegistrations'
 import { createClient } from '@/lib/supabase/client'
@@ -89,10 +89,11 @@ export default function DashboardContent() {
 
   // SWR hooks for data fetching
   const { activeBatch, isLoading: batchLoading, error: batchError } = useActiveBatch()
+  const { batches: adminBatches } = useBatches(canSeeAdminStats ? { limit: 20 } : undefined)
   const { stats, isLoading: statsLoading, error: statsError } = useDashboardStats(canSeeAdminStats)
   const { registrations, isLoading: registrationsLoading } = useMyRegistrations(targetUserId || undefined)
 
-  // Available batches derived from active batch and user registrations
+  // Available batches derived from active batch, admin batches, and user registrations
   const availableBatches = useMemo(() => {
     const batchesMap = new Map<string, { id: string; name: string; first_week_start_date?: string; start_date?: string; status?: string }>();
     if (activeBatch) {
@@ -102,6 +103,19 @@ export default function DashboardContent() {
         first_week_start_date: activeBatch.first_week_start_date,
         start_date: activeBatch.start_date,
         status: activeBatch.status
+      });
+    }
+    if (canSeeAdminStats && adminBatches && adminBatches.length > 0) {
+      adminBatches.forEach(b => {
+        if (!batchesMap.has(b.id)) {
+          batchesMap.set(b.id, {
+            id: b.id,
+            name: b.name,
+            first_week_start_date: b.first_week_start_date,
+            start_date: b.start_date,
+            status: b.status
+          });
+        }
       });
     }
     if (registrations && registrations.length > 0) {
@@ -119,7 +133,7 @@ export default function DashboardContent() {
       });
     }
     return Array.from(batchesMap.values());
-  }, [activeBatch, registrations]);
+  }, [activeBatch, registrations, canSeeAdminStats, adminBatches]);
 
   // Priority: User Selected Batch -> Active Batch -> First Registration Batch
   const effectiveBatchId = selectedBatchId || activeBatch?.id || (registrations?.[0]?.batch_id ?? null);
@@ -252,8 +266,19 @@ export default function DashboardContent() {
   const totalHariTarget = (jurnalStatus?.summary.total_blocks || (canSeeAdminStats ? stats?.totalHariTarget : 0) || 0)
 
   // Calculate current week based on selected batch timeline
+  const targetStartDate = selectedBatch?.first_week_start_date || selectedBatch?.start_date;
+  const isBatchUpcoming = useMemo(() => {
+    if (!selectedBatch) return false;
+    if (selectedBatch.status === 'draft') return true;
+    if (targetStartDate) {
+      const today = new Date();
+      const week1Start = new Date(targetStartDate);
+      return today < week1Start;
+    }
+    return selectedBatch.status === 'open';
+  }, [selectedBatch, targetStartDate]);
+
   const computeCurrentWeek = () => {
-    const targetStartDate = selectedBatch?.first_week_start_date || selectedBatch?.start_date;
     if (!targetStartDate) return 1;
     const today = new Date();
     const week1Start = new Date(targetStartDate);
@@ -631,14 +656,23 @@ export default function DashboardContent() {
                 </div>
               )}
 
-              {/* Pekan Card */}
-              <div className="shrink-0 snap-center h-16 lg:h-24 px-5 lg:px-0 lg:w-24 rounded-2xl lg:rounded-[2rem] bg-white/5 backdrop-blur-xl border border-white/10 flex flex-col items-center justify-center shadow-2xl transition-all hover:bg-white/10">
-                <p className="text-[9px] lg:text-[10px] uppercase font-black text-white/50 tracking-widest">Pekan</p>
-                <div className="flex items-center gap-3 lg:gap-2 mt-0.5 lg:mt-1">
-                   <button onClick={() => setCurrentWeek(w => Math.max(1, w - 1))} className="text-white/40 hover:text-white transition-colors w-6 lg:w-auto text-center font-medium">‹</button>
-                   <p className="text-2xl lg:text-4xl font-black text-white/90">{currentWeek}</p>
-                   <button onClick={() => setCurrentWeek(w => w + 1)} className="text-white/40 hover:text-white transition-colors w-6 lg:w-auto text-center font-medium">›</button>
-                </div>
+              {/* Pekan / Status Card */}
+              <div className="shrink-0 snap-center h-16 lg:h-24 px-4 lg:px-5 lg:w-auto min-w-[5.5rem] lg:min-w-[6.5rem] rounded-2xl lg:rounded-[2rem] bg-white/5 backdrop-blur-xl border border-white/10 flex flex-col items-center justify-center shadow-2xl transition-all hover:bg-white/10">
+                <p className="text-[9px] lg:text-[10px] uppercase font-black text-white/50 tracking-widest">
+                  {isBatchUpcoming ? 'Status' : 'Pekan'}
+                </p>
+                {isBatchUpcoming ? (
+                  <div className="flex flex-col items-center mt-0.5">
+                    <span className="text-xs lg:text-sm font-black text-amber-300 uppercase tracking-tight">Pra-KBM</span>
+                    <span className="text-[8px] lg:text-[9px] font-semibold text-white/70">Pendaftaran</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3 lg:gap-2 mt-0.5 lg:mt-1">
+                    <button onClick={() => setCurrentWeek(w => Math.max(1, w - 1))} className="text-white/40 hover:text-white transition-colors w-6 lg:w-auto text-center font-medium">‹</button>
+                    <p className="text-2xl lg:text-4xl font-black text-white/90">{currentWeek}</p>
+                    <button onClick={() => setCurrentWeek(w => w + 1)} className="text-white/40 hover:text-white transition-colors w-6 lg:w-auto text-center font-medium">›</button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -648,6 +682,18 @@ export default function DashboardContent() {
         <div className="absolute top-0 right-0 -mt-10 -mr-10 w-60 h-60 bg-white/5 rounded-full blur-3xl" />
         <div className="absolute bottom-0 left-0 -mb-10 -ml-10 w-60 h-60 bg-black/10 rounded-full blur-3xl" />
       </div>
+
+      {/* Upcoming Batch Info Notice */}
+      {isBatchUpcoming && selectedBatch && (
+        <div className="bg-amber-50 border border-amber-200/80 rounded-2xl p-4 flex items-center gap-3 text-amber-950 shadow-sm animate-fadeIn">
+          <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-700 flex items-center justify-center shrink-0 font-bold">
+            <Sparkles className="w-5 h-5 text-amber-600" />
+          </div>
+          <div className="text-xs sm:text-sm leading-relaxed">
+            <span className="font-bold text-amber-900">{selectedBatch.name}</span> saat ini berada pada tahap <span className="font-bold text-amber-800 bg-amber-100/70 px-1.5 py-0.5 rounded">Masa Pendaftaran / Pra-KBM</span>. Kegiatan Belajar Mengajar (KBM Pekan 1) belum dimulai.
+          </div>
+        </div>
+      )}
 
       {/* SP Warning Banner */}
       {!canSeeAdminStats && jurnalStatus?.summary?.sp_summary && (

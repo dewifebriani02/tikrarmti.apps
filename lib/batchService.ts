@@ -359,7 +359,7 @@ export class BatchService {
 
   // Utility Functions
   static async getActiveBatches(): Promise<Batch[]> {
-    return this.getBatches({ status: ['open'] });
+    return this.getBatches({ status: ['ongoing', 'open'] });
   }
 
   static async getEnrollmentTrends(batchId: string, months: number = 6): Promise<BatchStatistics['enrollmentTrends']> {

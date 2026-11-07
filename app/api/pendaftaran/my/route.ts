@@ -95,7 +95,7 @@ export async function GET(request: Request) {
         };
       })
       .filter((reg: any) => {
-        return !reg.batch || reg.batch.status === 'open' || reg.batch.status === 'closed';
+        return !reg.batch || reg.batch.status === 'open' || reg.batch.status === 'ongoing' || reg.batch.status === 'closed';
       });
 
     allRegistrations.sort((a: any, b: any) => {

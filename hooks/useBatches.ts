@@ -181,7 +181,7 @@ export function useRegistrationBatch() {
 export function useActiveBatch() {
   // Try to get batch with status=open first
   const { data, error, isLoading, mutate } = useSWR<Batch[]>(
-    '/api/batch?status=open&limit=10', // Get more to filter client-side
+    '/api/batch?status=ongoing,open&limit=10', // Get active ongoing and open batches
     getFetcher,
     {
       revalidateOnFocus: true,
@@ -191,18 +191,23 @@ export function useActiveBatch() {
     }
   )
 
-  // Client-side filter: find the batch that has started (week 1 started) or is about to start soon
+  // Client-side filter: find the batch that is currently in ongoing academic activities or has started
   const activeBatch = useMemo(() => {
     return data?.find(batch => {
+      // Priority 1: Batch with status=ongoing (active ongoing KBM or exam season)
+      if (batch.status === 'ongoing') {
+        return true
+      }
+
       const week1Start = batch.first_week_start_date ? new Date(batch.first_week_start_date) : null
       const today = new Date()
 
-      // Priority 1: Batch with status=open AND week 1 has started
+      // Priority 2: Batch with status=open AND week 1 has started
       if (batch.status === 'open' && week1Start && week1Start <= today) {
         return true
       }
 
-      // Priority 2: Batch with status=open that starts soon (within 7 days)
+      // Priority 3: Batch with status=open that starts soon (within 7 days)
       if (batch.status === 'open' && week1Start) {
         const daysUntilStart = Math.ceil((week1Start.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
         if (daysUntilStart <= 7 && daysUntilStart >= 0) {

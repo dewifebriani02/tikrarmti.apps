@@ -132,7 +132,7 @@ export const batchSchemas = {
 
   // Batch status update
   statusUpdate: z.object({
-    status: z.enum(['draft', 'open', 'closed', 'archived']),
+    status: z.enum(['draft', 'open', 'ongoing', 'closed', 'archived']),
   }),
 }
 

@@ -51,7 +51,7 @@ export async function getCachedActiveBatches(
       const { data, error } = await supabase
         .from('batches')
         .select('*')
-        .eq('status', 'open')
+        .in('status', ['ongoing', 'open'])
         .order('created_at', { ascending: false })
 
       if (error) {
