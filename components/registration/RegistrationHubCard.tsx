@@ -24,12 +24,14 @@ interface RegistrationHubCardProps {
   className?: string;
   showTitle?: boolean;
   alwaysShow?: boolean;
+  showMusyrifah?: boolean;
 }
 
 export function RegistrationHubCard({
   className = '',
   showTitle = true,
   alwaysShow = false,
+  showMusyrifah = false,
 }: RegistrationHubCardProps) {
   const { user } = useAuth();
   const { registrationBatch, isLoading: batchLoading } = useRegistrationBatch();
@@ -370,7 +372,7 @@ export function RegistrationHubCard({
             <div>
               <div className="flex items-center gap-2 mb-4 px-1">
                 <span className="text-xs font-black uppercase tracking-widest text-teal-800 bg-teal-100/80 px-2.5 py-1 rounded-md">
-                  Kategori Tim Pengajar & Pendamping
+                  Kategori Tim Pengajar {showMusyrifah ? "& Pendamping" : "(Mu'allimah)"}
                 </span>
                 <div className="flex-1 h-px bg-teal-200/60"></div>
               </div>
@@ -431,57 +433,59 @@ export function RegistrationHubCard({
                 </div>
 
                 {/* 4. Musyrifah / Raisah */}
-                <div className="bg-white border-2 border-blue-200/80 hover:border-blue-400 rounded-2xl p-5 sm:p-6 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between group">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="w-11 h-11 bg-blue-100 rounded-xl flex items-center justify-center text-blue-800 shadow-inner group-hover:scale-105 transition-transform">
-                        <ShieldCheck className="w-6 h-6" />
+                {showMusyrifah && (
+                  <div className="bg-white border-2 border-blue-200/80 hover:border-blue-400 rounded-2xl p-5 sm:p-6 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between group">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="w-11 h-11 bg-blue-100 rounded-xl flex items-center justify-center text-blue-800 shadow-inner group-hover:scale-105 transition-transform">
+                          <ShieldCheck className="w-6 h-6" />
+                        </div>
+                        <span className="text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full bg-blue-50 text-blue-800 border border-blue-200">
+                          Manajerial Halaqah
+                        </span>
                       </div>
-                      <span className="text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full bg-blue-50 text-blue-800 border border-blue-200">
-                        Manajerial Halaqah
-                      </span>
+
+                      <div>
+                        <h3 className="text-base sm:text-lg font-bold text-gray-900 group-hover:text-blue-800 transition-colors">
+                          Musyrifah / Raisah
+                        </h3>
+                        <p className="text-xs sm:text-sm text-gray-600 mt-1 leading-relaxed">
+                          Pendamping halaqah, pemantau kedisiplinan setoran pasangan, dan koordinator grup belajar thalibah.
+                        </p>
+                      </div>
+
+                      <div className="text-[11px] font-medium text-gray-500 pt-2 border-t border-gray-100">
+                        🎯 Fokus: <strong className="text-gray-700">Pelatihan Leadership & Manajemen MTI</strong>
+                      </div>
                     </div>
 
-                    <div>
-                      <h3 className="text-base sm:text-lg font-bold text-gray-900 group-hover:text-blue-800 transition-colors">
-                        Musyrifah / Raisah
-                      </h3>
-                      <p className="text-xs sm:text-sm text-gray-600 mt-1 leading-relaxed">
-                        Pendamping halaqah, pemantau kedisiplinan setoran pasangan, dan koordinator grup belajar thalibah.
-                      </p>
-                    </div>
-
-                    <div className="text-[11px] font-medium text-gray-500 pt-2 border-t border-gray-100">
-                      🎯 Fokus: <strong className="text-gray-700">Pelatihan Leadership & Manajemen MTI</strong>
-                    </div>
-                  </div>
-
-                  <div className="pt-5">
-                    {isRegisteredMusyrifah ? (
-                      <Button
-                        disabled
-                        className="w-full bg-emerald-50 text-emerald-700 border border-emerald-300 font-bold py-2.5 rounded-xl cursor-default flex items-center justify-center gap-1.5"
-                      >
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                        Sudah Terdaftar
-                      </Button>
-                    ) : isRegistrationOpen ? (
-                      <Link href={`/pendaftaran/musyrifah?batchId=${batchId}`} className="block">
-                        <Button className="w-full bg-gradient-to-r from-blue-700 to-indigo-800 hover:from-blue-800 hover:to-indigo-900 text-white font-bold py-2.5 rounded-xl shadow-md shadow-blue-900/10 hover:shadow-lg transition-all flex items-center justify-center gap-1.5">
-                          Daftar Sebagai Musyrifah
-                          <ChevronRight className="w-4 h-4" />
+                    <div className="pt-5">
+                      {isRegisteredMusyrifah ? (
+                        <Button
+                          disabled
+                          className="w-full bg-emerald-50 text-emerald-700 border border-emerald-300 font-bold py-2.5 rounded-xl cursor-default flex items-center justify-center gap-1.5"
+                        >
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          Sudah Terdaftar
                         </Button>
-                      </Link>
-                    ) : (
-                      <Button
-                        disabled
-                        className="w-full bg-gray-100 text-gray-500 font-bold py-2.5 rounded-xl cursor-not-allowed flex items-center justify-center gap-1.5"
-                      >
-                        Pendaftaran Ditutup
-                      </Button>
-                    )}
+                      ) : isRegistrationOpen ? (
+                        <Link href={`/pendaftaran/musyrifah?batchId=${batchId}`} className="block">
+                          <Button className="w-full bg-gradient-to-r from-blue-700 to-indigo-800 hover:from-blue-800 hover:to-indigo-900 text-white font-bold py-2.5 rounded-xl shadow-md shadow-blue-900/10 hover:shadow-lg transition-all flex items-center justify-center gap-1.5">
+                            Daftar Sebagai Musyrifah
+                            <ChevronRight className="w-4 h-4" />
+                          </Button>
+                        </Link>
+                      ) : (
+                        <Button
+                          disabled
+                          className="w-full bg-gray-100 text-gray-500 font-bold py-2.5 rounded-xl cursor-not-allowed flex items-center justify-center gap-1.5"
+                        >
+                          Pendaftaran Ditutup
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
 
               </div>
             </div>
