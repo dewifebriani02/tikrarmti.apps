@@ -224,6 +224,7 @@ export async function submitTikrarRegistration(formData: any, userProfile: any, 
       revalidatePath('/dashboard')
       revalidatePath('/pendaftaran')
       revalidatePath('/pendaftaran/tikrar-tahfidz')
+      revalidatePath('/seleksi/rekam-suara')
 
       return {
         success: true,
@@ -246,6 +247,7 @@ export async function submitTikrarRegistration(formData: any, userProfile: any, 
       revalidatePath('/dashboard')
       revalidatePath('/pendaftaran')
       revalidatePath('/pendaftaran/tikrar-tahfidz')
+      revalidatePath('/seleksi/rekam-suara')
 
       return {
         success: true,

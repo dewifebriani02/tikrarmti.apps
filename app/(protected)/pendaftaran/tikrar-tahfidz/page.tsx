@@ -714,9 +714,13 @@ export default function ThalibahBatch2Page() {
         // Refresh registrations cache
         mutateRegistrations()
 
-        // Redirect to dashboard after 3 seconds
+        // Redirect directly to tahap seleksi rekam-suara after 3 seconds
+        const targetUrl = activeBatchData?.id 
+          ? `/seleksi/rekam-suara?batch_id=${activeBatchData.id}` 
+          : '/seleksi/rekam-suara'
+
         const timer = setTimeout(() => {
-          router.push('/dashboard')
+          router.push(targetUrl)
         }, 3000)
 
         setRedirectTimer(timer)
@@ -1796,19 +1800,20 @@ export default function ThalibahBatch2Page() {
                   <Alert className="bg-green-50 border-green-200">
                     <CheckCircle className="h-4 w-4 text-green-600" />
                     <AlertDescription className="text-green-800">
-                      <strong>Alhamdulillah!</strong> Formulir pendaftaran Ukhti telah berhasil dikirim.                       <br /><br />
-                      <strong>Jangan lupa:</strong> Persiapkan diri untuk tes bacaan Al-Qur'an dan simak informasi selanjutnya di Telegram.
+                      <strong>Alhamdulillah!</strong> Formulir pendaftaran Ukhti telah berhasil dikirim.
+                      <br /><br />
+                      <strong>Langkah Selanjutnya:</strong> Silakan lanjutkan ke tahap seleksi rekam suara (tes bacaan Al-Qur'an).
                       <br /><br />
                       <div className="flex items-center space-x-2 mb-3">
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
-                        <span className="text-sm">Ukhti akan dialihkan ke dashboard otomatis...</span>
+                        <span className="text-sm">Ukhti akan dialihkan ke tahap seleksi rekam suara otomatis...</span>
                       </div>
                       <Button
-                        onClick={() => router.push('/dashboard')}
+                        onClick={() => router.push(activeBatchData?.id ? `/seleksi/rekam-suara?batch_id=${activeBatchData.id}` : '/seleksi/rekam-suara')}
                         className="bg-green-600 hover:bg-green-700 text-white"
                         size="sm"
                       >
-                        Pergi ke Dashboard Sekarang
+                        Lanjut ke Tes Rekam Suara Sekarang
                       </Button>
                     </AlertDescription>
                   </Alert>
@@ -1824,14 +1829,14 @@ export default function ThalibahBatch2Page() {
                       <br /><br />
                       <div className="flex items-center space-x-2 mb-3">
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                        <span className="text-sm">Ukhti akan dialihkan ke dashboard otomatis...</span>
+                        <span className="text-sm">Ukhti akan dialihkan ke tahap seleksi rekam suara otomatis...</span>
                       </div>
                       <Button
-                        onClick={() => router.push('/dashboard')}
+                        onClick={() => router.push(activeBatchData?.id ? `/seleksi/rekam-suara?batch_id=${activeBatchData.id}` : '/seleksi/rekam-suara')}
                         className="bg-blue-600 hover:bg-blue-700 text-white"
                         size="sm"
                       >
-                        Pergi ke Dashboard Sekarang
+                        Lanjut ke Tes Rekam Suara Sekarang
                       </Button>
                     </AlertDescription>
                   </Alert>
