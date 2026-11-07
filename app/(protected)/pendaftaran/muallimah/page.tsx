@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useRegistrationBatch } from '@/hooks/useBatches';
+import { useJuzOptions } from '@/hooks/useJuzOptions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -218,6 +219,19 @@ function MuallimahRegistrationContent() {
   const searchParams = useSearchParams();
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const { registrationBatch, isLoading: batchLoading } = useRegistrationBatch();
+  const { juzOptions, isLoading: juzLoading } = useJuzOptions();
+
+  // Dynamic active juz options from Pengaturan Pilihan Juz (tabel juz_options)
+  const activeJuzNumbers = useMemo(() => {
+    const active = (juzOptions || []).filter(j => j.is_active);
+    if (active.length === 0) return new Set<string>();
+    return new Set(active.map(j => String(j.juz_number)));
+  }, [juzOptions]);
+
+  const availableJuzToTeach = useMemo(() => {
+    if (activeJuzNumbers.size === 0) return allJuzOptions;
+    return allJuzOptions.filter(juz => activeJuzNumbers.has(juz.value));
+  }, [activeJuzNumbers]);
   const supabase = createClient();
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -1286,42 +1300,72 @@ function MuallimahRegistrationContent() {
 
             {getQuestionMeta('preferred_juz').is_active && (
               <div className="space-y-4">
-                <Label className="text-base font-semibold">
-                  {getQuestionMeta('preferred_juz').label}
-                  {getQuestionMeta('preferred_juz').is_required && <span className="text-red-500">*</span>}
-                </Label>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                  <Label className="text-base font-semibold">
+                    {getQuestionMeta('preferred_juz').label}
+                    {getQuestionMeta('preferred_juz').is_required && <span className="text-red-500">*</span>}
+                  </Label>
+                  {activeJuzNumbers.size > 0 && (
+                    <span className="text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full font-semibold inline-flex items-center gap-1.5 w-fit">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
+                      Sinkronisasi Pilihan Juz MTI ({availableJuzToTeach.length} Juz Aktif)
+                    </span>
+                  )}
+                </div>
+                {getQuestionMeta('preferred_juz').description && (
+                  <p className="text-sm text-gray-500">
+                    {getQuestionMeta('preferred_juz').description}
+                  </p>
+                )}
+
                 {formData.memorized_juz.length === 0 ? (
                   <p className="text-sm font-semibold text-rose-600 bg-rose-50 border border-rose-100 rounded-xl p-4">
-                    ⚠️ Silakan pilih Juz yang sudah dihafal terlebih dahulu di bagian "Informasi Hafalan" di atas untuk dapat memilih Juz yang ingin diampu.
+                    ⚠️ Silakan pilih Juz yang sudah dihafal terlebih dahulu di bagian &quot;Informasi Hafalan&quot; di atas untuk dapat memilih Juz yang ingin diampu.
                   </p>
+                ) : availableJuzToTeach.filter(juz => formData.memorized_juz.includes(juz.value)).length === 0 ? (
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-sm space-y-2">
+                    <p className="font-bold flex items-center gap-2">
+                      <Info className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                      Belum Ada Juz Hafalan yang Sesuai dengan Program Batch Ini
+                    </p>
+                    <p className="text-xs text-amber-800 leading-relaxed">
+                      Juz yang dibuka oleh Markaz Tikrar pada batch ini adalah: <strong>{availableJuzToTeach.map(j => `Juz ${j.value}`).join(', ')}</strong>.
+                      Dari hafalan yang Ukhti pilih di atas ({formData.memorized_juz.map(j => `Juz ${j}`).join(', ')}), belum ada yang termasuk ke dalam daftar juz yang dibuka. Silakan periksa kembali pilihan hafalan di Seksi 1 atau hubungi admin.
+                    </p>
+                  </div>
                 ) : (
-                  <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-10 gap-2 p-3 border rounded-xl bg-white">
-                    {allJuzOptions
-                      .filter(juz => formData.memorized_juz.includes(juz.value))
-                      .map(juz => {
-                        const isChecked = formData.preferred_juz.includes(juz.value);
-                        return (
-                          <label 
-                            key={`pref-${juz.value}`} 
-                            className={`flex items-center justify-center p-2 rounded-lg cursor-pointer transition-all border text-sm font-bold ${isChecked ? 'bg-green-700 border-green-700 text-white shadow-sm' : 'bg-white border-gray-200 text-gray-600 hover:border-green-500 hover:text-green-700'}`}
-                          >
-                            <input 
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={(e) => {
-                                const checked = e.target.checked;
-                                const newJuz = checked 
-                                  ? [...formData.preferred_juz, juz.value]
-                                  : formData.preferred_juz.filter(v => v !== juz.value);
-                                handleInputChange('preferred_juz', newJuz);
-                              }}
-                              disabled={isFormSubmitted}
-                              className="hidden"
-                            />
-                            {juz.value}
-                          </label>
-                        );
-                      })}
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-10 gap-2 p-3 border rounded-xl bg-white">
+                      {availableJuzToTeach
+                        .filter(juz => formData.memorized_juz.includes(juz.value))
+                        .map(juz => {
+                          const isChecked = formData.preferred_juz.includes(juz.value);
+                          return (
+                            <label 
+                              key={`pref-${juz.value}`} 
+                              className={`flex items-center justify-center p-2 rounded-lg cursor-pointer transition-all border text-sm font-bold ${isChecked ? 'bg-green-700 border-green-700 text-white shadow-sm' : 'bg-white border-gray-200 text-gray-600 hover:border-green-500 hover:text-green-700'}`}
+                            >
+                              <input 
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  const checked = e.target.checked;
+                                  const newJuz = checked 
+                                    ? [...formData.preferred_juz, juz.value]
+                                    : formData.preferred_juz.filter(v => v !== juz.value);
+                                  handleInputChange('preferred_juz', newJuz);
+                                }}
+                                disabled={isFormSubmitted}
+                                className="hidden"
+                              />
+                              {juz.value}
+                            </label>
+                          );
+                        })}
+                    </div>
+                    <p className="text-[11px] text-gray-500">
+                      * Menampilkan Juz yang dibuka MTI pada batch ini ({availableJuzToTeach.map(j => j.value).join(', ')}) dan sesuai dengan hafalan Ukhti.
+                    </p>
                   </div>
                 )}
                 {errors.preferred_juz && <p className="text-xs text-red-500 font-medium">{errors.preferred_juz}</p>}

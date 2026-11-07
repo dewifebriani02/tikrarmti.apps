@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { RefreshCw, BookOpen, Save, X, Edit, Check, Sparkles, AlertCircle, Eye, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { getRegistrationQuestionsAdmin, updateRegistrationQuestion } from '@/app/(protected)/admin/actions';
+import { getRegistrationQuestionsAdmin, updateRegistrationQuestion, getJuzOptionsAdmin } from '@/app/(protected)/admin/actions';
 
 interface Question {
   id: string;
@@ -29,6 +29,7 @@ const SECTION_NAMES: Record<number, string> = {
 
 export function AdminFormBuilderTab() {
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [juzList, setJuzList] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
   const [previewQuestion, setPreviewQuestion] = useState<Question | null>(null);
@@ -118,11 +119,17 @@ export function AdminFormBuilderTab() {
   const fetchQuestions = async () => {
     setIsLoading(true);
     try {
-      const result = await getRegistrationQuestionsAdmin();
+      const [result, juzResult] = await Promise.all([
+        getRegistrationQuestionsAdmin(),
+        getJuzOptionsAdmin(),
+      ]);
       if (result.success && result.data) {
         setQuestions(result.data as Question[]);
       } else {
         toast.error(result.error || 'Gagal memuat pertanyaan pendaftaran');
+      }
+      if (juzResult?.success && juzResult?.data) {
+        setJuzList(juzResult.data);
       }
     } catch (error) {
       console.error('Error fetching questions:', error);
@@ -562,7 +569,24 @@ export function AdminFormBuilderTab() {
                   />
                 </div>
 
-                {['radio_options', 'select', 'multi_select'].includes(editFormData.input_type) && (
+                {editingQuestion && editingQuestion.field_key === 'chosen_juz' ? (
+                  <div className="p-4 bg-purple-50 border border-purple-200 rounded-2xl space-y-2.5">
+                    <div className="flex items-center gap-2 font-bold text-sm text-purple-950">
+                      <Sparkles className="w-4 h-4 text-purple-600" />
+                      <span>Terhubung Dinamis dengan Tab "Pengaturan Pilihan Juz"</span>
+                    </div>
+                    <p className="text-xs text-purple-900 leading-relaxed">
+                      Pilihan opsi dropdown untuk pertanyaan ini <strong>tidak di-hardcode</strong> secara manual di sini. Sistem secara otomatis mengambil daftar pilihan juz yang berstatus <strong>Dibuka / Aktif</strong> dari tab <strong>Pengaturan Pilihan Juz</strong> ({juzList.filter(j => j.is_active).length} Juz Aktif saat ini).
+                    </p>
+                    <div className="flex flex-wrap gap-1.5 pt-1 max-h-36 overflow-y-auto">
+                      {juzList.filter(j => j.is_active).map(j => (
+                        <span key={j.code} className="px-2 py-0.5 bg-white border border-purple-200 text-purple-800 text-[11px] font-bold rounded-lg shadow-xs">
+                          {j.name || j.code}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : ['radio_options', 'select', 'multi_select'].includes(editFormData.input_type) && (
                   <div className="space-y-3 pt-2">
                     <label className="block text-xs font-bold text-gray-500 uppercase">Pilihan Jawaban (Options)</label>
                     <div className="space-y-2 max-h-48 overflow-y-auto p-1 border border-gray-100 rounded-xl bg-gray-50/50">
@@ -772,7 +796,7 @@ export function AdminFormBuilderTab() {
                             </div>
                           )}
 
-                          <MockInputField q={q} />
+                          <MockInputField q={q} juzList={juzList} />
                         </div>
                       ))}
                     </div>
@@ -856,7 +880,7 @@ export function AdminFormBuilderTab() {
                   )}
 
                   {/* Render the mock field */}
-                  <MockInputField q={previewQuestion} />
+                  <MockInputField q={previewQuestion} juzList={juzList} />
                 </div>
 
                 {/* Info Metadata */}
@@ -870,6 +894,12 @@ export function AdminFormBuilderTab() {
                   <div><span className="font-semibold">Status Wajib:</span> {previewQuestion.is_required ? 'Wajib diisi (Required)' : 'Opsional'}</div>
                   <div><span className="font-semibold">No. Urut (Sorting):</span> #{previewQuestion.sort_order}</div>
                   <div><span className="font-semibold">Format Jawaban:</span> <code className="bg-purple-100/60 px-1 py-0.5 rounded font-mono text-[11px] text-purple-800">{previewQuestion.input_type || 'text'}</code></div>
+                  {previewQuestion.field_key === 'chosen_juz' && (
+                    <div className="text-purple-700 font-medium pt-1.5 border-t border-purple-200/60 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                      <span><strong>Sumber Pilihan:</strong> Terhubung dinamis ke tab <strong>Pengaturan Pilihan Juz</strong> ({juzList.filter(j => j.is_active).length} Juz Aktif Dibuka).</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -891,7 +921,7 @@ export function AdminFormBuilderTab() {
   );
 }
 
-function MockInputField({ q }: { q: any }) {
+function MockInputField({ q, juzList = [] }: { q: any; juzList?: any[] }) {
   const inputType = q.input_type || 'text';
   const options = Array.isArray(q.options) ? q.options : [];
 
@@ -968,12 +998,30 @@ function MockInputField({ q }: { q: any }) {
         />
       )}
       {inputType === 'select' && (
-        <select className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs bg-white text-gray-400 font-medium" disabled>
-          <option>{q.description || 'Pilih salah satu opsi...'}</option>
-          {options.map((opt: any, idx: number) => (
-            <option key={idx}>{opt.label || opt.value || `Opsi ${idx + 1}`}</option>
-          ))}
-        </select>
+        <div className="space-y-2">
+          <select className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs bg-white text-gray-700 font-medium" disabled>
+            <option>{q.description || 'Pilih salah satu opsi...'}</option>
+            {q.field_key === 'chosen_juz' && juzList.length > 0 ? (
+              juzList
+                .filter((j: any) => j.is_active)
+                .map((j: any) => (
+                  <option key={j.id} value={j.code}>
+                    {j.name || `Juz ${j.code}`}
+                  </option>
+                ))
+            ) : (
+              options.map((opt: any, idx: number) => (
+                <option key={idx}>{opt.label || opt.value || `Opsi ${idx + 1}`}</option>
+              ))
+            )}
+          </select>
+          {q.field_key === 'chosen_juz' && (
+            <div className="flex items-center gap-1.5 text-[11px] text-purple-700 font-medium bg-purple-50/80 p-2 rounded-lg border border-purple-100">
+              <Sparkles className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+              <span>Pilihan dropdown terhubung dinamis dengan <strong>Pengaturan Pilihan Juz</strong> ({juzList.filter((j: any) => j.is_active).length} Juz Aktif dibuka).</span>
+            </div>
+          )}
+        </div>
       )}
       {inputType === 'multi_select' && (
         <div className="grid grid-cols-5 gap-1.5">
