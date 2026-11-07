@@ -507,14 +507,14 @@ export function RegistrationHubCard({
                 </div>
               </div>
               <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
-                <Link href="/faq" className="w-full sm:w-auto">
-                  <Button
-                    variant="outline"
-                    className="w-full sm:w-auto border-emerald-600 bg-white hover:bg-emerald-50 text-emerald-900 font-black text-xs sm:text-sm px-4 py-2.5 rounded-xl shadow-xs"
-                  >
-                    Buka FAQ Pendaftaran
-                  </Button>
-                </Link>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => window.dispatchEvent(new CustomEvent('open-faq-modal'))}
+                  className="w-full sm:w-auto border-emerald-600 bg-white hover:bg-emerald-50 text-emerald-900 font-black text-xs sm:text-sm px-4 py-2.5 rounded-xl shadow-xs cursor-pointer"
+                >
+                  Buka FAQ Pendaftaran
+                </Button>
               </div>
             </div>
 

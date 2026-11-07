@@ -1,11 +1,24 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from "@/components/ui/button";
-import { HelpCircle } from "lucide-react";
+import { HelpCircle, LayoutGrid } from "lucide-react";
 
 export default function Header() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/user/profile', { cache: 'no-store' })
+      .then(res => {
+        if (res.ok) {
+          setIsLoggedIn(true);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   return (
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-xl shadow-md border-b border-green-900/20 w-full">
       <div className="container mx-auto px-3 sm:px-4 md:px-6 py-3 sm:py-3 md:py-4 flex justify-between items-center">
@@ -55,31 +68,59 @@ export default function Header() {
             </Link>
           </Button>
 
-          <Button
-            variant="outline"
-            asChild
-            className="hidden md:flex bg-green-900 hover:bg-green-800 text-white text-sm md:text-base font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 group border-green-900 hover:border-green-900"
-          >
-            <Link href="/login" className="flex items-center gap-2">
-              <span className="hidden lg:inline">Masuk</span>
-              <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </Link>
-          </Button>
+          {isLoggedIn ? (
+            <Button
+              variant="outline"
+              asChild
+              className="hidden md:flex bg-emerald-850 hover:bg-emerald-750 text-white text-sm md:text-base font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 group border-emerald-800 hover:border-emerald-700"
+            >
+              <Link href="/dashboard" className="flex items-center gap-2">
+                <LayoutGrid className="w-4 h-4 text-amber-300" />
+                <span className="hidden lg:inline">Ke Dasbor</span>
+                <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              asChild
+              className="hidden md:flex bg-green-900 hover:bg-green-800 text-white text-sm md:text-base font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 group border-green-900 hover:border-green-900"
+            >
+              <Link href="/login" className="flex items-center gap-2">
+                <span className="hidden lg:inline">Masuk</span>
+                <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+            </Button>
+          )}
 
-          {/* Mobile/Tablet Masuk Button */}
-          <Button
-            asChild
-            className="md:hidden bg-gradient-to-r from-green-900 to-green-800 hover:from-green-800 hover:to-green-700 text-white px-3.5 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-base font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 group"
-          >
-            <Link href="/login" className="flex items-center gap-1.5">
-              <span>Masuk</span>
-              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </Link>
-          </Button>
+          {/* Mobile/Tablet Masuk / Dasbor Button */}
+          {isLoggedIn ? (
+            <Button
+              asChild
+              className="md:hidden bg-gradient-to-r from-emerald-800 to-teal-800 hover:from-emerald-750 hover:to-teal-750 text-white px-3.5 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-base font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 group"
+            >
+              <Link href="/dashboard" className="flex items-center gap-1.5">
+                <LayoutGrid className="w-3.5 h-3.5 text-amber-300" />
+                <span>Dasbor</span>
+              </Link>
+            </Button>
+          ) : (
+            <Button
+              asChild
+              className="md:hidden bg-gradient-to-r from-green-900 to-green-800 hover:from-green-800 hover:to-green-700 text-white px-3.5 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-base font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 group"
+            >
+              <Link href="/login" className="flex items-center gap-1.5">
+                <span>Masuk</span>
+                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
     </header>

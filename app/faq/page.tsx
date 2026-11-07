@@ -49,6 +49,15 @@ export default function FAQPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [expandedIndex, setExpandedIndex] = useState<string | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/user/profile', { cache: 'no-store' })
+      .then(res => {
+        if (res.ok) setIsLoggedIn(true);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     async function fetchFaqs() {
@@ -129,11 +138,11 @@ export default function FAQPage() {
         <div className="max-w-4xl mx-auto relative z-10">
           <div className="mb-6">
             <Link
-              href="/"
-              className="inline-flex items-center gap-2 text-xs sm:text-sm font-semibold text-emerald-200 hover:text-white bg-white/10 hover:bg-white/15 px-3.5 py-1.5 rounded-xl border border-white/15 transition-all"
+              href={isLoggedIn ? "/dashboard" : "/"}
+              className="inline-flex items-center gap-2 text-xs sm:text-sm font-semibold text-emerald-200 hover:text-white bg-white/10 hover:bg-white/15 px-3.5 py-1.5 rounded-xl border border-white/15 transition-all shadow-xs"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span>Kembali ke Beranda</span>
+              <span>{isLoggedIn ? "Kembali ke Dasbor" : "Kembali ke Beranda"}</span>
             </Link>
           </div>
 

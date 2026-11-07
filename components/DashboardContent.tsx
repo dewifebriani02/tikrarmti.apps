@@ -1148,6 +1148,9 @@ export default function DashboardContent() {
                   } else if (item.label.includes('Sit-In')) {
                     e.preventDefault();
                     setIsScheduleOptionsOpen(true);
+                  } else if (item.href === '/faq' || item.label.includes('FAQ')) {
+                    e.preventDefault();
+                    window.dispatchEvent(new CustomEvent('open-faq-modal'));
                   }
                 }}
                 className="group min-w-0 block focus:outline-none"

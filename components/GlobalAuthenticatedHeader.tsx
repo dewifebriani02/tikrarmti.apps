@@ -343,14 +343,15 @@ export default function GlobalAuthenticatedHeader({
 
             {/* Quick FAQ Button */}
             {isMounted && (
-              <Link
-                href="/faq"
-                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300/80 rounded-lg transition-colors shadow-2xs"
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent('open-faq-modal'))}
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300/80 rounded-lg transition-colors shadow-2xs cursor-pointer"
                 title="Pusat Bantuan & FAQ"
               >
                 <HelpCircle className="w-4 h-4 text-emerald-700" />
                 <span className="hidden sm:inline">FAQ</span>
-              </Link>
+              </button>
             )}
 
             {/* Notifications - Desktop/Tablet */}
@@ -514,13 +515,17 @@ export default function GlobalAuthenticatedHeader({
                   {isMounted && <PersonaSwitcher variant="menu" />}
 
                   <div className="p-2">
-                    <Link
-                      href="/faq"
-                      className="flex items-center space-x-3 px-3 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-900 rounded-lg transition-colors duration-200 w-full font-semibold"
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowProfileDropdown(false);
+                        window.dispatchEvent(new CustomEvent('open-faq-modal'));
+                      }}
+                      className="flex items-center space-x-3 px-3 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-900 rounded-lg transition-colors duration-200 w-full font-semibold text-left cursor-pointer"
                     >
                       <HelpCircle className="w-4 h-4 text-emerald-600" />
                       <span>Pusat Bantuan &amp; FAQ</span>
-                    </Link>
+                    </button>
 
                     <Link
                       href="/pengaturan"
@@ -589,17 +594,35 @@ export default function GlobalAuthenticatedHeader({
           <div className="lg:hidden border-t border-green-900/20 py-4 relative z-40">
             {/* Mobile Quick Links */}
             <nav className="grid grid-cols-2 gap-2">
-              {quickLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  onClick={() => setShowMobileMenu(false)}
-                  className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-900 rounded-lg transition-colors duration-200"
-                >
-                  <link.icon className="w-4 h-4" />
-                  <span>{link.label}</span>
-                </Link>
-              ))}
+              {quickLinks.map((link) => {
+                if (link.href === '/faq') {
+                  return (
+                    <button
+                      key={link.href}
+                      type="button"
+                      onClick={() => {
+                        setShowMobileMenu(false);
+                        window.dispatchEvent(new CustomEvent('open-faq-modal'));
+                      }}
+                      className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-900 rounded-lg transition-colors duration-200 text-left cursor-pointer"
+                    >
+                      <link.icon className="w-4 h-4 text-emerald-600" />
+                      <span>{link.label}</span>
+                    </button>
+                  );
+                }
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setShowMobileMenu(false)}
+                    className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-900 rounded-lg transition-colors duration-200"
+                  >
+                    <link.icon className="w-4 h-4" />
+                    <span>{link.label}</span>
+                  </Link>
+                );
+              })}
             </nav>
 
             {/* Mobile Logout Button */}

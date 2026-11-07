@@ -496,13 +496,14 @@ export default function PendaftaranPage() {
               Pilih program yang sesuai dengan kebutuhan dan komitmen Ukhti
             </p>
           </div>
-          <Link
-            href="/faq"
-            className="self-start sm:self-auto inline-flex items-center gap-2 px-3.5 py-2 text-xs sm:text-sm font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl transition-all shadow-2xs"
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent('open-faq-modal'))}
+            className="self-start sm:self-auto inline-flex items-center gap-2 px-3.5 py-2 text-xs sm:text-sm font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl transition-all shadow-2xs cursor-pointer"
           >
             <HelpCircle className="w-4 h-4 text-emerald-700" />
             <span>FAQ Pendaftaran</span>
-          </Link>
+          </button>
         </div>
 
         {isAlumniBlocked && (
