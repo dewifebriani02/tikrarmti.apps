@@ -961,44 +961,68 @@ export async function getJuzOptionsAdmin() {
 }
 
 /**
+ * Normalizes question object from DB to ensure type safety in frontend
+ */
+function normalizeQuestion(q: any) {
+  if (!q) return q;
+  let options = q.options;
+  if (typeof options === "string") {
+    try {
+      options = JSON.parse(options);
+    } catch {
+      options = [];
+    }
+  }
+
+  return {
+    ...q,
+    section: Number(q.section) || 1,
+    sort_order: Number(q.sort_order) || 0,
+    is_active: q.is_active === true || q.is_active === "true" || q.is_active === 1 || q.is_active === "1",
+    is_required: q.is_required === true || q.is_required === "true" || q.is_required === 1 || q.is_required === "1",
+    options: options ?? [],
+  };
+}
+
+/**
  * Get all registration questions (Admin only)
  */
 export async function getRegistrationQuestionsAdmin() {
   try {
-    const { user, supabaseAdmin } = await verifyAdmin()
+    const { user, supabaseAdmin } = await verifyAdmin();
 
     const { data, error } = await supabaseAdmin
-      .from('registration_questions')
-      .select('*')
-      .order('section', { ascending: true })
-      .order('sort_order', { ascending: true })
+      .from("registration_questions")
+      .select("*")
+      .order("section", { ascending: true })
+      .order("sort_order", { ascending: true });
 
     if (error) {
       await logError(error, {
         userId: user.id,
         userEmail: user.email,
-        function: 'getRegistrationQuestionsAdmin',
-        errorType: 'database',
-      } as LogErrorContext)
+        function: "getRegistrationQuestionsAdmin",
+        errorType: "database",
+      } as LogErrorContext);
       return {
         success: false,
-        error: error.message
-      }
+        error: error.message,
+      };
     }
 
     return {
       success: true,
-      data
-    }
+      data: (data || []).map(normalizeQuestion),
+    };
   } catch (error: any) {
     await logError(error, {
-      function: 'getRegistrationQuestionsAdmin',
-      errorType: 'runtime',
-    } as LogErrorContext)
+      function: "getRegistrationQuestionsAdmin",
+      errorType: "runtime",
+    } as LogErrorContext);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to fetch registration questions'
-    }
+      error: error instanceof Error ? error.message : "Failed to fetch registration questions",
+    };
   }
 }
 
@@ -1008,60 +1032,71 @@ export async function getRegistrationQuestionsAdmin() {
 export async function updateRegistrationQuestion(
   id: string,
   data: {
-    label: string
-    description?: string | null
-    warning_text?: string | null
-    is_active: boolean
-    is_required: boolean
-    sort_order: number
-    options?: any
-    input_type?: string
+    label: string;
+    description?: string | null;
+    warning_text?: string | null;
+    is_active: boolean;
+    is_required: boolean;
+    sort_order: number;
+    options?: any;
+    input_type?: string;
   }
 ) {
   try {
-    const { user, supabaseAdmin } = await verifyAdmin()
+    const { user, supabaseAdmin } = await verifyAdmin();
+
+    const updatePayload: Record<string, any> = {
+      label: data.label,
+      description: data.description ?? null,
+      warning_text: data.warning_text ?? null,
+      is_active: Boolean(data.is_active),
+      is_required: Boolean(data.is_required),
+      sort_order: Number(data.sort_order) || 0,
+      updated_at: new Date().toISOString(),
+    };
+    if (data.input_type !== undefined) updatePayload.input_type = data.input_type;
+    if (data.options !== undefined) {
+      updatePayload.options = typeof data.options === "string" ? data.options : JSON.stringify(data.options ?? []);
+    }
 
     const { data: updatedQuestion, error } = await supabaseAdmin
-      .from('registration_questions')
-      .update({
-        ...data,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', id)
+      .from("registration_questions")
+      .update(updatePayload)
+      .eq("id", id)
       .select()
-      .single()
+      .single();
 
     if (error) {
       await logError(error, {
         userId: user.id,
         userEmail: user.email,
-        function: 'updateRegistrationQuestion',
-        errorType: 'database',
+        function: "updateRegistrationQuestion",
+        errorType: "database",
         context: { id, data },
-      } as LogErrorContext)
+      } as LogErrorContext);
       return {
         success: false,
-        error: error.message
-      }
+        error: error.message,
+      };
     }
 
-    revalidatePath('/admin/batch-program')
-    revalidatePath('/pendaftaran/tikrar-tahfidz')
-    
+    revalidatePath("/admin/batch-program");
+    revalidatePath("/pendaftaran/tikrar-tahfidz");
+
     return {
       success: true,
-      data: updatedQuestion
-    }
+      data: normalizeQuestion(updatedQuestion),
+    };
   } catch (error: any) {
     await logError(error, {
-      function: 'updateRegistrationQuestion',
-      errorType: 'runtime',
+      function: "updateRegistrationQuestion",
+      errorType: "runtime",
       context: { id, data },
-    } as LogErrorContext)
+    } as LogErrorContext);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to update registration question'
-    }
+      error: error instanceof Error ? error.message : "Failed to update registration question",
+    };
   }
 }
 
@@ -1070,40 +1105,40 @@ export async function updateRegistrationQuestion(
  */
 export async function getReregistrationQuestionsAdmin() {
   try {
-    const { user, supabaseAdmin } = await verifyAdmin()
+    const { user, supabaseAdmin } = await verifyAdmin();
 
     const { data, error } = await supabaseAdmin
-      .from('reregistration_questions')
-      .select('*')
-      .order('section', { ascending: true })
-      .order('sort_order', { ascending: true })
+      .from("reregistration_questions")
+      .select("*")
+      .order("section", { ascending: true })
+      .order("sort_order", { ascending: true });
 
     if (error) {
       await logError(error, {
         userId: user.id,
         userEmail: user.email,
-        function: 'getReregistrationQuestionsAdmin',
-        errorType: 'database',
-      } as LogErrorContext)
+        function: "getReregistrationQuestionsAdmin",
+        errorType: "database",
+      } as LogErrorContext);
       return {
         success: false,
-        error: error.message
-      }
+        error: error.message,
+      };
     }
 
     return {
       success: true,
-      data
-    }
+      data: (data || []).map(normalizeQuestion),
+    };
   } catch (error: any) {
     await logError(error, {
-      function: 'getReregistrationQuestionsAdmin',
-      errorType: 'runtime',
-    } as LogErrorContext)
+      function: "getReregistrationQuestionsAdmin",
+      errorType: "runtime",
+    } as LogErrorContext);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to fetch reregistration questions'
-    }
+      error: error instanceof Error ? error.message : "Failed to fetch reregistration questions",
+    };
   }
 }
 
@@ -1113,60 +1148,71 @@ export async function getReregistrationQuestionsAdmin() {
 export async function updateReregistrationQuestion(
   id: string,
   data: {
-    label: string
-    description?: string | null
-    warning_text?: string | null
-    is_active: boolean
-    is_required: boolean
-    sort_order: number
-    options?: any
-    input_type?: string
+    label: string;
+    description?: string | null;
+    warning_text?: string | null;
+    is_active: boolean;
+    is_required: boolean;
+    sort_order: number;
+    options?: any;
+    input_type?: string;
   }
 ) {
   try {
-    const { user, supabaseAdmin } = await verifyAdmin()
+    const { user, supabaseAdmin } = await verifyAdmin();
+
+    const updatePayload: Record<string, any> = {
+      label: data.label,
+      description: data.description ?? null,
+      warning_text: data.warning_text ?? null,
+      is_active: Boolean(data.is_active),
+      is_required: Boolean(data.is_required),
+      sort_order: Number(data.sort_order) || 0,
+      updated_at: new Date().toISOString(),
+    };
+    if (data.input_type !== undefined) updatePayload.input_type = data.input_type;
+    if (data.options !== undefined) {
+      updatePayload.options = typeof data.options === "string" ? data.options : JSON.stringify(data.options ?? []);
+    }
 
     const { data: updatedQuestion, error } = await supabaseAdmin
-      .from('reregistration_questions')
-      .update({
-        ...data,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', id)
+      .from("reregistration_questions")
+      .update(updatePayload)
+      .eq("id", id)
       .select()
-      .single()
+      .single();
 
     if (error) {
       await logError(error, {
         userId: user.id,
         userEmail: user.email,
-        function: 'updateReregistrationQuestion',
-        errorType: 'database',
+        function: "updateReregistrationQuestion",
+        errorType: "database",
         context: { id, data },
-      } as LogErrorContext)
+      } as LogErrorContext);
       return {
         success: false,
-        error: error.message
-      }
+        error: error.message,
+      };
     }
 
-    revalidatePath('/admin/batch-program')
-    revalidatePath('/daftar-ulang')
-    
+    revalidatePath("/admin/batch-program");
+    revalidatePath("/daftar-ulang");
+
     return {
       success: true,
-      data: updatedQuestion
-    }
+      data: normalizeQuestion(updatedQuestion),
+    };
   } catch (error: any) {
     await logError(error, {
-      function: 'updateReregistrationQuestion',
-      errorType: 'runtime',
+      function: "updateReregistrationQuestion",
+      errorType: "runtime",
       context: { id, data },
-    } as LogErrorContext)
+    } as LogErrorContext);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to update reregistration question'
-    }
+      error: error instanceof Error ? error.message : "Failed to update reregistration question",
+    };
   }
 }
 
@@ -1175,40 +1221,40 @@ export async function updateReregistrationQuestion(
  */
 export async function getMuallimahRegistrationQuestionsAdmin() {
   try {
-    const { user, supabaseAdmin } = await verifyAdmin()
+    const { user, supabaseAdmin } = await verifyAdmin();
 
     const { data, error } = await supabaseAdmin
-      .from('muallimah_registration_questions')
-      .select('*')
-      .order('section', { ascending: true })
-      .order('sort_order', { ascending: true })
+      .from("muallimah_registration_questions")
+      .select("*")
+      .order("section", { ascending: true })
+      .order("sort_order", { ascending: true });
 
     if (error) {
       await logError(error, {
         userId: user.id,
         userEmail: user.email,
-        function: 'getMuallimahRegistrationQuestionsAdmin',
-        errorType: 'database',
-      } as LogErrorContext)
+        function: "getMuallimahRegistrationQuestionsAdmin",
+        errorType: "database",
+      } as LogErrorContext);
       return {
         success: false,
-        error: error.message
-      }
+        error: error.message,
+      };
     }
 
     return {
       success: true,
-      data
-    }
+      data: (data || []).map(normalizeQuestion),
+    };
   } catch (error: any) {
     await logError(error, {
-      function: 'getMuallimahRegistrationQuestionsAdmin',
-      errorType: 'runtime',
-    } as LogErrorContext)
+      function: "getMuallimahRegistrationQuestionsAdmin",
+      errorType: "runtime",
+    } as LogErrorContext);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to fetch Muallimah registration questions'
-    }
+      error: error instanceof Error ? error.message : "Failed to fetch Muallimah registration questions",
+    };
   }
 }
 
@@ -1218,63 +1264,70 @@ export async function getMuallimahRegistrationQuestionsAdmin() {
 export async function updateMuallimahRegistrationQuestion(
   id: string,
   data: {
-    label: string
-    description?: string | null
-    warning_text?: string | null
-    is_active: boolean
-    is_required: boolean
-    sort_order: number
-    options?: any
-    input_type?: string
+    label: string;
+    description?: string | null;
+    warning_text?: string | null;
+    is_active: boolean;
+    is_required: boolean;
+    sort_order: number;
+    options?: any;
+    input_type?: string;
   }
 ) {
   try {
-    const { user, supabaseAdmin } = await verifyAdmin()
+    const { user, supabaseAdmin } = await verifyAdmin();
+
+    const updatePayload: Record<string, any> = {
+      label: data.label,
+      description: data.description ?? null,
+      warning_text: data.warning_text ?? null,
+      is_active: Boolean(data.is_active),
+      is_required: Boolean(data.is_required),
+      sort_order: Number(data.sort_order) || 0,
+      updated_at: new Date().toISOString(),
+    };
+    if (data.input_type !== undefined) updatePayload.input_type = data.input_type;
+    if (data.options !== undefined) {
+      updatePayload.options = typeof data.options === "string" ? data.options : JSON.stringify(data.options ?? []);
+    }
 
     const { data: updatedQuestion, error } = await supabaseAdmin
-      .from('muallimah_registration_questions')
-      .update({
-        ...data,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', id)
+      .from("muallimah_registration_questions")
+      .update(updatePayload)
+      .eq("id", id)
       .select()
-      .single()
+      .single();
 
     if (error) {
       await logError(error, {
         userId: user.id,
         userEmail: user.email,
-        function: 'updateMuallimahRegistrationQuestion',
-        errorType: 'database',
+        function: "updateMuallimahRegistrationQuestion",
+        errorType: "database",
         context: { id, data },
-      } as LogErrorContext)
+      } as LogErrorContext);
       return {
         success: false,
-        error: error.message
-      }
+        error: error.message,
+      };
     }
 
-    revalidatePath('/admin/batch-program')
-    revalidatePath('/pendaftaran/muallimah')
-    
+    revalidatePath("/admin/batch-program");
+    revalidatePath("/pendaftaran/muallimah");
+
     return {
       success: true,
-      data: updatedQuestion
-    }
+      data: normalizeQuestion(updatedQuestion),
+    };
   } catch (error: any) {
     await logError(error, {
-      function: 'updateMuallimahRegistrationQuestion',
-      errorType: 'runtime',
+      function: "updateMuallimahRegistrationQuestion",
+      errorType: "runtime",
       context: { id, data },
-    } as LogErrorContext)
+    } as LogErrorContext);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to update Muallimah registration question'
-    }
+      error: error instanceof Error ? error.message : "Failed to update Muallimah registration question",
+    };
   }
 }
-
-
-
-

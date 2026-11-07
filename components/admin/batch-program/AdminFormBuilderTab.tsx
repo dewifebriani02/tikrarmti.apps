@@ -137,7 +137,8 @@ export function AdminFormBuilderTab() {
   }, []);
 
   const handleToggleActive = async (id: string, code: string, currentStatus: boolean) => {
-    const newStatus = !currentStatus;
+    const isCurrentlyActive = Boolean(currentStatus);
+    const newStatus = !isCurrentlyActive;
     
     // Optimistic UI update
     setQuestions(prev =>
@@ -152,9 +153,11 @@ export function AdminFormBuilderTab() {
         label: targetQuestion.label,
         description: targetQuestion.description,
         warning_text: targetQuestion.warning_text,
-        is_required: targetQuestion.is_required,
-        sort_order: targetQuestion.sort_order,
+        is_required: Boolean(targetQuestion.is_required),
+        sort_order: Number(targetQuestion.sort_order) || 0,
         is_active: newStatus,
+        options: targetQuestion.options,
+        input_type: targetQuestion.input_type,
       });
 
       if (result.success) {
@@ -178,15 +181,19 @@ export function AdminFormBuilderTab() {
 
   const handleOpenEditModal = (q: Question) => {
     setEditingQuestion(q);
+    let opts = q.options;
+    if (typeof opts === "string") {
+      try { opts = JSON.parse(opts); } catch { opts = []; }
+    }
     setEditFormData({
       label: q.label,
-      description: q.description || '',
-      warning_text: q.warning_text || '',
-      is_active: q.is_active,
-      is_required: q.is_required,
-      sort_order: q.sort_order,
-      options: Array.isArray(q.options) ? [...q.options] : [],
-      input_type: q.input_type || 'text',
+      description: q.description || "",
+      warning_text: q.warning_text || "",
+      is_active: Boolean(q.is_active),
+      is_required: Boolean(q.is_required),
+      sort_order: Number(q.sort_order) || 0,
+      options: Array.isArray(opts) ? [...opts] : [],
+      input_type: q.input_type || "text",
     });
   };
 
@@ -299,7 +306,7 @@ export function AdminFormBuilderTab() {
       ) : (
         <div className="space-y-8">
           {[1, 2, 3, 4].map((sectionNum) => {
-            const sectionQuestions = questions.filter(q => q.section === sectionNum);
+            const sectionQuestions = questions.filter(q => Number(q.section) === sectionNum);
             if (sectionQuestions.length === 0) return null;
 
             return (
@@ -732,8 +739,8 @@ export function AdminFormBuilderTab() {
             <div className="flex-1 overflow-y-auto p-6 bg-gray-50/50 space-y-6">
               {[1, 2, 3, 4].map((sectionNum) => {
                 const activeSecQuestions = questions
-                  .filter(q => q.section === sectionNum && q.is_active)
-                  .sort((a, b) => a.sort_order - b.sort_order);
+                  .filter(q => Number(q.section) === sectionNum && Boolean(q.is_active))
+                  .sort((a, b) => (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0));
 
                 if (activeSecQuestions.length === 0) return null;
 
