@@ -291,7 +291,7 @@ export default function GlobalAuthenticatedHeader({
   ];
 
   return (
-    <header className="glass-premium sticky top-0 shadow-sm border-b border-green-900/10 transition-all duration-300 w-full z-[50]">
+    <header className="glass-premium sticky top-0 shadow-sm border-b border-green-900/10 transition-all duration-300 w-full z-[70]">
 
       <div className="px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16 lg:h-20">
@@ -466,7 +466,7 @@ export default function GlobalAuthenticatedHeader({
               {isMounted && showProfileDropdown && (
                 <div 
                   style={{ WebkitOverflowScrolling: "touch" }}
-                  className="absolute right-0 mt-2 w-72 sm:w-64 max-h-[calc(100vh-6.5rem)] overflow-y-auto overscroll-contain bg-white rounded-xl shadow-2xl border border-green-900/20 z-[100] pb-4"
+                  className="absolute right-0 mt-2 w-72 sm:w-64 max-h-[calc(100dvh-5.5rem)] overflow-y-auto overscroll-contain bg-white rounded-2xl shadow-2xl border border-gray-100/80 z-[100] pb-24 lg:pb-3 flex flex-col divide-y divide-gray-100"
                 >
                   <div className="bg-gradient-to-r from-green-900 to-green-800 text-white p-4">
                     <div className="flex items-center space-x-3">
@@ -552,19 +552,21 @@ export default function GlobalAuthenticatedHeader({
 
                     <div className="border-t border-gray-100 my-2"></div>
 
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setShowLogoutModal(true);
-                      }}
-                      type="button"
-                      aria-label="Keluar dari akun"
-                      className="flex items-center space-x-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 hover:text-red-700 active:bg-red-100 active:text-red-800 rounded-lg transition-all duration-200 w-full focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 touch-manipulation min-h-[48px] font-medium sm:px-3 sm:py-3 sm:min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                    >
-                      <LogOut className="w-6 h-6 sm:w-5 sm:h-5" />
-                      <span>Keluar</span>
-                    </button>
+                    <div className="pt-2">
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setShowLogoutModal(true);
+                        }}
+                        type="button"
+                        aria-label="Keluar dari akun"
+                        className="flex items-center justify-center space-x-2.5 px-4 py-3 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 hover:text-rose-700 active:bg-rose-200 rounded-xl transition-all duration-200 w-full border border-rose-200/80 shadow-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 touch-manipulation min-h-[46px] cursor-pointer"
+                      >
+                        <LogOut className="w-4 h-4 text-rose-600" />
+                        <span>Keluar dari Akun</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
