@@ -4,6 +4,7 @@ import { ApiResponses } from '@/lib/api-responses';
 import { ApiResponseBuilder } from '@/lib/api-wrapper';
 import { batchSchemas } from '@/lib/schemas';
 import { requireAdmin, requireAuth } from '@/lib/rbac';
+import { calculateBatchStatus, syncBatchLifecycle } from '@/lib/batchLifecycle';
 
 const supabaseAdmin = createSupabaseAdmin();
 
@@ -66,9 +67,15 @@ export async function GET(request: NextRequest) {
       return ApiResponses.serverError('Failed to fetch batches');
     }
 
-    // Transform data to include calculated fields
+    // Sync status lifecycle in database if drifted
+    if (data && data.length > 0) {
+      syncBatchLifecycle(supabase, data).catch(err => console.error('[batch lifecycle sync error]', err));
+    }
+
+    // Transform data to include calculated fields and automated status
     const transformedBatches = data?.map(batch => ({
       ...batch,
+      status: calculateBatchStatus(batch),
       duration_weeks: calculateDuration(batch.start_date, batch.end_date)
     }));
 
@@ -109,7 +116,7 @@ export async function POST(request: NextRequest) {
       .from('batches')
       .insert({
         ...validatedData,
-        status: 'draft',
+        status: (body as any).status === 'archived' ? 'archived' : calculateBatchStatus({ ...(validatedData as any), status: (body as any).status }),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })

@@ -81,8 +81,18 @@ export default function DashboardContent() {
   const [isThalibahRankModalOpen, setIsThalibahRankModalOpen] = useState(false);
 
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
+  const [isBatchDropdownOpen, setIsBatchDropdownOpen] = useState(false);
 
   // Default selalu batch aktif; pilihan batch lama dari browser tidak dibaca lagi.
+  const formatBatchDisplay = (name: string) => {
+    if (!name) return 'Batch Aktif';
+    const match = name.match(/Batch\s*(\d+)/i) || name.match(/Angkatan\s*(\d+)/i);
+    if (match) {
+      return `Batch ${match[1]}`;
+    }
+    return name.length > 14 ? name.substring(0, 14) + '...' : name;
+  };
+
   const handleSelectBatch = (batchId: string) => {
     setSelectedBatchId(batchId);
   };
@@ -611,27 +621,88 @@ export default function DashboardContent() {
             <div className="flex items-center gap-3 w-full md:w-auto overflow-x-auto pb-1 sm:pb-0 scrollbar-hide snap-x shrink-0">
               {/* Batch Selector Card */}
               {availableBatches.length > 0 && (
-                <div className="shrink-0 snap-center h-16 lg:h-24 px-4 rounded-2xl lg:rounded-[2rem] bg-white/10 backdrop-blur-xl border border-white/20 flex flex-col items-center justify-center shadow-2xl transition-all hover:bg-white/15">
-                  <p className="text-[9px] lg:text-[10px] uppercase font-black text-amber-200 tracking-widest flex items-center gap-1">
-                    <Layers className="w-3 h-3 text-amber-300" />
-                    Angkatan
-                  </p>
-                  {availableBatches.length > 1 ? (
-                    <select
-                      value={effectiveBatchId || ''}
-                      onChange={(e) => handleSelectBatch(e.target.value)}
-                      className="bg-transparent text-white font-black text-xs lg:text-sm cursor-pointer focus:outline-none mt-0.5 lg:mt-1 max-w-[140px] truncate text-center"
-                    >
-                      {availableBatches.map(b => (
-                        <option key={b.id} value={b.id} className="text-gray-900 bg-white font-bold">
-                          {b.name}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <p className="text-xs lg:text-sm font-black text-white/90 mt-0.5 lg:mt-1 truncate max-w-[130px]">
-                      {selectedBatch?.name || 'Batch Aktif'}
+                <div className="relative shrink-0 snap-center">
+                  <div
+                    onClick={() => availableBatches.length > 1 && setIsBatchDropdownOpen(prev => !prev)}
+                    className={cn(
+                      "h-16 lg:h-24 px-4 min-w-[7.5rem] lg:min-w-[9.5rem] rounded-2xl lg:rounded-[2rem] bg-white/15 backdrop-blur-xl border border-white/25 flex flex-col items-center justify-center shadow-2xl transition-all",
+                      availableBatches.length > 1 ? "cursor-pointer hover:bg-white/25 active:scale-95" : ""
+                    )}
+                  >
+                    <p className="text-[9px] lg:text-[10px] uppercase font-black text-amber-300 tracking-widest flex items-center gap-1">
+                      <Layers className="w-3 h-3 text-amber-300" />
+                      Angkatan
                     </p>
+                    <div className="flex items-center gap-1.5 mt-0.5 lg:mt-1">
+                      <span className="text-xs lg:text-sm font-black text-white drop-shadow-sm whitespace-nowrap">
+                        {formatBatchDisplay(selectedBatch?.name || 'Batch Aktif')}
+                      </span>
+                      {availableBatches.length > 1 && (
+                        <ChevronDown className={cn("w-3.5 h-3.5 text-amber-300 transition-transform duration-200", isBatchDropdownOpen && "rotate-180")} />
+                      )}
+                    </div>
+                    {/* Subtitle with status badge */}
+                    <span className={cn(
+                      "text-[8px] lg:text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 mt-0.5 rounded-full border",
+                      selectedBatch?.status === 'ongoing' ? "text-emerald-300 bg-emerald-950/60 border-emerald-500/30" :
+                      selectedBatch?.status === 'open' ? "text-amber-200 bg-amber-950/60 border-amber-400/30" :
+                      "text-white/70 bg-white/10 border-white/10"
+                    )}>
+                      {selectedBatch?.status === 'ongoing' ? 'Sedang Berjalan' :
+                       selectedBatch?.status === 'open' ? 'Pendaftaran' :
+                       selectedBatch?.status === 'closed' ? 'Selesai' : 'Aktif'}
+                    </span>
+                  </div>
+
+                  {/* Dropdown Menu */}
+                  {isBatchDropdownOpen && availableBatches.length > 1 && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setIsBatchDropdownOpen(false)} />
+                      <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 w-64 bg-slate-900/95 backdrop-blur-2xl border border-white/20 rounded-2xl shadow-2xl p-2 space-y-1 animate-fadeIn">
+                        <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-white/10 mb-1">
+                          <p className="text-[10px] font-black text-amber-300 uppercase tracking-widest flex items-center gap-1.5">
+                            <Layers className="w-3 h-3" />
+                            Ganti Angkatan
+                          </p>
+                          <span className="text-[9px] font-bold text-white/40">{availableBatches.length} Pilihan</span>
+                        </div>
+                        <div className="max-h-60 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+                          {availableBatches.map(b => {
+                            const isSelected = selectedBatch?.id === b.id || effectiveBatchId === b.id;
+                            return (
+                              <button
+                                key={b.id}
+                                type="button"
+                                onClick={() => {
+                                  handleSelectBatch(b.id);
+                                  setIsBatchDropdownOpen(false);
+                                }}
+                                className={cn(
+                                  "w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between gap-2",
+                                  isSelected
+                                    ? "bg-amber-500/25 text-amber-200 border border-amber-400/40 shadow-sm"
+                                    : "text-white/80 hover:bg-white/10 hover:text-white"
+                                )}
+                              >
+                                <div className="flex flex-col min-w-0">
+                                  <span className="truncate font-black text-white">{b.name}</span>
+                                </div>
+                                {b.status && (
+                                  <span className={cn(
+                                    "text-[9px] px-2 py-0.5 rounded-full font-black uppercase shrink-0",
+                                    b.status === 'ongoing' ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" :
+                                    b.status === 'open' ? "bg-amber-500/20 text-amber-300 border border-amber-500/30" :
+                                    "bg-white/10 text-white/50"
+                                  )}>
+                                    {b.status === 'ongoing' ? 'Berjalan' : b.status === 'open' ? 'Registrasi' : b.status}
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </>
                   )}
                 </div>
               )}

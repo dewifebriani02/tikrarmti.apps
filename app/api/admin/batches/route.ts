@@ -4,6 +4,7 @@ import { ApiResponses } from '@/lib/api-responses';
 import { auditBatchOperation, getClientIp, getUserAgent, logAudit } from '@/lib/audit-log';
 import { adminRateLimit } from '@/lib/rate-limiter';
 import { revalidatePath } from 'next/cache';
+import { calculateBatchStatus, syncBatchLifecycle } from '@/lib/batchLifecycle';
 
 const supabaseAdmin = createSupabaseAdmin();
 
@@ -82,10 +83,16 @@ export async function GET(request: Request) {
       })
     ) : [];
 
+    // Sync status lifecycle in database if drifted
+    if (batches && batches.length > 0) {
+      syncBatchLifecycle(supabaseAdmin, batches).catch(err => console.error('[admin batch lifecycle sync error]', err));
+    }
+
     const enrichedData = batches?.map((batch: any) => {
       const counts = enrichedCounts.find(c => c.batchId === batch.id);
       return {
         ...batch,
+        status: calculateBatchStatus(batch),
         program_count: counts?.programCount || 0,
         registered_count: counts?.registeredCount || batch.registered_count || 0,
       };

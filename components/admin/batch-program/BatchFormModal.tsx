@@ -584,10 +584,15 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
                       onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                       className="w-full px-4 py-2.5 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600 text-sm font-medium"
                     >
-                      {BATCH_STATUSES.map(s => (
-                        <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
-                      ))}
+                      <option value="open">Open (Otomatis: Masa Registrasi)</option>
+                      <option value="ongoing">Ongoing (Otomatis: Kelas Berjalan)</option>
+                      <option value="closed">Closed (Otomatis: Siklus Selesai)</option>
+                      <option value="archived">Archived (Manual: Diarsipkan Admin)</option>
+                      <option value="draft">Draft (Persiapan)</option>
                     </select>
+                    <p className="text-[11px] text-gray-500 mt-1 leading-snug">
+                      ℹ️ Status otomatis bergerak sesuai tanggal: <b>Open</b> (Registrasi) ➔ <b>Ongoing</b> (KBM/Ujian) ➔ <b>Closed</b> (Siklus Selesai). Pilih <b>Archived</b> jika ingin mengarsipkan batch ini secara manual.
+                    </p>
                   </div>
                 </div>
 
