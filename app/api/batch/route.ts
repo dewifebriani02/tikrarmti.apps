@@ -1,3 +1,4 @@
+import { parseHolidayDates } from '@/lib/utils/holiday-helpers';
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { ApiResponses } from '@/lib/api-responses';
@@ -74,6 +75,7 @@ export async function GET(request: NextRequest) {
 
     // Transform data to include calculated fields and automated status
     const transformedBatches = data?.map(batch => ({
+      holiday_dates: parseHolidayDates(batch.holiday_dates),
       ...batch,
       status: calculateBatchStatus(batch),
       duration_weeks: calculateDuration(batch.start_date, batch.end_date)

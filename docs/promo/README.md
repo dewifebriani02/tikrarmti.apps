@@ -12,7 +12,7 @@ Untuk menjaga kualitas dan daya tarik pendaftaran, setiap poster harus mengikuti
 5.  **Evergreen**: Poster utama tidak perlu mencantumkan tanggal update agar dapat digunakan terus-menerus.
 
 ## ✍️ Ketentuan Konten & Istilah
-1.  **Terminologi**: Gunakan istilah **"Syahadah"** (bukan "Wisuda") untuk tahap kelulusan di Pekan 14.
+1.  **Terminologi**: Gunakan istilah **"Syahadah"** (Penerbitan Syahadah) untuk tahap kelulusan di akhir program.
 2.  **Kontak Resmi**: Setiap media promosi wajib mencantumkan informasi berikut:
     *   🌍 **Website**: `markaztikrar.id`
     *   📱 **WhatsApp Official**: `081330000784`

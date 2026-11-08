@@ -613,13 +613,13 @@ export default function PerjalananSaya() {
       },
       { 
         id: 5, name: 'Kelulusan', status: isGraduationDoneByDate ? 'completed' : (isLearningDoneByDate ? 'current' : 'future'), 
-        desc: batch?.graduation_start_date ? formatDateIndo(batch.graduation_start_date) : 'Wisuda & Sertifikat', 
+        desc: batch?.graduation_start_date ? formatDateIndo(batch.graduation_start_date) : 'Syahadah & Sertifikat', 
         icon: <Award className="w-4 h-4" />,
         subPhases: [
           { name: 'Ujian Tulis', date: formatDateRangeShort(batch?.final_exam_start_date, batch?.final_exam_end_date), done: !!writtenExam, data: writtenExam ? (writtenExam.status === 'graded' ? `Nilai: ${writtenExam.score_tulisan}` : 'Sudah terdaftar') : 'Belum ujian', isPortalAction: isFinalExamStarted || isAdmin, isPortalDisabled: !isFinalExamStarted && !isAdmin, isLocked: !isFinalExamStarted && !isAdmin },
           { name: 'Ujian Lisan', date: formatDateRangeShort(batch?.final_exam_start_date, batch?.final_exam_end_date), done: !!oralExam, data: oralExam ? (oralExam.status === 'graded' ? `Nilai: ${oralExam.score_lisan}` : `${formatDateIndo(oralExam.schedule?.exam_date || '')}`) : 'Belum memilih jadwal', isPortalAction: isLearningDone || isAdmin, isPortalDisabled: !isFinalExamStarted },
-          { name: 'Wisuda', date: batch?.graduation_start_date ? formatDateShort(batch.graduation_start_date) : '', done: isGraduationDone, data: batch?.graduation_start_date ? formatDateIndo(batch.graduation_start_date) : '-' },
-          { name: 'Sertifikat', date: batch?.graduation_start_date ? formatDateShort(batch.graduation_start_date) : '', done: isGraduationDone, data: isGraduationDone ? 'Sudah terbit' : 'Menunggu wisuda' }
+          { name: 'Penerbitan Syahadah', date: batch?.graduation_start_date ? formatDateShort(batch.graduation_start_date) : '', done: isGraduationDone, data: batch?.graduation_start_date ? formatDateIndo(batch.graduation_start_date) : '-' },
+          { name: 'Sertifikat', date: batch?.graduation_start_date ? formatDateShort(batch.graduation_start_date) : '', done: isGraduationDone, data: isGraduationDone ? 'Sudah terbit' : 'Menunggu penerbitan' }
         ]
       },
     ].filter(phase => !(isPraTikrar && phase.id === 5));

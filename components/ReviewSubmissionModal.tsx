@@ -511,7 +511,7 @@ export function ReviewSubmissionModal({
             <AlertCircle className="w-5 h-5 text-amber-600" />
           </div>
           <p className="text-[11px] text-amber-900 leading-relaxed font-semibold">
-            Pastikan data di atas sudah benar. Data ini akan digunakan sebagai basis pencetakan <span className="text-amber-700 italic">Sertifikat Wisuda</span> dan pengiriman hadiah (jika ada).
+            Pastikan data di atas sudah benar. Data ini akan digunakan sebagai basis pencetakan <span className="text-amber-700 italic">Sertifikat Kelulusan (Syahadah)</span> dan pengiriman hadiah (jika ada).
           </p>
         </div>
       </div>

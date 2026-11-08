@@ -267,7 +267,7 @@ export default function KelulusanSertifikatPage() {
         <div className="flex items-center justify-between pb-3 border-b border-gray-100">
           <div>
             <h3 className="text-sm sm:text-base font-bold text-gray-900">
-              Kriteria Kelulusan Wisudawati
+              Kriteria Kelulusan Thalibah
             </h3>
             <p className="text-[11px] text-gray-500 mt-0.5">
               Pastikan seluruh kewajiban pembelajaran berikut terpenuhi:
@@ -318,7 +318,7 @@ export default function KelulusanSertifikatPage() {
           Verifikasi Keaslian Syahadah
         </p>
         <p className="text-[11px] text-gray-500 leading-relaxed">
-          Setiap sertifikat digital dilengkapi dengan ID unik dan QR-Code verifikasi resmi yang terhubung langsung ke database wisudawati Markaz Tikrar Indonesia untuk memastikan keabsahan riwayat hafalan Ukhti kapan pun dan di mana pun.
+          Setiap sertifikat digital dilengkapi dengan ID unik dan QR-Code verifikasi resmi yang terhubung langsung ke database kelulusan Markaz Tikrar Indonesia untuk memastikan keabsahan riwayat hafalan Ukhti kapan pun dan di mana pun.
         </p>
       </div>
     </div>

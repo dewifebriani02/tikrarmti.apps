@@ -512,7 +512,7 @@ export default function AlumniPage() {
             </div>
 
             <p className="text-xs text-gray-600 leading-relaxed">
-              Modul database alumni akan segera hadir untuk menghubungkan seluruh wisudawati Tikrar MTI dari berbagai angkatan dan kota, memudahkan silaturahmi luring, daurah lokal, serta verifikasi keaslian syahadah kelulusan.
+              Modul database alumni akan segera hadir untuk menghubungkan seluruh lulusan Tikrar MTI dari berbagai angkatan dan kota, memudahkan silaturahmi luring, daurah lokal, serta verifikasi keaslian syahadah kelulusan.
             </p>
 
             <div className="pt-2">

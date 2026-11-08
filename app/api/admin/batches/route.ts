@@ -1,3 +1,4 @@
+import { parseHolidayDates } from '@/lib/utils/holiday-helpers';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireAdmin, getAuthorizationContext } from '@/lib/rbac';
 import { ApiResponses } from '@/lib/api-responses';
@@ -92,6 +93,7 @@ export async function GET(request: Request) {
       const counts = enrichedCounts.find(c => c.batchId === batch.id);
       return {
         ...batch,
+        holiday_dates: parseHolidayDates(batch.holiday_dates),
         status: calculateBatchStatus(batch),
         program_count: counts?.programCount || 0,
         registered_count: counts?.registeredCount || batch.registered_count || 0,
@@ -183,7 +185,7 @@ export async function POST(request: Request) {
       graduation_start_date: toStartDate(body.graduation_start_date),
       graduation_end_date: toEndDate(body.graduation_end_date),
       transfer_schedule_end_date: toEndDate(body.transfer_schedule_end_date),
-      holiday_dates: body.holiday_dates || [],
+      holiday_dates: JSON.stringify(parseHolidayDates(body.holiday_dates)),
       whatsapp_group_link: body.whatsapp_group_link || null,
       group_reminder_link: body.group_reminder_link || null,
       group_diskusi_link: body.group_diskusi_link || null,

@@ -36,7 +36,7 @@ SET
   final_exam_start_date = '2026-04-13',
   final_exam_end_date = '2026-04-19',
 
-  -- Phase 10: Pekan 14 (Wisuda)
+  -- Phase 10: Kelulusan & Syahadah
   graduation_start_date = '2026-04-20',
   graduation_end_date = '2026-04-26'
 WHERE id = '<BATCH_ID>'; -- Ganti dengan batch_id yang sebenarnya

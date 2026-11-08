@@ -278,7 +278,7 @@ export default function AdminSertifikatPage() {
             Manajemen Syahadah & Sertifikat Canva
           </h1>
           <p className="text-xs text-gray-700 font-semibold mt-1">
-            Impor dokumen PDF hasil desain Canva, tempel dynamic QR Code verifikasi resmi, dan terbitkan langsung ke akun wisudawati.
+            Impor dokumen PDF hasil desain Canva, tempel dynamic QR Code verifikasi resmi, dan terbitkan langsung ke akun thalibah lulusan.
           </p>
         </div>
 
@@ -621,7 +621,7 @@ export default function AdminSertifikatPage() {
                 </h3>
               </div>
               <p className="text-xs text-emerald-800">
-                Berhasil menerbitkan <strong>{processResult.totalProcessed}</strong> lembar syahadah resmi. Seluruh dokumen telah distempel dynamic QR Code dan tersimpan di database wisudawati.
+                Berhasil menerbitkan <strong>{processResult.totalProcessed}</strong> lembar syahadah resmi. Seluruh dokumen telah distempel dynamic QR Code dan tersimpan di database kelulusan thalibah.
               </p>
               <div className="pt-2">
                 <Button

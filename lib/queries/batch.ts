@@ -1,3 +1,4 @@
+import { parseHolidayDates } from '@/lib/utils/holiday-helpers';
 /**
  * BATCH QUERIES
  *
@@ -29,6 +30,7 @@ export async function getCachedBatch(
         return null
       }
 
+      if (data) { data.holiday_dates = parseHolidayDates(data.holiday_dates); }
       return data
     },
     [`batch:${batchId}`],
@@ -59,6 +61,7 @@ export async function getCachedActiveBatches(
         return []
       }
 
+      if (Array.isArray(data)) { data.forEach(b => { b.holiday_dates = parseHolidayDates(b.holiday_dates); }); }
       return data || []
     },
     ['batches:active'],
@@ -93,6 +96,7 @@ export async function getCachedBatchWithPrograms(
         return null
       }
 
+      if (data) { data.holiday_dates = parseHolidayDates(data.holiday_dates); }
       return data
     },
     [`batch:${batchId}:with-programs`],

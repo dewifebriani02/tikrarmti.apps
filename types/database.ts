@@ -92,6 +92,7 @@ export interface Batch {
   graduation_start_date?: string;
   graduation_end_date?: string;
   transfer_schedule_end_date?: string;
+  holiday_dates?: string[] | string | null;
   whatsapp_group_link?: string;
   group_reminder_link?: string;
   group_diskusi_link?: string;

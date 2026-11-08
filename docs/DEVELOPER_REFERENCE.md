@@ -81,7 +81,7 @@ Admin (pengelola)
 | **Daftar Ulang** | Konfirmasi akad, pilih halaqah, pairing sistem | ✅ |
 | **Siklus Belajar Harian** | Tashih + Jurnal 7-tahap Tikrar | ✅ |
 | **Monitoring Kedisiplinan** | Dashboard stats, SP system, dropout auto | ✅ |
-| **Evaluasi & Kelulusan** | Ujian akhir pekan 13, wisuda pekan 14, sertifikat | 🟡 |
+| **Evaluasi & Kelulusan** | Ujian akhir pekan 13, kelulusan pekan 13, sertifikat | 🟡 |
 
 > **Prinsip arah:** fokus pada stabilitas siklus belajar harian, kualitas penilaian tashih, dan otomasi monitoring kedisiplinan.
 
