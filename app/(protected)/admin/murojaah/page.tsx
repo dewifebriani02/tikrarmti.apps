@@ -20,6 +20,7 @@ interface BatchItem {
   id: string;
   name: string;
   status: string;
+  thalibah_count?: number;
 }
 
 interface WeeklyMurojaahItem {
@@ -98,27 +99,55 @@ export default function AdminMurojaahMonitoringPage() {
   };
 
   // Weekly Stats
-  const weeklyCompleteCount = weeklyData.filter(w => w.isComplete).length;
-  const weeklyInProgressCount = weeklyData.filter(w => w.completedCount > 0 && !w.isComplete).length;
-  const weeklyZeroCount = weeklyData.filter(w => w.completedCount === 0).length;
+  const totalWeekly = weeklyData.length;
+  const completedWeekly = weeklyData.filter(d => d.isComplete).length;
+  const inProgressWeekly = weeklyData.filter(d => !d.isComplete && d.completedCount > 0).length;
+  const notStartedWeekly = weeklyData.filter(d => d.completedCount === 0).length;
 
   // Warrior Stats
-  const warriorBadgeCount = warriorData.filter(w => w.hasWarriorBadge).length;
-  const warriorActiveCount = warriorData.filter(w => !w.isCompleted && !w.isExpired).length;
-  const warriorTotalRounds = warriorData.reduce((acc, w) => acc + w.totalCompleted, 0);
+  const totalWarrior = warriorData.length;
+  const completedWarrior = warriorData.filter(d => d.isCompleted).length;
+  const activeWarrior = warriorData.filter(d => !d.isCompleted && !d.isExpired).length;
+  const totalRoundsCollected = warriorData.reduce((acc, curr) => acc + curr.totalCompleted, 0);
+
+  // Toggle Reminder Status for Warrior
+  const handleToggleReminder = async (progressId: string, currentStatus: boolean) => {
+    try {
+      const res = await fetch('/api/alumni/murojaah-40x', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          progress_id: progressId,
+          is_reminder_active: !currentStatus,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        toast.success(json.message);
+        setWarriorData(prev => prev.map(w => w.progressId === progressId ? { ...w, isReminderActive: !currentStatus } : w));
+      } else {
+        toast.error(json.error || 'Gagal memperbarui status reminder');
+      }
+    } catch (err) {
+      toast.error('Gagal memperbarui status');
+    }
+  };
 
   // Filtered lists
   const filteredWeekly = weeklyData.filter(w => 
     w.fullName.toLowerCase().includes(search.toLowerCase()) ||
+    w.whatsapp.includes(search) ||
     w.halaqahName.toLowerCase().includes(search.toLowerCase()) ||
     w.juzCode.toLowerCase().includes(search.toLowerCase())
   );
 
   const filteredWarrior = warriorData.filter(w => 
     w.fullName.toLowerCase().includes(search.toLowerCase()) ||
-    w.batchName.toLowerCase().includes(search.toLowerCase()) ||
+    w.whatsapp.includes(search) ||
     w.juzCode.toLowerCase().includes(search.toLowerCase())
   );
+
+  const currentSelectedBatch = batches.find(b => b.id === selectedBatchId);
 
   return (
     <div className="min-h-screen bg-gray-50/50 pb-20">
@@ -149,15 +178,18 @@ export default function AdminMurojaahMonitoringPage() {
             </div>
 
             <div className="flex items-center gap-3">
-              <div className="w-full sm:w-64">
+              <div className="w-full sm:w-72">
                 <Select value={selectedBatchId} onValueChange={setSelectedBatchId}>
-                  <SelectTrigger className="rounded-xl border-gray-200 bg-white">
+                  <SelectTrigger className="rounded-xl border-gray-200 bg-white font-medium text-xs sm:text-sm">
                     <SelectValue placeholder="Pilih Angkatan" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="all" className="font-bold text-emerald-900">
+                      🌐 Semua Angkatan (Semua Batch)
+                    </SelectItem>
                     {batches.map(b => (
                       <SelectItem key={b.id} value={b.id}>
-                        {b.name} {b.status === 'ongoing' ? '🟢 (Berjalan)' : ''}
+                        {b.name} {b.thalibah_count !== undefined ? `(${b.thalibah_count} Thalibah)` : ''} {b.status === 'ongoing' ? '🟢' : ''}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -180,6 +212,28 @@ export default function AdminMurojaahMonitoringPage() {
       </div>
 
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+        {/* Banner if empty batch selected */}
+        {currentSelectedBatch && currentSelectedBatch.thalibah_count === 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center justify-between gap-4 animate-fadeIn">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+              <p className="text-xs text-amber-900 font-medium">
+                <strong>{currentSelectedBatch.name}</strong> belum memiliki thalibah aktif (tahap pendaftaran / belum berjalan).
+                Silakan pilih <strong>Tikrar Tahfidz MTI Batch 3</strong> pada menu di atas untuk memantau data thalibah berjalan.
+              </p>
+            </div>
+            {batches.find(b => b.name.includes('Batch 3')) && (
+              <Button
+                size="sm"
+                onClick={() => setSelectedBatchId(batches.find(b => b.name.includes('Batch 3'))!.id)}
+                className="bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shrink-0 h-8"
+              >
+                Buka Batch 3 &rarr;
+              </Button>
+            )}
+          </div>
+        )}
+
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={(val: any) => setActiveTab(val)}>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -199,7 +253,7 @@ export default function AdminMurojaahMonitoringPage() {
                 value="warrior"
                 className="rounded-xl px-5 py-2.5 text-xs sm:text-sm font-bold text-gray-600 data-[state=active]:bg-emerald-900 data-[state=active]:text-white transition-all gap-2"
               >
-                <Flame className="w-4 h-4 text-amber-400" />
+                <Flame className="w-4 h-4 text-amber-500 data-[state=active]:text-amber-300" />
                 <span>Progres Muroja'ah Warrior (40x)</span>
                 <span className="bg-amber-100 text-amber-900 data-[state=active]:bg-white/20 data-[state=active]:text-white text-[10px] px-2 py-0.5 rounded-full font-black">
                   {warriorData.length}
@@ -207,18 +261,19 @@ export default function AdminMurojaahMonitoringPage() {
               </TabsTrigger>
             </TabsList>
 
-            <div className="relative w-full sm:w-72">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            {/* Quick Search */}
+            <div className="relative w-full sm:w-80">
+              <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <Input
-                placeholder="Cari thalibah / juz / halaqah..."
-                className="pl-9 rounded-xl border-gray-200 bg-white text-xs h-10"
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Cari thalibah, juz, no WA..."
+                className="pl-9 rounded-xl border-gray-200 bg-white text-xs h-10"
               />
             </div>
           </div>
 
-          {/* TAB 1: WEEKLY MUROJAAH (M1..M7) */}
+          {/* TAB 1: WEEKLY MUROJAAH (M1 - M7) */}
           <TabsContent value="weekly" className="space-y-6 mt-6">
             {/* KPI Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -226,7 +281,7 @@ export default function AdminMurojaahMonitoringPage() {
                 <CardContent className="p-4 sm:p-5 flex items-center justify-between">
                   <div>
                     <p className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-wider">Total Thalibah</p>
-                    <h3 className="text-xl sm:text-2xl font-black text-gray-900 mt-1">{weeklyData.length}</h3>
+                    <h3 className="text-xl sm:text-2xl font-black text-gray-900 mt-1">{totalWeekly}</h3>
                   </div>
                   <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400">
                     <Users className="w-5 h-5" />
@@ -234,38 +289,38 @@ export default function AdminMurojaahMonitoringPage() {
                 </CardContent>
               </Card>
 
-              <Card className="rounded-2xl border-emerald-100 shadow-xs bg-emerald-50/40">
+              <Card className="rounded-2xl border-gray-100 shadow-xs bg-white">
                 <CardContent className="p-4 sm:p-5 flex items-center justify-between">
                   <div>
-                    <p className="text-[10px] sm:text-xs font-bold text-emerald-800 uppercase tracking-wider">Lulus 7/7 Blok</p>
-                    <h3 className="text-xl sm:text-2xl font-black text-emerald-950 mt-1">{weeklyCompleteCount}</h3>
+                    <p className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-wider">Lulus 7/7 Blok</p>
+                    <h3 className="text-xl sm:text-2xl font-black text-emerald-800 mt-1">{completedWeekly}</h3>
                   </div>
-                  <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
-                    <CheckCircle2 className="w-5 h-5" />
+                  <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-800 flex items-center justify-center font-bold">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600" />
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="rounded-2xl border-amber-100 shadow-xs bg-amber-50/40">
+              <Card className="rounded-2xl border-gray-100 shadow-xs bg-white">
                 <CardContent className="p-4 sm:p-5 flex items-center justify-between">
                   <div>
-                    <p className="text-[10px] sm:text-xs font-bold text-amber-800 uppercase tracking-wider">Sedang Berjalan (1-6)</p>
-                    <h3 className="text-xl sm:text-2xl font-black text-amber-950 mt-1">{weeklyInProgressCount}</h3>
+                    <p className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-wider">Sedang Berjalan (1-6)</p>
+                    <h3 className="text-xl sm:text-2xl font-black text-amber-600 mt-1">{inProgressWeekly}</h3>
                   </div>
-                  <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold">
-                    <Clock className="w-5 h-5" />
+                  <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+                    <Clock className="w-5 h-5 text-amber-600" />
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="rounded-2xl border-rose-100 shadow-xs bg-rose-50/40">
+              <Card className="rounded-2xl border-gray-100 shadow-xs bg-white">
                 <CardContent className="p-4 sm:p-5 flex items-center justify-between">
                   <div>
-                    <p className="text-[10px] sm:text-xs font-bold text-rose-800 uppercase tracking-wider">Belum Menyetor (0)</p>
-                    <h3 className="text-xl sm:text-2xl font-black text-rose-950 mt-1">{weeklyZeroCount}</h3>
+                    <p className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-wider">Belum Menyetor (0)</p>
+                    <h3 className="text-xl sm:text-2xl font-black text-rose-600 mt-1">{notStartedWeekly}</h3>
                   </div>
-                  <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-800 flex items-center justify-center font-bold">
-                    <AlertCircle className="w-5 h-5" />
+                  <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold">
+                    <AlertCircle className="w-5 h-5 text-rose-600" />
                   </div>
                 </CardContent>
               </Card>
@@ -372,7 +427,15 @@ export default function AdminMurojaahMonitoringPage() {
                     ) : (
                       <tr>
                         <td colSpan={8} className="py-12 text-center text-gray-400 font-bold">
-                          Tidak ada data thalibah ditemukan.
+                          <div className="flex flex-col items-center justify-center gap-2">
+                            <Users className="w-8 h-8 text-gray-300 stroke-[1.5]" />
+                            <span>Tidak ada data thalibah di angkatan ini.</span>
+                            {currentSelectedBatch && currentSelectedBatch.thalibah_count === 0 && (
+                              <span className="text-xs font-normal text-amber-600 bg-amber-50 border border-amber-200/80 rounded-lg px-3 py-1">
+                                Angkatan ini belum memiliki thalibah terdaftar / sedang pendaftaran. Silakan pilih <strong>Tikrar Tahfidz MTI Batch 3</strong> pada menu di atas.
+                              </span>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     )}
@@ -390,7 +453,7 @@ export default function AdminMurojaahMonitoringPage() {
                 <CardContent className="p-4 sm:p-5 flex items-center justify-between">
                   <div>
                     <p className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-wider">Total Peserta 40x</p>
-                    <h3 className="text-xl sm:text-2xl font-black text-gray-900 mt-1">{warriorData.length}</h3>
+                    <h3 className="text-xl sm:text-2xl font-black text-gray-900 mt-1">{totalWarrior}</h3>
                   </div>
                   <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400">
                     <Users className="w-5 h-5" />
@@ -398,35 +461,35 @@ export default function AdminMurojaahMonitoringPage() {
                 </CardContent>
               </Card>
 
-              <Card className="rounded-2xl border-amber-200 shadow-xs bg-amber-50/40">
+              <Card className="rounded-2xl border-gray-100 shadow-xs bg-white">
                 <CardContent className="p-4 sm:p-5 flex items-center justify-between">
                   <div>
-                    <p className="text-[10px] sm:text-xs font-bold text-amber-800 uppercase tracking-wider">Badge Warrior Diraih</p>
-                    <h3 className="text-xl sm:text-2xl font-black text-amber-950 mt-1">{warriorBadgeCount}</h3>
+                    <p className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-wider">Lulus 40 Putaran</p>
+                    <h3 className="text-xl sm:text-2xl font-black text-emerald-800 mt-1">{completedWarrior}</h3>
                   </div>
-                  <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold">
-                    <Award className="w-5 h-5 text-amber-600" />
+                  <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-800 flex items-center justify-center font-bold">
+                    <Award className="w-5 h-5 text-emerald-600" />
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="rounded-2xl border-emerald-100 shadow-xs bg-emerald-50/40">
+              <Card className="rounded-2xl border-gray-100 shadow-xs bg-white">
                 <CardContent className="p-4 sm:p-5 flex items-center justify-between">
                   <div>
-                    <p className="text-[10px] sm:text-xs font-bold text-emerald-800 uppercase tracking-wider">Sedang Aktif Berjalan</p>
-                    <h3 className="text-xl sm:text-2xl font-black text-emerald-950 mt-1">{warriorActiveCount}</h3>
+                    <p className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-wider">Sedang Berjalan</p>
+                    <h3 className="text-xl sm:text-2xl font-black text-amber-600 mt-1">{activeWarrior}</h3>
                   </div>
-                  <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
-                    <Flame className="w-5 h-5 text-emerald-600" />
+                  <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+                    <Flame className="w-5 h-5 text-amber-500" />
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="rounded-2xl border-blue-100 shadow-xs bg-blue-50/40">
+              <Card className="rounded-2xl border-gray-100 shadow-xs bg-white">
                 <CardContent className="p-4 sm:p-5 flex items-center justify-between">
                   <div>
-                    <p className="text-[10px] sm:text-xs font-bold text-blue-800 uppercase tracking-wider">Total Putaran Disetor</p>
-                    <h3 className="text-xl sm:text-2xl font-black text-blue-950 mt-1">{warriorTotalRounds}</h3>
+                    <p className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-wider">Total Putaran Disetor</p>
+                    <h3 className="text-xl sm:text-2xl font-black text-blue-900 mt-1">{totalRoundsCollected}</h3>
                   </div>
                   <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-800 flex items-center justify-center font-bold">
                     <Sparkles className="w-5 h-5 text-blue-600" />
@@ -478,55 +541,67 @@ export default function AdminMurojaahMonitoringPage() {
                                 <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
                                   <div
                                     className="bg-gradient-to-r from-emerald-500 to-emerald-600 h-full rounded-full"
-                                    style={{ width: `${pct}%` }}
+                                    style={{ width: `${Math.min(100, pct)}%` }}
                                   />
                                 </div>
                               </div>
                             </td>
-                            <td className="py-3.5 px-4 text-center">
-                              <div className="text-[11px] font-bold text-gray-900">
-                                Hari ke-{item.daysElapsed}
-                              </div>
-                              <div className="text-[10px] text-gray-400">
+                            <td className="py-3.5 px-4 text-center font-bold">
+                              <span className="text-gray-900">Hari ke-{item.daysElapsed}</span>
+                              <span className="block text-[10px] text-gray-400 font-normal">
                                 Sisa {item.daysRemaining} hari
-                              </div>
+                              </span>
                             </td>
-                            <td className="py-3.5 px-4 text-center font-black">
+                            <td className="py-3.5 px-4 text-center font-bold">
                               {item.debt.totalDebt > 0 ? (
-                                <span className="bg-rose-50 text-rose-700 border border-rose-200 px-2 py-0.5 rounded-full text-[10px]">
+                                <span className="bg-rose-50 text-rose-700 border border-rose-200/60 px-2 py-0.5 rounded-full text-[10px] font-black">
                                   {item.debt.totalDebt} Putaran
                                 </span>
                               ) : (
-                                <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full text-[10px]">
-                                  Lunas 0
+                                <span className="bg-emerald-50 text-emerald-800 border border-emerald-200/60 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                                  Lancar
                                 </span>
                               )}
                             </td>
                             <td className="py-3.5 px-4 text-center">
-                              {item.hasWarriorBadge ? (
+                              {item.hasWarriorBadge || item.isCompleted ? (
                                 <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-900 text-[10px] font-black px-2.5 py-0.5 rounded-full">
-                                  🏆 Warrior Lulus
+                                  🏆 Warrior
                                 </span>
                               ) : item.isExpired ? (
-                                <span className="bg-rose-100 text-rose-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                                  Expired
+                                <span className="inline-flex items-center gap-1 bg-gray-100 text-gray-600 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                  Waktu Habis
                                 </span>
                               ) : (
-                                <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                                  Berjalan
+                                <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                  Aktif
                                 </span>
                               )}
                             </td>
                             <td className="py-3.5 px-4 text-center">
-                              {item.isReminderActive ? (
-                                <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full">
-                                  <Bell className="w-3 h-3 text-emerald-600" /> Aktif
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 text-[10px] text-gray-400 font-bold bg-gray-100 px-2 py-0.5 rounded-full">
-                                  <BellOff className="w-3 h-3 text-gray-400" /> Off
-                                </span>
-                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleToggleReminder(item.progressId, item.isReminderActive)}
+                                className={cn(
+                                  "inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer",
+                                  item.isReminderActive
+                                    ? "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
+                                    : "bg-gray-100 text-gray-400 border-gray-200 hover:bg-gray-200"
+                                )}
+                                title={item.isReminderActive ? "Klik untuk mematikan reminder" : "Klik untuk menyalakan reminder"}
+                              >
+                                {item.isReminderActive ? (
+                                  <>
+                                    <Bell className="w-3 h-3 text-emerald-600" />
+                                    <span>Aktif</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <BellOff className="w-3 h-3 text-gray-400" />
+                                    <span>Off</span>
+                                  </>
+                                )}
+                              </button>
                             </td>
                             <td className="py-3.5 px-4 text-center text-gray-500 text-[11px]">
                               {item.lastSetoran ? (
@@ -565,7 +640,15 @@ export default function AdminMurojaahMonitoringPage() {
                     ) : (
                       <tr>
                         <td colSpan={10} className="py-12 text-center text-gray-400 font-bold">
-                          Tidak ada peserta Muroja'ah 40x ditemukan.
+                          <div className="flex flex-col items-center justify-center gap-2">
+                            <Flame className="w-8 h-8 text-gray-300 stroke-[1.5]" />
+                            <span>Tidak ada peserta Muroja'ah 40x di angkatan ini.</span>
+                            {currentSelectedBatch && currentSelectedBatch.thalibah_count === 0 && (
+                              <span className="text-xs font-normal text-amber-600 bg-amber-50 border border-amber-200/80 rounded-lg px-3 py-1">
+                                Angkatan ini belum memiliki peserta. Silakan pilih <strong>Tikrar Tahfidz MTI Batch 3</strong> pada menu di atas.
+                              </span>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     )}

@@ -14,20 +14,27 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     let batchId = searchParams.get('batch_id');
 
-    // 1. Fetch all batches
+    // 1. Fetch all batches with count of approved thalibah
     const { rows: batches } = await query(
-      `SELECT id, name, status, start_date, end_date FROM batches ORDER BY created_at DESC`
+      `SELECT b.id, b.name, b.status, b.start_date, b.end_date,
+              COUNT(p.id)::int as thalibah_count
+       FROM batches b
+       LEFT JOIN pendaftaran_tikrar_tahfidz p ON p.batch_id = b.id AND p.status = 'approved'
+       GROUP BY b.id, b.name, b.status, b.start_date, b.end_date, b.created_at
+       ORDER BY b.created_at DESC`
     );
 
-    if (!batchId && batches.length > 0) {
-      // Default to ongoing or latest batch
-      const ongoing = batches.find(b => b.status === 'ongoing') || batches[0];
-      batchId = ongoing.id;
+    // Default to the batch that actually has thalibah (e.g. Batch 3) or ongoing batch
+    if ((!batchId || batchId === 'default') && batches.length > 0) {
+      const batchWithData = batches.find(b => Number(b.thalibah_count) > 0) || batches.find(b => b.status === 'ongoing') || batches[0];
+      batchId = batchWithData.id;
     }
 
+    const isAll = batchId === 'all';
+
     // 2. Fetch Weekly Murojaah (M1..M7) for the selected batch
-    const { rows: weeklyRows } = await query(
-      `SELECT 
+    const weeklyQuery = `
+      SELECT 
         u.id as user_id, 
         u.full_name, 
         u.whatsapp,
@@ -39,10 +46,14 @@ export async function GET(request: NextRequest) {
       LEFT JOIN halaqah_students hs ON hs.thalibah_id = u.id AND hs.status = 'active'
       LEFT JOIN halaqah h ON h.id = hs.halaqah_id
       LEFT JOIN jurnal_records j ON j.user_id = u.id AND j.blok ILIKE '%M%'
-      WHERE p.status = 'approved' AND p.batch_id = $1
+      WHERE p.status = 'approved' ${isAll ? '' : 'AND p.batch_id = $1'}
       GROUP BY u.id, u.full_name, u.whatsapp, p.final_juz, p.chosen_juz, h.name
-      ORDER BY u.full_name ASC`,
-      [batchId]
+      ORDER BY u.full_name ASC
+    `;
+
+    const { rows: weeklyRows } = await query(
+      weeklyQuery,
+      isAll ? [] : [batchId]
     );
 
     const weeklyMurojaah = weeklyRows.map((row: any) => {
@@ -97,13 +108,13 @@ export async function GET(request: NextRequest) {
       FROM murojaah_40x_progress p
       JOIN users u ON u.id = p.user_id
       LEFT JOIN batches b ON b.id = p.batch_id
-      ${batchId ? 'WHERE p.batch_id = $1' : ''}
+      ${isAll ? '' : 'WHERE p.batch_id = $1'}
       ORDER BY p.total_completed DESC, p.updated_at DESC
     `;
 
     const { rows: warriorRows } = await query(
       warriorQuery,
-      batchId ? [batchId] : []
+      isAll ? [] : [batchId]
     );
 
     const now = new Date();
