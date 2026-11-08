@@ -33,6 +33,31 @@ export default function UjianPage() {
   const { activePersona, isAdminPersona, isMusyrifahPersona } = usePersona();
   const { activeBatch } = useActiveBatch();
   const [activeTab, setActiveTab] = useState<'pekanan' | 'akhir'>('akhir');
+  const [userRegistration, setUserRegistration] = useState<any>(null);
+
+  useEffect(() => {
+    async function loadUserReg() {
+      try {
+        const res = await fetch("/api/pendaftaran/my");
+        const data = await res.json();
+        const list = data.registrations || data.data || [];
+        if (list.length > 0) {
+          const approved = list.find((r: any) => r.status === "approved" || r.selection_status === "passed") || list[0];
+          setUserRegistration(approved);
+        }
+      } catch (e) {
+        console.error("Error fetching user registration:", e);
+      }
+    }
+    if (user && !isAdminPersona && !isMusyrifahPersona) {
+      loadUserReg();
+    }
+  }, [user, isAdminPersona, isMusyrifahPersona]);
+
+  // Bagi thalibah, prioritaskan batch tempat thalibah tersebut terdaftar
+  const effectiveBatch = (!isAdminPersona && !isMusyrifahPersona && userRegistration?.batch)
+    ? userRegistration.batch
+    : activeBatch;
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -53,7 +78,7 @@ export default function UjianPage() {
   const fetchRegistrations = async () => {
     setLoadingRegistrations(true);
     try {
-      const url = `/api/exams/final-exams/registrations${activeBatch?.id ? `?batch_id=${activeBatch.id}` : ''}`;
+      const url = `/api/exams/final-exams/registrations${effectiveBatch?.id ? `?batch_id=${effectiveBatch.id}` : ''}`;
       const response = await fetch(url);
       const result = await response.json();
       if (result.success) {
@@ -79,7 +104,7 @@ export default function UjianPage() {
 
   useEffect(() => {
     fetchRegistrations();
-  }, [activeBatch?.id]);
+  }, [effectiveBatch?.id]);
 
   const oralRegistration = registrations.find(r => r.schedule?.exam_type === 'oral');
   const writtenRegistration = registrations.find(r => r.schedule?.exam_type === 'written');
@@ -89,8 +114,8 @@ export default function UjianPage() {
   const isAdmin = isStaffView;
 
   const now = new Date();
-  const examStartDate = activeBatch?.final_exam_start_date ? new Date(activeBatch?.final_exam_start_date || '') : null;
-  const examEndDate = activeBatch?.final_exam_end_date ? new Date(activeBatch.final_exam_end_date) : null;
+  const examStartDate = effectiveBatch?.final_exam_start_date ? new Date(effectiveBatch?.final_exam_start_date || '') : null;
+  const examEndDate = effectiveBatch?.final_exam_end_date ? new Date(effectiveBatch.final_exam_end_date) : null;
 
   // Status jadwal ujian
   const isBeforeExam = !isAdmin && (examStartDate ? now < examStartDate : true);
@@ -111,7 +136,7 @@ export default function UjianPage() {
               <Sparkles className="w-4 h-4 text-amber-500" />
             </h1>
             <p className="text-gray-700 text-[10px] font-black uppercase tracking-widest leading-none mt-1">
-              {activeBatch?.name || 'Tikrar Tahfidz MTI'}
+              {effectiveBatch?.name || 'Tikrar Tahfidz MTI'}
             </p>
           </div>
 
@@ -448,8 +473,8 @@ export default function UjianPage() {
                   : isExamOpen && !isExamEnded
                   ? "Ujian tulisan dikerjakan langsung melalui sistem Computer Based Test (CBT) pilihan ganda MTI. Pastikan koneksi internet stabil sebelum memulai pengerjaan."
                   : isExamEnded
-                  ? `Waktu pelaksanaan ujian pilihan ganda telah berakhir pada ${activeBatch?.final_exam_end_date ? formatDateIndo(activeBatch.final_exam_end_date) : 'jadwal yang telah ditentukan'}. Jika memiliki kendala, silakan hubungi Musyrifah atau Mu'allimah pembimbing.`
-                  : `Ujian pilihan ganda akan dibuka pada ${activeBatch?.final_exam_start_date ? formatDateIndo(activeBatch.final_exam_start_date) : 'jadwal pekan ujian akhir yang ditentukan panitia'}. Silakan persiapkan diri dan muraja'ah materi hafalan Ukhti.`}
+                  ? `Waktu pelaksanaan ujian pilihan ganda telah berakhir pada ${effectiveBatch?.final_exam_end_date ? formatDateIndo(effectiveBatch.final_exam_end_date) : 'jadwal yang telah ditentukan'}. Jika memiliki kendala, silakan hubungi Musyrifah atau Mu'allimah pembimbing.`
+                  : `Ujian pilihan ganda akan dibuka pada ${effectiveBatch?.final_exam_start_date ? formatDateIndo(effectiveBatch.final_exam_start_date) : 'jadwal pekan ujian akhir yang ditentukan panitia'}. Silakan persiapkan diri dan muraja'ah materi hafalan Ukhti.`}
               </p>
             </div>
 
@@ -481,14 +506,14 @@ export default function UjianPage() {
                 onClick={() => {
                   if (isExamEnded) {
                     toast.error(
-                      activeBatch?.final_exam_end_date
-                        ? `Waktu pelaksanaan ujian telah berakhir pada ${formatDateIndo(activeBatch.final_exam_end_date)}.`
+                      effectiveBatch?.final_exam_end_date
+                        ? `Waktu pelaksanaan ujian telah berakhir pada ${formatDateIndo(effectiveBatch.final_exam_end_date)}.`
                         : 'Waktu pelaksanaan ujian pilihan ganda telah berakhir.'
                     );
                   } else {
                     toast.error(
-                      activeBatch?.final_exam_start_date
-                        ? `Jadwal ujian belum dibuka. Ujian akan dibuka pada ${formatDateIndo(activeBatch.final_exam_start_date)}.`
+                      effectiveBatch?.final_exam_start_date
+                        ? `Jadwal ujian belum dibuka. Ujian akan dibuka pada ${formatDateIndo(effectiveBatch.final_exam_start_date)}.`
                         : 'Jadwal pelaksanaan ujian akhir pilihan ganda belum dibuka oleh panitia.'
                     );
                   }
@@ -511,7 +536,7 @@ export default function UjianPage() {
           fetchRegistrations();
         }}
         examType="oral"
-        batchId={activeBatch?.id}
+        batchId={effectiveBatch?.id}
       />
     </div>
   );

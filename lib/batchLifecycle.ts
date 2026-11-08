@@ -39,11 +39,17 @@ export function calculateBatchStatus(batch: BatchDateFields): 'draft' | 'open' |
     return date;
   };
 
-  // Akhir siklus batch: gunakan tanggal kelulusan, tanggal ujian akhir, atau end_date
-  const cycleEndDate = parseDate(
-    batch.graduation_end_date || batch.final_exam_end_date || batch.end_date,
-    true
-  );
+  // Akhir siklus batch: gunakan tanggal paling akhir (maksimum) dari kelulusan, ujian akhir, atau end_date
+  // Batch hanya dianggap selesai (closed) jika SELURUH tahapan (termasuk ujian akhir dan kelulusan) telah berakhir.
+  const endDates = [
+    parseDate(batch.graduation_end_date, true),
+    parseDate(batch.final_exam_end_date, true),
+    parseDate(batch.end_date, true),
+  ].filter((d): d is Date => d !== null);
+
+  const cycleEndDate = endDates.length > 0
+    ? new Date(Math.max(...endDates.map(d => d.getTime())))
+    : null;
 
   // Mulai kelas / KBM
   const classStartDate = parseDate(
