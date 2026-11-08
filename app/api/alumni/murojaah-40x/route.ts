@@ -9,10 +9,10 @@ export const dynamic = 'force-dynamic';
 
 const VALID_METHODS: MurojaahMethod[] = ['pasangan', 'tarteel', 'sholat', 'aktifitas_lain'];
 
-
 /**
- * Helper to check whether user has completed all mandatory Murojaah blocks (M1..M7)
- * in their active/latest batch before allowing Murojaah 40x.
+ * Helper to check Murojaah Wajib status (M1..M7).
+ * Muroja'ah 40x is independent and non-blocking for thalibah.
+ * Muroja'ah Sepekan (M1-M7) is separately monitored on admin presensi.
  */
 async function checkMurojaahWajibStatus(userId: string, targetBatchId?: string | null, isAdmin?: boolean): Promise<{
   is_locked: boolean;
@@ -21,27 +21,60 @@ async function checkMurojaahWajibStatus(userId: string, targetBatchId?: string |
   wajib_total: number;
   completed_codes: string[];
 }> {
-  // Admin and staff always have full access for previewing and testing
-  if (isAdmin) {
-    return {
-      is_locked: false,
-      wajib_completed: 7,
-      wajib_total: 7,
-      completed_codes: ['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7']
-    };
-  }
+  try {
+    let batchId = targetBatchId;
+    if (!batchId) {
+      const reg = await queryOne(
+        `SELECT batch_id FROM pendaftaran_tikrar_tahfidz WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`,
+        [userId]
+      );
+      batchId = reg?.batch_id;
+    }
 
-  let batchId = targetBatchId;
-  if (!batchId) {
-    const reg = await queryOne(
-      `SELECT batch_id FROM pendaftaran_tikrar_tahfidz WHERE user_id = $1 AND status = 'approved' ORDER BY created_at DESC LIMIT 1`,
-      [userId]
+    if (!batchId) {
+      return {
+        is_locked: false,
+        wajib_completed: 7,
+        wajib_total: 7,
+        completed_codes: ['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7']
+      };
+    }
+
+    const batch = await queryOne(`SELECT id, name, start_date, opening_class_date FROM batches WHERE id = $1`, [batchId]);
+    let dateFilter = '1970-01-01';
+    if (batch?.opening_class_date) {
+      const d = new Date(batch.opening_class_date);
+      d.setDate(d.getDate() - 1);
+      dateFilter = d.toISOString().split('T')[0];
+    } else if (batch?.start_date) {
+      const d = new Date(batch.start_date);
+      d.setDate(d.getDate() - 1);
+      dateFilter = d.toISOString().split('T')[0];
+    }
+
+    const { rows: jurnalRows } = await query(
+      `SELECT blok FROM jurnal_records WHERE user_id = $1 AND (tanggal_setor >= $2 OR created_at >= $2)`,
+      [userId, dateFilter]
     );
-    batchId = reg?.batch_id;
-  }
 
-  // If user has no batch registration at all (e.g. general user / alumni without active batch), do not lock
-  if (!batchId) {
+    const completedCodes = new Set<string>();
+    jurnalRows.forEach((r) => {
+      const bloks = parseBlokField(r.blok);
+      bloks.forEach(b => {
+        const upper = b.toUpperCase();
+        if (/^M[1-7]$/.test(upper)) {
+          completedCodes.add(upper);
+        }
+      });
+    });
+
+    return {
+      is_locked: false, // Never lock Murojaah 40x; Murojaah sepekan is monitored via admin presensi
+      wajib_completed: completedCodes.size,
+      wajib_total: 7,
+      completed_codes: Array.from(completedCodes)
+    };
+  } catch (err) {
     return {
       is_locked: false,
       wajib_completed: 7,
@@ -49,50 +82,6 @@ async function checkMurojaahWajibStatus(userId: string, targetBatchId?: string |
       completed_codes: ['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7']
     };
   }
-
-  // Get batch start / opening date
-  const batch = await queryOne(`SELECT id, name, start_date, opening_class_date FROM batches WHERE id = $1`, [batchId]);
-  let dateFilter = '1970-01-01';
-  if (batch?.opening_class_date) {
-    const d = new Date(batch.opening_class_date);
-    d.setDate(d.getDate() - 1);
-    dateFilter = d.toISOString().split('T')[0];
-  } else if (batch?.start_date) {
-    const d = new Date(batch.start_date);
-    d.setDate(d.getDate() - 1);
-    dateFilter = d.toISOString().split('T')[0];
-  }
-
-  // Fetch journal records for this user
-  const { rows: jurnalRows } = await query(
-    `SELECT blok FROM jurnal_records WHERE user_id = $1 AND (tanggal_setor >= $2 OR created_at >= $2)`,
-    [userId, dateFilter]
-  );
-
-  const completedCodes = new Set<string>();
-  jurnalRows.forEach((r) => {
-    const bloks = parseBlokField(r.blok);
-    bloks.forEach(b => {
-      const upper = b.toUpperCase();
-      if (/^M[1-7]$/.test(upper)) {
-        completedCodes.add(upper);
-      }
-    });
-  });
-
-  const wajibCompleted = completedCodes.size;
-  const wajibTotal = 7;
-  const isLocked = wajibCompleted < wajibTotal;
-
-  return {
-    is_locked: isLocked,
-    reason: isLocked
-      ? `Afwan Ukhti, Program Murojaah 40x terkunci. Ukhti wajib menuntaskan Murojaah Wajib Pekan 11 (M1 s.d. M7) di angkatan berjalan terlebih dahulu (${wajibCompleted}/7 tuntas).`
-      : undefined,
-    wajib_completed: wajibCompleted,
-    wajib_total: wajibTotal,
-    completed_codes: Array.from(completedCodes)
-  };
 }
 
 /**
@@ -107,41 +96,33 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const targetUserId = searchParams.get('user_id');
-    const selectedJuzParam = searchParams.get('juz');
+    const targetUserId = searchParams.get('user_id') || searchParams.get('target_user_id');
+    const selectedJuzParam = (searchParams.get('juz_code') || searchParams.get('juz'))?.trim().toUpperCase();
 
     // Allow staff/admin to view other user's progress
     const isAdminOrStaff = (user.roles || []).some((r: string) => ['admin', 'musyrifah', 'muallimah'].includes(r)) || user.role === 'admin';
     const targetId = (isAdminOrStaff && targetUserId) ? targetUserId : user.id;
 
-    // 1. Fetch user profile & batch info
+    // 1. Fetch user profile & batch info safely
     const studentProfile = await queryOne(
-      `SELECT p.batch_id, p.confirmed_chosen_juz, b.name as batch_name
+      `SELECT p.batch_id, 
+              COALESCE(d.confirmed_chosen_juz, p.final_juz, p.chosen_juz) as chosen_juz, 
+              b.name as batch_name
        FROM pendaftaran_tikrar_tahfidz p
        LEFT JOIN batches b ON b.id = p.batch_id
-       WHERE p.user_id = $1 AND p.status = 'approved'
+       LEFT JOIN daftar_ulang_submissions d ON d.registration_id = p.id
+       WHERE p.user_id = $1
        ORDER BY p.created_at DESC LIMIT 1`,
       [targetId]
     );
 
     let batchId = studentProfile?.batch_id;
     let batchName = studentProfile?.batch_name || 'Alumni / Umum';
-    let defaultJuzCode = studentProfile?.confirmed_chosen_juz || '30A';
-
-    if (!batchId) {
-      // Find open or latest batch
-      const latestBatch = await queryOne(`SELECT id, name FROM batches ORDER BY created_at DESC LIMIT 1`);
-      if (latestBatch) {
-        batchId = latestBatch.id;
-        batchName = latestBatch.name;
-      } else {
-        batchId = '00000000-0000-0000-0000-000000000000';
-      }
-    }
+    let defaultJuzCode = studentProfile?.chosen_juz || '30A';
 
     // 2. Fetch all enrolled juz records for this user
     const { rows: allEnrolledRows } = await query(
-      `SELECT id, juz_code, status, total_completed, started_at, expires_at, is_warrior_eligible, time_slot_main, time_slot_backup, is_reminder_active
+      `SELECT id, batch_id, juz_code, status, total_completed, started_at, expires_at, is_warrior_eligible, time_slot_main, time_slot_backup, is_reminder_active
        FROM murojaah_40x_progress
        WHERE user_id = $1
        ORDER BY updated_at DESC`,
@@ -158,6 +139,21 @@ export async function GET(request: NextRequest) {
     }
 
     let juzCode = progress?.juz_code || defaultJuzCode;
+    if (progress?.batch_id) {
+      batchId = progress.batch_id;
+    }
+
+    if (!batchId) {
+      // Find open or latest batch
+      const latestBatch = await queryOne(`SELECT id, name FROM batches ORDER BY created_at DESC LIMIT 1`);
+      if (latestBatch) {
+        batchId = latestBatch.id;
+        batchName = latestBatch.name;
+      } else {
+        batchId = '00000000-0000-0000-0000-000000000000';
+      }
+    }
+
     const isPartB = juzCode.toUpperCase().endsWith('B');
 
     // If still no progress, auto-initialize
@@ -358,18 +354,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Data progres Murojaah 40x tidak ditemukan. Silakan muat ulang halaman.' }, { status: 404 });
     }
 
-    // 4. Check if mandatory murojaah (M1..M7) is completed
-    const isAdminOrStaff = (user.roles || []).some((r: string) => ['admin', 'musyrifah', 'muallimah'].includes(r)) || user.role === 'admin';
-    const wajibCheck = await checkMurojaahWajibStatus(user.id, progress.batch_id, isAdminOrStaff);
-    if (wajibCheck.is_locked) {
-      return NextResponse.json({
-        success: false,
-        error: wajibCheck.reason || 'Afwan Ukhti, Program Murojaah 40x terkunci sebelum Murojaah Wajib Pekan 11 (M1 s.d. M7) tuntas.'
-      }, { status: 403 });
-    }
-
-    // 5. Check if 20-day challenge has expired
-    if (progress.expires_at) {
+    // 4. Check if 20-day challenge has expired (only after first round started)
+    if (progress.expires_at && Number(progress.total_completed || 0) > 0) {
       const expiry = new Date(progress.expires_at);
       const now = new Date();
       if (now > expiry && Number(progress.total_completed || 0) < 40) {
@@ -401,7 +387,8 @@ export async function POST(request: NextRequest) {
     // 6. Insert round log
     const { rows: insertedLogs } = await query(
       `INSERT INTO murojaah_40x_logs 
-       (progress_id, user_id, round_number, juz_segment, completed_at, methods, notes, created_at)\n       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+       (progress_id, user_id, round_number, juz_segment, completed_at, methods, notes, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
        RETURNING *`,
       [progress.id, user.id, nextRound, juz_segment, completed_at, methods, notes ? notes.trim() : null]
     );
