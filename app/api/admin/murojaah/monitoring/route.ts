@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/rbac';
 import { query } from '@/lib/db';
 import { calculateMurojaahDebt } from '@/lib/murojaah';
-import { parseBlokField } from '@/lib/blok';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,80 +13,25 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     let batchId = searchParams.get('batch_id');
 
-    // 1. Fetch all batches with count of approved thalibah, sorted chronologically by start_date DESC
+    // 1. Fetch all batches with count of Murojaah Warrior participants, sorted chronologically by start_date DESC
     const { rows: batches } = await query(
       `SELECT b.id, b.name, b.status, b.start_date, b.end_date,
-              COUNT(p.id)::int as thalibah_count
+              COUNT(DISTINCT mp.id)::int as warrior_count
        FROM batches b
-       LEFT JOIN pendaftaran_tikrar_tahfidz p ON p.batch_id = b.id AND p.status = 'approved'
+       LEFT JOIN murojaah_40x_progress mp ON mp.batch_id = b.id
        GROUP BY b.id, b.name, b.status, b.start_date, b.end_date
        ORDER BY b.start_date DESC NULLS LAST`
     );
 
-    // Default to the latest active batch with thalibah (Batch 3) or ongoing batch
+    // Default to the batch with warrior participants (e.g. Batch 3) or latest batch
     if ((!batchId || batchId === 'default') && batches.length > 0) {
-      const batchWithData = batches.find(b => Number(b.thalibah_count) > 0) || batches.find(b => b.status === 'ongoing') || batches[0];
+      const batchWithData = batches.find(b => Number(b.warrior_count) > 0) || batches.find(b => b.status === 'ongoing') || batches[0];
       batchId = batchWithData.id;
     }
 
     const isAll = batchId === 'all';
 
-    // 2. Fetch Weekly Murojaah (M1..M7) for the selected batch
-    const weeklyQuery = `
-      SELECT 
-        u.id as user_id, 
-        u.full_name, 
-        u.whatsapp,
-        COALESCE(p.final_juz, p.chosen_juz, '30A') as juz_code,
-        h.name as halaqah_name,
-        ARRAY_AGG(DISTINCT j.blok) FILTER (WHERE j.blok IS NOT NULL) as bloks
-      FROM pendaftaran_tikrar_tahfidz p
-      JOIN users u ON u.id = p.user_id
-      LEFT JOIN halaqah_students hs ON hs.thalibah_id = u.id AND hs.status = 'active'
-      LEFT JOIN halaqah h ON h.id = hs.halaqah_id
-      LEFT JOIN jurnal_records j ON j.user_id = u.id AND j.blok ILIKE '%M%'
-      WHERE p.status = 'approved' ${isAll ? '' : 'AND p.batch_id = $1'}
-      GROUP BY u.id, u.full_name, u.whatsapp, p.final_juz, p.chosen_juz, h.name
-      ORDER BY u.full_name ASC
-    `;
-
-    const { rows: weeklyRows } = await query(
-      weeklyQuery,
-      isAll ? [] : [batchId]
-    );
-
-    const weeklyMurojaah = weeklyRows.map((row: any) => {
-      const rawBloks: string[] = row.bloks || [];
-      const completedSet = new Set<string>();
-
-      rawBloks.forEach(b => {
-        const parsed = parseBlokField(b);
-        parsed.forEach(code => {
-          const upper = code.toUpperCase();
-          if (/^M[1-7]$/.test(upper)) {
-            completedSet.add(upper);
-          }
-        });
-      });
-
-      const completedCodes = Array.from(completedSet).sort();
-      const completedCount = completedCodes.length;
-      const isComplete = completedCount >= 7;
-
-      return {
-        userId: row.user_id,
-        fullName: row.full_name,
-        whatsapp: row.whatsapp,
-        juzCode: row.juz_code,
-        halaqahName: row.halaqah_name || 'Belum Masuk Halaqah',
-        completedCodes,
-        completedCount,
-        totalRequired: 7,
-        isComplete,
-      };
-    });
-
-    // 3. Fetch Murojaah Warrior 40X Progress
+    // 2. Fetch Murojaah Warrior 40X Progress
     const warriorQuery = `
       SELECT 
         p.id as progress_id,
@@ -160,7 +104,6 @@ export async function GET(request: NextRequest) {
       data: {
         batches,
         selectedBatchId: batchId,
-        weeklyMurojaah,
         warriorMurojaah,
       },
     });
