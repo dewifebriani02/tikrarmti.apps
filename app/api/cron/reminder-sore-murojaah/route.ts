@@ -75,6 +75,7 @@ async function handleReminder(request: Request) {
         p.expires_at,
         p.total_completed,
         p.status,
+        p.is_reminder_active,
         u.full_name,
         u.whatsapp,
         b.name as batch_name,
@@ -82,14 +83,14 @@ async function handleReminder(request: Request) {
       FROM murojaah_40x_progress p
       JOIN users u ON u.id = p.user_id
       JOIN batches b ON b.id = p.batch_id
-      LEFT JOIN (
-        SELECT progress_id, COUNT(*) as today_count
+      LEFT JOIN (\n        SELECT progress_id, COUNT(*) as today_count
         FROM murojaah_40x_logs
         WHERE completed_at = CURRENT_DATE
         GROUP BY progress_id
       ) today_log ON today_log.progress_id = p.id
       WHERE p.status = 'active'
         AND p.total_completed < 40
+        AND COALESCE(p.is_reminder_active, true) = true
         AND COALESCE(today_log.today_count, 0) < 2
         AND u.whatsapp IS NOT NULL
         AND TRIM(u.whatsapp) != ''
@@ -170,16 +171,17 @@ async function handleReminder(request: Request) {
       }
     }
 
+    const successfulCount = results.filter((r) => r.sent).length;
     return NextResponse.json({
       success: true,
-      timestamp: new Date().toISOString(),
-      dryRun,
+      mode: dryRun ? 'dry_run' : 'production',
       totalCandidates: candidates.length,
-      sentCount: results.filter((r) => r.sent).length,
+      sentCount: successfulCount,
+      failedCount: results.length - successfulCount,
       results,
     });
   } catch (error: any) {
-    console.error('[CRON Reminder Sore Murojaah] Error:', error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    console.error('Error in reminder-sore-murojaah cron:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

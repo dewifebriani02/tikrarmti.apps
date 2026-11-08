@@ -584,6 +584,7 @@ export interface Murojaah40xProgress {
   completed_at?: string | null;
   total_completed: number;
   is_warrior_eligible: boolean;
+  is_reminder_active?: boolean;
   created_at: string;
   updated_at: string;
   user?: User;

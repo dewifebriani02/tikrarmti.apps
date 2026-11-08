@@ -89,6 +89,12 @@ const INDIVIDUAL_TEMPLATES = [
       `Assalamu'alaikum Warahmatullahi Wabarakatuh.\n\nYkh. Ukhti ${name || 'Thalibah'},\n\nPemberitahuan Administrasi Akademik MTI:\nBerdasarkan evaluasi sistem, tercatat Ukhti belum melengkapi pengisian Jurnal Harian Tikrar. Mohon segera mengisi jurnal dan konfirmasi ke Musyrifah pendamping sebelum batas waktu evaluasi berakhir.\n\nTautan Jurnal:\n🔗 https://markaztikrar.id/jurnal-harian\n\n*(Mohon tidak membalas pesan ini karena dikirim secara otomatis oleh sistem).*\n\nJazakillahu khairan.\nWassalamu'alaikum Warahmatullahi Wabarakatuh.\n━━━━━━━━━━━━━━\nTim Akademik Markaz Tikrar Indonesia\n🌐 https://markaztikrar.id`,
     },
   {
+    id: 'undangan_tarteel',
+    label: 'Undangan Join Grup Tarteel AI MTI',
+    body: (name: string) =>
+      `Assalamu'alaikum Warahmatullahi Wabarakatuh.\n\nYkh. Ukhti *${name || 'Thalibah'}*,\n\nSemoga hafalan dan ikhtiar interaksi Al-Qur'an Ukhti senantiasa diberkahi oleh Allah Ta'ala.\n\nBagi Ukhti yang memilih metode muroja'ah mandiri menggunakan aplikasi Tarteel AI di Markaz Tikrar Indonesia (MTI), kami mengundang Ukhti untuk bergabung ke grup resmi Tarteel MTI melalui tautan berikut:\n\n🔗 *Link Gabung Grup Tarteel MTI:*\nhttps://t.zip/g/NV0qqSXfVSBkeaYC?ref=umCHUGFKdP\n\n📌 *Manfaat bergabung di grup Tarteel MTI:*\n• Mengikuti leaderboard dan tantangan tilawah harian sesama thalibah MTI\n• Memantau keaktifan dan durasi interaksi tilawah/muroja'ah secara otomatis\n• Mempermudah verifikasi dan evaluasi berkala oleh Tim Musyrifah\n\nPastikan aplikasi Tarteel sudah terpasang di smartphone Ukhti sebelum mengklik tautan di atas.\n\n*(Pesan otomatis dari Sistem Markaz Tikrar Indonesia).*\n\nJazakillahu khairan.\nWassalamu'alaikum Warahmatullahi Wabarakatuh.\n━━━━━━━━━━━━━━\nTim Akademik Markaz Tikrar Indonesia\n🌐 https://markaztikrar.id`,
+  },
+  {
     id: 'reminder_sore_murojaah_40x',
     label: 'Pengingat Sore Murojaah 40x (Target 2 Putaran)',
     body: (name: string) =>
@@ -198,6 +204,35 @@ https://markaztikrar.id/murojaah
 
 Semoga Allah memberkahi lisan dan waktu kita bersama kalam-Nya. Aamiin. 🌿
 *(Pesan otomatis dari Sistem MTI)*`,
+  },
+  {
+    id: 'undangan_tarteel_broadcast',
+    label: 'Undangan Join Grup Tarteel AI MTI',
+    body: `Assalamu'alaikum Warahmatullahi Wabarakatuh.
+
+Ykh. Ukhti *{nama}*,
+
+Semoga hafalan dan ikhtiar interaksi Al-Qur'an Juz *{juz}* Ukhti senantiasa diberkahi oleh Allah Ta'ala.
+
+Bagi Ukhti yang memilih metode muroja'ah mandiri menggunakan aplikasi Tarteel AI di Markaz Tikrar Indonesia (MTI), kami mengundang Ukhti untuk bergabung ke grup resmi Tarteel MTI melalui tautan berikut:
+
+🔗 *Link Gabung Grup Tarteel MTI:*
+https://t.zip/g/NV0qqSXfVSBkeaYC?ref=umCHUGFKdP
+
+📌 *Manfaat bergabung di grup Tarteel MTI:*
+• Mengikuti leaderboard dan tantangan tilawah harian sesama thalibah MTI
+• Memantau keaktifan dan durasi interaksi tilawah/muroja'ah secara otomatis
+• Mempermudah verifikasi dan evaluasi berkala oleh Tim Musyrifah
+
+Pastikan aplikasi Tarteel sudah terpasang di smartphone Ukhti sebelum mengklik tautan di atas.
+
+*(Pesan otomatis dari Sistem Markaz Tikrar Indonesia).*
+
+Jazakillahu khairan.
+Wassalamu'alaikum Warahmatullahi Wabarakatuh.
+━━━━━━━━━━━━━━
+Tim Akademik Markaz Tikrar Indonesia
+🌐 https://markaztikrar.id`,
   },
 ];
 

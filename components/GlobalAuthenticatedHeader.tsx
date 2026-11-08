@@ -157,6 +157,7 @@ export default function GlobalAuthenticatedHeader({
       '/admin/tikrar': 'Pendaftaran & Seleksi',
       '/admin/users': 'Manajemen Users',
       '/admin/exams': 'Manajemen Ujian Akhir',
+      '/admin/murojaah': "Monitoring Muroja'ah",
       '/admin/batch-program': 'Manajemen Batch & Program',
       '/admin/otp-viewer': 'OTP Viewer',
       '/admin/partner': 'Manajemen Partner',

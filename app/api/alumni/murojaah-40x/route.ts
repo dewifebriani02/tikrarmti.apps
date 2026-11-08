@@ -107,46 +107,26 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const targetUserId = searchParams.get('target_user_id');
-    const batchIdParam = searchParams.get('batch_id');
-    const selectedJuzParam = searchParams.get('juz_code')?.trim().toUpperCase();
+    const targetUserId = searchParams.get('user_id');
+    const selectedJuzParam = searchParams.get('juz');
 
-    // Admin / Musyrifah can inspect other thalibah
-    let targetId = user.id;
+    // Allow staff/admin to view other user's progress
     const isAdminOrStaff = (user.roles || []).some((r: string) => ['admin', 'musyrifah', 'muallimah'].includes(r)) || user.role === 'admin';
-    if (targetUserId && targetUserId !== user.id) {
-      if (!isAdminOrStaff) {
-        return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
-      }
-      targetId = targetUserId;
-    }
+    const targetId = (isAdminOrStaff && targetUserId) ? targetUserId : user.id;
 
-    // 1. Get latest or matching registration to determine batch and chosen juz
-    let regQuery = `
-      SELECT p.id as registration_id, p.batch_id, p.chosen_juz, p.status, p.selection_status,
-             d.confirmed_chosen_juz,
-             b.id as b_id, b.name as batch_name, b.status as batch_status, b.end_date as batch_end_date
-      FROM pendaftaran_tikrar_tahfidz p
-      LEFT JOIN batches b ON b.id = p.batch_id
-      LEFT JOIN daftar_ulang_submissions d ON d.registration_id = p.id
-      WHERE p.user_id = $1
-    `;
-    const regParams: any[] = [targetId];
+    // 1. Fetch user profile & batch info
+    const studentProfile = await queryOne(
+      `SELECT p.batch_id, p.confirmed_chosen_juz, b.name as batch_name
+       FROM pendaftaran_tikrar_tahfidz p
+       LEFT JOIN batches b ON b.id = p.batch_id
+       WHERE p.user_id = $1 AND p.status = 'approved'
+       ORDER BY p.created_at DESC LIMIT 1`,
+      [targetId]
+    );
 
-    if (batchIdParam) {
-      regQuery += ` AND p.batch_id = $2`;
-      regParams.push(batchIdParam);
-    }
-
-    regQuery += ` ORDER BY p.created_at DESC LIMIT 1`;
-
-    const { rows: regRows } = await query(regQuery, regParams);
-    const reg = regRows[0];
-
-    // Fallback if no registration exists (e.g. admin test view)
-    let batchId = reg?.batch_id || batchIdParam;
-    let batchName = reg?.batch_name || 'Batch 2 MTI';
-    let defaultJuzCode = selectedJuzParam || reg?.confirmed_chosen_juz || reg?.chosen_juz || '30A';
+    let batchId = studentProfile?.batch_id;
+    let batchName = studentProfile?.batch_name || 'Alumni / Umum';
+    let defaultJuzCode = studentProfile?.confirmed_chosen_juz || '30A';
 
     if (!batchId) {
       // Find open or latest batch
@@ -161,7 +141,7 @@ export async function GET(request: NextRequest) {
 
     // 2. Fetch all enrolled juz records for this user
     const { rows: allEnrolledRows } = await query(
-      `SELECT id, juz_code, status, total_completed, started_at, expires_at, is_warrior_eligible, time_slot_main, time_slot_backup
+      `SELECT id, juz_code, status, total_completed, started_at, expires_at, is_warrior_eligible, time_slot_main, time_slot_backup, is_reminder_active
        FROM murojaah_40x_progress
        WHERE user_id = $1
        ORDER BY updated_at DESC`,
@@ -184,8 +164,8 @@ export async function GET(request: NextRequest) {
     if (!progress) {
       const { rows: newProgressRows } = await query(
         `INSERT INTO murojaah_40x_progress 
-         (user_id, batch_id, juz_code, is_part_b, include_part_a, total_completed, started_at, expires_at, status, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, 0, NOW(), NOW() + INTERVAL '20 days', 'active', NOW(), NOW())
+         (user_id, batch_id, juz_code, is_part_b, include_part_a, total_completed, started_at, expires_at, status, is_reminder_active, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, 0, NOW(), NOW() + INTERVAL '20 days', 'active', true, NOW(), NOW())
          ON CONFLICT (user_id, batch_id, juz_code) 
          DO UPDATE SET updated_at = NOW()
          RETURNING *`,
@@ -222,21 +202,25 @@ export async function GET(request: NextRequest) {
     const partALogs = logs.filter(l => l.juz_segment === 'part_a_optional');
 
     // 4. Calculate Warrior Challenge Status (<= 20 Days)
-    const startDate = new Date(progress.started_at);
+    const totalCompletedNum = Number(progress.total_completed || 0);
+    const startDate = logs.length > 0 ? new Date(logs[0].completed_at) : new Date(progress.started_at);
     const now = new Date();
     const expiryDate = progress.expires_at ? new Date(progress.expires_at) : new Date(startDate.getTime() + 20 * 86400000);
-    
-    // Days elapsed
-    const endDateForElapsed = progress.completed_at ? new Date(progress.completed_at) : now;
-    const diffTime = Math.max(0, endDateForElapsed.getTime() - startDate.getTime());
-    const daysElapsed = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
 
-    // Days remaining until 20 days challenge ends
-    const remainingTime = expiryDate.getTime() - now.getTime();
-    const daysRemaining = Math.max(0, Math.ceil(remainingTime / (1000 * 60 * 60 * 24)));
+    let daysElapsed = 1;
+    let daysRemaining = 20;
 
-    const isCompleted = Number(progress.total_completed || 0) >= 40;
-    const isExpired = !isCompleted && (daysRemaining <= 0 || now > expiryDate);
+    if (totalCompletedNum > 0) {
+      const endDateForElapsed = progress.completed_at ? new Date(progress.completed_at) : now;
+      const diffTime = Math.max(0, endDateForElapsed.getTime() - startDate.getTime());
+      daysElapsed = Math.min(20, Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24))));
+
+      const remainingTime = expiryDate.getTime() - now.getTime();
+      daysRemaining = Math.max(0, Math.ceil(remainingTime / (1000 * 60 * 60 * 24)));
+    }
+
+    const isCompleted = totalCompletedNum >= 40;
+    const isExpired = totalCompletedNum > 0 && !isCompleted && (daysRemaining <= 0 || now > expiryDate);
     const isWarriorEligible = isCompleted && daysElapsed <= 20;
 
     // 5. Fetch user badge if already awarded
@@ -270,8 +254,8 @@ export async function GET(request: NextRequest) {
     });
 
     const debtInfo = calculateMurojaahDebt({
-      startedAt: progress.started_at,
-      totalCompleted: Number(progress.total_completed || 0),
+      startedAt: startDate,
+      totalCompleted: totalCompletedNum,
       todayLogsCount: primaryTodayLogs.length,
     });
 
@@ -280,6 +264,7 @@ export async function GET(request: NextRequest) {
       data: {
         progress: {
           ...progress,
+          is_reminder_active: progress.is_reminder_active ?? true,
           time_slot_main_label: getTimeSlotLabel(progress.time_slot_main),
           time_slot_backup_label: getTimeSlotLabel(progress.time_slot_backup),
         },
@@ -416,8 +401,7 @@ export async function POST(request: NextRequest) {
     // 6. Insert round log
     const { rows: insertedLogs } = await query(
       `INSERT INTO murojaah_40x_logs 
-       (progress_id, user_id, round_number, juz_segment, completed_at, methods, notes, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+       (progress_id, user_id, round_number, juz_segment, completed_at, methods, notes, created_at)\n       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
        RETURNING *`,
       [progress.id, user.id, nextRound, juz_segment, completed_at, methods, notes ? notes.trim() : null]
     );
@@ -431,8 +415,9 @@ export async function POST(request: NextRequest) {
     if (juz_segment === 'primary') {
       const newTotal = nextRound;
       const isCompleted = newTotal >= 40;
+      const isFirstRound = currentMax === 0;
 
-      const startDate = new Date(progress.started_at);
+      const startDate = isFirstRound ? new Date(completed_at) : new Date(progress.started_at);
       const completionDate = new Date();
       const diffTime = Math.abs(completionDate.getTime() - startDate.getTime());
       const durationDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -441,13 +426,15 @@ export async function POST(request: NextRequest) {
       const { rows: progRows } = await query(
         `UPDATE murojaah_40x_progress
          SET total_completed = $1,
+             started_at = CASE WHEN $5 = true THEN $6::timestamptz ELSE started_at END,
+             expires_at = CASE WHEN $5 = true THEN $6::timestamptz + INTERVAL '20 days' ELSE expires_at END,
              completed_at = CASE WHEN $2 = true THEN NOW() ELSE completed_at END,
              status = CASE WHEN $2 = true THEN 'completed' ELSE status END,
              is_warrior_eligible = CASE WHEN $3 = true THEN true ELSE is_warrior_eligible END,
              updated_at = NOW()
          WHERE id = $4
          RETURNING *`,
-        [newTotal, isCompleted, isEligibleWarrior, progress.id]
+        [newTotal, isCompleted, isEligibleWarrior, progress.id, isFirstRound, completed_at]
       );
       updatedProgress = progRows[0];
 
@@ -473,7 +460,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `Putaran ke-${nextRound} (${juz_segment === 'primary' ? 'Juz Utama' : 'Bagian A'}) berhasil dicatat!`,
+      message: `Putaran ke-${nextRound} (${juz_segment === 'primary' ? 'Juz Utama' : 'Bagian A'}) berhasil dicatat! Barakallahu fiik.`,
       data: {
         log: newLog,
         progress: updatedProgress,
@@ -487,8 +474,51 @@ export async function POST(request: NextRequest) {
 }
 
 /**
+ * PATCH /api/alumni/murojaah-40x
+ * Update settings (e.g. toggle WhatsApp reminder active/inactive)
+ */
+export async function PATCH(request: NextRequest) {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { progress_id, is_reminder_active } = body;
+
+    if (!progress_id || typeof is_reminder_active !== 'boolean') {
+      return NextResponse.json({ success: false, error: 'Parameter tidak valid' }, { status: 400 });
+    }
+
+    const { rows } = await query(
+      `UPDATE murojaah_40x_progress
+       SET is_reminder_active = $1, updated_at = NOW()
+       WHERE id = $2 AND user_id = $3
+       RETURNING *`,
+      [is_reminder_active, progress_id, user.id]
+    );
+
+    if (rows.length === 0) {
+      return NextResponse.json({ success: false, error: 'Data progress tidak ditemukan' }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: is_reminder_active 
+        ? 'Pengingat sore WhatsApp diaktifkan' 
+        : 'Pengingat sore WhatsApp dinonaktifkan',
+      data: rows[0],
+    });
+  } catch (error: any) {
+    console.error('[Murojaah 40x PATCH] Error:', error);
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+}
+
+/**
  * DELETE /api/alumni/murojaah-40x
- * Undo the last recorded round for a segment
+ * Undo last round log for the user in this segment
  */
 export async function DELETE(request: NextRequest) {
   try {

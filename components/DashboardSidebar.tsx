@@ -6,7 +6,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { 
   X, BookOpen, GraduationCap, Users, LogOut, ChevronLeft, ChevronRight, Eye,
   LayoutGrid, ClipboardList, FileText, UserCheck, BarChart3, Calendar, Shield, Settings,
-  MessageSquare, HeartHandshake, HelpCircle, Award, ArrowRightLeft, Video, Database, RotateCcw, Sparkles, Landmark
+  MessageSquare, HeartHandshake, HelpCircle, Award, ArrowRightLeft, Video, Database, RotateCcw, Sparkles, Landmark, Flame
 } from 'lucide-react';
 import { ROLE_RANKS, hasRequiredRank, isStaff } from '@/lib/roles';
 import { useAuth } from '@/hooks/useAuth';
@@ -135,6 +135,11 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
         href: '/admin/exams',
         label: 'Manajemen Ujian',
         icon: <GraduationCap className="h-5 w-5" />,
+      });
+      baseItems.push({
+        href: '/admin/murojaah',
+        label: 'Monitoring Murojaah',
+        icon: <Flame className="h-5 w-5 text-amber-500" />,
       });
 
       baseItems.push({ type: 'header', label: 'Alur Kelulusan' });

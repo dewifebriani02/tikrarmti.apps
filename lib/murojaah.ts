@@ -89,17 +89,42 @@ export function calculateMurojaahDebt(params: {
   todayLogsCount: number;
 }): MurojaahDebtCalculation {
   const { startedAt, totalCompleted, todayLogsCount } = params;
-  
-  const startDate = new Date(startedAt);
-  const now = new Date();
-  
-  const startDay = Math.floor(startDate.getTime() / (1000 * 60 * 60 * 24));
-  const todayDay = Math.floor(now.getTime() / (1000 * 60 * 60 * 24));
-  const daysElapsed = Math.max(1, todayDay - startDay + 1);
 
   const todayTarget = 2;
   const todayCount = Math.max(0, todayLogsCount);
   const todayRemaining = Math.max(0, todayTarget - todayCount);
+
+  // If user hasn't completed any round yet, they have zero previous debt
+  if (!totalCompleted || totalCompleted <= 0) {
+    return {
+      todayCount,
+      todayTarget,
+      todayRemaining,
+      daysElapsed: 1,
+      expectedCumulativeUntilYesterday: 0,
+      completedUntilYesterday: 0,
+      previousDebt: 0,
+      totalDebt: todayRemaining,
+      isTodayTargetMet: todayCount >= todayTarget,
+      isDebtFree: todayRemaining === 0,
+    };
+  }
+  
+  // Calculate date difference using WIB (UTC+7)
+  const toWibDate = (d: string | Date) => {
+    const dateObj = new Date(d);
+    const wibMs = dateObj.getTime() + 7 * 60 * 60 * 1000;
+    const wibDate = new Date(wibMs);
+    return wibDate.toISOString().split('T')[0];
+  };
+
+  const startDayStr = toWibDate(startedAt);
+  const todayStr = toWibDate(new Date());
+
+  const startMs = new Date(startDayStr).getTime();
+  const todayMs = new Date(todayStr).getTime();
+  const diffDays = Math.max(0, Math.round((todayMs - startMs) / (1000 * 60 * 60 * 24)));
+  const daysElapsed = Math.min(20, Math.max(1, diffDays + 1));
 
   const expectedCumulativeUntilYesterday = Math.max(0, (daysElapsed - 1) * 2);
   const completedUntilYesterday = Math.max(0, totalCompleted - todayCount);
@@ -157,5 +182,8 @@ export function buildMurojaahAfternoonReminder(params: {
     `Mari manfaatkan waktu sore ini untuk saling simak atau murojaah mandiri agar hafalan semakin mutqin dan hutang putaran tidak menumpuk. Semangat lillah! 💪🌿`,
     ``,
     `🔗 Buka lembar murojaah Ukhti di: https://markaztikrar.id/murojaah`,
+    ``,
+    `━━━━━━━━━━━━━━`,
+    `💡 *Opsi Pengingat:* Jika Ukhti ingin menonaktifkan pengingat sore WhatsApp ini, Ukhti dapat mematikannya melalui menu Muraja'ah 40x di aplikasi MTI (https://markaztikrar.id/murojaah) atau membalas pesan ini dengan *STOP*.`,
   ].join("\n");
 }

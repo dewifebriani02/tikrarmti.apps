@@ -29,7 +29,9 @@ import {
   MessageCircle,
   AlertTriangle,
   RefreshCw,
-  Lock
+  Lock,
+  Bell,
+  BellOff
 } from 'lucide-react';
 import { MurojaahMethod, MurojaahSegment, Murojaah40xLog, Murojaah40xProgress } from '@/types/database';
 import { MurojaahCommunityDirectory } from './MurojaahCommunityDirectory';
@@ -188,6 +190,37 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
     }
   };
 
+  const [isTogglingReminder, setIsTogglingReminder] = useState(false);
+
+  const handleToggleReminder = async () => {
+    if (!data?.progress?.id) return;
+    const currentVal = data.progress.is_reminder_active ?? true;
+    const nextVal = !currentVal;
+
+    try {
+      setIsTogglingReminder(true);
+      const res = await fetch('/api/alumni/murojaah-40x', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          progress_id: data.progress.id,
+          is_reminder_active: nextVal,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        toast.success(json.message);
+        fetchData();
+      } else {
+        toast.error(json.error || 'Gagal mengubah preferensi pengingat');
+      }
+    } catch (err: any) {
+      toast.error('Terjadi kesalahan jaringan');
+    } finally {
+      setIsTogglingReminder(false);
+    }
+  };
+
   const handleUndoLastRound = async () => {
     if (!data?.progress?.id) return;
     if (!confirm(`Batalkan pencatatan putaran terakhir untuk ${activeSegment === 'primary' ? 'Juz Utama' : 'Bagian A'}?`)) {
@@ -240,8 +273,9 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
     return compDate === todayDateStr;
   });
 
+  const firstLogDate = currentLogs.length > 0 ? currentLogs[0].completed_at : progress?.started_at;
   const activeDebt = calculateMurojaahDebt({
-    startedAt: progress?.started_at || new Date(),
+    startedAt: firstLogDate || new Date(),
     totalCompleted: currentCompletedCount,
     todayLogsCount: currentSegmentTodayLogs.length,
   });
@@ -382,8 +416,8 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
                     <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider ${activeDebt.totalDebt > 0 ? "bg-amber-100 text-amber-900 border border-amber-200" : "bg-emerald-100 text-emerald-900 border border-emerald-200"}`}>
                       {activeDebt.totalDebt > 0 ? 'Pengingat Sore: Target 2 Putaran/Hari' : 'Target Harian Tuntas'}
                     </span>
-                    <span className="text-[11px] font-bold text-gray-500">
-                      Hari ke-{activeDebt.daysElapsed} Murojaah
+                    <span className="text-[11px] font-bold text-gray-600">
+                      Porsi Hari ke-{Math.min(20, Math.ceil(nextRoundNumber / 2))} &bull; Hari Kalender ke-{activeDebt.daysElapsed} dari 20 Hari
                     </span>
                   </div>
 
@@ -412,6 +446,29 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
                         {activeDebt.totalDebt} Putaran
                       </span>
                     </span>
+
+                  </div>
+
+                  {/* Toggle Reminder Sore WA Button */}
+                  <div className="pt-2 flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={isTogglingReminder}
+                      onClick={handleToggleReminder}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] sm:text-[11px] font-bold transition-all border",
+                        (progress?.is_reminder_active ?? true)
+                          ? "bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100"
+                          : "bg-gray-100 text-gray-500 border-gray-300 hover:bg-gray-200"
+                      )}
+                      title="Klik untuk mengubah preferensi notifikasi reminder sore WhatsApp"
+                    >
+                      <Bell className={cn("w-3.5 h-3.5", (progress?.is_reminder_active ?? true) ? "text-emerald-600" : "text-gray-400")} />
+                      <span>Reminder Sore WA: <strong>{(progress?.is_reminder_active ?? true) ? "Aktif (16.30 WIB)" : "Nonaktif (Dimatikan)"}</strong></span>
+                      <span className="text-[9px] underline text-gray-500 ml-1">
+                        {(progress?.is_reminder_active ?? true) ? "Matikan" : "Nyalakan"}
+                      </span>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -898,15 +955,15 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
                         </div>
                         <div>
                           <h4 className="text-xs sm:text-sm font-black text-gray-900 leading-tight">
-                            Hari ke-{dayIndex}
+                            Porsi Target Hari ke-{dayIndex}
                           </h4>
                           <p className="text-[10px] text-gray-400 font-medium">
-                            Target: 2 Putaran Muroja'ah
+                            Target Putaran {round1Num} &amp; {round2Num}
                           </p>
                         </div>
                         {isCurrentDay && (
                           <span className="text-[10px] bg-amber-100 text-amber-900 font-extrabold px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs">
-                            <Sparkles className="w-3 h-3 text-amber-600" /> Hari Berjalan
+                            <Sparkles className="w-3 h-3 text-amber-600" /> Porsi Berjalan
                           </span>
                         )}
                       </div>

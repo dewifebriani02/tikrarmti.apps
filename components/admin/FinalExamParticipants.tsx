@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Filter, CheckCircle2, Clock, User, Award, MessageSquare, Save, Loader2, ChevronRight } from 'lucide-react';
+import { Search, Filter, CheckCircle2, Clock, User, Award, MessageSquare, Save, Loader2, ChevronRight, PenTool } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { cn } from '@/lib/utils';
 import { formatMuallimahName } from '@/lib/roles';
@@ -22,6 +22,8 @@ interface Registration {
   feedback: string | null;
   user: { full_name: string; whatsapp: string };
   schedule: {
+    batch_id?: string;
+    batch?: { id: string; name: string };
     exam_type: string;
     exam_date: string;
     start_time: string;
@@ -34,6 +36,8 @@ const formatExaminerName = (name: string) => formatMuallimahName(name) || '-';
 
 export function FinalExamParticipants() {
   const [registrations, setRegistrations] = useState<Registration[]>([]);
+  const [batches, setBatches] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedBatch, setSelectedBatch] = useState<string>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedReg, setSelectedReg] = useState<Registration | null>(null);
@@ -41,12 +45,26 @@ export function FinalExamParticipants() {
 
   const [gradingData, setGradingData] = useState({
     score_lisan: 0,
+    score_tulisan: 0,
     feedback: ''
   });
 
   useEffect(() => {
     fetchRegistrations();
+    fetchBatches();
   }, []);
+
+  const fetchBatches = async () => {
+    try {
+      const res = await fetch('/api/admin/batches');
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        setBatches(json.data);
+      }
+    } catch (e) {
+      console.error('Failed to fetch batches:', e);
+    }
+  };
 
   const fetchRegistrations = async () => {
     setIsLoading(true);
@@ -66,7 +84,8 @@ export function FinalExamParticipants() {
   const handleOpenGrading = (reg: Registration) => {
     setSelectedReg(reg);
     setGradingData({
-      score_lisan: reg.score_lisan || 0,
+      score_lisan: reg.score_lisan !== null ? reg.score_lisan : 0,
+      score_tulisan: reg.score_tulisan !== null ? reg.score_tulisan : 0,
       feedback: reg.feedback || ''
     });
   };
@@ -81,6 +100,7 @@ export function FinalExamParticipants() {
         body: JSON.stringify({
           registration_id: selectedReg.id,
           score_lisan: gradingData.score_lisan,
+          score_tulisan: gradingData.score_tulisan,
           feedback: gradingData.feedback
         })
       });
@@ -99,9 +119,13 @@ export function FinalExamParticipants() {
     }
   };
 
-  const filtered = registrations.filter(r => 
-    r.user.full_name.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = registrations.filter(r => {
+    const matchesSearch = r.user.full_name.toLowerCase().includes(search.toLowerCase());
+    const matchesBatch = selectedBatch === 'all' || 
+      r.schedule?.batch_id === selectedBatch || 
+      (selectedBatch === 'batch_1_2' && (r.schedule?.batch?.name?.toLowerCase().includes('batch 1') || r.schedule?.batch?.name?.toLowerCase().includes('batch 2')));
+    return matchesSearch && matchesBatch;
+  });
 
   const sorted = [...filtered].sort((a, b) => {
     const dateA = a.schedule?.exam_date || '';
@@ -118,7 +142,7 @@ export function FinalExamParticipants() {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* List Column */}
       <div className="lg:col-span-2 space-y-4">
-        <div className="flex gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row gap-3 mb-6">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <Input 
@@ -128,10 +152,25 @@ export function FinalExamParticipants() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <Button variant="outline" className="rounded-xl border-gray-200">
-            <Filter className="w-4 h-4 mr-2" />
-            Filter
-          </Button>
+          
+          <div className="w-full sm:w-60">
+            <Select value={selectedBatch} onValueChange={setSelectedBatch}>
+              <SelectTrigger className="rounded-xl border-gray-200 bg-white">
+                <SelectValue placeholder="Pilih Angkatan" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua Angkatan</SelectItem>
+                <SelectItem value="batch_1_2" className="font-bold text-amber-900">
+                  ⚡ Khusus Batch 1 &amp; 2
+                </SelectItem>
+                {batches.map(b => (
+                  <SelectItem key={b.id} value={b.id}>
+                    {b.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {isLoading ? (
@@ -156,7 +195,14 @@ export function FinalExamParticipants() {
                     <User className="w-6 h-6" />
                   </div>
                   <div>
-                    <h4 className="font-black text-gray-900 leading-tight">{reg.user.full_name}</h4>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-black text-gray-900 leading-tight">{reg.user.full_name}</h4>
+                      {reg.schedule?.batch?.name && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-gray-100 text-gray-700">
+                          {reg.schedule.batch.name}
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-gray-500 font-medium mt-0.5">
                       {reg.schedule.exam_type === 'oral' ? 'Ujian Lisan' : 'Ujian Tulisan'} • {new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeZone: 'Asia/Jakarta' }).format(new Date(reg.schedule.exam_date))}
                       {reg.schedule.start_time && ` • ${reg.schedule.start_time} - ${reg.schedule.end_time || ''} WIB`}
@@ -170,7 +216,12 @@ export function FinalExamParticipants() {
                       </span>
                       {reg.score_lisan !== null && (
                         <span className="text-[10px] font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded-full border border-green-100">
-                          Nilai: {reg.score_lisan}
+                          Lisan: {reg.score_lisan}
+                        </span>
+                      )}
+                      {reg.score_tulisan !== null && (
+                        <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
+                          Tulisan: {reg.score_tulisan}
                         </span>
                       )}
                       {reg.schedule.examiner?.full_name && (
@@ -201,34 +252,64 @@ export function FinalExamParticipants() {
         {selectedReg ? (
           <Card className="rounded-3xl border border-gray-100 bg-white shadow-xl sticky top-24 overflow-hidden animate-fadeInRight">
             <div className="bg-gradient-to-br from-green-900 to-emerald-800 p-6 text-white">
-              <h3 className="text-lg font-black tracking-tight">Form Penilaian</h3>
+              <h3 className="text-lg font-black tracking-tight">Form Penilaian Ujian</h3>
               <p className="text-xs text-green-100 opacity-80 mt-1">Berikan penilaian untuk {selectedReg.user.full_name}</p>
+              {selectedReg.schedule?.batch?.name && (
+                <div className="mt-2 inline-block bg-white/20 text-white font-extrabold text-[10px] px-2.5 py-0.5 rounded-full">
+                  {selectedReg.schedule.batch.name}
+                </div>
+              )}
             </div>
             <CardContent className="p-6 space-y-6">
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-xs font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
-                    <Award className="w-3.5 h-3.5" />
+                  <Label className="text-xs font-black uppercase tracking-widest text-gray-500 flex items-center gap-2">
+                    <Award className="w-3.5 h-3.5 text-emerald-700" />
                     Nilai Ujian Lisan (0-100)
                   </Label>
                   <Input 
                     type="number"
                     min="0"
                     max="100"
+                    placeholder="0"
                     className="rounded-xl border-gray-200 h-12 text-lg font-black"
                     value={gradingData.score_lisan}
-                    onChange={(e) => setGradingData({...gradingData, score_lisan: parseInt(e.target.value)})}
+                    onChange={(e) => setGradingData({...gradingData, score_lisan: parseInt(e.target.value) || 0})}
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-xs font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-black uppercase tracking-widest text-blue-800 flex items-center gap-2">
+                      <PenTool className="w-3.5 h-3.5 text-blue-600" />
+                      Nilai Ujian Tulisan Manual (0-100)
+                    </Label>
+                    <span className="text-[10px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full">
+                      Khusus Batch 1 &amp; 2
+                    </span>
+                  </div>
+                  <Input 
+                    type="number"
+                    min="0"
+                    max="100"
+                    placeholder="0"
+                    className="rounded-xl border-blue-200 bg-blue-50/20 h-12 text-lg font-black text-blue-950 focus:border-blue-500"
+                    value={gradingData.score_tulisan}
+                    onChange={(e) => setGradingData({...gradingData, score_tulisan: parseInt(e.target.value) || 0})}
+                  />
+                  <p className="text-[10px] text-gray-500">
+                    Ruang input nilai ujian tertulis manual untuk peserta Batch 1 &amp; 2 atau penginputan susulan.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs font-black uppercase tracking-widest text-gray-500 flex items-center gap-2">
                     <MessageSquare className="w-3.5 h-3.5" />
                     Catatan / Feedback
                   </Label>
                   <Textarea 
                     placeholder="Contoh: Tajwid sangat bagus, kelancaran perlu ditingkatkan di akhir juz."
-                    className="rounded-xl border-gray-200 min-h-[120px] text-sm"
+                    className="rounded-xl border-gray-200 min-h-[100px] text-sm"
                     value={gradingData.feedback}
                     onChange={(e) => setGradingData({...gradingData, feedback: e.target.value})}
                   />
@@ -290,7 +371,7 @@ export function FinalExamParticipants() {
              </div>
              <div>
                 <h4 className="text-sm font-bold text-gray-400 uppercase tracking-widest">Panel Penilaian</h4>
-                <p className="text-xs text-gray-300 font-medium">Pilih salah satu thalibah di daftar untuk memberikan nilai ujian.</p>
+                <p className="text-xs text-gray-300 font-medium">Pilih salah satu thalibah di daftar untuk memberikan nilai ujian lisan dan tulisan.</p>
              </div>
           </div>
         )}
