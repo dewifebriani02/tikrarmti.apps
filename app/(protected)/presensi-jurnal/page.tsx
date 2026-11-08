@@ -2296,7 +2296,7 @@ function TashihTabSimple({ selectedBatchId, entries, currentWeek, onRefresh, onS
                                     : "bg-red-500 border-red-600 text-white"
                             )}
                           >
-                            <div className="text-[10px] font-bold">{block.block_code.split('H')[1]}</div>
+                            <div className="text-[10px] font-bold">{block.block_code?.startsWith("H") ? block.block_code.slice(1) : block.block_code}</div>
                             <div className="text-[7px] uppercase">{block.is_completed ? 'Sudah' : (isLocked ? 'Lock' : 'Input')}</div>
                           </button>
                         );
@@ -2513,7 +2513,7 @@ function TashihTabSimple({ selectedBatchId, entries, currentWeek, onRefresh, onS
                                              : "bg-red-500 border-red-600 text-white hover:bg-red-600"
                                      )}
                                    >
-                                       <div className="text-xs">{block.block_code.split('H')[1]}</div>
+                                       <div className="text-xs font-bold">{block.block_code?.startsWith("H") ? block.block_code.slice(1) : block.block_code}</div>
                                        <div className="text-[8px] uppercase">{block.is_completed ? 'Sudah' : (isLocked ? 'Locked' : 'Input')}</div>
                                    </button>
                                    );
@@ -3113,7 +3113,7 @@ Tetap semangat untuk pekan-pekan berikutnya!
                                     : "bg-red-500 border-red-600 text-white"
                             )}
                           >
-                            <div className="text-[10px] font-bold">{block.block_code.split('H')[1]}</div>
+                            <div className="text-[10px] font-bold">{block.block_code?.startsWith("H") ? block.block_code.slice(1) : block.block_code}</div>
                             <div className="text-[7px] uppercase">{block.is_completed ? 'Sudah' : (isLocked ? 'Lock' : 'Input')}</div>
                           </button>
                         );
@@ -3347,7 +3347,7 @@ Tetap semangat untuk pekan-pekan berikutnya!
                                                      : "bg-red-500 border-red-600 text-white hover:bg-red-600"
                                             )}
                                          >
-                                           <div className="text-[10px] mb-1 opacity-80">{block.block_code.split('H')[1]}</div>
+                                           <div className="text-[10px] mb-1 font-bold opacity-90">{block.block_code?.startsWith("H") ? block.block_code.slice(1) : block.block_code}</div>
                                            <div className="text-[8px] font-bold uppercase">{block.is_completed ? 'Sudah' : (isLocked ? 'Locked' : 'Input')}</div>
                                          </button>
                                         );
