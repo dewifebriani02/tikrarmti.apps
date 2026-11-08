@@ -208,7 +208,11 @@ export function InfaqSuspendGuard({
           if (!open) handleClose();
           else setIsOpen(true);
         }}>
-          <DialogContent className="max-w-md w-[95vw] sm:w-full p-0 overflow-hidden rounded-3xl border border-rose-100 shadow-2xl">
+          <DialogContent 
+            onPointerDownOutside={(e) => e.preventDefault()}
+            onInteractOutside={(e) => e.preventDefault()}
+            className="max-w-md w-[95vw] sm:w-full p-0 overflow-hidden rounded-3xl border border-rose-100 shadow-2xl"
+          >
             {/* Top Warning Bar */}
             <div className="h-2 bg-gradient-to-r from-rose-500 via-amber-500 to-rose-600" />
 
@@ -288,39 +292,33 @@ export function InfaqSuspendGuard({
                   </div>
 
                   <div className="space-y-1">
-                    <Label htmlFor="guardProof" className="text-[11px] font-bold text-gray-700">Bukti Transfer</Label>
-                    <div className="relative">
+                    <Label className="text-[11px] font-bold text-gray-700">Bukti Transfer</Label>
+                    <div className="relative flex items-center justify-center gap-1.5 w-full h-8 px-2.5 rounded-xl border border-dashed border-emerald-300 hover:border-emerald-600 bg-white hover:bg-emerald-50 text-[11px] font-medium text-gray-700 transition-colors shadow-sm overflow-hidden">
                       <input
                         id="guardProof"
                         type="file"
-                        accept="image/*,application/pdf"
+                        accept="image/jpeg,image/png,image/webp,image/jpg,application/pdf"
                         onChange={handleFileUpload}
-                        className="hidden"
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                         disabled={uploadingProof}
+                        title="Pilih foto bukti transfer"
                       />
-                      <label
-                        htmlFor="guardProof"
-                        className={`flex items-center justify-center gap-1.5 w-full h-8 px-2.5 rounded-xl border border-dashed border-emerald-300 hover:border-emerald-600 bg-white hover:bg-emerald-50 text-[11px] font-medium text-gray-700 cursor-pointer transition-colors shadow-sm ${
-                          uploadingProof ? 'opacity-50 pointer-events-none' : ''
-                        }`}
-                      >
-                        {uploadingProof ? (
-                          <span className="flex items-center gap-1 text-emerald-800 text-[10px]">
-                            <div className="w-2.5 h-2.5 border-2 border-emerald-800 border-t-transparent rounded-full animate-spin" />
-                            Mengunggah...
-                          </span>
-                        ) : proofUrl ? (
-                          <span className="flex items-center gap-1 text-emerald-700 font-bold truncate text-[10px]">
-                            <Check className="w-3 h-3 text-emerald-600 shrink-0" />
-                            {proofFile ? proofFile.name : 'Bukti Terpilih'}
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-1 text-emerald-800 font-semibold text-[10px]">
-                            <Upload className="w-3 h-3" />
-                            Pilih Foto Bukti
-                          </span>
-                        )}
-                      </label>
+                      {uploadingProof ? (
+                        <span className="flex items-center gap-1 text-emerald-800 text-[10px]">
+                          <div className="w-2.5 h-2.5 border-2 border-emerald-800 border-t-transparent rounded-full animate-spin" />
+                          Mengunggah...
+                        </span>
+                      ) : proofUrl ? (
+                        <span className="flex items-center gap-1 text-emerald-700 font-bold truncate text-[10px]">
+                          <Check className="w-3 h-3 text-emerald-600 shrink-0" />
+                          {proofFile ? proofFile.name : 'Bukti Terpilih'}
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-emerald-800 font-semibold text-[10px]">
+                          <Upload className="w-3 h-3" />
+                          Pilih Foto Bukti
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>

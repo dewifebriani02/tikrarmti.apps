@@ -118,7 +118,7 @@ export default function InfaqDonasiPage() {
     }
 
     const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf', 'image/webp', 'image/heic', 'image/heif'];
-    if (!validTypes.includes(file.type) && !file.type.startsWith('image/')) {
+    if (!validTypes.includes(file.type) && !file.type.startsWith('image/') && !file.name.match(/\.(jpg|jpeg|png|webp|heic|heif|pdf)$/i)) {
       toast.error('Format file harus berupa JPG, PNG, atau PDF');
       return;
     }
@@ -262,7 +262,7 @@ export default function InfaqDonasiPage() {
       {/* POPUP MODAL: SUKSES KONFIRMASI INFAQ                                      */}
       {/* ========================================================================= */}
       <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
-        <DialogContent className="max-w-md w-[95vw] sm:w-full p-0 overflow-hidden rounded-3xl border border-emerald-100 shadow-2xl">
+        <DialogContent onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()} className="max-w-md w-[95vw] sm:w-full p-0 overflow-hidden rounded-3xl border border-emerald-100 shadow-2xl">
           <div className="h-2 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600" />
           <div className="p-6 sm:p-7 text-center space-y-4">
             <div className="mx-auto w-16 h-16 rounded-3xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shadow-inner">
@@ -554,18 +554,20 @@ export default function InfaqDonasiPage() {
             <div className="space-y-1.5">
               <Label className="text-xs font-bold text-gray-700">Unggah Bukti Transfer</Label>
               <div className="flex items-center gap-2.5">
-                <label className="flex-1 flex items-center justify-between px-3.5 py-2.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl cursor-pointer transition-all">
-                  <span className="text-xs truncate max-w-[200px]">
+                <div className="relative flex-1 flex items-center justify-between px-3.5 py-2.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl transition-all shadow-sm overflow-hidden">
+                  <span className="text-xs truncate max-w-[220px]">
                     {proofFile ? proofFile.name : 'Pilih file struk/tangkapan layar...'}
                   </span>
-                  <Upload className="w-4 h-4 text-gray-400" />
+                  <Upload className="w-4 h-4 text-gray-400 shrink-0" />
                   <input
                     type="file"
-                    accept=".jpg,.jpeg,.png,.pdf,image/*"
+                    accept="image/jpeg,image/png,image/webp,image/jpg,application/pdf"
                     onChange={handleFileUpload}
-                    className="hidden"
+                    disabled={uploadingProof}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                    title="Pilih file bukti transfer"
                   />
-                </label>
+                </div>
                 {uploadingProof && (
                   <div className="w-4 h-4 animate-spin rounded-full border-b-2 border-green-900 shrink-0" />
                 )}
