@@ -23,9 +23,10 @@ export async function GET(request: NextRequest) {
        ORDER BY b.start_date DESC NULLS LAST`
     );
 
-    // Default to the batch with warrior participants (e.g. Batch 3) or latest batch
+    // Default to the batch with the most warrior participants (e.g. Batch 3 with 87 peserta)
     if ((!batchId || batchId === 'default') && batches.length > 0) {
-      const batchWithData = batches.find(b => Number(b.warrior_count) > 0) || batches.find(b => b.status === 'ongoing') || batches[0];
+      const sortedByParticipants = [...batches].sort((a, b) => Number(b.warrior_count || 0) - Number(a.warrior_count || 0));
+      const batchWithData = sortedByParticipants.find(b => Number(b.warrior_count) > 0) || batches[0];
       batchId = batchWithData.id;
     }
 
