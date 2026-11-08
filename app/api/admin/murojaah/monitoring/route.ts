@@ -14,17 +14,17 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     let batchId = searchParams.get('batch_id');
 
-    // 1. Fetch all batches with count of approved thalibah
+    // 1. Fetch all batches with count of approved thalibah, sorted chronologically by start_date DESC
     const { rows: batches } = await query(
       `SELECT b.id, b.name, b.status, b.start_date, b.end_date,
               COUNT(p.id)::int as thalibah_count
        FROM batches b
        LEFT JOIN pendaftaran_tikrar_tahfidz p ON p.batch_id = b.id AND p.status = 'approved'
-       GROUP BY b.id, b.name, b.status, b.start_date, b.end_date, b.created_at
-       ORDER BY b.created_at DESC`
+       GROUP BY b.id, b.name, b.status, b.start_date, b.end_date
+       ORDER BY b.start_date DESC NULLS LAST`
     );
 
-    // Default to the batch that actually has thalibah (e.g. Batch 3) or ongoing batch
+    // Default to the latest active batch with thalibah (Batch 3) or ongoing batch
     if ((!batchId || batchId === 'default') && batches.length > 0) {
       const batchWithData = batches.find(b => Number(b.thalibah_count) > 0) || batches.find(b => b.status === 'ongoing') || batches[0];
       batchId = batchWithData.id;
