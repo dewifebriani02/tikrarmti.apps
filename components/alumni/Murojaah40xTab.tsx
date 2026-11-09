@@ -1083,8 +1083,8 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
 
       {/* MODAL INPUT PRESENSI / CEKLIST PUTARAN */}
       <Dialog open={isLogModalOpen} onOpenChange={setIsLogModalOpen}>
-        <DialogContent className="max-w-md w-[95vw] sm:w-full max-h-[82dvh] sm:max-h-[85vh] flex flex-col p-0 rounded-3xl overflow-hidden shadow-2xl bg-white border border-gray-100 relative z-[100]">
-          <DialogHeader className="p-5 sm:p-6 pb-3 border-b border-gray-100 shrink-0 bg-white">
+        <DialogContent className="max-w-md w-[92vw] sm:w-full max-h-[85vh] max-h-[85dvh] flex flex-col p-0 rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl bg-white border border-gray-100 z-[100]">
+          <DialogHeader className="p-4 sm:p-6 pb-3 border-b border-gray-100 shrink-0 bg-white">
             <DialogTitle className="text-base sm:text-lg font-bold text-gray-900 flex items-center gap-2">
               <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
                 <Check className="w-4 h-4 stroke-[3]" />
@@ -1096,7 +1096,7 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="p-5 sm:p-6 overflow-y-auto flex-1 space-y-4 overscroll-contain">
+          <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-4 overscroll-contain">
             <div className="space-y-1.5">
               <Label className="text-xs font-bold text-gray-700">Tanggal Muroja'ah</Label>
               <input
@@ -1163,7 +1163,7 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
             </div>
           </div>
 
-          <DialogFooter className="p-4 sm:p-5 border-t border-gray-200 bg-white shrink-0 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 pb-6 sm:pb-5">
+          <DialogFooter className="p-3.5 sm:p-5 border-t border-gray-200 bg-gray-50/95 shrink-0 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2">
             <Button
               type="button"
               variant="outline"
