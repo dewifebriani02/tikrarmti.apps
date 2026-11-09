@@ -28,10 +28,26 @@ export async function GET(request: Request) {
     // Ambil detail thalibah aktif langsung dari view v_active_thalibah
     const recipients = await whatsappService.getActiveThalibahRecipients(batchId);
 
+    // Ambil daftar admin terdaftar yang nomor WhatsApp-nya aktif untuk opsi tembusan (CC)
+    const { rows: admins } = await query(
+      `SELECT DISTINCT ON (whatsapp)
+         id, 
+         full_name, 
+         role, 
+         whatsapp,
+         email
+       FROM users 
+       WHERE (role IN ('admin', 'super_admin') OR 'admin' = ANY(roles) OR 'super_admin' = ANY(roles))
+         AND whatsapp IS NOT NULL AND TRIM(whatsapp) != ''
+         AND is_active = true
+       ORDER BY whatsapp, full_name ASC`
+    );
+
     return ApiResponses.success({
       batches,
       totalRecipients: recipients.length,
       recipients,
+      admins: admins.sort((a, b) => a.full_name.localeCompare(b.full_name)),
     });
   } catch (error) {
     console.error('[WhatsApp Recipients Route] Error:', error);

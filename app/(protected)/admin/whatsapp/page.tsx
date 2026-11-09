@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { 
+  CheckSquare, Square,
   MessageSquare, Send, CheckCircle2, AlertCircle, RefreshCw, 
   ArrowLeft, Shield, Phone, Search, Clock, Sparkles, Check, Zap,
   Users, Play, Pause, AlertTriangle, Layers, UserCheck
@@ -46,6 +47,14 @@ interface BatchInfo {
   id: string;
   name: string;
   active_count: number | string;
+}
+
+interface AdminContact {
+  id: string;
+  full_name: string;
+  role: string;
+  whatsapp: string;
+  email?: string | null;
 }
 
 interface ActiveThalibah {
@@ -288,6 +297,13 @@ export default function AdminWhatsAppPage() {
     email?: string;
   }>>([]);
 
+  // Admin CC / Tembusan state
+  const [adminList, setAdminList] = useState<AdminContact[]>([]);
+  const [selectedAdminCc, setSelectedAdminCc] = useState<string[]>([]);
+  const [customCcInput, setCustomCcInput] = useState('');
+  const [customCcList, setCustomCcList] = useState<string[]>([]);
+  const [isCcExpanded, setIsCcExpanded] = useState(false);
+
   // Local message logs
   const [messageLogs, setMessageLogs] = useState<MessageLog[]>([]);
 
@@ -330,6 +346,9 @@ export default function AdminWhatsAppPage() {
           }
         }
         setRecipients(json.data.recipients || []);
+        if (Array.isArray(json.data.admins)) {
+          setAdminList(json.data.admins);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch recipients from v_active_thalibah:', err);
@@ -346,6 +365,29 @@ export default function AdminWhatsAppPage() {
       if (saved) setMessageLogs(JSON.parse(saved));
     } catch {}
   }, []);
+
+  const toggleAdminCc = (phone: string) => {
+    setSelectedAdminCc(prev => 
+      prev.includes(phone) ? prev.filter(p => p !== phone) : [...prev, phone]
+    );
+  };
+
+  const addCustomCc = () => {
+    const trimmed = customCcInput.trim().replace(/[^0-9+]/g, '');
+    if (!trimmed) return;
+    if (!customCcList.includes(trimmed)) {
+      setCustomCcList(prev => [...prev, trimmed]);
+    }
+    setCustomCcInput('');
+  };
+
+  const removeCustomCc = (phone: string) => {
+    setCustomCcList(prev => prev.filter(p => p !== phone));
+  };
+
+  const getAllCcNumbers = () => {
+    return Array.from(new Set([...selectedAdminCc, ...customCcList])).filter(Boolean);
+  };
 
   const handleBatchChange = (batchId: string) => {
     setSelectedBatchId(batchId);
@@ -413,6 +455,8 @@ export default function AdminWhatsAppPage() {
     setBroadcastFailCount(0);
     setBroadcastLogs([]);
 
+    const activeCcNumbers = getAllCcNumbers();
+
     for (let i = 0; i < recipients.length; i++) {
       if (abortBroadcastRef.current) {
         break;
@@ -459,6 +503,27 @@ export default function AdminWhatsAppPage() {
       }
     }
 
+    // Kirim tembusan salinan broadcast ke nomor Admin yang diceklis
+    if (activeCcNumbers.length > 0 && !abortBroadcastRef.current) {
+      const selectedBatchName = batches.find(b => b.id === selectedBatchId)?.name || 'Batch Thalibah';
+      const ccBroadcastMsg = `_📌 [TEMBUSAN BROADCAST ADMIN MTI]_\n\n*Laporan Pengiriman Broadcast ke ${recipients.length} Thalibah:*\n• Angkatan: *${selectedBatchName}*\n• Waktu: *${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} WIB*\n\n*Isi Pesan Broadcast:*\n━━━━━━━━━━━━━━\n${broadcastTemplate}\n━━━━━━━━━━━━━━\n*(Tembusan resmi terkirim otomatis ke Admin MTI)*`;
+      
+      for (const ccPhone of activeCcNumbers) {
+        try {
+          await fetch('/api/admin/whatsapp/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              to: ccPhone,
+              message: ccBroadcastMsg,
+            }),
+          });
+        } catch (ccErr) {
+          console.error('Failed to send broadcast CC to:', ccPhone, ccErr);
+        }
+      }
+    }
+
     setIsBroadcasting(false);
   };
 
@@ -476,12 +541,14 @@ export default function AdminWhatsAppPage() {
     setSendFeedback(null);
 
     try {
+      const activeCcNumbers = getAllCcNumbers();
       const res = await fetch('/api/admin/whatsapp/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           to: recipientPhone.trim(),
           message: messageBody.trim(),
+          ccNumbers: activeCcNumbers.length > 0 ? activeCcNumbers : undefined,
         }),
       });
 
@@ -506,7 +573,9 @@ export default function AdminWhatsAppPage() {
 
         setSendFeedback({
           type: 'success',
-          text: `Pesan WhatsApp berhasil dikirim ke ${recipientPhone}!`,
+          text: activeCcNumbers.length > 0 
+            ? `Pesan WhatsApp berhasil dikirim ke ${recipientPhone} & tembusan ke ${activeCcNumbers.length} nomor Admin!`
+            : `Pesan WhatsApp berhasil dikirim ke ${recipientPhone}!`,
           details: json.data?.messageId ? `Message ID: ${json.data.messageId}` : undefined,
         });
       } else {
@@ -756,6 +825,155 @@ export default function AdminWhatsAppPage() {
                       className="rounded-2xl border-gray-200 text-sm leading-relaxed"
                       required
                     />
+                  </div>
+
+                  {/* TEMBUSAN (CC) KE NOMOR ADMIN */}
+                  <div className="bg-gray-50/80 border border-gray-200 rounded-2xl p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center">
+                          <Shield className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <span className="text-xs font-bold text-gray-900 block leading-tight">
+                            Tembusan (CC) ke Admin MTI
+                          </span>
+                          <span className="text-[10px] text-gray-500">
+                            {getAllCcNumbers().length > 0 
+                              ? `${getAllCcNumbers().length} nomor tembusan dipilih` 
+                              : 'Kirimkan juga salinan pesan ke nomor admin'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {getAllCcNumbers().length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => { setSelectedAdminCc([]); setCustomCcList([]); }}
+                            className="text-[10px] text-gray-400 hover:text-red-600 underline font-semibold transition-colors"
+                          >
+                            Hapus Pilihan
+                          </button>
+                        )}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setIsCcExpanded(prev => !prev)}
+                          className="rounded-xl text-xs h-7 px-2.5 border-gray-200 gap-1"
+                        >
+                          <span>{isCcExpanded ? 'Tutup Pilihan' : 'Pilih Admin'}</span>
+                          <Badge className="bg-emerald-100 text-emerald-800 text-[10px] px-1.5 py-0 h-4 border-none">
+                            {getAllCcNumbers().length}
+                          </Badge>
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Ringkasan badge nomor yang aktif dipilih */}
+                    {getAllCcNumbers().length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pt-1 border-t border-gray-200/60">
+                        {getAllCcNumbers().map(num => {
+                          const matchedAdmin = adminList.find(a => a.whatsapp === num);
+                          return (
+                            <span
+                              key={num}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-900 border border-emerald-200 text-xs font-semibold"
+                            >
+                              <span className="text-[11px]">
+                                {matchedAdmin ? `${matchedAdmin.full_name} (${num})` : num}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (matchedAdmin) toggleAdminCc(matchedAdmin.whatsapp);
+                                  else removeCustomCc(num);
+                                }}
+                                className="text-emerald-700 hover:text-red-600 transition-colors ml-0.5"
+                                title="Hapus tembusan nomor ini"
+                              >
+                                &times;
+                              </button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Panel checklist admin & input custom saat expanded */}
+                    {isCcExpanded && (
+                      <div className="pt-2 border-t border-gray-200 space-y-3 animate-fadeInUp">
+                        <div className="space-y-1.5">
+                          <span className="text-[11px] font-bold text-gray-700 block">
+                            Ceklis Nomor Admin Penerima Tembusan:
+                          </span>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-1 bg-white rounded-xl border border-gray-200">
+                            {adminList.length === 0 ? (
+                              <div className="col-span-2 text-center py-3 text-xs text-gray-400">
+                                Memuat daftar admin...
+                              </div>
+                            ) : (
+                              adminList.map(admin => {
+                                const isChecked = selectedAdminCc.includes(admin.whatsapp);
+                                return (
+                                  <label
+                                    key={admin.id}
+                                    onClick={() => toggleAdminCc(admin.whatsapp)}
+                                    className={`p-2 rounded-lg border text-xs flex items-center justify-between cursor-pointer transition-colors ${
+                                      isChecked
+                                        ? 'bg-emerald-50 border-emerald-300 text-emerald-950 font-bold'
+                                        : 'hover:bg-gray-50 border-gray-100 text-gray-700'
+                                    }`}
+                                  >
+                                    <div className="truncate mr-2">
+                                      <div className="truncate leading-tight">{admin.full_name}</div>
+                                      <div className="text-[10px] text-gray-500 font-mono font-normal">
+                                        {admin.whatsapp} • <span className="uppercase">{admin.role}</span>
+                                      </div>
+                                    </div>
+                                    <div className="shrink-0 text-emerald-700">
+                                      {isChecked ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4 text-gray-300" />}
+                                    </div>
+                                  </label>
+                                );
+                              })
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Input nomor tembusan manual / tambahan */}
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-bold text-gray-700 block">
+                            Atau Tambah Nomor Tembusan Manual (WhatsApp):
+                          </label>
+                          <div className="flex gap-2">
+                            <Input
+                              placeholder="Contoh: 08123456789 atau 628..."
+                              value={customCcInput}
+                              onChange={(e) => setCustomCcInput(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  addCustomCc();
+                                }
+                              }}
+                              className="rounded-xl text-xs h-8 bg-white border-gray-200 font-mono"
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={addCustomCc}
+                              disabled={!customCcInput.trim()}
+                              className="rounded-xl text-xs h-8 border-gray-200 font-semibold px-3"
+                            >
+                              Tambah
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Action Controls */}
@@ -1025,6 +1243,155 @@ export default function AdminWhatsAppPage() {
                         required
                       />
                     </div>
+
+                  {/* TEMBUSAN (CC) KE NOMOR ADMIN */}
+                  <div className="bg-gray-50/80 border border-gray-200 rounded-2xl p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center">
+                          <Shield className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <span className="text-xs font-bold text-gray-900 block leading-tight">
+                            Tembusan (CC) ke Admin MTI
+                          </span>
+                          <span className="text-[10px] text-gray-500">
+                            {getAllCcNumbers().length > 0 
+                              ? `${getAllCcNumbers().length} nomor tembusan dipilih` 
+                              : 'Kirimkan juga salinan pesan ke nomor admin'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {getAllCcNumbers().length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => { setSelectedAdminCc([]); setCustomCcList([]); }}
+                            className="text-[10px] text-gray-400 hover:text-red-600 underline font-semibold transition-colors"
+                          >
+                            Hapus Pilihan
+                          </button>
+                        )}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setIsCcExpanded(prev => !prev)}
+                          className="rounded-xl text-xs h-7 px-2.5 border-gray-200 gap-1"
+                        >
+                          <span>{isCcExpanded ? 'Tutup Pilihan' : 'Pilih Admin'}</span>
+                          <Badge className="bg-emerald-100 text-emerald-800 text-[10px] px-1.5 py-0 h-4 border-none">
+                            {getAllCcNumbers().length}
+                          </Badge>
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Ringkasan badge nomor yang aktif dipilih */}
+                    {getAllCcNumbers().length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pt-1 border-t border-gray-200/60">
+                        {getAllCcNumbers().map(num => {
+                          const matchedAdmin = adminList.find(a => a.whatsapp === num);
+                          return (
+                            <span
+                              key={num}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-900 border border-emerald-200 text-xs font-semibold"
+                            >
+                              <span className="text-[11px]">
+                                {matchedAdmin ? `${matchedAdmin.full_name} (${num})` : num}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (matchedAdmin) toggleAdminCc(matchedAdmin.whatsapp);
+                                  else removeCustomCc(num);
+                                }}
+                                className="text-emerald-700 hover:text-red-600 transition-colors ml-0.5"
+                                title="Hapus tembusan nomor ini"
+                              >
+                                &times;
+                              </button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Panel checklist admin & input custom saat expanded */}
+                    {isCcExpanded && (
+                      <div className="pt-2 border-t border-gray-200 space-y-3 animate-fadeInUp">
+                        <div className="space-y-1.5">
+                          <span className="text-[11px] font-bold text-gray-700 block">
+                            Ceklis Nomor Admin Penerima Tembusan:
+                          </span>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-1 bg-white rounded-xl border border-gray-200">
+                            {adminList.length === 0 ? (
+                              <div className="col-span-2 text-center py-3 text-xs text-gray-400">
+                                Memuat daftar admin...
+                              </div>
+                            ) : (
+                              adminList.map(admin => {
+                                const isChecked = selectedAdminCc.includes(admin.whatsapp);
+                                return (
+                                  <label
+                                    key={admin.id}
+                                    onClick={() => toggleAdminCc(admin.whatsapp)}
+                                    className={`p-2 rounded-lg border text-xs flex items-center justify-between cursor-pointer transition-colors ${
+                                      isChecked
+                                        ? 'bg-emerald-50 border-emerald-300 text-emerald-950 font-bold'
+                                        : 'hover:bg-gray-50 border-gray-100 text-gray-700'
+                                    }`}
+                                  >
+                                    <div className="truncate mr-2">
+                                      <div className="truncate leading-tight">{admin.full_name}</div>
+                                      <div className="text-[10px] text-gray-500 font-mono font-normal">
+                                        {admin.whatsapp} • <span className="uppercase">{admin.role}</span>
+                                      </div>
+                                    </div>
+                                    <div className="shrink-0 text-emerald-700">
+                                      {isChecked ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4 text-gray-300" />}
+                                    </div>
+                                  </label>
+                                );
+                              })
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Input nomor tembusan manual / tambahan */}
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-bold text-gray-700 block">
+                            Atau Tambah Nomor Tembusan Manual (WhatsApp):
+                          </label>
+                          <div className="flex gap-2">
+                            <Input
+                              placeholder="Contoh: 08123456789 atau 628..."
+                              value={customCcInput}
+                              onChange={(e) => setCustomCcInput(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  addCustomCc();
+                                }
+                              }}
+                              className="rounded-xl text-xs h-8 bg-white border-gray-200 font-mono"
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={addCustomCc}
+                              disabled={!customCcInput.trim()}
+                              className="rounded-xl text-xs h-8 border-gray-200 font-semibold px-3"
+                            >
+                              Tambah
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
 
                     {/* Feedback Alert */}
                     {sendFeedback && (
