@@ -10,6 +10,7 @@ import { getPrimaryRole } from '@/lib/roles';
 // Re-export specific modal
 export { MergeUserModal } from './MergeUserModal';
 export { EditUserModal } from './EditUserModal';
+export { DeleteUserModal } from './DeleteUserModal';
 
 // --- USER DETAIL MODAL ---
 interface UserDetailModalProps {

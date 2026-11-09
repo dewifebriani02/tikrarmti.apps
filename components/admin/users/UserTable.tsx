@@ -1,6 +1,6 @@
 'use client';
 
-import { MoreHorizontal, Shield, User, Clock, ChevronLeft, ChevronRight, Ban, CheckCircle, Info, Key, Eye, MessageSquare, RefreshCw } from 'lucide-react';
+import { MoreHorizontal, Shield, User, Clock, ChevronLeft, ChevronRight, Ban, CheckCircle, Info, Key, Eye, MessageSquare, RefreshCw, Trash2 } from 'lucide-react';
 import { AdminUser } from './types';
 import { cn } from '@/lib/utils';
 import { getWhatsAppUrl } from '@/lib/utils/whatsapp';
@@ -16,7 +16,7 @@ interface UserTableProps {
     totalPages: number;
   } | null;
   onPageChange: (page: number) => void;
-  onAction: (action: 'detail' | 'edit' | 'role' | 'blacklist' | 'resetPassword' | 'preview' | 'merge', user: AdminUser) => void;
+  onAction: (action: 'detail' | 'edit' | 'role' | 'blacklist' | 'resetPassword' | 'preview' | 'merge' | 'delete', user: AdminUser) => void;
   detectDuplicates?: boolean;
 }
 
@@ -270,6 +270,14 @@ export function UserTable({ users, isLoading, pagination, onPageChange, onAction
                       >
                         <Key className="h-4 w-4" />
                         Reset
+                      </button>
+                      <button
+                        onClick={() => onAction('delete', user)}
+                        className="px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-medium text-xs flex items-center gap-1.5 transition-colors"
+                        title="Hapus Pengguna (Permanen jika tanpa legacy)"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Hapus
                       </button>
                     </div>
                   </td>

@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 import { UserStats } from '@/components/admin/users/UserStats';
 import { UserFilters } from '@/components/admin/users/UserFilters';
 import { UserTable } from '@/components/admin/users/UserTable';
-import { UserDetailModal, EditRoleModal, BlacklistModal, MergeUserModal, EditUserModal } from '@/components/admin/users/UserModals';
+import { UserDetailModal, EditRoleModal, BlacklistModal, MergeUserModal, EditUserModal, DeleteUserModal } from '@/components/admin/users/UserModals';
 import { AdminUser } from '@/components/admin/users/types';
 import { Toaster } from 'sonner';
 
@@ -30,7 +30,7 @@ export default function AdminUsersPage() {
   });
 
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
-  const [activeModal, setActiveModal] = useState<'detail' | 'edit' | 'role' | 'blacklist' | 'merge' | null>(null);
+  const [activeModal, setActiveModal] = useState<'detail' | 'edit' | 'role' | 'blacklist' | 'merge' | 'delete' | null>(null);
   const [isPending, startTransition] = useTransition();
 
   // Handle Hydration - Delay rendering until client is ready
@@ -83,7 +83,7 @@ export default function AdminUsersPage() {
     });
   };
 
-  const handleAction = async (action: 'detail' | 'edit' | 'role' | 'blacklist' | 'resetPassword' | 'preview' | 'merge', user: AdminUser) => {
+  const handleAction = async (action: 'detail' | 'edit' | 'role' | 'blacklist' | 'resetPassword' | 'preview' | 'merge' | 'delete', user: AdminUser) => {
     if (action === 'preview') {
       router.push(`/dashboard?user_id=${user.id}`);
       return;
@@ -106,7 +106,7 @@ export default function AdminUsersPage() {
     }
     
     setSelectedUser(user);
-    setActiveModal(action as 'detail' | 'edit' | 'role' | 'blacklist' | 'merge');
+    setActiveModal(action as 'detail' | 'edit' | 'role' | 'blacklist' | 'merge' | 'delete');
   };
 
   const closeModal = () => {
@@ -243,6 +243,15 @@ export default function AdminUsersPage() {
         />
       )}
 
+
+      {selectedUser && activeModal === 'delete' && (
+        <DeleteUserModal 
+          user={selectedUser} 
+          isOpen={true} 
+          onClose={closeModal} 
+          onSuccess={handleRefresh}
+        />
+      )}
 
     </div>
   );
