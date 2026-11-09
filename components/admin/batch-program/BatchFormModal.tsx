@@ -3,7 +3,7 @@
 import { parseHolidayDates } from '@/lib/utils/holiday-helpers';
 
 import { useState, useMemo } from 'react';
-import { X, Calendar, Clock, Save, Sparkles, Wand2, Info, Layers, MessageCircle } from 'lucide-react';
+import { X, Calendar, Clock, Save, Sparkles, Wand2, Info, Layers, MessageCircle, Sliders, RotateCcw, ChevronDown, ChevronUp, Settings2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Batch, BATCH_STATUSES } from './types';
@@ -39,7 +39,39 @@ const calculateEndDate = (startDate: string, weeks: number): string => {
 };
 
 
-const calculateTimelineDates = (kbmStartDateStr: string, holidays: string[]) => {
+export interface TimelineFormulaConfig {
+  regStartDaysBefore: number;
+  regEndDaysBefore: number;
+  selectionStartDaysBefore: number;
+  selectionEndDaysBefore: number;
+  selectionResultDaysBefore: number;
+  selectionResultTime: string;
+  reEnrollDaysBefore: number;
+  openingClassDaysBefore: number;
+  openingClassTime: string;
+  kbmRegularWeeks: number;
+  transferScheduleDaysAfter: number;
+}
+
+export const DEFAULT_TIMELINE_FORMULA: TimelineFormulaConfig = {
+  regStartDaysBefore: 35,
+  regEndDaysBefore: 16,
+  selectionStartDaysBefore: 15,
+  selectionEndDaysBefore: 12,
+  selectionResultDaysBefore: 11,
+  selectionResultTime: '09:00',
+  reEnrollDaysBefore: 10,
+  openingClassDaysBefore: 1,
+  openingClassTime: '09:00',
+  kbmRegularWeeks: 11,
+  transferScheduleDaysAfter: 13,
+};
+
+const calculateTimelineDates = (
+  kbmStartDateStr: string,
+  holidays: string[],
+  formula: TimelineFormulaConfig = DEFAULT_TIMELINE_FORMULA
+) => {
   const datePart = kbmStartDateStr.split('T')[0];
   if (!datePart) return null;
 
@@ -53,20 +85,19 @@ const calculateTimelineDates = (kbmStartDateStr: string, holidays: string[]) => 
     return iso + 'T' + timeStr;
   };
 
-  // Standar MTI: Cuma 13 Pekan tanpa tasyakkur.
-  // Pra-KBM (5 pekan sebelum Pekan 1)
-  const regStart = formatOffset(-35, '00:01');      // 5 pekan sebelum Pekan 1 (Senin 00:01)
-  const regEnd = formatOffset(-16, '23:59');        // 16 hari sebelum Pekan 1 (Sabtu 23:59)
-  const selStart = formatOffset(-15, '00:01');      // 15 hari sebelum Pekan 1 (Ahad 00:01)
-  const selEnd = formatOffset(-12, '23:59');        // 12 hari sebelum Pekan 1 (Rabu 23:59)
-  const selResult = formatOffset(-11, '09:00');     // 11 hari sebelum Pekan 1 (Kamis 09:00)
-  const reEnroll = formatOffset(-10, '00:01');      // 10 hari sebelum Pekan 1 (Jumat 00:01)
-  const openingClass = formatOffset(-1, '09:00');    // H-1 sebelum Pekan 1 (Ahad 09:00)
+  // Dinamis sesuai rumus yang diatur / diedit mimin
+  const regStart = formatOffset(-Math.abs(formula.regStartDaysBefore), '00:01');
+  const regEnd = formatOffset(-Math.abs(formula.regEndDaysBefore), '23:59');
+  const selStart = formatOffset(-Math.abs(formula.selectionStartDaysBefore), '00:01');
+  const selEnd = formatOffset(-Math.abs(formula.selectionEndDaysBefore), '23:59');
+  const selResult = formatOffset(-Math.abs(formula.selectionResultDaysBefore), formula.selectionResultTime || '09:00');
+  const reEnroll = formatOffset(-Math.abs(formula.reEnrollDaysBefore), '00:01');
+  const openingClass = formatOffset(-Math.abs(formula.openingClassDaysBefore), formula.openingClassTime || '09:00');
 
   // KBM Pekan 1
-  const week1Start = formatOffset(0, '00:01');      // Pekan 1 Mulai (Senin 00:01)
-  const week1End = formatOffset(6, '23:59');        // Pekan 1 Selesai (Ahad 23:59)
-  const transferEnd = formatOffset(13, '23:59');    // Batas Mutasi Halaqah (Ahad Pekan 2 23:59)
+  const week1Start = formatOffset(0, '00:01');
+  const week1End = formatOffset(6, '23:59');
+  const transferEnd = formatOffset(formula.transferScheduleDaysAfter, '23:59');
 
   // Hitung jumlah hari libur yang jatuh pada atau setelah Pekan 1 KBM
   const sortedHolidays = parseHolidayDates(holidays);
@@ -74,12 +105,12 @@ const calculateTimelineDates = (kbmStartDateStr: string, holidays: string[]) => 
   const holidaysInKBM = sortedHolidays.filter(h => h >= kbmStartIso);
   const holidayShiftDays = holidaysInKBM.length;
 
-  // Pekan 1-11 KBM reguler = 77 hari (hari 0 sampai 76).
-  // Tanpa libur: Pekan 12 mulai hari 77. Dengan libur: bergeser +holidayShiftDays.
-  const revStartDay = 77 + holidayShiftDays;
-  const revEndDay = 83 + holidayShiftDays;
-  const examStartDay = 84 + holidayShiftDays;
-  const examEndDay = 90 + holidayShiftDays;
+  // KBM reguler = formula.kbmRegularWeeks * 7 hari
+  const regKbmDays = Math.max(1, formula.kbmRegularWeeks) * 7;
+  const revStartDay = regKbmDays + holidayShiftDays;
+  const revEndDay = revStartDay + 6;
+  const examStartDay = revEndDay + 1;
+  const examEndDay = examStartDay + 6;
 
   const revWeekStart = formatOffset(revStartDay, '00:01');
   const revWeekEnd = formatOffset(revEndDay, '23:59');
@@ -87,7 +118,7 @@ const calculateTimelineDates = (kbmStartDateStr: string, holidays: string[]) => 
   const examEnd = formatOffset(examEndDay, '23:59');
 
   const extraWeeks = Math.ceil(holidayShiftDays / 7);
-  const durationWeeks = 13 + extraWeeks;
+  const durationWeeks = formula.kbmRegularWeeks + 2 + extraWeeks; // kbmRegularWeeks + Review(1) + Ujian Akhir(1) + extraWeeks
 
   return {
     start_date: week1Start,
@@ -168,6 +199,8 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
   const [muallimahData, setMuallimahData] = useState(() => getProgramData('muallimah'));
 
   const [saving, setSaving] = useState(false);
+  const [formulaConfig, setFormulaConfig] = useState<TimelineFormulaConfig>(DEFAULT_TIMELINE_FORMULA);
+  const [showFormulaEditor, setShowFormulaEditor] = useState(false);
   const [holidayMode, setHolidayMode] = useState<'range' | 'single'>('range');
   const [holidayInput, setHolidayInput] = useState('');
   const [holidayRangeStart, setHolidayRangeStart] = useState('');
@@ -228,7 +261,7 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
     const sorted = parseHolidayDates(newHolidays);
     const kbmStart = formData.first_week_start_date || formData.start_date;
     if (kbmStart) {
-      const calc = calculateTimelineDates(kbmStart, sorted);
+      const calc = calculateTimelineDates(kbmStart, sorted, formulaConfig);
       if (calc) {
         setFormData(prev => ({
           ...prev,
@@ -312,7 +345,7 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
   // Auto-Generate complete, standardized MTI timeline (13 Pekan tanpa tasyakkur)
   const handleAutoGenerateTimeline = (customStartDate?: string) => {
     const rawDate = customStartDate || autoGenerateAnchorDate || formData.first_week_start_date || formData.start_date || '';
-    const calc = calculateTimelineDates(rawDate, formData.holiday_dates);
+    const calc = calculateTimelineDates(rawDate, formData.holiday_dates, formulaConfig);
 
     if (!calc) {
       toast.error('Silakan tentukan Tanggal Mulai Pekan 1 (Senin KBM) yang valid.');
@@ -569,33 +602,38 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
           <div className="p-6 sm:p-8 space-y-8">
             <div className={cn(activeTab === 'batch' ? 'block space-y-8' : 'hidden')}>
               
-              {/* TOP BANNER: Auto-Generate Timeline Praktis (1-Klik) */}
-              <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-green-50 p-5 rounded-2xl border-2 border-emerald-300 shadow-sm relative overflow-hidden">
+              {/* TOP BANNER: Auto-Generate Timeline Praktis (1-Klik) + Editor Rumus Fleksibel Mimin */}
+              <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-green-50 p-5 rounded-2xl border-2 border-emerald-300 shadow-sm relative overflow-hidden space-y-4">
                 <div className="absolute -right-10 -bottom-10 w-36 h-36 bg-emerald-200/40 rounded-full blur-2xl pointer-events-none" />
-                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 relative z-10">
+                <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 relative z-10">
                   <div className="flex items-start gap-3.5">
-                    <div className="w-11 h-11 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-emerald-600/30 mt-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setShowFormulaEditor(prev => !prev)}
+                      title="Klik untuk membuka/menutup pengaturan rumus fleksibel"
+                      className="w-11 h-11 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-emerald-600/30 mt-0.5 cursor-pointer transition-all active:scale-95"
+                    >
                       <Wand2 className="w-5 h-5" />
-                    </div>
+                    </button>
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-600 text-white uppercase tracking-wider">
                           Fitur Otomatis
                         </span>
                         <span className="text-xs font-semibold text-emerald-800">
-                          Standar MTI (13 Pekan)
+                          Standar MTI (13 Pekan Fleksibel)
                         </span>
                       </div>
                       <h4 className="text-base font-black text-gray-900 mt-1">
                         Hitung Jadwal &amp; Timeline Otomatis (1-Klik)
                       </h4>
                       <p className="text-xs text-gray-600 mt-1 max-w-xl leading-relaxed">
-                        Tentukan tanggal <strong>Senin Pekan 1 (Mulai KBM)</strong>. Sistem otomatis menyusun seluruh alur tanggal secara runtut: <em>Pendaftaran &rarr; Seleksi &rarr; Daftar Ulang &rarr; Opening &rarr; KBM 1-12 &rarr; Ujian Akhir</em>.
+                        Tentukan tanggal <strong>Senin Pekan 1 (Mulai KBM)</strong>. Mimin dapat langsung menghitung jadwal otomatis atau menyesuaikan parameter rumus fleksibel di bawah.
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full md:w-auto shrink-0">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full lg:w-auto shrink-0">
                     <div className="flex flex-col">
                       <label className="text-[10px] font-bold text-emerald-800 uppercase mb-1">
                         Senin Pekan 1 KBM
@@ -607,7 +645,15 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
                         className="px-3.5 py-2 rounded-xl border border-emerald-300 bg-white text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 shadow-sm"
                       />
                     </div>
-                    <div className="sm:self-end">
+                    <div className="flex items-center gap-2 sm:self-end">
+                      <button
+                        type="button"
+                        onClick={() => setShowFormulaEditor(prev => !prev)}
+                        className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-emerald-300 bg-white hover:bg-emerald-100/50 text-emerald-900 font-bold text-xs shadow-xs transition-all whitespace-nowrap"
+                      >
+                        <Sliders className="w-3.5 h-3.5 text-emerald-700" />
+                        <span>{showFormulaEditor ? 'Tutup Rumus' : '⚙️ Rumus Fleksibel'}</span>
+                      </button>
                       <button
                         type="button"
                         onClick={() => handleAutoGenerateTimeline(autoGenerateAnchorDate)}
@@ -619,6 +665,194 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
                     </div>
                   </div>
                 </div>
+
+                {/* PANEL PENGATURAN RUMUS FLEKSIBEL (BISA DIEDIT MIMIN) */}
+                {showFormulaEditor && (
+                  <div className="relative z-10 pt-4 mt-2 border-t border-emerald-200/90 bg-white/80 backdrop-blur-sm p-4 rounded-xl space-y-4 animate-in fade-in slide-in-from-top-2">
+                    <div className="flex items-center justify-between border-b border-emerald-100 pb-2.5">
+                      <div className="flex items-center gap-2">
+                        <Settings2 className="w-4 h-4 text-emerald-700" />
+                        <h5 className="text-xs font-black uppercase tracking-wider text-emerald-950">
+                          Pengaturan Parameter Rumus Fleksibel Jadwal
+                        </h5>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormulaConfig(DEFAULT_TIMELINE_FORMULA);
+                          toast.info('Parameter rumus dikembalikan ke Standar MTI (13 Pekan).');
+                        }}
+                        className="text-[11px] font-bold text-emerald-700 hover:text-emerald-900 flex items-center gap-1 transition-colors"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        Reset ke Standar MTI
+                      </button>
+                    </div>
+
+                    <p className="text-[11px] text-gray-600 leading-normal">
+                      Mimin dapat mengubah jumlah hari mundur (H-...) sebelum KBM dimulai atau durasi KBM. Tanggal seluruh alur akan otomatis dihitung ulang sesuai rumus yang mimin tentukan di sini.
+                    </p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                      <div className="bg-white p-2.5 rounded-lg border border-emerald-100 shadow-2xs">
+                        <label className="block text-[10px] font-extrabold text-gray-700 uppercase mb-1">
+                          Pendaftaran Buka (H-...)
+                        </label>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-emerald-800">H-</span>
+                          <input
+                            type="number"
+                            min="1"
+                            max="120"
+                            value={formulaConfig.regStartDaysBefore}
+                            onChange={(e) => setFormulaConfig(prev => ({ ...prev, regStartDaysBefore: parseInt(e.target.value) || 0 }))}
+                            className="w-full px-2 py-1 text-xs font-bold rounded border border-gray-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                          <span className="text-[10px] text-gray-500">hari</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-2.5 rounded-lg border border-emerald-100 shadow-2xs">
+                        <label className="block text-[10px] font-extrabold text-gray-700 uppercase mb-1">
+                          Pendaftaran Tutup (H-...)
+                        </label>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-emerald-800">H-</span>
+                          <input
+                            type="number"
+                            min="1"
+                            max="100"
+                            value={formulaConfig.regEndDaysBefore}
+                            onChange={(e) => setFormulaConfig(prev => ({ ...prev, regEndDaysBefore: parseInt(e.target.value) || 0 }))}
+                            className="w-full px-2 py-1 text-xs font-bold rounded border border-gray-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                          <span className="text-[10px] text-gray-500">hari</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-2.5 rounded-lg border border-emerald-100 shadow-2xs">
+                        <label className="block text-[10px] font-extrabold text-gray-700 uppercase mb-1">
+                          Mulai Seleksi (H-...)
+                        </label>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-emerald-800">H-</span>
+                          <input
+                            type="number"
+                            min="1"
+                            max="100"
+                            value={formulaConfig.selectionStartDaysBefore}
+                            onChange={(e) => setFormulaConfig(prev => ({ ...prev, selectionStartDaysBefore: parseInt(e.target.value) || 0 }))}
+                            className="w-full px-2 py-1 text-xs font-bold rounded border border-gray-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                          <span className="text-[10px] text-gray-500">hari</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-2.5 rounded-lg border border-emerald-100 shadow-2xs">
+                        <label className="block text-[10px] font-extrabold text-gray-700 uppercase mb-1">
+                          Selesai Seleksi (H-...)
+                        </label>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-emerald-800">H-</span>
+                          <input
+                            type="number"
+                            min="1"
+                            max="100"
+                            value={formulaConfig.selectionEndDaysBefore}
+                            onChange={(e) => setFormulaConfig(prev => ({ ...prev, selectionEndDaysBefore: parseInt(e.target.value) || 0 }))}
+                            className="w-full px-2 py-1 text-xs font-bold rounded border border-gray-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                          <span className="text-[10px] text-gray-500">hari</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-2.5 rounded-lg border border-emerald-100 shadow-2xs">
+                        <label className="block text-[10px] font-extrabold text-gray-700 uppercase mb-1">
+                          Pengumuman Seleksi (H-...)
+                        </label>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-emerald-800">H-</span>
+                          <input
+                            type="number"
+                            min="1"
+                            max="100"
+                            value={formulaConfig.selectionResultDaysBefore}
+                            onChange={(e) => setFormulaConfig(prev => ({ ...prev, selectionResultDaysBefore: parseInt(e.target.value) || 0 }))}
+                            className="w-full px-2 py-1 text-xs font-bold rounded border border-gray-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                          <span className="text-[10px] text-gray-500">hari</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-2.5 rounded-lg border border-emerald-100 shadow-2xs">
+                        <label className="block text-[10px] font-extrabold text-gray-700 uppercase mb-1">
+                          Mulai Daftar Ulang (H-...)
+                        </label>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-emerald-800">H-</span>
+                          <input
+                            type="number"
+                            min="1"
+                            max="100"
+                            value={formulaConfig.reEnrollDaysBefore}
+                            onChange={(e) => setFormulaConfig(prev => ({ ...prev, reEnrollDaysBefore: parseInt(e.target.value) || 0 }))}
+                            className="w-full px-2 py-1 text-xs font-bold rounded border border-gray-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                          <span className="text-[10px] text-gray-500">hari</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-2.5 rounded-lg border border-emerald-100 shadow-2xs">
+                        <label className="block text-[10px] font-extrabold text-gray-700 uppercase mb-1">
+                          Opening Class (H-...)
+                        </label>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-emerald-800">H-</span>
+                          <input
+                            type="number"
+                            min="0"
+                            max="60"
+                            value={formulaConfig.openingClassDaysBefore}
+                            onChange={(e) => setFormulaConfig(prev => ({ ...prev, openingClassDaysBefore: parseInt(e.target.value) || 0 }))}
+                            className="w-full px-2 py-1 text-xs font-bold rounded border border-gray-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                          <span className="text-[10px] text-gray-500">hari</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-2.5 rounded-lg border border-emerald-100 shadow-2xs">
+                        <label className="block text-[10px] font-extrabold text-gray-700 uppercase mb-1">
+                          KBM Reguler (Pekan)
+                        </label>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="number"
+                            min="1"
+                            max="52"
+                            value={formulaConfig.kbmRegularWeeks}
+                            onChange={(e) => setFormulaConfig(prev => ({ ...prev, kbmRegularWeeks: parseInt(e.target.value) || 11 }))}
+                            className="w-full px-2 py-1 text-xs font-bold rounded border border-gray-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                          <span className="text-[10px] text-gray-500">+2 Pekan</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleAutoGenerateTimeline(autoGenerateAnchorDate);
+                          setShowFormulaEditor(false);
+                        }}
+                        className="px-4 py-2 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs shadow-sm flex items-center gap-1.5 active:scale-95 transition-all"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        Terapkan Rumus &amp; Hitung Ulang Jadwal
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* 1. Informasi Dasar & Ketentuan Kelas */}

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2, Calendar as CalendarIcon, Clock, Users, Link as LinkIcon, Save, X, Loader2, GraduationCap, Edit, MessageSquare, FileText } from 'lucide-react';
+import { Plus, Trash2, Calendar as CalendarIcon, Clock, Users, Link as LinkIcon, Save, X, Loader2, GraduationCap, Edit, MessageSquare, FileText, Copy, Check } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useActiveBatch, useBatches } from '@/hooks/useBatches';
 import { cn } from '@/lib/utils';
@@ -47,6 +47,108 @@ export function FinalExamSchedules() {
   const [viewingParticipantsSchedule, setViewingParticipantsSchedule] = useState<Schedule | null>(null);
   const [participants, setParticipants] = useState<any[]>([]);
   const [isFetchingParticipants, setIsFetchingParticipants] = useState(false);
+  const [isCopyingAll, setIsCopyingAll] = useState(false);
+  const [copyModalOpen, setCopyModalOpen] = useState(false);
+  const [copiedText, setCopiedText] = useState('');
+  const [hasCopied, setHasCopied] = useState(false);
+
+  const handleCopyAllOralSchedules = async () => {
+    const oralSchedules = schedules
+      .filter(s => s.exam_type === 'oral')
+      .sort((a, b) => {
+        const dateA = `${a.exam_date} ${a.start_time}`;
+        const dateB = `${b.exam_date} ${b.start_time}`;
+        return dateA.localeCompare(dateB);
+      });
+
+    if (oralSchedules.length === 0) {
+      toast.error('Tidak ada jadwal ujian lisan untuk batch ini');
+      return;
+    }
+
+    setIsCopyingAll(true);
+    try {
+      const batchParam = selectedBatchId ? `?batch_id=${selectedBatchId}` : '';
+      let regMap: Record<string, any[]> = {};
+
+      try {
+        const res = await fetch(`/api/exams/final-exams/registrations/admin${batchParam}`);
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          json.data.forEach((reg: any) => {
+            const sId = reg.schedule_id;
+            if (sId) {
+              if (!regMap[sId]) regMap[sId] = [];
+              regMap[sId].push(reg);
+            }
+          });
+        }
+      } catch (err) {
+        console.warn('Could not fetch participants for copy:', err);
+      }
+
+      const currentBatchName = batches.find(b => b.id === selectedBatchId)?.name || 'Batch Ujian';
+
+      let text = `📋 *DAFTAR LENGKAP JADWAL UJIAN LISAN*\n`;
+      text += `🏛️ *Batch:* ${currentBatchName}\n`;
+      text += `📊 *Total Sesi:* ${oralSchedules.length} Sesi\n`;
+      text += `═════════════════════════════\n\n`;
+
+      oralSchedules.forEach((schedule, idx) => {
+        let dateFormatted = schedule.exam_date;
+        try {
+          dateFormatted = new Intl.DateTimeFormat('id-ID', {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+            timeZone: 'Asia/Jakarta'
+          }).format(new Date(schedule.exam_date));
+        } catch (e) {}
+
+        const examinerName = formatMuallimahName(schedule.examiner?.full_name) || 'Belum Ditentukan';
+        const sessionParticipants = regMap[schedule.id] || [];
+
+        text += `*SESI #${idx + 1}*\n`;
+        text += `📅 *Hari/Tanggal:* ${dateFormatted}\n`;
+        text += `⏰ *Waktu:* ${schedule.start_time.slice(0, 5)} - ${schedule.end_time.slice(0, 5)} WIB\n`;
+        text += `🧕 *Penguji:* ${examinerName}\n`;
+        text += `👥 *Kuota Terisi:* ${schedule.current_count} / ${schedule.max_quota} Peserta\n`;
+        if (schedule.location_link) {
+          text += `🔗 *Link Ujian/Zoom:* ${schedule.location_link}\n`;
+        }
+
+        text += `\n📝 *Daftar Peserta Terdaftar:*\n`;
+        if (sessionParticipants.length > 0) {
+          sessionParticipants.forEach((p, pIdx) => {
+            const phone = p.user?.whatsapp ? ` (${p.user.whatsapp})` : '';
+            text += `  ${pIdx + 1}. ${p.user?.full_name || 'Tanpa Nama'}${phone}\n`;
+          });
+        } else {
+          text += `  _(Belum ada peserta terdaftar)_\n`;
+        }
+
+        text += `\n─────────────────────────────\n\n`;
+      });
+
+      const finalText = text.trim();
+      setCopiedText(finalText);
+      try {
+        await navigator.clipboard.writeText(finalText);
+        setHasCopied(true);
+        toast.success('Jadwal ujian lisan lengkap berhasil disalin ke clipboard!');
+        setTimeout(() => setHasCopied(false), 3000);
+      } catch (clipErr) {
+        toast.success('Jadwal ujian lisan berhasil disiapkan!');
+      }
+      setCopyModalOpen(true);
+    } catch (error: any) {
+      console.error('Error copying schedules:', error);
+      toast.error('Gagal menyalin jadwal ujian lisan');
+    } finally {
+      setIsCopyingAll(false);
+    }
+  };
 
   useEffect(() => {
     if (viewingParticipantsSchedule) {
@@ -305,6 +407,22 @@ export function FinalExamSchedules() {
             </SelectContent>
           </Select>
         </div>
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <Button 
+            type="button"
+            onClick={handleCopyAllOralSchedules}
+            disabled={isCopyingAll || isLoading}
+            variant="outline"
+            className="rounded-xl border-gray-300 bg-white hover:bg-gray-50 text-gray-800 font-bold transition-all shadow-sm active:scale-95 duration-200"
+          >
+            {isCopyingAll ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin text-green-700" />
+            ) : (
+              <Copy className="w-4 h-4 mr-2 text-green-800" />
+            )}
+            Copy Semua Jadwal Lisan
+          </Button>
+
           <Button 
             onClick={() => {
               if (showAddForm) resetForm();
@@ -316,6 +434,7 @@ export function FinalExamSchedules() {
             {showAddForm ? <X className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
             {showAddForm ? 'Batal' : 'Tambah Jadwal'}
           </Button>
+        </div>
       </div>
 
       {showAddForm && (
@@ -729,6 +848,73 @@ export function FinalExamSchedules() {
               </div>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Preview & Copy Semua Jadwal Ujian Lisan */}
+      <Dialog open={copyModalOpen} onOpenChange={setCopyModalOpen}>
+        <DialogContent className="max-w-2xl rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden bg-white">
+          <DialogHeader className="p-6 text-white bg-gradient-to-br from-emerald-600 to-green-700 relative overflow-hidden">
+            <div className="relative z-10">
+              <DialogTitle className="text-xl font-black flex items-center gap-2 mb-1 text-white">
+                <Copy className="w-6 h-6" />
+                Daftar Jadwal Ujian Lisan Lengkap
+              </DialogTitle>
+              <DialogDescription className="text-emerald-100 text-xs font-medium">
+                Teks jadwal ujian lisan lengkap di bawah telah disalin otomatis ke clipboard. Mimin dapat langsung menempelkannya (paste) ke grup WhatsApp, atau menyalin ulang di bawah.
+              </DialogDescription>
+            </div>
+          </DialogHeader>
+
+          <div className="p-6 space-y-4">
+            <div className="space-y-2">
+              <Label className="text-xs font-bold text-gray-700 uppercase tracking-wider">
+                Preview Teks Jadwal Ujian (Siap Kirim WhatsApp / Broadcast)
+              </Label>
+              <textarea
+                value={copiedText}
+                onChange={(e) => setCopiedText(e.target.value)}
+                rows={14}
+                className="w-full p-4 text-xs font-mono bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-gray-900 leading-relaxed resize-y"
+              />
+            </div>
+
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pt-2">
+              <span className="text-xs text-gray-500 font-medium">
+                💡 Bisa diedit langsung sebelum disalin ulang jika perlu catatan khusus
+              </span>
+              <div className="flex gap-2 w-full sm:w-auto justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => setCopyModalOpen(false)}
+                  className="rounded-xl border-gray-200 text-xs font-bold"
+                >
+                  Tutup
+                </Button>
+                <Button
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(copiedText);
+                    setHasCopied(true);
+                    toast.success('Berhasil disalin ulang ke clipboard!');
+                    setTimeout(() => setHasCopied(false), 2500);
+                  }}
+                  className="rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold shadow-md active:scale-95 transition-all"
+                >
+                  {hasCopied ? (
+                    <>
+                      <Check className="w-4 h-4 mr-1.5 text-emerald-200" />
+                      Tersalin!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4 mr-1.5" />
+                      Salin ke Clipboard
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

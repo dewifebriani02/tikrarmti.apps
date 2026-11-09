@@ -599,10 +599,8 @@ export default function ThalibahBatch2Page() {
       if (qChosenJuz.is_active && qChosenJuz.is_required && !formData.chosen_juz) {
         newErrors.chosen_juz = 'Pilih salah satu pilihan juz'
       } else if (naikJuzEligibility?.is_alumni && naikJuzEligibility.is_naik_juz && !naikJuzEligibility.is_40x_completed) {
-        if (naikJuzEligibility.is_deadline_strict) {
-          newErrors.chosen_juz = 'Syarat naik juz belum terpenuhi: Murojaah 40X untuk juz sebelumnya wajib diselesaikan tuntas (40 putaran) mulai Batch 4 ke atas.'
-        } else if (!murojaahCommitmentChecked) {
-          newErrors.murojaah_commitment = 'Ukhti wajib menyetujui komitmen menyelesaikan Murojaah 40X sebelum pembukaan Batch 4.'
+        if (!murojaahCommitmentChecked) {
+          newErrors.murojaah_commitment = 'Ukhti wajib menyetujui komitmen menyelesaikan sisa putaran Murojaah 40X di Ruang Alumni.'
         }
       }
       
@@ -1247,8 +1245,8 @@ export default function ThalibahBatch2Page() {
                   </div>
                 )}
 
-                {/* Kasus 2: Naik Juz & Belum Tuntas 40X, tapi SEBELUM Batch 4 (Boleh Dicicil dengan Komitmen) */}
-                {naikJuzEligibility.is_naik_juz && !naikJuzEligibility.is_40x_completed && !naikJuzEligibility.is_deadline_strict && (
+                {/* Kasus 2: Naik Juz & Belum Tuntas 40X (Boleh Mendaftar dengan Komitmen) */}
+                {naikJuzEligibility.is_naik_juz && !naikJuzEligibility.is_40x_completed && (
                   <div className="p-4 bg-amber-50 border border-amber-300 rounded-lg text-amber-950 text-sm space-y-3">
                     <div className="flex items-center space-x-2 font-semibold text-amber-900">
                       <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0" />
@@ -1258,7 +1256,7 @@ export default function ThalibahBatch2Page() {
                       Ukhti mendaftar naik juz dari <strong>{naikJuzEligibility.previous_juz}</strong> ke <strong>{formData.chosen_juz}</strong>. Progres Murojaah 40X Ukhti saat ini tercatat <strong>{naikJuzEligibility.total_completed} dari 40 putaran</strong>.
                     </p>
                     <p className="text-xs sm:text-sm text-amber-800 bg-amber-100/60 p-2.5 rounded border border-amber-200">
-                      💡 <strong>Aturan Program:</strong> Murojaah 40X adalah syarat wajib naik juz, namun dapat dicicil dan wajib tuntas sebelum pembukaan <strong>Batch 4</strong>. Ukhti dapat melanjutkan pendaftaran ini dengan menyetujui komitmen di bawah.
+                      💡 <strong>Pemberitahuan:</strong> Pendaftaran dibuka untuk alumni walau belum menyelesaikan Murojaah 40X Warrior. Ukhti dapat melanjutkan pendaftaran ini dan berkomitmen menuntaskan sisa putaran di Ruang Alumni.
                     </p>
 
                     <div className="flex items-start space-x-3 p-3 bg-white/80 border border-amber-300 rounded-md">
@@ -1274,7 +1272,7 @@ export default function ThalibahBatch2Page() {
                         className="mt-0.5"
                       />
                       <Label htmlFor="murojaah_commitment" className="text-xs sm:text-sm font-medium text-amber-950 cursor-pointer">
-                        Saya memahami bahwa Murojaah 40X adalah syarat wajib naik juz dan berkomitmen menuntaskan sisa {40 - naikJuzEligibility.total_completed} putaran di Ruang Alumni sebelum pembukaan Batch 4.
+                        Saya memahami bahwa Murojaah 40X adalah syarat penguatan hafalan dan berkomitmen menuntaskan sisa {40 - naikJuzEligibility.total_completed} putaran di Ruang Alumni.
                       </Label>
                     </div>
                     {errors.murojaah_commitment && (
@@ -1289,30 +1287,6 @@ export default function ThalibahBatch2Page() {
                         className="inline-flex items-center text-xs text-amber-800 underline font-medium hover:text-amber-950"
                       >
                         Buka Ruang Alumni untuk mencatat putaran Murojaah 40X <ExternalLink className="w-3 h-3 ml-1" />
-                      </a>
-                    </div>
-                  </div>
-                )}
-
-                {/* Kasus 3: Naik Juz & Belum Tuntas 40X di BATCH 4 KE ATAS (Hard Block) */}
-                {naikJuzEligibility.is_naik_juz && !naikJuzEligibility.is_40x_completed && naikJuzEligibility.is_deadline_strict && (
-                  <div className="p-4 bg-red-50 border border-red-300 rounded-lg text-red-950 text-sm space-y-2">
-                    <div className="flex items-center space-x-2 font-semibold text-red-900">
-                      <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
-                      <span>Belum Memenuhi Syarat Naik Juz (Wajib Tuntas 40X Mulai Batch 4)</span>
-                    </div>
-                    <p className="text-xs sm:text-sm text-red-900">
-                      Pendaftaran Batch 4 ke atas mewajibkan penyelesaian tuntas 40 putaran Murojaah 40X untuk juz sebelumnya (<strong>{naikJuzEligibility.previous_juz}</strong>) sebelum dapat naik ke <strong>{formData.chosen_juz}</strong>.
-                    </p>
-                    <p className="text-xs sm:text-sm text-red-800">
-                      Progres tercatat: <strong>{naikJuzEligibility.total_completed}/40 putaran</strong> (kurang {40 - naikJuzEligibility.total_completed} putaran lagi).
-                    </p>
-                    <div className="pt-1">
-                      <a
-                        href="/alumni"
-                        className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700 transition"
-                      >
-                        Tuntaskan Putaran di Ruang Alumni <ChevronRight className="w-3.5 h-3.5 ml-1" />
                       </a>
                     </div>
                   </div>

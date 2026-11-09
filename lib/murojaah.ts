@@ -38,6 +38,19 @@ export function getTimeSlotLabel(slotId: string | null | undefined): string {
   return match ? `${match.label} (${match.period})` : slotId;
 }
 
+/**
+ * Get date string formatted as YYYY-MM-DD in Indonesia Western Time (WIB / UTC+7)
+ */
+export function getWibDateString(date: Date | string = new Date()): string {
+  if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date.trim())) {
+    return date.trim();
+  }
+  const d = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(d.getTime())) return new Date().toISOString().split('T')[0];
+  const wibMs = d.getTime() + 7 * 60 * 60 * 1000;
+  return new Date(wibMs).toISOString().split('T')[0];
+}
+
 export function buildMurojaahWhatsAppInvite(params: {
   senderName: string;
   partnerName: string;
@@ -45,13 +58,7 @@ export function buildMurojaahWhatsAppInvite(params: {
   timeSlotLabel: string;
 }): string {
   const { senderName, partnerName, juzCode, timeSlotLabel } = params;
-  return `Assalamu'alaikum warahmatullah wabarakaatuh Ukhti ${partnerName}...
-
-Perkenalkan saya *${senderName}* di komunitas Murojaah 40x MTI untuk porsi *Juz ${juzCode}*.
-
-Saya melihat jadwal Ukhti di direktori MTI sama-sama di slot *${timeSlotLabel}*. Apakah Ukhti berkenan untuk saling simak putaran murojaah kita hari ini via WA Call / Zoom?
-
-Jazakillahu khayran wa baarakallahu fiiki. 🌸`;
+  return `Assalamu'alaikum warahmatullah wabarakaatuh Ukhti ${partnerName}...\n\nPerkenalkan saya *${senderName}* di komunitas Murojaah 40x MTI untuk porsi *Juz ${juzCode}*.\n\nSaya melihat jadwal Ukhti di direktori MTI sama-sama di slot *${timeSlotLabel}*. Apakah Ukhti berkenan untuk saling simak putaran murojaah kita hari ini via WA Call / Zoom?\n\nJazakillahu khayran wa baarakallahu fiiki. 🌸`;
 }
 
 export function buildMurojaahSelfReminder(params: {
@@ -61,13 +68,7 @@ export function buildMurojaahSelfReminder(params: {
   daysRemaining: number;
 }): string {
   const { userName, juzCode, currentRound, daysRemaining } = params;
-  return `Bismillah... Pengingat Murojaah 40x MTI untuk Ukhti ${userName}:
-Target: Juz ${juzCode}
-Progress Saat Ini: Putaran ke-${currentRound} / 40
-Sisa Waktu Tantangan: ${daysRemaining} hari lagi.
-
-"Sesungguhnya Al-Qur'an itu lebih cepat lepasnya daripada unta dari ikatannya." (HR. Bukhari & Muslim)
-Semoga Allah mudahkan dan berkahi lisan kita senantiasa membasahi ayat-ayat-Nya. 🌿`;
+  return `Bismillah... Pengingat Murojaah 40x MTI untuk Ukhti ${userName}:\nTarget: Juz ${juzCode}\nProgress Saat Ini: Putaran ke-${currentRound} / 40\nSisa Waktu Tantangan: ${daysRemaining} hari lagi.\n\n"Sesungguhnya Al-Qur'an itu lebih cepat lepasnya daripada unta dari ikatannya." (HR. Bukhari & Muslim)\nSemoga Allah mudahkan dan berkahi lisan kita senantiasa membasahi ayat-ayat-Nya. 🌿`;
 }
 
 export interface MurojaahDebtCalculation {
@@ -94,42 +95,41 @@ export function calculateMurojaahDebt(params: {
   const todayCount = Math.max(0, todayLogsCount);
   const todayRemaining = Math.max(0, todayTarget - todayCount);
 
-  // If user hasn't completed any round yet, they have zero previous debt
-  if (!totalCompleted || totalCompleted <= 0) {
+  // If user completed 40+ rounds, target is fully met
+  if (totalCompleted >= 40) {
     return {
       todayCount,
       todayTarget,
-      todayRemaining,
-      daysElapsed: 1,
-      expectedCumulativeUntilYesterday: 0,
-      completedUntilYesterday: 0,
+      todayRemaining: 0,
+      daysElapsed: 20,
+      expectedCumulativeUntilYesterday: 40,
+      completedUntilYesterday: 40,
       previousDebt: 0,
-      totalDebt: todayRemaining,
-      isTodayTargetMet: todayCount >= todayTarget,
-      isDebtFree: todayRemaining === 0,
+      totalDebt: 0,
+      isTodayTargetMet: true,
+      isDebtFree: true,
     };
   }
-  
-  // Calculate date difference using WIB (UTC+7)
-  const toWibDate = (d: string | Date) => {
-    const dateObj = new Date(d);
-    const wibMs = dateObj.getTime() + 7 * 60 * 60 * 1000;
-    const wibDate = new Date(wibMs);
-    return wibDate.toISOString().split('T')[0];
-  };
 
-  const startDayStr = toWibDate(startedAt);
-  const todayStr = toWibDate(new Date());
+  const startDayStr = getWibDateString(startedAt);
+  const todayStr = getWibDateString(new Date());
 
-  const startMs = new Date(startDayStr).getTime();
-  const todayMs = new Date(todayStr).getTime();
+  const startMs = new Date(startDayStr + 'T00:00:00Z').getTime();
+  const todayMs = new Date(todayStr + 'T00:00:00Z').getTime();
   const diffDays = Math.max(0, Math.round((todayMs - startMs) / (1000 * 60 * 60 * 24)));
   const daysElapsed = Math.min(20, Math.max(1, diffDays + 1));
 
-  const expectedCumulativeUntilYesterday = Math.max(0, (daysElapsed - 1) * 2);
+  // Expected cumulative target by today (inclusive)
+  const cumulativeTargetToday = Math.min(40, daysElapsed * todayTarget);
+
+  // Total debt reduces by 1 immediately for every single report submitted
+  const totalDebt = Math.max(0, cumulativeTargetToday - Math.max(0, totalCompleted));
+
+  // Previous debt = total debt minus what is still pending for today
+  const previousDebt = Math.max(0, totalDebt - todayRemaining);
+
+  const expectedCumulativeUntilYesterday = Math.max(0, (daysElapsed - 1) * todayTarget);
   const completedUntilYesterday = Math.max(0, totalCompleted - todayCount);
-  const previousDebt = Math.max(0, expectedCumulativeUntilYesterday - completedUntilYesterday);
-  const totalDebt = previousDebt + todayRemaining;
 
   return {
     todayCount,

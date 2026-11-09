@@ -109,24 +109,10 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 4. Check target batch number to evaluate deadline strictly (Batch 4 or higher)
-    let isDeadlineStrict = false;
-    let targetBatchName = '';
-
-    if (batchId) {
-      const currentBatch = await queryOne(`SELECT id, name FROM batches WHERE id = $1`, [batchId]);
-      if (currentBatch) {
-        targetBatchName = currentBatch.name || '';
-        const match = targetBatchName.match(/batch\s*(\d+)/i) || targetBatchName.match(/(\d+)/);
-        const batchNum = match ? parseInt(match[1] || match[0], 10) : 0;
-        if (batchNum >= 4) {
-          isDeadlineStrict = true;
-        }
-      }
-    }
-
-    // Can proceed if 40x is complete OR if they're repeating OR if deadline is not yet strict (prior to Batch 4)
-    const canProceed = is40xCompleted || !isNaikJuz || !isDeadlineStrict;
+    // 4. Syarat Murojaah 40X dibuka untuk pendaftaran alumni walau belum selesai
+    // Alumni tetap dapat mendaftar dengan komitmen menyelesaikan di Ruang Alumni
+    const isDeadlineStrict = false;
+    const canProceed = true;
 
     return NextResponse.json({
       success: true,
@@ -143,9 +129,7 @@ export async function GET(request: NextRequest) {
         is_warrior_eligible: isWarriorEligible,
         can_proceed: canProceed,
         is_deadline_strict: isDeadlineStrict,
-        deadline_message: isDeadlineStrict
-          ? 'Murojaah 40X untuk juz sebelumnya wajib tuntas 40 putaran untuk mendaftar Batch 4 ke atas.'
-          : 'Murojaah 40X adalah syarat wajib naik juz. Ukhti dapat melanjutkan pendaftaran ini dan menyelesaikan sisa putaran hingga pembukaan Batch 4.'
+        deadline_message: 'Murojaah 40X adalah syarat penguatan hafalan naik juz. Ukhti dapat melanjutkan pendaftaran ini walau belum selesai Murojaah Warrior, dengan berkomitmen menyelesaikan sisa putaran di Ruang Alumni.'
       }
     });
   } catch (error: any) {

@@ -36,7 +36,7 @@ import {
 import { MurojaahMethod, MurojaahSegment, Murojaah40xLog, Murojaah40xProgress } from '@/types/database';
 import { MurojaahCommunityDirectory } from './MurojaahCommunityDirectory';
 import { MurojaahEnrollModal } from './MurojaahEnrollModal';
-import { calculateMurojaahDebt } from '@/lib/murojaah';
+import { calculateMurojaahDebt, getWibDateString } from '@/lib/murojaah';
 
 interface Murojaah40xTabProps {
   isAlumni?: boolean;
@@ -92,7 +92,7 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
 
   // Form states
   const [selectedMethods, setSelectedMethods] = useState<MurojaahMethod[]>(['pasangan']);
-  const [logDate, setLogDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [logDate, setLogDate] = useState<string>(() => getWibDateString(new Date()));
   const [logNotes, setLogNotes] = useState('');
 
   const fetchData = useCallback(async (targetJuz?: string) => {
@@ -145,7 +145,7 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
       return;
     }
     setSelectedMethods(['pasangan']);
-    setLogDate(new Date().toISOString().split('T')[0]);
+    setLogDate(getWibDateString(new Date()));
     setLogNotes('');
     setIsLogModalOpen(true);
   };
@@ -264,12 +264,10 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
   const currentLogs: Murojaah40xLog[] = activeSegment === 'primary' ? primary_logs : part_a_logs;
   const currentCompletedCount = currentLogs.length;
 
-  // Calculate today's logs & debt for current segment
-  const todayDateStr = new Date().toISOString().split('T')[0];
+  // Calculate today's logs & debt for current segment (WIB / Asia/Jakarta)
+  const todayDateStr = getWibDateString(new Date());
   const currentSegmentTodayLogs = currentLogs.filter(l => {
-    const compDate = typeof l.completed_at === 'string'
-      ? l.completed_at.split('T')[0]
-      : new Date(l.completed_at).toISOString().split('T')[0];
+    const compDate = getWibDateString(l.completed_at);
     return compDate === todayDateStr;
   });
 
@@ -1085,20 +1083,20 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
 
       {/* MODAL INPUT PRESENSI / CEKLIST PUTARAN */}
       <Dialog open={isLogModalOpen} onOpenChange={setIsLogModalOpen}>
-        <DialogContent className="max-w-md rounded-3xl p-6 space-y-4">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center">
+        <DialogContent className="max-w-md w-[95vw] sm:w-full max-h-[88vh] flex flex-col p-0 rounded-3xl overflow-hidden shadow-2xl bg-white border border-gray-100">
+          <DialogHeader className="p-5 sm:p-6 pb-3 border-b border-gray-100 shrink-0 bg-white">
+            <DialogTitle className="text-base sm:text-lg font-bold text-gray-900 flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
                 <Check className="w-4 h-4 stroke-[3]" />
               </div>
-              <span>Presensi Muraja'ah — Putaran ke-{nextRoundNumber}</span>
+              <span className="truncate">Presensi Muraja'ah — Putaran ke-{nextRoundNumber}</span>
             </DialogTitle>
             <DialogDescription className="text-xs text-gray-500">
               Porsi {activeSegment === 'primary' ? `Juz Utama (${juz_info?.code})` : `Bagian A (${juz_info?.optional_part_a_code})`} • Tandai kehadiran dan metode yang digunakan
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-2">
+          <div className="p-5 sm:p-6 overflow-y-auto flex-1 space-y-4 overscroll-contain">
             <div className="space-y-1.5">
               <Label className="text-xs font-bold text-gray-700">Tanggal Muroja'ah</Label>
               <input
@@ -1121,13 +1119,13 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
                       key={m.id}
                       type="button"
                       onClick={() => toggleMethod(m.id)}
-                      className={`w-full p-3 rounded-xl border text-left flex items-center justify-between transition-all ${
+                      className={`w-full p-2.5 sm:p-3 rounded-xl border text-left flex items-center justify-between transition-all ${
                         isChecked 
-                          ? 'border-emerald-600 bg-emerald-50/50 shadow-sm' 
-                          : 'border-gray-200 hover:border-gray-300'
+                          ? 'border-emerald-600 bg-emerald-50/60 shadow-xs' 
+                          : 'border-gray-200 hover:border-gray-300 bg-white'
                       }`}
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2.5 sm:gap-3">
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
                           isChecked ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-500'
                         }`}>
@@ -1142,7 +1140,7 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
                           </div>
                         </div>
                       </div>
-                      <div className={`w-5 h-5 rounded-md border flex items-center justify-center ${
+                      <div className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 ml-2 ${
                         isChecked ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-gray-300 bg-white'
                       }`}>
                         {isChecked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
@@ -1160,17 +1158,17 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
                 rows={2}
                 value={logNotes}
                 onChange={(e) => setLogNotes(e.target.value)}
-                className="text-xs rounded-xl border-gray-200"
+                className="text-xs rounded-xl border-gray-200 resize-none"
               />
             </div>
           </div>
 
-          <DialogFooter className="flex gap-2 sm:gap-2">
+          <DialogFooter className="p-4 sm:p-5 border-t border-gray-100 bg-gray-50/90 shrink-0 flex flex-row items-center justify-end gap-2.5">
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               onClick={() => setIsLogModalOpen(false)}
-              className="rounded-xl text-xs text-gray-500"
+              className="rounded-xl text-xs text-gray-600 px-4 h-10 border-gray-200 hover:bg-gray-100"
             >
               Batal
             </Button>
@@ -1178,9 +1176,9 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
               type="button"
               disabled={submitting}
               onClick={handleSaveLog}
-              className="bg-emerald-800 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold px-5"
+              className="bg-emerald-800 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold px-5 h-10 shadow-sm active:scale-95 transition-all"
             >
-              {submitting ? 'Menyimpan...' : `✓ Simpan & Ceklist Putaran ke-${nextRoundNumber}`}
+              {submitting ? 'Menyimpan...' : `✓ Simpan Putaran ke-${nextRoundNumber}`}
             </Button>
           </DialogFooter>
         </DialogContent>
