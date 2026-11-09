@@ -95,7 +95,7 @@ function MusyrifahRegistrationContent() {
         const res = await fetch('/api/alumni/testimonial/my');
         if (res.ok) {
           const data = await res.json();
-          if (data.isAlumni && !data.testimonial) {
+          if (data.isAlumni && !data.isAdmin && !data.testimonial) {
             toast.error('Afwan Ukhti, Ukhti harus mengisi testimoni alumni terlebih dahulu.');
             router.push('/alumni');
           }

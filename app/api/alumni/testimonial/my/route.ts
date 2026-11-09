@@ -13,16 +13,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { rows: regs } = await query(
+    // Only students who completed previous closed/past batches with approved/graduated status are considered alumni.
+    // Fresh registrants in the current open batch (status pending) are NOT alumni.
+    const { rows: pastRegs } = await query(
       `SELECT p.id, p.status, p.selection_status, b.status as batch_status, b.end_date
        FROM pendaftaran_tikrar_tahfidz p
-       LEFT JOIN batches b ON b.id = p.batch_id
-       WHERE p.user_id = $1`,
+       JOIN batches b ON b.id = p.batch_id
+       WHERE p.user_id = $1
+         AND (p.status = 'approved' OR p.status = 'graduated' OR p.selection_status = 'approved')
+         AND (b.status = 'closed' OR (b.end_date IS NOT NULL AND b.end_date < NOW()))`,
       [user.id]
     );
 
     const isAdmin = (user.roles || []).includes('admin') || user.role === 'admin';
-    const isAlumnus = regs.length > 0 || isAdmin;
+    const isAlumnus = pastRegs.length > 0;
 
     const testimonial = await queryOne(
       `SELECT * FROM testimonials WHERE user_id = $1`,
@@ -64,11 +68,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { rows } = await query(
-      `INSERT INTO testimonials (user_id, content, rating, is_approved, created_at, updated_at)
-       VALUES ($1, $2, $3, false, NOW(), NOW())
-       ON CONFLICT (user_id) 
-       DO UPDATE SET content = EXCLUDED.content, rating = EXCLUDED.rating, is_approved = false, updated_at = NOW()
-       RETURNING *`,
+      `INSERT INTO testimonials (user_id, content, rating, is_approved, created_at, updated_at)\n       VALUES ($1, $2, $3, false, NOW(), NOW())\n       ON CONFLICT (user_id) \n       DO UPDATE SET content = EXCLUDED.content, rating = EXCLUDED.rating, is_approved = false, updated_at = NOW()\n       RETURNING *`,
       [user.id, content.trim(), Math.floor(numericRating)]
     );
 

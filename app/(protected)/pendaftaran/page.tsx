@@ -68,7 +68,7 @@ export default function PendaftaranPage() {
         const res = await fetch('/api/alumni/testimonial/my');
         if (res.ok) {
           const data = await res.json();
-          if (data.isAlumni && !data.testimonial) {
+          if (data.isAlumni && !data.isAdmin && !data.testimonial) {
             setIsAlumniBlocked(true);
           }
         }

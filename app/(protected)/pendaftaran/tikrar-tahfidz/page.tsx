@@ -258,29 +258,7 @@ export default function ThalibahBatch2Page() {
   const [murojaahCommitmentChecked, setMurojaahCommitmentChecked] = useState(false)
 
 
-  // Check if user is an alumnus and has not filled in their testimonial
-  useEffect(() => {
-    async function checkAlumniStatus() {
-      try {
-        const res = await fetch('/api/alumni/testimonial/my')
-        if (res.ok) {
-          const data = await res.json()
-          if (data.isAlumni) {
-            setIsAlumni(true)
-            if (!data.testimonial) {
-              toast.error('Afwan Ukhti, Ukhti harus mengisi testimoni alumni terlebih dahulu.')
-              router.push('/alumni')
-            }
-          }
-        }
-      } catch (err) {
-        console.error('Error checking alumni status:', err)
-      }
-    }
-    if (user) {
-      checkAlumniStatus()
-    }
-  }, [user, router])
+
 
   const [isMounted, setIsMounted] = useState(false)
   const [userProfile, setUserProfile] = useState<any>(null)
@@ -461,6 +439,30 @@ export default function ThalibahBatch2Page() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'success_update' | 'error'>('idle')
+
+  // Check if user is an alumnus and has not filled in their testimonial
+  useEffect(() => {
+    async function checkAlumniStatus() {
+      try {
+        const res = await fetch('/api/alumni/testimonial/my')
+        if (res.ok) {
+          const data = await res.json()
+          if (data.isAlumni && !data.isAdmin) {
+            setIsAlumni(true)
+            if (!data.testimonial && submitStatus === 'idle') {
+              toast.error('Afwan Ukhti, Ukhti harus mengisi testimoni alumni terlebih dahulu.')
+              router.push('/alumni')
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error checking alumni status:', err)
+      }
+    }
+    if (user && submitStatus === 'idle') {
+      checkAlumniStatus()
+    }
+  }, [user, router, submitStatus])
   const [submitError, setSubmitError] = useState<string>('')
   const [redirectTimer, setRedirectTimer] = useState<NodeJS.Timeout | null>(null)
 
@@ -718,16 +720,12 @@ export default function ThalibahBatch2Page() {
         // Refresh registrations cache
         mutateRegistrations()
 
-        // Redirect directly to tahap seleksi rekam-suara after 3 seconds
+        // Redirect immediately to tahap seleksi rekam-suara
         const targetUrl = activeBatchData?.id 
           ? `/seleksi/rekam-suara?batch_id=${activeBatchData.id}` 
           : '/seleksi/rekam-suara'
 
-        const timer = setTimeout(() => {
-          router.push(targetUrl)
-        }, 3000)
-
-        setRedirectTimer(timer)
+        router.push(targetUrl)
       } else {
         toast.error(result.error || 'Gagal mengirim pendaftaran')
         setSubmitError(result.error || 'Terjadi kesalahan saat mengirim formulir')
