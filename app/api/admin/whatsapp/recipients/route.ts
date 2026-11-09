@@ -34,6 +34,7 @@ export async function GET(request: Request) {
          id, 
          full_name, 
          role, 
+         roles,
          whatsapp,
          email
        FROM users 
@@ -43,11 +44,29 @@ export async function GET(request: Request) {
        ORDER BY whatsapp, full_name ASC`
     );
 
+    const formattedAdmins = admins.map((a) => {
+      const userRoles = Array.isArray(a.roles) ? a.roles : [];
+      let displayRole = a.role;
+      if (a.role === 'super_admin' || userRoles.includes('super_admin')) {
+        displayRole = 'super_admin';
+      } else if (a.role === 'admin' || userRoles.includes('admin')) {
+        displayRole = 'admin';
+      }
+      return {
+        id: a.id,
+        full_name: a.full_name,
+        role: displayRole,
+        roles: a.roles,
+        whatsapp: a.whatsapp,
+        email: a.email,
+      };
+    });
+
     return ApiResponses.success({
       batches,
       totalRecipients: recipients.length,
       recipients,
-      admins: admins.sort((a, b) => a.full_name.localeCompare(b.full_name)),
+      admins: formattedAdmins.sort((a, b) => a.full_name.localeCompare(b.full_name)),
     });
   } catch (error) {
     console.error('[WhatsApp Recipients Route] Error:', error);
