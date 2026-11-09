@@ -115,12 +115,24 @@ export function MurojaahCommunityDirectory({
           </div>
         </div>
 
-        {myProfile?.time_slot_main && (
-          <div className="bg-white/90 border border-emerald-200/80 rounded-xl p-2.5 px-3 text-xs shrink-0 self-start sm:self-auto shadow-2xs">
-            <span className="text-[10px] text-gray-500 font-bold uppercase block">Jadwal Utama Ukhti:</span>
-            <span className="font-extrabold text-emerald-800">{myProfile.time_slot_main_label}</span>
-          </div>
-        )}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 shrink-0">
+          {myProfile?.time_slot_main ? (
+            <div className="bg-white/90 border border-emerald-200/80 rounded-xl p-2.5 px-3 text-xs shadow-2xs">
+              <span className="text-[10px] text-gray-500 font-bold uppercase block">Jadwal Utama Ukhti:</span>
+              <span className="font-extrabold text-emerald-800">{myProfile.time_slot_main_label}</span>
+            </div>
+          ) : null}
+          {onOpenEnrollModal && (
+            <Button
+              type="button"
+              onClick={onOpenEnrollModal}
+              className="bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl text-xs font-bold px-3.5 py-2 shadow-xs gap-1.5 shrink-0"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+              <span>{myProfile?.time_slot_main ? "Atur Ulang Jadwal Luang" : "Daftar / Atur Jam Luang Simak"}</span>
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Filter & Search Bar */}
@@ -199,8 +211,20 @@ export function MurojaahCommunityDirectory({
           <p className="text-xs text-gray-500 max-w-md mx-auto">
             {selectedSlotFilter !== 'ALL'
               ? 'Belum ada thalibah di slot jam ini. Coba pilih "Semua Jam WIB" untuk melihat lebih banyak.'
-              : 'Jadilah yang pertama mengaktifkan pencarian pasangan simak di porsi ini!'}
+              : 'Jadilah yang pertama mengaktifkan profil dan jam luang Ukhti agar dapat ditemukan dan saling simak bersama thalibah lain!'}
           </p>
+          {onOpenEnrollModal && (
+            <div className="pt-2">
+              <Button
+                type="button"
+                onClick={onOpenEnrollModal}
+                className="bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl text-xs font-bold px-4 py-2 shadow-sm gap-1.5"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                <span>Daftar / Aktifkan Jam Luang Simak Saya</span>
+              </Button>
+            </div>
+          )}
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
