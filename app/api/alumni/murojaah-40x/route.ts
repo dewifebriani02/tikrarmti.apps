@@ -241,6 +241,26 @@ export async function GET(request: NextRequest) {
     // 6. Check if user is eligible for free renewal / extension
     const hasAnyWarriorBadge = Boolean(userBadge) || Boolean(progress.is_warrior_eligible);
 
+    // Cek apakah user adalah peserta aktif di batch berjalan (open / ongoing)
+    const activeBatchReg = await queryOne(
+      `SELECT p.id, p.batch_id, b.name as batch_name, b.status as batch_status
+       FROM pendaftaran_tikrar_tahfidz p
+       JOIN batches b ON b.id = p.batch_id
+       WHERE p.user_id = $1
+         AND p.status IN ('approved', 'selected', 'registered')
+         AND b.status IN ('open', 'ongoing')
+       LIMIT 1`,
+      [targetId]
+    );
+
+    const isActiveBatchThalibah = Boolean(activeBatchReg);
+    const hasTimeSlot = Boolean(progress?.time_slot_main);
+    const needsTimeSlot = !isActiveBatchThalibah && !hasTimeSlot;
+
+    // Check if user is a Mu'allimah
+    const isMuallimah = (user.roles || []).includes('muallimah') || user.role === 'muallimah';
+    const isFreeEligible = isActiveBatchThalibah || isMuallimah || hasAnyWarriorBadge;
+
     // 7. Check if Murojaah 40x is locked pending mandatory murojaah (M1..M7)
     const wajibStatus = await checkMurojaahWajibStatus(targetId, batchId, isAdminOrStaff);
 
@@ -297,7 +317,10 @@ export async function GET(request: NextRequest) {
           code: juzCode,
           is_part_b: isPartB,
           optional_part_a_code: isPartB ? juzCode.replace(/B$/i, 'A') : null
-        }
+        },
+        is_active_batch_thalibah: isActiveBatchThalibah,
+        is_free_eligible: isFreeEligible,
+        needs_time_slot: needsTimeSlot
       }
     });
   } catch (error: any) {
@@ -359,6 +382,29 @@ export async function POST(request: NextRequest) {
 
     if (!progress) {
       return NextResponse.json({ success: false, error: 'Data progres Murojaah 40x tidak ditemukan. Silakan muat ulang halaman.' }, { status: 404 });
+    }
+
+    // Check if user is an active thalibah in an open/ongoing Tikrar Tahfidz batch
+    const activeBatchReg = await queryOne(
+      `SELECT p.id
+       FROM pendaftaran_tikrar_tahfidz p
+       JOIN batches b ON b.id = p.batch_id
+       WHERE p.user_id = $1
+         AND p.status IN ('approved', 'selected', 'registered')
+         AND b.status IN ('open', 'ongoing')
+       LIMIT 1`,
+      [user.id]
+    );
+
+    const isActiveBatchThalibah = Boolean(activeBatchReg);
+
+    // Non-batch participants MUST register / set their simak time slot before logging presensi
+    if (!isActiveBatchThalibah && !progress.time_slot_main) {
+      return NextResponse.json({
+        success: false,
+        error: "Afwan Ukhti, silakan daftar / atur jam luang simak terlebih dahulu sebelum mengisi presensi Muroja'ah 40x.",
+        needs_time_slot: true
+      }, { status: 400 });
     }
 
     // 4. Check if 20-day challenge has expired (only after first round started)

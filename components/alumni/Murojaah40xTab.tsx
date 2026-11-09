@@ -144,6 +144,11 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
       setIsEnrollModalOpen(true);
       return;
     }
+    if (isSlotRequired) {
+      toast.info("Silakan daftar / atur jam luang simak terlebih dahulu sebelum mengisi presensi Muroja'ah 40x.");
+      setIsEnrollModalOpen(true);
+      return;
+    }
     setSelectedMethods(['pasangan']);
     setLogDate(getWibDateString(new Date()));
     setLogNotes('');
@@ -260,7 +265,20 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
     );
   }
 
-  const { progress, primary_logs = [], part_a_logs = [], warrior, juz_info, all_enrolled_juz = [], wajib_murojaah } = data || {};
+  const { 
+    progress, 
+    primary_logs = [], 
+    part_a_logs = [], 
+    warrior, 
+    juz_info, 
+    all_enrolled_juz = [], 
+    wajib_murojaah,
+    is_active_batch_thalibah,
+    is_free_eligible,
+    needs_time_slot
+  } = data || {};
+
+  const isSlotRequired = Boolean(needs_time_slot ?? (!is_active_batch_thalibah && !progress?.time_slot_main));
   const currentLogs: Murojaah40xLog[] = activeSegment === 'primary' ? primary_logs : part_a_logs;
   const currentCompletedCount = currentLogs.length;
 
@@ -477,10 +495,24 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
                   size="sm"
                   onClick={() => handleOpenLogModal(nextRoundNumber)}
                   disabled={isSegmentCompleted || warrior?.is_expired}
-                  className="bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl text-xs font-bold px-5 py-2.5 shadow-xs gap-1.5"
+                  className={cn(
+                    "rounded-xl text-xs font-bold px-5 py-2.5 shadow-xs gap-1.5 transition-all",
+                    isSlotRequired
+                      ? "bg-amber-600 hover:bg-amber-700 text-white"
+                      : "bg-emerald-800 hover:bg-emerald-900 text-white"
+                  )}
                 >
-                  <Plus className="w-4 h-4" />
-                  <span>Setor Putaran ke-{nextRoundNumber}</span>
+                  {isSlotRequired ? (
+                    <>
+                      <Clock className="w-4 h-4" />
+                      <span>Atur Jam Luang Simak</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4" />
+                      <span>Setor Putaran ke-{nextRoundNumber}</span>
+                    </>
+                  )}
                 </Button>
                 <span className="text-[10px] text-gray-500 italic text-center sm:text-right">
                   Pengingat sore dikirim otomatis via WhatsApp pukul 16.30 WIB
@@ -509,6 +541,35 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
             className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shrink-0 shadow-xs"
           >
             Re-Registrasi Siklus Baru
+          </Button>
+        </div>
+      )}
+
+      {/* TIME SLOT REQUIRED WARNING BANNER (NON-BATCH) */}
+      {isSlotRequired && !isSegmentCompleted && (
+        <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-sm animate-fadeIn">
+          <div className="flex items-start gap-3 text-amber-950">
+            <div className="w-10 h-10 rounded-xl bg-amber-200/70 border border-amber-300 flex items-center justify-center shrink-0 mt-0.5">
+              <Clock className="w-5 h-5 text-amber-900" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-black text-amber-950 text-sm">Daftar / Atur Jam Luang Simak</span>
+                <span className="bg-amber-200 text-amber-900 font-extrabold text-[10px] px-2 py-0.5 rounded-full">
+                  Non-Batch Tikrar
+                </span>
+              </div>
+              <p className="text-[11px] text-amber-800 mt-1 leading-relaxed">
+                Afwan Ukhti, untuk peserta non-batch / alumni yang belum mengatur jam luang simak, silakan tentukan jam luang setoran (7 slot WIB) terlebih dahulu sebelum mengisi presensi Muroja'ah 40x.
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            onClick={() => setIsEnrollModalOpen(true)}
+            className="bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shrink-0 shadow-xs"
+          >
+            Atur Jam Luang Simak &rarr;
           </Button>
         </div>
       )}
@@ -690,13 +751,20 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
                     "rounded-xl shadow-md font-bold text-xs px-4 h-9 gap-1.5 transition-all",
                     wajib_murojaah?.is_locked
                       ? "bg-gray-200 text-gray-500 cursor-not-allowed shadow-none"
-                      : "bg-emerald-800 hover:bg-emerald-700 text-white shadow-emerald-800/10"
+                      : isSlotRequired
+                        ? "bg-amber-600 hover:bg-amber-700 text-white shadow-amber-600/10"
+                        : "bg-emerald-800 hover:bg-emerald-700 text-white shadow-emerald-800/10"
                   )}
                 >
                   {wajib_murojaah?.is_locked ? (
                     <>
                       <Lock className="w-3.5 h-3.5 text-gray-500" />
                       <span>Terkunci</span>
+                    </>
+                  ) : isSlotRequired ? (
+                    <>
+                      <Clock className="w-3.5 h-3.5 text-white" />
+                      <span>Atur Jam Luang Simak</span>
                     </>
                   ) : (
                     <>
@@ -831,6 +899,52 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
                             <span className="text-[10px] text-gray-400">Selesaikan Murojaah Wajib Pekan 11</span>
                           </div>
                         </div>
+                      </div>
+                    );
+                  }
+
+                  if (isSlotRequired) {
+                    return (
+                      <div
+                        key={roundNum}
+                        className="p-4 rounded-2xl border-2 border-amber-400 bg-amber-50/40 shadow-sm flex flex-col justify-between gap-3 animate-fadeIn"
+                      >
+                        <div className="flex items-center justify-between pb-2 border-b border-amber-200/70">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] font-black uppercase tracking-wider bg-amber-200 text-amber-900 px-2 py-0.5 rounded-md">
+                              Sesi {slotIndex}
+                            </span>
+                            <span className="text-xs font-black text-gray-900">
+                              Putaran ke-{roundNum}
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-black uppercase tracking-wider bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full">
+                            Perlu Atur Jam Luang
+                          </span>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleOpenLogModal(roundNum)}
+                          className="group w-full text-left flex items-start gap-3 p-3 rounded-xl border-2 border-amber-300 bg-white hover:bg-amber-50 hover:border-amber-400 transition-all cursor-pointer shadow-xs active:scale-[0.99]"
+                        >
+                          <div className="w-6 h-6 rounded-lg border-2 border-amber-500 bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 mt-0.5 transition-all shadow-inner">
+                            <Clock className="w-3.5 h-3.5 stroke-[2.5]" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <span className="font-black text-xs text-amber-950 group-hover:text-amber-900 block">
+                              Atur Jam Luang Simak
+                            </span>
+                            <span className="text-[10px] text-amber-800/80">
+                              Daftar &amp; tentukan jam luang simak untuk membuka presensi
+                            </span>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-amber-700 group-hover:translate-x-0.5 transition-transform mt-0.5" />
+                        </button>
+
+                        <p className="text-[10px] text-amber-700/80 text-center font-medium">
+                          Khusus non-batch Tikrar Tahfidz wajib atur jam luang simak terlebih dahulu
+                        </p>
                       </div>
                     );
                   }
@@ -1281,7 +1395,9 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
         onClose={() => setIsEnrollModalOpen(false)}
         onSuccess={() => fetchData()}
         currentJuzCode={juz_info?.code || '30A'}
-        isFreeEligible={true}
+        currentTimeSlotMain={progress?.time_slot_main}
+        currentTimeSlotBackup={progress?.time_slot_backup}
+        isFreeEligible={data?.is_free_eligible ?? true}
         isFreeExtension={warrior?.free_extension_unlocked || false}
       />
     </div>

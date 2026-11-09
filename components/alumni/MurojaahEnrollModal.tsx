@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -13,6 +13,8 @@ interface MurojaahEnrollModalProps {
   onClose: () => void;
   onSuccess: () => void;
   currentJuzCode?: string;
+  currentTimeSlotMain?: string;
+  currentTimeSlotBackup?: string;
   isFreeEligible?: boolean;
   isFreeExtension?: boolean;
 }
@@ -35,12 +37,22 @@ export function MurojaahEnrollModal({
   onClose,
   onSuccess,
   currentJuzCode = '30A',
+  currentTimeSlotMain,
+  currentTimeSlotBackup,
   isFreeEligible = true,
   isFreeExtension = false
 }: MurojaahEnrollModalProps) {
   const [selectedJuz, setSelectedJuz] = useState<string>(currentJuzCode);
-  const [timeSlotMain, setTimeSlotMain] = useState<string>('04-06');
-  const [timeSlotBackup, setTimeSlotBackup] = useState<string>('06-09');
+  const [timeSlotMain, setTimeSlotMain] = useState<string>(currentTimeSlotMain || '04-06');
+  const [timeSlotBackup, setTimeSlotBackup] = useState<string>(currentTimeSlotBackup || '06-09');
+
+  useEffect(() => {
+    if (isOpen) {
+      if (currentJuzCode) setSelectedJuz(currentJuzCode);
+      if (currentTimeSlotMain) setTimeSlotMain(currentTimeSlotMain);
+      if (currentTimeSlotBackup) setTimeSlotBackup(currentTimeSlotBackup);
+    }
+  }, [isOpen, currentJuzCode, currentTimeSlotMain, currentTimeSlotBackup]);
   const [partnerMatchingActive, setPartnerMatchingActive] = useState<boolean>(true);
   const [selectedInfaqAmount, setSelectedInfaqAmount] = useState<number>(25000);
   const [submitting, setSubmitting] = useState(false);
