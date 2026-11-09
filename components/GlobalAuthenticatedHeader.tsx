@@ -338,10 +338,7 @@ export default function GlobalAuthenticatedHeader({
           {/* Right Section - Actions & Profile */}
           <div className="flex items-center space-x-2 md:space-x-3">
 
-            {/* Persona Switcher Pill */}
-            {isMounted && <PersonaSwitcher variant="header" />}
-
-            {/* Quick FAQ Button */}
+            {/* Quick FAQ / Bantuan Button - Teks selalu terlihat jelas di HP & Desktop */}
             {isMounted && (
               <button
                 type="button"
@@ -349,8 +346,8 @@ export default function GlobalAuthenticatedHeader({
                 className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300/80 rounded-lg transition-colors shadow-2xs cursor-pointer"
                 title="Pusat Bantuan & FAQ"
               >
-                <HelpCircle className="w-4 h-4 text-emerald-700" />
-                <span className="hidden sm:inline">FAQ</span>
+                <HelpCircle className="w-4 h-4 text-emerald-700 shrink-0" />
+                <span className="text-xs font-bold text-emerald-800">FAQ</span>
               </button>
             )}
 

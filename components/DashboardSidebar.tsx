@@ -132,6 +132,11 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
         icon: <GraduationCap className="h-5 w-5" />,
       });
       baseItems.push({
+        href: '/murojaah',
+        label: "Muraja'ah 40x",
+        icon: <RotateCcw className="h-5 w-5 text-emerald-600" />,
+      });
+      baseItems.push({
         href: '/admin/murojaah',
         label: 'Monitoring Murojaah',
         icon: <Flame className="h-5 w-5 text-amber-500" />,
