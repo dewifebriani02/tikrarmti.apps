@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import { 
   CheckSquare, Square,
   MessageSquare, Send, CheckCircle2, AlertCircle, RefreshCw, 
@@ -55,6 +56,12 @@ interface AdminContact {
   role: string;
   whatsapp: string;
   email?: string | null;
+}
+
+interface WhatsAppGroup {
+  groupId: string;
+  name: string;
+  participantCount: number;
 }
 
 interface ActiveThalibah {
@@ -245,6 +252,379 @@ Tim Akademik Markaz Tikrar Indonesia
   },
 ];
 
+
+interface CcSelectorCardProps {
+  adminList: AdminContact[];
+  selectedAdminCc: string[];
+  toggleAdminCc: (phone: string) => void;
+  customCcList: string[];
+  customCcInput: string;
+  setCustomCcInput: (val: string) => void;
+  addCustomCc: () => void;
+  removeCustomCc: (phone: string) => void;
+  whatsappGroups: WhatsAppGroup[];
+  isLoadingGroups: boolean;
+  lastGroupsSync: string | null;
+  fetchWhatsappGroups: (forceRefresh?: boolean) => void;
+  selectedCcGroups: string[];
+  toggleGroupCc: (groupId: string) => void;
+  isCcExpanded: boolean;
+  setIsCcExpanded: React.Dispatch<React.SetStateAction<boolean>>;
+  ccTab: 'admin' | 'group';
+  setCcTab: React.Dispatch<React.SetStateAction<'admin' | 'group'>>;
+  groupSearchQuery: string;
+  setGroupSearchQuery: (val: string) => void;
+  onClearAll: () => void;
+}
+
+function CcSelectorCard({
+  adminList,
+  selectedAdminCc,
+  toggleAdminCc,
+  customCcList,
+  customCcInput,
+  setCustomCcInput,
+  addCustomCc,
+  removeCustomCc,
+  whatsappGroups,
+  isLoadingGroups,
+  lastGroupsSync,
+  fetchWhatsappGroups,
+  selectedCcGroups,
+  toggleGroupCc,
+  isCcExpanded,
+  setIsCcExpanded,
+  ccTab,
+  setCcTab,
+  groupSearchQuery,
+  setGroupSearchQuery,
+  onClearAll,
+}: CcSelectorCardProps) {
+  const allAdminCc = Array.from(new Set([...selectedAdminCc, ...customCcList])).filter(Boolean);
+  const totalCcCount = allAdminCc.length + selectedCcGroups.length;
+
+  const filteredGroups = whatsappGroups.filter(g =>
+    g.name.toLowerCase().includes(groupSearchQuery.toLowerCase())
+  );
+
+  return (
+    <div className="bg-gray-50/80 border border-gray-200 rounded-2xl p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center">
+            <Shield className="h-4 w-4" />
+          </div>
+          <div>
+            <span className="text-xs font-bold text-gray-900 block leading-tight">
+              Tembusan (CC) ke Admin & Grup MTI
+            </span>
+            <span className="text-[10px] text-gray-500">
+              {totalCcCount > 0
+                ? `${totalCcCount} tujuan tembusan dipilih (${allAdminCc.length} Admin, ${selectedCcGroups.length} Grup)`
+                : 'Kirimkan juga salinan pesan ke nomor admin atau grup WhatsApp'}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {totalCcCount > 0 && (
+            <button
+              type="button"
+              onClick={onClearAll}
+              className="text-[10px] text-gray-400 hover:text-red-600 underline font-semibold transition-colors"
+            >
+              Hapus Semua
+            </button>
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setIsCcExpanded(prev => !prev)}
+            className="rounded-xl text-xs h-7 px-2.5 border-gray-200 gap-1"
+          >
+            <span>{isCcExpanded ? 'Tutup Pilihan' : 'Pilih Admin & Grup'}</span>
+            <Badge className="bg-emerald-100 text-emerald-800 text-[10px] px-1.5 py-0 h-4 border-none font-bold">
+              {totalCcCount}
+            </Badge>
+          </Button>
+        </div>
+      </div>
+
+      {/* Ringkasan badge nomor dan grup yang aktif dipilih */}
+      {totalCcCount > 0 && (
+        <div className="flex flex-wrap gap-1.5 pt-1 border-t border-gray-200/60">
+          {/* Badge Admin */}
+          {allAdminCc.map(num => {
+            const matchedAdmin = adminList.find(a => a.whatsapp === num);
+            return (
+              <span
+                key={num}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-900 border border-emerald-200 text-xs font-semibold"
+              >
+                <UserCheck className="w-3 h-3 text-emerald-700" />
+                <span className="text-[11px]">
+                  {matchedAdmin ? `${matchedAdmin.full_name} (${num})` : num}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (matchedAdmin) toggleAdminCc(matchedAdmin.whatsapp);
+                    else removeCustomCc(num);
+                  }}
+                  className="text-emerald-700 hover:text-red-600 transition-colors ml-0.5"
+                  title="Hapus tembusan nomor ini"
+                >
+                  &times;
+                </button>
+              </span>
+            );
+          })}
+
+          {/* Badge Grup WhatsApp */}
+          {selectedCcGroups.map(gid => {
+            const matchedGroup = whatsappGroups.find(g => g.groupId === gid);
+            return (
+              <span
+                key={gid}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 text-blue-900 border border-blue-200 text-xs font-semibold"
+              >
+                <Users className="w-3 h-3 text-blue-700" />
+                <span className="text-[11px] truncate max-w-[200px]">
+                  {matchedGroup ? matchedGroup.name : 'Grup WhatsApp'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => toggleGroupCc(gid)}
+                  className="text-blue-700 hover:text-red-600 transition-colors ml-0.5"
+                  title="Hapus tembusan grup ini"
+                >
+                  &times;
+                </button>
+              </span>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Panel checklist admin & grup saat expanded */}
+      {isCcExpanded && (
+        <div className="pt-2 border-t border-gray-200 space-y-3 animate-fadeInUp">
+          {/* Sub-Tabs: Admin vs Grup */}
+          <div className="flex bg-gray-200/80 p-0.5 rounded-xl text-xs font-bold">
+            <button
+              type="button"
+              onClick={() => setCcTab('admin')}
+              className={`flex-1 py-1.5 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                ccTab === 'admin'
+                  ? 'bg-white text-emerald-800 shadow-xs'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <UserCheck className="w-3.5 h-3.5" />
+              <span>Nomor Admin</span>
+              {allAdminCc.length > 0 && (
+                <Badge className="bg-emerald-100 text-emerald-800 text-[10px] px-1 py-0 h-4 border-none">
+                  {allAdminCc.length}
+                </Badge>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setCcTab('group');
+                if (whatsappGroups.length === 0 && !isLoadingGroups) {
+                  fetchWhatsappGroups(false);
+                }
+              }}
+              className={`flex-1 py-1.5 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                ccTab === 'group'
+                  ? 'bg-white text-emerald-800 shadow-xs'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>Grup WhatsApp</span>
+              {selectedCcGroups.length > 0 && (
+                <Badge className="bg-blue-100 text-blue-800 text-[10px] px-1 py-0 h-4 border-none">
+                  {selectedCcGroups.length}
+                </Badge>
+              )}
+            </button>
+          </div>
+
+          {/* TAB 1: ADMIN */}
+          {ccTab === 'admin' && (
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-bold text-gray-700 block">
+                  Ceklis Nomor Admin Penerima Tembusan:
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-1 bg-white rounded-xl border border-gray-200">
+                  {adminList.length === 0 ? (
+                    <div className="col-span-2 text-center py-3 text-xs text-gray-400">
+                      Memuat daftar admin...
+                    </div>
+                  ) : (
+                    adminList.map(admin => {
+                      const isChecked = selectedAdminCc.includes(admin.whatsapp);
+                      return (
+                        <label
+                          key={admin.id}
+                          onClick={() => toggleAdminCc(admin.whatsapp)}
+                          className={`p-2 rounded-lg border text-xs flex items-center justify-between cursor-pointer transition-colors ${
+                            isChecked
+                              ? 'bg-emerald-50 border-emerald-300 text-emerald-950 font-bold'
+                              : 'hover:bg-gray-50 border-gray-100 text-gray-700'
+                          }`}
+                        >
+                          <div className="truncate mr-2">
+                            <div className="truncate leading-tight">{admin.full_name}</div>
+                            <div className="text-[10px] text-gray-500 font-mono font-normal">
+                              {admin.whatsapp} • <span className="uppercase">{admin.role}</span>
+                            </div>
+                          </div>
+                          <div className="shrink-0 text-emerald-700">
+                            {isChecked ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4 text-gray-300" />}
+                          </div>
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* Input nomor tembusan manual / tambahan */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-gray-700 block">
+                  Atau Tambah Nomor Tembusan Manual (WhatsApp):
+                </label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Contoh: 08123456789 atau 628..."
+                    value={customCcInput}
+                    onChange={(e) => setCustomCcInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        addCustomCc();
+                      }
+                    }}
+                    className="rounded-xl text-xs h-8 bg-white border-gray-200 font-mono"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addCustomCc}
+                    disabled={!customCcInput.trim()}
+                    className="rounded-xl text-xs h-8 border-gray-200 font-semibold px-3"
+                  >
+                    Tambah
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: GRUP WHATSAPP */}
+          {ccTab === 'group' && (
+            <div className="space-y-2.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                <div>
+                  <span className="text-[11px] font-bold text-gray-700 block">
+                    Ceklis Grup WhatsApp Tujuan Tembusan:
+                  </span>
+                  {lastGroupsSync && (
+                    <span className="text-[10px] text-gray-400">
+                      Terakhir ditarik: {new Date(lastGroupsSync).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                    </span>
+                  )}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fetchWhatsappGroups(true)}
+                  disabled={isLoadingGroups}
+                  className="h-7 rounded-xl text-[11px] border-emerald-200 text-emerald-800 hover:bg-emerald-50 font-bold gap-1 self-start sm:self-auto"
+                  title="Tarik daftar grup WhatsApp terbaru dari perangkat"
+                >
+                  <RefreshCw className={`w-3 h-3 ${isLoadingGroups ? 'animate-spin' : ''}`} />
+                  <span>{isLoadingGroups ? 'Menarik Grup...' : 'Tarik Grup Baru'}</span>
+                </Button>
+              </div>
+
+              {/* Search bar grup */}
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Input
+                  placeholder="Cari nama grup WhatsApp..."
+                  value={groupSearchQuery}
+                  onChange={(e) => setGroupSearchQuery(e.target.value)}
+                  className="rounded-xl text-xs h-8 bg-white border-gray-200 pl-8"
+                />
+              </div>
+
+              {/* List Grup */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto p-1 bg-white rounded-xl border border-gray-200">
+                {isLoadingGroups && whatsappGroups.length === 0 ? (
+                  <div className="col-span-2 text-center py-5 text-xs text-emerald-700 font-medium flex items-center justify-center gap-2">
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Menghubungi WatZap & memuat grup...</span>
+                  </div>
+                ) : filteredGroups.length === 0 ? (
+                  <div className="col-span-2 text-center py-5 text-xs text-gray-400 space-y-2">
+                    <p>{whatsappGroups.length === 0 ? 'Belum ada grup yang ditarik.' : 'Tidak ada grup yang sesuai pencarian.'}</p>
+                    {whatsappGroups.length === 0 && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => fetchWhatsappGroups(true)}
+                        className="rounded-xl text-xs h-8 bg-emerald-700 hover:bg-emerald-800 text-white font-bold"
+                      >
+                        <RefreshCw className="w-3 h-3 mr-1" /> Tarik Daftar Grup Sekarang
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  filteredGroups.map(group => {
+                    const isChecked = selectedCcGroups.includes(group.groupId);
+                    return (
+                      <label
+                        key={group.groupId}
+                        onClick={() => toggleGroupCc(group.groupId)}
+                        className={`p-2 rounded-lg border text-xs flex items-center justify-between cursor-pointer transition-colors ${
+                          isChecked
+                            ? 'bg-blue-50 border-blue-300 text-blue-950 font-bold'
+                            : 'hover:bg-gray-50 border-gray-100 text-gray-700'
+                        }`}
+                      >
+                        <div className="truncate mr-2">
+                          <div className="truncate leading-tight font-medium">{group.name}</div>
+                          <div className="text-[10px] text-gray-500 font-normal flex items-center gap-1 mt-0.5">
+                            <span className="px-1.5 py-0.2 bg-gray-100 rounded text-[9px] font-semibold text-gray-600">
+                              {group.participantCount} Peserta
+                            </span>
+                          </div>
+                        </div>
+                        <div className="shrink-0 text-blue-700">
+                          {isChecked ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4 text-gray-300" />}
+                        </div>
+                      </label>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 export default function AdminWhatsAppPage() {
   const [activeTab, setActiveTab] = useState<'broadcast' | 'individual'>('broadcast');
 
@@ -297,12 +677,59 @@ export default function AdminWhatsAppPage() {
     email?: string;
   }>>([]);
 
-  // Admin CC / Tembusan state
+  // Admin & Group CC / Tembusan state
   const [adminList, setAdminList] = useState<AdminContact[]>([]);
   const [selectedAdminCc, setSelectedAdminCc] = useState<string[]>([]);
   const [customCcInput, setCustomCcInput] = useState('');
   const [customCcList, setCustomCcList] = useState<string[]>([]);
   const [isCcExpanded, setIsCcExpanded] = useState(false);
+
+  // WhatsApp Groups CC state
+  const [whatsappGroups, setWhatsappGroups] = useState<WhatsAppGroup[]>([]);
+  const [isLoadingGroups, setIsLoadingGroups] = useState(false);
+  const [lastGroupsSync, setLastGroupsSync] = useState<string | null>(null);
+  const [selectedCcGroups, setSelectedCcGroups] = useState<string[]>([]);
+  const [groupSearchQuery, setGroupSearchQuery] = useState('');
+  const [ccTab, setCcTab] = useState<'admin' | 'group'>('admin');
+
+  const toggleGroupCc = (groupId: string) => {
+    setSelectedCcGroups(prev =>
+      prev.includes(groupId) ? prev.filter(g => g !== groupId) : [...prev, groupId]
+    );
+  };
+
+  const handleClearAllCc = () => {
+    setSelectedAdminCc([]);
+    setCustomCcList([]);
+    setSelectedCcGroups([]);
+  };
+
+  const fetchWhatsappGroups = async (forceRefresh = false) => {
+    setIsLoadingGroups(true);
+    try {
+      const res = await fetch(`/api/admin/whatsapp/groups${forceRefresh ? '?refresh=true' : ''}`);
+      const json = await res.json();
+      if (res.ok && json.success && json.data) {
+        setWhatsappGroups(json.data.groups || []);
+        if (json.data.lastFetchedAt) {
+          setLastGroupsSync(json.data.lastFetchedAt);
+        }
+        if (forceRefresh) {
+          toast.success(`Berhasil menarik ${json.data.groups?.length || 0} grup WhatsApp terbaru!`);
+        }
+      } else {
+        if (forceRefresh) {
+          toast.error(json.error || 'Gagal memuat grup WhatsApp');
+        }
+      }
+    } catch (err: any) {
+      if (forceRefresh) {
+        toast.error('Gagal terhubung ke layanan grup WhatsApp');
+      }
+    } finally {
+      setIsLoadingGroups(false);
+    }
+  };
 
   // Local message logs
   const [messageLogs, setMessageLogs] = useState<MessageLog[]>([]);
@@ -360,10 +787,18 @@ export default function AdminWhatsAppPage() {
   useEffect(() => {
     fetchStatus();
     fetchRecipients();
+    fetchWhatsappGroups(false);
     try {
       const saved = localStorage.getItem('mti_wa_logs');
       if (saved) setMessageLogs(JSON.parse(saved));
     } catch {}
+
+    // Tarik daftar grup baru secara berkala setiap 5 menit
+    const groupInterval = setInterval(() => {
+      fetchWhatsappGroups(false);
+    }, 5 * 60 * 1000);
+
+    return () => clearInterval(groupInterval);
   }, []);
 
   const toggleAdminCc = (phone: string) => {
@@ -524,6 +959,27 @@ export default function AdminWhatsAppPage() {
       }
     }
 
+    // Kirim tembusan salinan broadcast ke grup WhatsApp yang diceklis
+    if (selectedCcGroups.length > 0 && !abortBroadcastRef.current) {
+      const selectedBatchName = batches.find(b => b.id === selectedBatchId)?.name || 'Batch Thalibah';
+      const ccGroupBroadcastMsg = `_📌 [TEMBUSAN BROADCAST ADMIN MTI]_\n\n*Laporan Pengiriman Broadcast ke ${recipients.length} Thalibah:*\n• Angkatan: *${selectedBatchName}*\n• Waktu: *${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} WIB*\n\n*Isi Pesan Broadcast:*\n━━━━━━━━━━━━━━\n${broadcastTemplate}\n━━━━━━━━━━━━━━\n*(Tembusan resmi terkirim otomatis ke Grup WhatsApp MTI)*`;
+
+      for (const grpId of selectedCcGroups) {
+        try {
+          await fetch('/api/admin/whatsapp/send-group', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              groupId: grpId,
+              message: ccGroupBroadcastMsg,
+            }),
+          });
+        } catch (grpErr) {
+          console.error('Failed to send broadcast CC to group:', grpId, grpErr);
+        }
+      }
+    }
+
     setIsBroadcasting(false);
   };
 
@@ -549,6 +1005,7 @@ export default function AdminWhatsAppPage() {
           to: recipientPhone.trim(),
           message: messageBody.trim(),
           ccNumbers: activeCcNumbers.length > 0 ? activeCcNumbers : undefined,
+          ccGroupIds: selectedCcGroups.length > 0 ? selectedCcGroups : undefined,
         }),
       });
 
@@ -827,154 +1284,29 @@ export default function AdminWhatsAppPage() {
                     />
                   </div>
 
-                  {/* TEMBUSAN (CC) KE NOMOR ADMIN */}
-                  <div className="bg-gray-50/80 border border-gray-200 rounded-2xl p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center">
-                          <Shield className="h-4 w-4" />
-                        </div>
-                        <div>
-                          <span className="text-xs font-bold text-gray-900 block leading-tight">
-                            Tembusan (CC) ke Admin MTI
-                          </span>
-                          <span className="text-[10px] text-gray-500">
-                            {getAllCcNumbers().length > 0 
-                              ? `${getAllCcNumbers().length} nomor tembusan dipilih` 
-                              : 'Kirimkan juga salinan pesan ke nomor admin'}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        {getAllCcNumbers().length > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => { setSelectedAdminCc([]); setCustomCcList([]); }}
-                            className="text-[10px] text-gray-400 hover:text-red-600 underline font-semibold transition-colors"
-                          >
-                            Hapus Pilihan
-                          </button>
-                        )}
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setIsCcExpanded(prev => !prev)}
-                          className="rounded-xl text-xs h-7 px-2.5 border-gray-200 gap-1"
-                        >
-                          <span>{isCcExpanded ? 'Tutup Pilihan' : 'Pilih Admin'}</span>
-                          <Badge className="bg-emerald-100 text-emerald-800 text-[10px] px-1.5 py-0 h-4 border-none">
-                            {getAllCcNumbers().length}
-                          </Badge>
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* Ringkasan badge nomor yang aktif dipilih */}
-                    {getAllCcNumbers().length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 pt-1 border-t border-gray-200/60">
-                        {getAllCcNumbers().map(num => {
-                          const matchedAdmin = adminList.find(a => a.whatsapp === num);
-                          return (
-                            <span
-                              key={num}
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-900 border border-emerald-200 text-xs font-semibold"
-                            >
-                              <span className="text-[11px]">
-                                {matchedAdmin ? `${matchedAdmin.full_name} (${num})` : num}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (matchedAdmin) toggleAdminCc(matchedAdmin.whatsapp);
-                                  else removeCustomCc(num);
-                                }}
-                                className="text-emerald-700 hover:text-red-600 transition-colors ml-0.5"
-                                title="Hapus tembusan nomor ini"
-                              >
-                                &times;
-                              </button>
-                            </span>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    {/* Panel checklist admin & input custom saat expanded */}
-                    {isCcExpanded && (
-                      <div className="pt-2 border-t border-gray-200 space-y-3 animate-fadeInUp">
-                        <div className="space-y-1.5">
-                          <span className="text-[11px] font-bold text-gray-700 block">
-                            Ceklis Nomor Admin Penerima Tembusan:
-                          </span>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-1 bg-white rounded-xl border border-gray-200">
-                            {adminList.length === 0 ? (
-                              <div className="col-span-2 text-center py-3 text-xs text-gray-400">
-                                Memuat daftar admin...
-                              </div>
-                            ) : (
-                              adminList.map(admin => {
-                                const isChecked = selectedAdminCc.includes(admin.whatsapp);
-                                return (
-                                  <label
-                                    key={admin.id}
-                                    onClick={() => toggleAdminCc(admin.whatsapp)}
-                                    className={`p-2 rounded-lg border text-xs flex items-center justify-between cursor-pointer transition-colors ${
-                                      isChecked
-                                        ? 'bg-emerald-50 border-emerald-300 text-emerald-950 font-bold'
-                                        : 'hover:bg-gray-50 border-gray-100 text-gray-700'
-                                    }`}
-                                  >
-                                    <div className="truncate mr-2">
-                                      <div className="truncate leading-tight">{admin.full_name}</div>
-                                      <div className="text-[10px] text-gray-500 font-mono font-normal">
-                                        {admin.whatsapp} • <span className="uppercase">{admin.role}</span>
-                                      </div>
-                                    </div>
-                                    <div className="shrink-0 text-emerald-700">
-                                      {isChecked ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4 text-gray-300" />}
-                                    </div>
-                                  </label>
-                                );
-                              })
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Input nomor tembusan manual / tambahan */}
-                        <div className="space-y-1">
-                          <label className="text-[11px] font-bold text-gray-700 block">
-                            Atau Tambah Nomor Tembusan Manual (WhatsApp):
-                          </label>
-                          <div className="flex gap-2">
-                            <Input
-                              placeholder="Contoh: 08123456789 atau 628..."
-                              value={customCcInput}
-                              onChange={(e) => setCustomCcInput(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  e.preventDefault();
-                                  addCustomCc();
-                                }
-                              }}
-                              className="rounded-xl text-xs h-8 bg-white border-gray-200 font-mono"
-                            />
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={addCustomCc}
-                              disabled={!customCcInput.trim()}
-                              className="rounded-xl text-xs h-8 border-gray-200 font-semibold px-3"
-                            >
-                              Tambah
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                                    <CcSelectorCard
+                    adminList={adminList}
+                    selectedAdminCc={selectedAdminCc}
+                    toggleAdminCc={toggleAdminCc}
+                    customCcList={customCcList}
+                    customCcInput={customCcInput}
+                    setCustomCcInput={setCustomCcInput}
+                    addCustomCc={addCustomCc}
+                    removeCustomCc={removeCustomCc}
+                    whatsappGroups={whatsappGroups}
+                    isLoadingGroups={isLoadingGroups}
+                    lastGroupsSync={lastGroupsSync}
+                    fetchWhatsappGroups={fetchWhatsappGroups}
+                    selectedCcGroups={selectedCcGroups}
+                    toggleGroupCc={toggleGroupCc}
+                    isCcExpanded={isCcExpanded}
+                    setIsCcExpanded={setIsCcExpanded}
+                    ccTab={ccTab}
+                    setCcTab={setCcTab}
+                    groupSearchQuery={groupSearchQuery}
+                    setGroupSearchQuery={setGroupSearchQuery}
+                    onClearAll={handleClearAllCc}
+                  />
 
                   {/* Action Controls */}
                   <div className="space-y-3 pt-2">
@@ -1244,156 +1576,31 @@ export default function AdminWhatsAppPage() {
                       />
                     </div>
 
-                  {/* TEMBUSAN (CC) KE NOMOR ADMIN */}
-                  <div className="bg-gray-50/80 border border-gray-200 rounded-2xl p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center">
-                          <Shield className="h-4 w-4" />
-                        </div>
-                        <div>
-                          <span className="text-xs font-bold text-gray-900 block leading-tight">
-                            Tembusan (CC) ke Admin MTI
-                          </span>
-                          <span className="text-[10px] text-gray-500">
-                            {getAllCcNumbers().length > 0 
-                              ? `${getAllCcNumbers().length} nomor tembusan dipilih` 
-                              : 'Kirimkan juga salinan pesan ke nomor admin'}
-                          </span>
-                        </div>
-                      </div>
+                                    <CcSelectorCard
+                    adminList={adminList}
+                    selectedAdminCc={selectedAdminCc}
+                    toggleAdminCc={toggleAdminCc}
+                    customCcList={customCcList}
+                    customCcInput={customCcInput}
+                    setCustomCcInput={setCustomCcInput}
+                    addCustomCc={addCustomCc}
+                    removeCustomCc={removeCustomCc}
+                    whatsappGroups={whatsappGroups}
+                    isLoadingGroups={isLoadingGroups}
+                    lastGroupsSync={lastGroupsSync}
+                    fetchWhatsappGroups={fetchWhatsappGroups}
+                    selectedCcGroups={selectedCcGroups}
+                    toggleGroupCc={toggleGroupCc}
+                    isCcExpanded={isCcExpanded}
+                    setIsCcExpanded={setIsCcExpanded}
+                    ccTab={ccTab}
+                    setCcTab={setCcTab}
+                    groupSearchQuery={groupSearchQuery}
+                    setGroupSearchQuery={setGroupSearchQuery}
+                    onClearAll={handleClearAllCc}
+                  />
 
-                      <div className="flex items-center gap-2">
-                        {getAllCcNumbers().length > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => { setSelectedAdminCc([]); setCustomCcList([]); }}
-                            className="text-[10px] text-gray-400 hover:text-red-600 underline font-semibold transition-colors"
-                          >
-                            Hapus Pilihan
-                          </button>
-                        )}
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setIsCcExpanded(prev => !prev)}
-                          className="rounded-xl text-xs h-7 px-2.5 border-gray-200 gap-1"
-                        >
-                          <span>{isCcExpanded ? 'Tutup Pilihan' : 'Pilih Admin'}</span>
-                          <Badge className="bg-emerald-100 text-emerald-800 text-[10px] px-1.5 py-0 h-4 border-none">
-                            {getAllCcNumbers().length}
-                          </Badge>
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* Ringkasan badge nomor yang aktif dipilih */}
-                    {getAllCcNumbers().length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 pt-1 border-t border-gray-200/60">
-                        {getAllCcNumbers().map(num => {
-                          const matchedAdmin = adminList.find(a => a.whatsapp === num);
-                          return (
-                            <span
-                              key={num}
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-900 border border-emerald-200 text-xs font-semibold"
-                            >
-                              <span className="text-[11px]">
-                                {matchedAdmin ? `${matchedAdmin.full_name} (${num})` : num}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (matchedAdmin) toggleAdminCc(matchedAdmin.whatsapp);
-                                  else removeCustomCc(num);
-                                }}
-                                className="text-emerald-700 hover:text-red-600 transition-colors ml-0.5"
-                                title="Hapus tembusan nomor ini"
-                              >
-                                &times;
-                              </button>
-                            </span>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    {/* Panel checklist admin & input custom saat expanded */}
-                    {isCcExpanded && (
-                      <div className="pt-2 border-t border-gray-200 space-y-3 animate-fadeInUp">
-                        <div className="space-y-1.5">
-                          <span className="text-[11px] font-bold text-gray-700 block">
-                            Ceklis Nomor Admin Penerima Tembusan:
-                          </span>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-1 bg-white rounded-xl border border-gray-200">
-                            {adminList.length === 0 ? (
-                              <div className="col-span-2 text-center py-3 text-xs text-gray-400">
-                                Memuat daftar admin...
-                              </div>
-                            ) : (
-                              adminList.map(admin => {
-                                const isChecked = selectedAdminCc.includes(admin.whatsapp);
-                                return (
-                                  <label
-                                    key={admin.id}
-                                    onClick={() => toggleAdminCc(admin.whatsapp)}
-                                    className={`p-2 rounded-lg border text-xs flex items-center justify-between cursor-pointer transition-colors ${
-                                      isChecked
-                                        ? 'bg-emerald-50 border-emerald-300 text-emerald-950 font-bold'
-                                        : 'hover:bg-gray-50 border-gray-100 text-gray-700'
-                                    }`}
-                                  >
-                                    <div className="truncate mr-2">
-                                      <div className="truncate leading-tight">{admin.full_name}</div>
-                                      <div className="text-[10px] text-gray-500 font-mono font-normal">
-                                        {admin.whatsapp} • <span className="uppercase">{admin.role}</span>
-                                      </div>
-                                    </div>
-                                    <div className="shrink-0 text-emerald-700">
-                                      {isChecked ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4 text-gray-300" />}
-                                    </div>
-                                  </label>
-                                );
-                              })
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Input nomor tembusan manual / tambahan */}
-                        <div className="space-y-1">
-                          <label className="text-[11px] font-bold text-gray-700 block">
-                            Atau Tambah Nomor Tembusan Manual (WhatsApp):
-                          </label>
-                          <div className="flex gap-2">
-                            <Input
-                              placeholder="Contoh: 08123456789 atau 628..."
-                              value={customCcInput}
-                              onChange={(e) => setCustomCcInput(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  e.preventDefault();
-                                  addCustomCc();
-                                }
-                              }}
-                              className="rounded-xl text-xs h-8 bg-white border-gray-200 font-mono"
-                            />
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={addCustomCc}
-                              disabled={!customCcInput.trim()}
-                              className="rounded-xl text-xs h-8 border-gray-200 font-semibold px-3"
-                            >
-                              Tambah
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                    {/* Feedback Alert */}
+                  {/* Feedback Alert */}
                     {sendFeedback && (
                       <Alert className={`rounded-2xl ${
                         sendFeedback.type === 'success' 

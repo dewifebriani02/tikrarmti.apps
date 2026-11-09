@@ -25,6 +25,12 @@ export interface WatZapStatusInfo {
   type?: string;
 }
 
+export interface WhatsAppGroupInfo {
+  groupId: string;
+  name: string;
+  participantCount: number;
+}
+
 export interface WhatsAppStatusResult {
   configured: boolean;
   provider: 'watzap';
@@ -263,6 +269,127 @@ export class WhatsAppService {
     }
 
     return this.sendTextMessage(to, composedMessage);
+  }
+
+  /**
+   * Send WhatsApp message to a group via WatZap API
+   */
+  public async sendGroupMessage(groupId: string, message: string): Promise<WhatsAppSendResult> {
+    const cleanGroupId = groupId.trim();
+    if (!cleanGroupId) {
+      return {
+        success: false,
+        provider: 'none',
+        error: 'ID Grup WhatsApp tujuan tidak valid',
+      };
+    }
+
+    const key = this.apiKey;
+    const numKey = this.numberKey;
+
+    if (!key || !numKey) {
+      return {
+        success: false,
+        provider: 'none',
+        error: 'WATZAP_API_KEY atau WATZAP_NUMBER_KEY belum dikonfigurasi di server',
+      };
+    }
+
+    try {
+      const res = await fetch('https://api.watzap.id/v1/send_message_group', {
+        method: 'POST',
+        headers: COMMON_HEADERS,
+        body: JSON.stringify({
+          api_key: key,
+          number_key: numKey,
+          group_id: cleanGroupId,
+          message: message,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (
+        data.status === '200' ||
+        data.status === 200 ||
+        data.status === true ||
+        data.ack === 'successfully'
+      ) {
+        return {
+          success: true,
+          provider: 'watzap',
+          messageId: data.message_id || data.id || `watzap_grp_${Date.now()}`,
+          details: data,
+        };
+      }
+
+      const errorMessage = data.message || 'WatZap gagal mengirim pesan ke grup';
+      console.warn('[WhatsAppService] WatZap send group error:', errorMessage, data);
+
+      return {
+        success: false,
+        provider: 'watzap',
+        error: errorMessage,
+        details: data,
+      };
+    } catch (err) {
+      console.error('[WhatsAppService] WatZap group send network error:', err);
+      return {
+        success: false,
+        provider: 'watzap',
+        error: (err as Error).message,
+      };
+    }
+  }
+
+  /**
+   * Fetch WhatsApp Groups from WatZap API
+   */
+  public async getGroups(): Promise<{ success: boolean; groups: WhatsAppGroupInfo[]; error?: string }> {
+    const key = this.apiKey;
+    const numKey = this.numberKey;
+
+    if (!key || !numKey) {
+      return {
+        success: false,
+        groups: [],
+        error: 'WATZAP_API_KEY atau WATZAP_NUMBER_KEY belum dikonfigurasi di server',
+      };
+    }
+
+    try {
+      const res = await fetch('https://api.watzap.id/v1/groups', {
+        method: 'POST',
+        headers: COMMON_HEADERS,
+        body: JSON.stringify({
+          api_key: key,
+          number_key: numKey,
+        }),
+      });
+
+      const data = await res.json();
+      const rawGroups = data.groups || {};
+      const groups: WhatsAppGroupInfo[] = Object.keys(rawGroups).map(gid => {
+        const item = rawGroups[gid] || {};
+        return {
+          groupId: gid,
+          name: item.name || item.groupname || 'Grup WhatsApp',
+          participantCount: Array.isArray(item.participants) ? item.participants.length : 0,
+        };
+      }).sort((a, b) => a.name.localeCompare(b.name, 'id'));
+
+      return {
+        success: true,
+        groups,
+      };
+    } catch (err) {
+      console.error('[WhatsAppService] WatZap getGroups error:', err);
+      return {
+        success: false,
+        groups: [],
+        error: (err as Error).message,
+      };
+    }
   }
 
   /**

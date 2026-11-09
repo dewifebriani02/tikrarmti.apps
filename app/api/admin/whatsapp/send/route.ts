@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     if (authError) return authError;
 
     const body = await request.json();
-    const { to, message, templateName, components, ccNumbers } = body;
+    const { to, message, templateName, components, ccNumbers, ccGroupIds } = body;
 
     if (!to) {
       return ApiResponses.badRequest('Parameter "to" (nomor WhatsApp tujuan) wajib diisi');
@@ -35,8 +35,8 @@ export async function POST(request: Request) {
       return ApiResponses.badRequest(result.error || 'Gagal mengirim pesan WhatsApp');
     }
 
-    // Tembusan (CC) ke admin jika ada
-    const ccResults: Array<{ to: string; success: boolean; messageId?: string; error?: string }> = [];
+    // Tembusan (CC) ke admin atau grup WhatsApp jika ada
+    const ccResults: Array<{ to: string; type: 'admin' | 'group'; success: boolean; messageId?: string; error?: string }> = [];
     if (Array.isArray(ccNumbers) && ccNumbers.length > 0) {
       const ccNote = `\n\n_📌 [Tembusan Pengiriman Admin MTI ke ${to}]_`;
       const fullCcMessage = `${message || ''}${ccNote}`;
@@ -47,6 +47,7 @@ export async function POST(request: Request) {
           const ccRes = await whatsappService.sendTextMessage(ccNum, fullCcMessage);
           ccResults.push({
             to: ccNum,
+            type: 'admin',
             success: ccRes.success,
             messageId: ccRes.messageId,
             error: ccRes.error,
@@ -54,8 +55,35 @@ export async function POST(request: Request) {
         } catch (ccErr) {
           ccResults.push({
             to: ccNum,
+            type: 'admin',
             success: false,
             error: (ccErr as Error).message,
+          });
+        }
+      }
+    }
+
+    if (Array.isArray(ccGroupIds) && ccGroupIds.length > 0) {
+      const ccNote = `\n\n_📌 [Tembusan Pengiriman Admin MTI ke ${to}]_`;
+      const fullCcMessage = `${message || ''}${ccNote}`;
+
+      for (const gid of ccGroupIds) {
+        if (!gid || typeof gid !== 'string') continue;
+        try {
+          const grpRes = await whatsappService.sendGroupMessage(gid, fullCcMessage);
+          ccResults.push({
+            to: gid,
+            type: 'group',
+            success: grpRes.success,
+            messageId: grpRes.messageId,
+            error: grpRes.error,
+          });
+        } catch (grpErr) {
+          ccResults.push({
+            to: gid,
+            type: 'group',
+            success: false,
+            error: (grpErr as Error).message,
           });
         }
       }
