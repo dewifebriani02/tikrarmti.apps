@@ -38,8 +38,6 @@ rsync -avz --delete \
   --exclude '.env.local' \
   --exclude '.next/cache' \
   --exclude '.next/types' \
-  --exclude 'app/api/admin/whatsapp/broadcast' \
-  --exclude 'app/api/admin/whatsapp/recipients' \
   ./ ${VPS_USER}@${VPS_HOST}:${REMOTE_PATH}/
 
 # 4. Check & Sync Production Environment Variables
