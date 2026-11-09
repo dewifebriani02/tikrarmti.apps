@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Progress } from '@/components/ui/progress'
-import { ChevronLeft, ChevronRight, Send, Info, CheckCircle, AlertCircle, ExternalLink, Sparkles } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Send, Info, CheckCircle, AlertCircle, ExternalLink, Sparkles, Calendar } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { submitPraTikrarRegistration } from './actions'
@@ -612,8 +612,12 @@ export default function ThalibahBatch2Page() {
 
   const handleSubmit = async () => {
     if (!validateSection(currentSection)) return
-    if (!user?.id || !activeBatchData) {
-      toast.error('User atau batch tidak ditemukan')
+    if (!user?.id) {
+      toast.error('Sesi login tidak ditemukan. Silakan login kembali.')
+      return
+    }
+    if (!activeBatchData) {
+      toast.error('Batch pendaftaran aktif tidak ditemukan atau belum dibuka.')
       return
     }
 
@@ -1429,6 +1433,27 @@ export default function ThalibahBatch2Page() {
     </div>
   )
 
+
+  if (!batchLoading && !activeBatchData) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-purple-50 py-8 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-3xl p-8 shadow-sm border border-gray-100 text-center space-y-4">
+          <div className="h-16 w-16 mx-auto rounded-full bg-amber-50 text-amber-600 flex items-center justify-center">
+            <Calendar className="h-8 w-8" />
+          </div>
+          <h2 className="text-xl font-black text-gray-900">Pendaftaran Belum Dibuka</h2>
+          <p className="text-sm text-gray-600">
+            Saat ini belum ada batch pendaftaran yang sedang dibuka. Silakan pantau pengumuman resmi Markaz Tikrar Indonesia.
+          </p>
+          <div className="pt-2">
+            <Button onClick={() => router.push('/dashboard')} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl">
+              Kembali ke Dashboard
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   // Don't render until component is mounted to prevent hydration issues
   if (!isMounted || questionsLoading) {

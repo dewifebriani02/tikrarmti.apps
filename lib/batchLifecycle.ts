@@ -5,7 +5,7 @@
  * 1. 'archived': jika admin yang memilih secara manual (tidak di-overwrite otomatis)
  * 2. 'closed': jika sudah selesai sampai akhir siklus batch (hari ini > tanggal kelulusan / ujian akhir / end_date)
  * 3. 'ongoing': jika kelas sudah berjalan (hari ini >= tanggal mulai KBM / first_week_start_date s.d. akhir siklus)
- * 4. 'open': jika masa registrasi aktif atau kelas belum dimulai (hari ini >= registration_start_date atau sebelum kelas mulai)
+ * 4. 'open': jika masa registrasi aktif atau kelas belum dimulai (hari ini >= registration_start_date atau sebelum kelas mulai, atau admin secara eksplisit membuka batch)
  * 5. 'draft': jika masa registrasi masih di masa depan
  */
 
@@ -70,6 +70,11 @@ export function calculateBatchStatus(batch: BatchDateFields): 'draft' | 'open' |
   }
 
   // Skenario 3: OPEN — Masa registrasi aktif / persiapan sebelum KBM mulai
+  // Proteksi: Jika admin telah menetapkan status 'open' secara manual, jangan downgrade ke 'draft'
+  if (batch.status === 'open') {
+    return 'open';
+  }
+
   if (regStartDate) {
     if (now >= regStartDate) {
       return 'open';
