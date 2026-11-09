@@ -3,7 +3,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { query, queryOne } from '@/lib/db';
 import { MurojaahMethod, MurojaahSegment } from '@/types/database';
 import { parseBlokField } from '@/lib/blok';
-import { getTimeSlotLabel, calculateMurojaahDebt } from '@/lib/murojaah';
+import { getTimeSlotLabel, calculateMurojaahDebt, getWibDateString } from '@/lib/murojaah';
 
 export const dynamic = 'force-dynamic';
 
@@ -245,18 +245,14 @@ export async function GET(request: NextRequest) {
     const wajibStatus = await checkMurojaahWajibStatus(targetId, batchId, isAdminOrStaff);
 
     // 8. Calculate Today's Progress & Total Debt (Target: 2 rounds/day)
-    const todayDateStr = new Date().toISOString().split('T')[0];
+    const todayDateStr = getWibDateString(new Date());
     const todayLogs = logs.filter(l => {
-      const compDate = typeof l.completed_at === 'string' 
-        ? l.completed_at.split('T')[0] 
-        : new Date(l.completed_at).toISOString().split('T')[0];
+      const compDate = getWibDateString(l.completed_at);
       return compDate === todayDateStr;
     });
 
     const primaryTodayLogs = primaryLogs.filter(l => {
-      const compDate = typeof l.completed_at === 'string' 
-        ? l.completed_at.split('T')[0] 
-        : new Date(l.completed_at).toISOString().split('T')[0];
+      const compDate = getWibDateString(l.completed_at);
       return compDate === todayDateStr;
     });
 

@@ -87,18 +87,16 @@ export interface MurojaahDebtCalculation {
 export function calculateMurojaahDebt(params: {
   startedAt: string | Date;
   totalCompleted: number;
-  todayLogsCount: number;
+  todayLogsCount?: number;
 }): MurojaahDebtCalculation {
-  const { startedAt, totalCompleted, todayLogsCount } = params;
+  const { startedAt, totalCompleted, todayLogsCount = 0 } = params;
 
   const todayTarget = 2;
-  const todayCount = Math.max(0, todayLogsCount);
-  const todayRemaining = Math.max(0, todayTarget - todayCount);
 
   // If user completed 40+ rounds, target is fully met
   if (totalCompleted >= 40) {
     return {
-      todayCount,
+      todayCount: todayTarget,
       todayTarget,
       todayRemaining: 0,
       daysElapsed: 20,
@@ -119,17 +117,24 @@ export function calculateMurojaahDebt(params: {
   const diffDays = Math.max(0, Math.round((todayMs - startMs) / (1000 * 60 * 60 * 24)));
   const daysElapsed = Math.min(20, Math.max(1, diffDays + 1));
 
-  // Expected cumulative target by today (inclusive)
+  // Expected cumulative target by yesterday and today
+  const expectedCumulativeUntilYesterday = Math.max(0, (daysElapsed - 1) * todayTarget);
   const cumulativeTargetToday = Math.min(40, daysElapsed * todayTarget);
 
-  // Total debt reduces by 1 immediately for every single report submitted
+  // Total debt across the entire challenge up to today
+  // Every single round submitted reduces total debt immediately
   const totalDebt = Math.max(0, cumulativeTargetToday - Math.max(0, totalCompleted));
 
-  // Previous debt = total debt minus what is still pending for today
-  const previousDebt = Math.max(0, totalDebt - todayRemaining);
+  // Debt from previous days (days before today).
+  // If user completed rounds that cover yesterday's target, previousDebt is 0.
+  // When a user has debt and submits a round, it pays off previous debt first!
+  const previousDebt = Math.max(0, expectedCumulativeUntilYesterday - Math.max(0, totalCompleted));
 
-  const expectedCumulativeUntilYesterday = Math.max(0, (daysElapsed - 1) * todayTarget);
-  const completedUntilYesterday = Math.max(0, totalCompleted - todayCount);
+  // Today's count represents rounds completed within today's target quota (after clearing previous debt)
+  const todayCount = Math.min(todayTarget, Math.max(0, totalCompleted - expectedCumulativeUntilYesterday));
+  const todayRemaining = Math.max(0, todayTarget - todayCount);
+
+  const completedUntilYesterday = Math.min(expectedCumulativeUntilYesterday, Math.max(0, totalCompleted));
 
   return {
     todayCount,
@@ -183,7 +188,7 @@ export function buildMurojaahAfternoonReminder(params: {
     ``,
     `🔗 Buka lembar murojaah Ukhti di: https://markaztikrar.id/murojaah`,
     ``,
-    `━━━━━━━━━━━━━━`,
+    `━━━━━━━━━━━━━━━`,
     `💡 *Opsi Pengingat:* Jika Ukhti ingin menonaktifkan pengingat sore WhatsApp ini, Ukhti dapat mematikannya melalui menu Muraja'ah 40x di aplikasi MTI (https://markaztikrar.id/murojaah) atau membalas pesan ini dengan *STOP*.`,
   ].join("\n");
 }
