@@ -127,11 +127,6 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
         icon: <BookOpen className="h-5 w-5" />,
       });
       baseItems.push({
-        href: '/jurnal-harian',
-        label: 'Pratinjau Jurnal Harian',
-        icon: <BookOpen className="h-5 w-5 text-indigo-600" />,
-      });
-      baseItems.push({
         href: '/admin/exams',
         label: 'Manajemen Ujian',
         icon: <GraduationCap className="h-5 w-5" />,

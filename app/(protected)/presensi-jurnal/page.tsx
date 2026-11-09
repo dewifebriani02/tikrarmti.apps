@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -650,7 +651,15 @@ function PresensiJurnalContent() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto justify-end">
+              <Link
+                href="/jurnal-harian"
+                className="w-full sm:w-auto flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-white hover:bg-emerald-50 text-emerald-800 hover:text-emerald-900 font-bold text-xs sm:text-sm border border-emerald-200/80 hover:border-emerald-300 shadow-sm transition-all active:scale-95"
+                title="Buka Pratinjau Tampilan Jurnal Harian Thalibah"
+              >
+                <BookOpen className="w-4 h-4 flex-shrink-0 text-emerald-600" />
+                <span>📖 Pratinjau Jurnal Harian</span>
+              </Link>
               <button
                 onClick={() => setRekapChatModalOpen(true)}
                 className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white font-bold text-xs sm:text-sm shadow-md shadow-green-900/10 hover:shadow-lg transition-all active:scale-95"
