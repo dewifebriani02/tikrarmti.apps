@@ -1083,7 +1083,7 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
 
       {/* MODAL INPUT PRESENSI / CEKLIST PUTARAN */}
       <Dialog open={isLogModalOpen} onOpenChange={setIsLogModalOpen}>
-        <DialogContent className="max-w-md w-[95vw] sm:w-full max-h-[88vh] flex flex-col p-0 rounded-3xl overflow-hidden shadow-2xl bg-white border border-gray-100">
+        <DialogContent className="max-w-md w-[95vw] sm:w-full max-h-[82dvh] sm:max-h-[85vh] flex flex-col p-0 rounded-3xl overflow-hidden shadow-2xl bg-white border border-gray-100 relative z-[100]">
           <DialogHeader className="p-5 sm:p-6 pb-3 border-b border-gray-100 shrink-0 bg-white">
             <DialogTitle className="text-base sm:text-lg font-bold text-gray-900 flex items-center gap-2">
               <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
@@ -1163,12 +1163,12 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
             </div>
           </div>
 
-          <DialogFooter className="p-4 sm:p-5 border-t border-gray-100 bg-gray-50/90 shrink-0 flex flex-row items-center justify-end gap-2.5">
+          <DialogFooter className="p-4 sm:p-5 border-t border-gray-200 bg-white shrink-0 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 pb-6 sm:pb-5">
             <Button
               type="button"
               variant="outline"
               onClick={() => setIsLogModalOpen(false)}
-              className="rounded-xl text-xs text-gray-600 px-4 h-10 border-gray-200 hover:bg-gray-100"
+              className="rounded-xl text-xs font-medium text-gray-600 px-4 h-11 sm:h-10 border-gray-200 hover:bg-gray-100"
             >
               Batal
             </Button>
@@ -1176,7 +1176,7 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
               type="button"
               disabled={submitting}
               onClick={handleSaveLog}
-              className="bg-emerald-800 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold px-5 h-10 shadow-sm active:scale-95 transition-all"
+              className="bg-emerald-800 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold px-6 h-12 sm:h-10 shadow-lg active:scale-95 transition-all w-full sm:w-auto"
             >
               {submitting ? 'Menyimpan...' : `✓ Simpan Putaran ke-${nextRoundNumber}`}
             </Button>

@@ -156,16 +156,27 @@ export async function GET(request: NextRequest) {
 
     const isPartB = juzCode.toUpperCase().endsWith('B');
 
+    // Cek apakah user adalah alumni/peserta sah dari batch sebelumnya
+    const isApprovedAlumni = await queryOne(
+      `SELECT id FROM pendaftaran_tikrar_tahfidz 
+       WHERE user_id = $1 AND status = 'approved' 
+       LIMIT 1`,
+      [targetId]
+    );
+
     // If still no progress, auto-initialize
+    // Pengingat WhatsApp hanya diaktifkan untuk alumni sah, bukan pendaftar baru
+    const autoReminderActive = !!isApprovedAlumni;
+
     if (!progress) {
       const { rows: newProgressRows } = await query(
         `INSERT INTO murojaah_40x_progress 
          (user_id, batch_id, juz_code, is_part_b, include_part_a, total_completed, started_at, expires_at, status, is_reminder_active, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, 0, NOW(), NOW() + INTERVAL '20 days', 'active', true, NOW(), NOW())
+         VALUES ($1, $2, $3, $4, $5, 0, NOW(), NOW() + INTERVAL '20 days', 'active', $6, NOW(), NOW())
          ON CONFLICT (user_id, batch_id, juz_code) 
          DO UPDATE SET updated_at = NOW()
          RETURNING *`,
-        [targetId, batchId, juzCode, isPartB, isPartB]
+        [targetId, batchId, juzCode, isPartB, isPartB, autoReminderActive]
       );
       progress = newProgressRows[0];
     } else {

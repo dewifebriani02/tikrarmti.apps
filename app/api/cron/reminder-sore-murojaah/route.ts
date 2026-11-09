@@ -94,6 +94,14 @@ async function handleReminder(request: Request) {
         AND COALESCE(today_log.today_count, 0) < 2
         AND u.whatsapp IS NOT NULL
         AND TRIM(u.whatsapp) != ''
+        -- Hanya kirim ke peserta Muroja'ah Warrior/Alumni yang sah (bukan pendaftar baru)
+        AND EXISTS (
+          SELECT 1 FROM pendaftaran_tikrar_tahfidz past_reg
+          JOIN batches past_b ON past_b.id = past_reg.batch_id
+          WHERE past_reg.user_id = p.user_id
+            AND past_reg.status = 'approved'
+            AND past_b.status IN ('closed', 'ongoing')
+        )
       ORDER BY p.updated_at DESC
       LIMIT $1
     `, [limit]);

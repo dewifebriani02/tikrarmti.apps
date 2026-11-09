@@ -1204,9 +1204,7 @@ export default function ThalibahBatch2Page() {
                 <SelectValue placeholder={juzLoading ? "Memuat pilihan juz..." : "Pilih juz"} />
               </SelectTrigger>
               <SelectContent>
-                {juzOptions
-                  .filter((juz) => isAlumni || juz.code.endsWith('A') || juz.code.endsWith('a'))
-                  .map((juz) => (
+                {juzOptions.map((juz) => (
                     <SelectItem key={juz.id} value={juz.code}>
                       {juz.name}
                     </SelectItem>
