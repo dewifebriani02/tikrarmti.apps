@@ -130,6 +130,7 @@ class PgQueryBuilder<T = any> {
   private _updateData: any | null = null;
   private _upsertData: any | any[] | null = null;
   private _upsertOnConflict: string | null = null;
+  private _upsertIgnoreDuplicates: boolean = false;
   private _returningAll: boolean = false;
   private _returningCols: string = '*';
   private _paramOffset: number = 0;
@@ -207,6 +208,7 @@ class PgQueryBuilder<T = any> {
     this._operation = 'upsert';
     this._upsertData = data;
     this._upsertOnConflict = options?.onConflict || null;
+    this._upsertIgnoreDuplicates = options?.ignoreDuplicates === true;
     this._returningAll = true;
     return this;
   }
@@ -467,16 +469,17 @@ class PgQueryBuilder<T = any> {
       const placeholders = keys.map(k => this._addParam(row[k])).join(', ');
       return `(${placeholders})`;
     }).join(', ');
-    const conflictCol = this._upsertOnConflict
-      ? escapeIdent(this._upsertOnConflict)
-      : `"id"`;
+    const conflictCols = this._upsertOnConflict
+      ? this._upsertOnConflict.split(',').map(s => s.trim()).filter(Boolean)
+      : ['id'];
+    const conflictTarget = conflictCols.map(escapeIdent).join(', ');
     const updateClauses = keys
-      .filter(k => k !== 'id' && k !== this._upsertOnConflict)
+      .filter(k => k !== 'id' && !conflictCols.includes(k))
       .map(k => `${escapeIdent(k)} = EXCLUDED.${escapeIdent(k)}`)
       .join(', ');
-    const onConflict = updateClauses
-      ? `ON CONFLICT (${conflictCol}) DO UPDATE SET ${updateClauses}`
-      : `ON CONFLICT (${conflictCol}) DO NOTHING`;
+    const onConflict = (this._upsertIgnoreDuplicates || !updateClauses)
+      ? `ON CONFLICT (${conflictTarget}) DO NOTHING`
+      : `ON CONFLICT (${conflictTarget}) DO UPDATE SET ${updateClauses}`;
     return `INSERT INTO ${escapeIdent(this._table)} (${cols}) VALUES ${valueSets} ${onConflict} RETURNING *`;
   }
 
