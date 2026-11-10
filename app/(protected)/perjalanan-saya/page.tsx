@@ -991,7 +991,7 @@ export default function PerjalananSaya() {
         <div className="relative z-10 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <span className="bg-white/10 backdrop-blur-md border border-white/20 text-green-200 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">
-              Fase Pembelajaran Santri
+              Fase Pembelajaran Thalibah
             </span>
             {availableBatches.length > 0 && (
               <div className="relative flex items-center">

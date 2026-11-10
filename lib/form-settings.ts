@@ -41,7 +41,7 @@ export const FORM_ITEMS_CONFIG: FormItemConfig[] = [
     key: 'tikrar_tahfidz',
     title: 'Pendaftaran Tikrar Tahfidz',
     badge: 'Program Utama',
-    category: 'Santri (Thalibah)',
+    category: 'Thalibah',
     description: 'Hafalan Al-Qur\'an intensif metode 40x pengulangan (Juz 1, 2, 27, 28, 29, 30) dengan sistem pasangan setoran.',
     path: '/pendaftaran/tikrar-tahfidz',
     color: {
@@ -58,7 +58,7 @@ export const FORM_ITEMS_CONFIG: FormItemConfig[] = [
     key: 'pra_tikrar',
     title: 'Pendaftaran Pra-Tikrar',
     badge: 'Tahsin Dasar',
-    category: 'Santri (Thalibah)',
+    category: 'Thalibah',
     description: 'Perbaikan bacaan dasar Al-Qur\'an (Tahsin) & pembekalan makhraj huruf (Juz 30) sebelum masuk ke program hafalan.',
     path: '/pendaftaran/pra-tikrar',
     color: {
@@ -127,7 +127,7 @@ export const FORM_ITEMS_CONFIG: FormItemConfig[] = [
     title: 'Formulir Daftar Ulang (Reregistration)',
     badge: 'Tahap Akhir Seleksi',
     category: 'Konfirmasi Kelulusan',
-    description: 'Formulir konfirmasi komitmen, verifikasi nomor WhatsApp/Telegram, dan administrasi bagi calon santri lulus.',
+    description: 'Formulir konfirmasi komitmen, verifikasi nomor WhatsApp/Telegram, dan administrasi bagi calon thalibah lulus.',
     path: '/daftar-ulang',
     color: {
       bg: 'from-teal-500/10 to-teal-500/5',

@@ -20,7 +20,7 @@ async function getLegacyCheck(userId: string): Promise<LegacyCheckResult> {
       (SELECT COUNT(*) FROM daily_journals WHERE user_id = $1) as count_daily_journals,
       (SELECT COUNT(*) FROM jurnal_pra_tikrar WHERE user_id = $1 OR muallimah_id = $1 OR musyrifah_id = $1) as count_jurnal_pra,
       (SELECT COUNT(*) FROM halaqah WHERE muallimah_id = $1) as count_halaqah_guru,
-      (SELECT COUNT(*) FROM halaqah_students WHERE thalibah_id = $1) as count_halaqah_santri,
+      (SELECT COUNT(*) FROM halaqah_students WHERE thalibah_id = $1) as count_halaqah_thalibah,
       (SELECT COUNT(*) FROM exam_attempts WHERE user_id = $1) as count_exam,
       (SELECT COUNT(*) FROM final_exam_registrations WHERE user_id = $1) as count_final_exam,
       (SELECT COUNT(*) FROM akad_quiz_attempts WHERE user_id = $1) as count_akad_quiz,
@@ -51,7 +51,7 @@ async function getLegacyCheck(userId: string): Promise<LegacyCheckResult> {
     { key: 'count_daily_journals', label: 'Jurnal Harian Legacy' },
     { key: 'count_jurnal_pra', label: 'Jurnal Pra-Tikrar' },
     { key: 'count_halaqah_guru', label: 'Penugasan Pengajar (Muallimah)' },
-    { key: 'count_halaqah_santri', label: 'Peserta Halaqah (Santri)' },
+    { key: 'count_halaqah_thalibah', label: 'Peserta Halaqah (Thalibah)' },
     { key: 'count_exam', label: 'Riwayat Kuis / Ujian Harian' },
     { key: 'count_final_exam', label: 'Ujian Akhir (Ikhtibar)' },
     { key: 'count_akad_quiz', label: 'Kuis Akad & Komitmen' },
@@ -66,7 +66,7 @@ async function getLegacyCheck(userId: string): Promise<LegacyCheckResult> {
     { key: 'count_murojaah', label: 'Aktivitas Murojaah 40x' },
     { key: 'count_sp', label: 'Surat Peringatan (SP)' },
     { key: 'count_badges', label: 'Badge Penghargaan' },
-    { key: 'count_testimonials', label: 'Testimoni Santri' },
+    { key: 'count_testimonials', label: 'Testimoni Thalibah' },
   ];
 
   let total = 0;

@@ -197,7 +197,7 @@ export function ExamReminderH1Modal() {
                       <Users className="w-3.5 h-3.5 text-emerald-600" /> Thalibah Peserta
                     </span>
                     <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">
-                      {candidatesData.thalibah?.total || candidatesData.total_candidates || 0} Santri
+                      {candidatesData.thalibah?.total || candidatesData.total_candidates || 0} Thalibah
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between text-xs pt-1 border-t border-gray-50">

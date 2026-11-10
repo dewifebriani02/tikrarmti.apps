@@ -127,7 +127,7 @@ export function AdminBackupCard() {
                 </span>
               </div>
               <p className="text-xs sm:text-sm text-gray-500 mt-1">
-                Dump kompresi full PostgreSQL (<code className="font-mono text-emerald-800 bg-emerald-50 px-1 py-0.5 rounded">.sql.gz</code>) berisi seluruh data santri, mu'allimah, pendaftaran, jurnal harian, tashih, infaq, dan penilaian.
+                Dump kompresi full PostgreSQL (<code className="font-mono text-emerald-800 bg-emerald-50 px-1 py-0.5 rounded">.sql.gz</code>) berisi seluruh data thalibah, mu'allimah, pendaftaran, jurnal harian, tashih, infaq, dan penilaian.
               </p>
             </div>
           </div>

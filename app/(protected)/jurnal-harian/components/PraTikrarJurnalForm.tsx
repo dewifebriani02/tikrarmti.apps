@@ -563,14 +563,14 @@ export function PraTikrarJurnalForm({ user, activeBatch, activeRegistration }: P
           {/* OPSIONAL: CATATAN KENDALA THALIBAH */}
           <div className="space-y-2 pt-5 border-t border-gray-100">
             <div className="flex items-center justify-between">
-              <Label htmlFor="catatan-santri" className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
+              <Label htmlFor="catatan-thalibah" className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
                 <FileText className="w-3.5 h-3.5 text-gray-500" />
                 <span>Catatan / Kendala Latihan Hari Ini (Opsional):</span>
               </Label>
               <span className="text-[10px] text-gray-400 font-semibold">Opsional</span>
             </div>
             <textarea
-              id="catatan-santri"
+              id="catatan-thalibah"
               rows={2}
               placeholder="Contoh: Masih terasa berat mengalirkan suara di huruf 'ain dan ghain pada ayat 5..."
               value={formData.catatan_santri || ''}

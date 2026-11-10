@@ -367,7 +367,7 @@ export default function SitInPage() {
           </div>
           <div>
             <p className="text-xs font-black text-gray-900 leading-tight">
-              Fasilitas Izin & Sit-In Santri
+              Fasilitas Izin & Sit-In Thalibah
             </p>
             <p className="text-[10px] text-gray-500 font-medium mt-0.5">
               Berhalangan hadir di kelas utama pekan ini? Silakan pilih jadwal kelas pengganti di bawah.
@@ -496,7 +496,7 @@ export default function SitInPage() {
                         Mu'allimah: <strong className="text-gray-700 font-semibold">{halaqah.muallimah?.nama_kunyah || halaqah.muallimah?.full_name || 'Menunggu Penugasan'}</strong>
                       </span>
                       <span>•</span>
-                      <span>Kapasitas: {activeCount} / {maxQuota} santri</span>
+                      <span>Kapasitas: {activeCount} / {maxQuota} thalibah</span>
                     </div>
                   </div>
 

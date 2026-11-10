@@ -48,7 +48,7 @@
 **Multi-role, hierarchical access:**
 
 ```
-Thalibah (santri aktif)
+Thalibah (peserta aktif)
   ├─ /dashboard              → progres harian, statistik, jurnal, tashih
   ├─ /jurnal-harian         → input jurnal Tikrar (7 tahap)
   ├─ /tashih                → input rekaman bacaan untuk validasi
@@ -456,7 +456,7 @@ export async function POST(request: NextRequest) {
 | `admin` | 100 | Penuh — semua fitur + Preview Mode |
 | `musyrifah` | 80 | Panel musyrifah, monitoring jurnal, SP |
 | `muallimah` | 60 | Panel pengajar, tashih, nilai |
-| `thalibah` | 40 | Santri aktif — jurnal, tashih, profil |
+| `thalibah` | 40 | Thalibah aktif — jurnal, tashih, profil |
 | `calon_thalibah` | 20 | Pendaftar baru — pendaftaran & seleksi |
 
 ### 9.2 Sistem Role Array
@@ -684,7 +684,7 @@ Wajib menjalankan quality gates sebelum commit.
 | **Tashih** | Validasi bacaan oleh muallimah |
 | **Murajaah** | Mengulang hafalan tanpa melihat mushaf |
 | **Halaqah** | Kelas/kelompok belajar |
-| **Thalibah** | Santri/siswa |
+| **Thalibah** | Peserta halaqah/murid |
 | **Muallimah** | Pengajar/ustadzah |
 | **Musyrifah** | Pengawas/disiplin |
 | **SP** | Surat Peringatan (disciplinary notice) |

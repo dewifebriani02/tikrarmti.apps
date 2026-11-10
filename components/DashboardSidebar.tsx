@@ -259,7 +259,7 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
       });
       baseItems.push({
         href: '/tashih',
-        label: 'Tashih Bacaan Santri',
+        label: 'Tashih Bacaan Thalibah',
         icon: <FileText className="h-5 w-5 text-emerald-600" />,
       });
       baseItems.push({
@@ -280,7 +280,7 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
         icon: <Settings className="h-5 w-5" />,
       });
     }
-    // 4. RAISAH PERSONA (Ketua Kelas Santri)
+    // 4. RAISAH PERSONA (Ketua Kelas Thalibah)
     else if (isRaisahPersona) {
       baseItems.push({
         href: '/dashboard',

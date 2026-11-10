@@ -1110,7 +1110,7 @@ export default function DashboardContent() {
                   <span className="text-xl sm:text-2xl font-black leading-none">{halaqahOfTheWeek.active_tashih || 0}</span>
                   <span className="text-xs sm:text-sm font-bold leading-none mb-0.5 text-gray-400">/ {halaqahOfTheWeek.total_thalibah}</span>
                 </div>
-                <span className="text-[8px] sm:text-[9px] font-bold text-gray-400 mt-1 text-center">Santri Aktif</span>
+                <span className="text-[8px] sm:text-[9px] font-bold text-gray-400 mt-1 text-center">Thalibah Aktif</span>
               </div>
               
               {currentWeek >= 2 && (
@@ -1120,7 +1120,7 @@ export default function DashboardContent() {
                     <span className="text-xl sm:text-2xl font-black leading-none">{halaqahOfTheWeek.active_jurnal || 0}</span>
                     <span className="text-xs sm:text-sm font-bold leading-none mb-0.5 text-gray-400">/ {halaqahOfTheWeek.total_thalibah}</span>
                   </div>
-                  <span className="text-[8px] sm:text-[9px] font-bold text-gray-400 mt-1 text-center">Santri Aktif</span>
+                  <span className="text-[8px] sm:text-[9px] font-bold text-gray-400 mt-1 text-center">Thalibah Aktif</span>
                 </div>
               )}
             </div>
@@ -1639,7 +1639,7 @@ export default function DashboardContent() {
                           <table className="w-full text-sm text-left">
                             <thead className="bg-gray-50 text-gray-500 text-[10px] uppercase tracking-wider">
                               <tr>
-                                <th className="px-4 py-3 font-semibold">Nama Santri</th>
+                                <th className="px-4 py-3 font-semibold">Nama Thalibah</th>
                                 <th className="px-4 py-3 font-semibold text-center">Progress</th>
                                 <th className="px-4 py-3 font-semibold text-center">Jurnal</th>
                                 <th className="px-4 py-3 font-semibold text-center">Tashih</th>

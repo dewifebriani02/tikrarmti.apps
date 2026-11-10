@@ -195,7 +195,7 @@ export default function UjianPage() {
                   {activeTab === 'pekanan' ? 'EVALUASI MINGGUAN' : 'UJIAN KELULUSAN SYAHADAH'}
                 </span>
                 <h2 className="text-base sm:text-lg font-black text-white tracking-wide">
-                  {activeTab === 'pekanan' ? 'Jadwal Evaluasi Pekanan' : 'Portal Ujian Akhir Santri'}
+                  {activeTab === 'pekanan' ? 'Jadwal Evaluasi Pekanan' : 'Portal Ujian Akhir Thalibah'}
                 </h2>
                 <p className="text-green-100/80 text-xs mt-0.5">
                   {activeTab === 'pekanan' 
@@ -230,7 +230,7 @@ export default function UjianPage() {
               </div>
               <div>
                 <p className="text-xs font-black text-gray-900 leading-tight">
-                  Alur Evaluasi Pekanan Santri
+                  Alur Evaluasi Pekanan Thalibah
                 </p>
                 <p className="text-[10px] text-gray-500 font-medium mt-0.5">
                   Tashih Bacaan → Pengisian Jurnal 4 Blok → Ujian Mandiri Akhir Pekan.
@@ -364,7 +364,7 @@ export default function UjianPage() {
               )}
             </div>
 
-            {/* Jika Santri Sudah Terdaftar Jadwal */}
+            {/* Jika Thalibah Sudah Terdaftar Jadwal */}
             {oralRegistration ? (
               <div className="bg-emerald-50/70 border border-emerald-100 rounded-xl p-4 space-y-2">
                 <div className="flex items-center justify-between text-xs font-bold text-emerald-950">

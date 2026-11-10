@@ -682,7 +682,7 @@ function DaftarUlangContent() {
           </div>
           <h2 className="text-xl font-black text-gray-900">Daftar Ulang Ditutup</h2>
           <p className="text-sm text-gray-600">
-            Formulir daftar ulang santri saat ini sedang ditutup atau belum dipublikasikan oleh administrator.
+            Formulir daftar ulang thalibah saat ini sedang ditutup atau belum dipublikasikan oleh administrator.
           </p>
           <div className="pt-2">
             <Button onClick={() => router.push('/dashboard')} className="w-full bg-teal-700 hover:bg-teal-800 text-white font-bold rounded-xl">

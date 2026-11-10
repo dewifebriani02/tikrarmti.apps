@@ -263,11 +263,11 @@ export function RegistrationHubCard({
           {/* Cards Section */}
           <div className="p-5 sm:p-7 md:p-8 space-y-8 bg-gradient-to-b from-stone-50/50 to-white">
             
-            {/* Kategori 1: Thalibah (Santri Belajar) */}
+            {/* Kategori 1: Thalibah (Belajar) */}
             <div>
               <div className="flex items-center gap-2 mb-4 px-1">
                 <span className="text-xs font-black uppercase tracking-widest text-emerald-800 bg-emerald-100/80 px-2.5 py-1 rounded-md">
-                  Kategori Santri (Thalibah)
+                  Kategori Thalibah
                 </span>
                 <div className="flex-1 h-px bg-emerald-200/60"></div>
               </div>

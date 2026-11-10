@@ -89,8 +89,8 @@ export async function GET(request: NextRequest) {
         id: r.id,
         type: r.status === 'approved' ? 'approval' : 'registration',
         description: r.status === 'approved' 
-          ? `Pendaftaran ${(r.users as any)?.full_name || 'Santri'} disetujui`
-          : `Pendaftaran baru dari ${(r.users as any)?.full_name || 'Santri'}`,
+          ? `Pendaftaran ${(r.users as any)?.full_name || 'Thalibah'} disetujui`
+          : `Pendaftaran baru dari ${(r.users as any)?.full_name || 'Thalibah'}`,
         timestamp: r.created_at,
         user: { name: (r.users as any)?.full_name }
       })) || [],

@@ -15,7 +15,7 @@
  *    - muallimah (60): Pengajar yang mengampu halaqah, membimbing tashih, dan menguji hafalan.
  *
  * 4. Koordinasi Kelas / Halaqah Spesifik:
- *    - roisah / raisah (45): Santri senior / Ketua Kelas di satu halaqah spesifik.
+ *    - roisah / raisah (45): Thalibah senior / Ketua Kelas di satu halaqah spesifik.
  *      Mengabsen dan mengoordinasikan teman sekelasnya di halaqah tersebut.
  *
  * 5. Thalibah:
@@ -226,7 +226,7 @@ export function consolidateRoles(
 
 /**
  * Mendapatkan daftar persona/mode tampilan yang bisa dipilih oleh user.
- * Mengurutkan dari peran tertinggi ke santri.
+ * Mengurutkan dari peran tertinggi ke thalibah.
  */
 export function getAvailablePersonas(roles: string[] | null | undefined): UserRole[] {
   const extracted = extractRoles(roles) as UserRole[];

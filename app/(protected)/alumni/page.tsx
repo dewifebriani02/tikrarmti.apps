@@ -162,7 +162,7 @@ export default function AlumniPage() {
               <Sparkles className="w-4 h-4 text-amber-500" />
             </h1>
             <p className="text-gray-700 text-[10px] font-black uppercase tracking-widest leading-none mt-1">
-              Silaturahmi & Jejaring Santri
+              Silaturahmi & Jejaring Thalibah
             </p>
           </div>
 
@@ -493,7 +493,7 @@ export default function AlumniPage() {
               Mengapa Testimoni Penting?
             </p>
             <p className="text-[11px] text-gray-500 leading-relaxed">
-              Testimoni jujur Ukhti membantu calon santri baru termotivasi untuk istiqamah menghafal Al-Qur'an dan menjadi masukan berharga bagi perbaikan kurikulum Markaz Tikrar Indonesia.
+              Testimoni jujur Ukhti membantu calon thalibah baru termotivasi untuk istiqamah menghafal Al-Qur'an dan menjadi masukan berharga bagi perbaikan kurikulum Markaz Tikrar Indonesia.
             </p>
           </div>
         </div>

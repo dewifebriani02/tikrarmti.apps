@@ -322,7 +322,7 @@ export default function AdminSertifikatPage() {
                 Unggah Berkas PDF Canva
               </CardTitle>
               <CardDescription className="text-xs text-gray-700 font-medium">
-                Ekspor sertifikat dari Canva sebagai format "PDF Standar" atau "PDF Cetak". Dapat berupa satu multi-page PDF (seluruh santri) atau beberapa file terpisah.
+                Ekspor sertifikat dari Canva sebagai format "PDF Standar" atau "PDF Cetak". Dapat berupa satu multi-page PDF (seluruh thalibah) atau beberapa file terpisah.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -334,7 +334,7 @@ export default function AdminSertifikatPage() {
                     onChange={(e) => setSelectedBatchId(e.target.value)}
                     className="w-full mt-1.5 px-3 py-2 text-xs rounded-xl border border-gray-200 bg-white font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   >
-                    <option value="all">Semua Santri Aktif (Global)</option>
+                    <option value="all">Semua Thalibah Aktif (Global)</option>
                     {batches?.map((b) => (
                       <option key={b.id} value={b.id}>
                         {b.name}
@@ -376,7 +376,7 @@ export default function AdminSertifikatPage() {
                     ) : (
                       <>
                         <Sparkles className="w-3.5 h-3.5 mr-1.5 text-amber-300" />
-                        Analisis & Cocokkan Santri
+                        Analisis & Cocokkan Thalibah
                       </>
                     )}
                   </Button>
@@ -602,7 +602,7 @@ export default function AdminSertifikatPage() {
                     ) : (
                       <>
                         <QrCode className="w-4 h-4 text-amber-300" />
-                        Stempel QR Code & Terbitkan ke Akun Santri
+                        Stempel QR Code & Terbitkan ke Akun Thalibah
                       </>
                     )}
                   </Button>
@@ -707,7 +707,7 @@ export default function AdminSertifikatPage() {
                   <Award className="w-8 h-8 text-gray-300 mx-auto" />
                   <p className="font-bold text-gray-700">Belum ada syahadah yang diterbitkan.</p>
                   <p className="text-[11px] text-gray-400">
-                    Gunakan tab "Import PDF Canva" untuk mengimpor dan menstempel sertifikat kelulusan santri.
+                    Gunakan tab "Import PDF Canva" untuk mengimpor dan menstempel sertifikat kelulusan thalibah.
                   </p>
                 </div>
               ) : (

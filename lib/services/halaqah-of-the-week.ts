@@ -337,7 +337,7 @@ export async function computeHalaqahOfTheWeek(batchId?: string, authUserId?: str
        
        studentsBreakdown.push({
          id: s.thalibah_id,
-         name: s.full_name || 'Santri',
+         name: s.full_name || 'Thalibah',
          progress,
          jurnal: jCount,
          tashih: tCount,

@@ -327,7 +327,7 @@ export default function InfaqDonasiPage() {
           <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-800 px-3 py-1.5 rounded-2xl shadow-sm">
             <span className="text-xs">💛</span>
             <span className="text-xs font-black uppercase tracking-wider">
-              Jariyah Santri
+              Jariyah Thalibah
             </span>
           </div>
         </div>
