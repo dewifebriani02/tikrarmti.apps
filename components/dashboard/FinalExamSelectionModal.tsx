@@ -8,7 +8,7 @@ import { Calendar, Clock, Users, GraduationCap, Loader2, CheckCircle2, AlertCirc
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { formatMuallimahName } from '@/lib/roles';
-import { formatDateWithDayIndo } from '@/lib/utils/date-helpers';
+import { formatDateWithDayIndo, isSchedulePast } from '@/lib/utils/date-helpers';
 
 interface Schedule {
   id: string;
@@ -51,7 +51,7 @@ export function FinalExamSelectionModal({ isOpen, onClose, examType, batchId }: 
   const fetchSchedules = async () => {
     setIsLoading(true);
     try {
-      const url = `/api/exams/final-exams/schedules?type=${examType}${batchId ? `&batch_id=${batchId}` : ''}`;
+      const url = `/api/exams/final-exams/schedules?type=${examType}${batchId ? `&batch_id=${batchId}` : ''}` ;
       const response = await fetch(url);
       const result = await response.json();
       if (result.success) {
@@ -78,6 +78,13 @@ export function FinalExamSelectionModal({ isOpen, onClose, examType, batchId }: 
   };
 
   const handleRegister = async (scheduleId: string) => {
+    const sched = schedules.find(s => s.id === scheduleId);
+    if (sched && isSchedulePast(sched.exam_date, sched.start_time, sched.end_time)) {
+      toast.error('Maaf Ukhti, jadwal ujian ini sudah lewat dan tidak dapat dipilih lagi.');
+      setScheduleToConfirm(null);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const response = await fetch('/api/exams/final-exams/registrations', {
@@ -192,6 +199,7 @@ export function FinalExamSelectionModal({ isOpen, onClose, examType, batchId }: 
                   {schedules.map((schedule) => {
                     const isRegisteredThis = existingRegistration?.schedule_id === schedule.id;
                     const isFull = schedule.current_count >= schedule.max_quota;
+                    const isPast = isSchedulePast(schedule.exam_date, schedule.start_time, schedule.end_time);
 
                     return (
                       <Card
@@ -200,6 +208,8 @@ export function FinalExamSelectionModal({ isOpen, onClose, examType, batchId }: 
                           "rounded-xl border transition-all overflow-hidden",
                           isRegisteredThis
                             ? "bg-emerald-50/50 border-emerald-300 ring-1 ring-emerald-300 shadow-sm"
+                            : isPast
+                            ? "bg-gray-50/80 border-gray-200 opacity-60"
                             : isFull
                             ? "bg-gray-50 border-gray-100 opacity-60"
                             : "bg-white border-gray-200 hover:border-green-300 shadow-xs hover:shadow-sm"
@@ -209,13 +219,17 @@ export function FinalExamSelectionModal({ isOpen, onClose, examType, batchId }: 
                           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                             <div className="space-y-1">
                               <div className="flex items-center gap-2 text-gray-900 font-bold text-xs sm:text-sm">
-                                <Calendar className="w-3.5 h-3.5 text-green-700 shrink-0" />
-                                <span>{formatDateWithDayIndo(schedule.exam_date)}</span>
-                                {isRegisteredThis && (
+                                <Calendar className={cn("w-3.5 h-3.5 shrink-0", isPast && !isRegisteredThis ? "text-gray-400" : "text-green-700")} />
+                                <span className={cn(isPast && !isRegisteredThis && "text-gray-600")}>{formatDateWithDayIndo(schedule.exam_date)}</span>
+                                {isRegisteredThis ? (
                                   <span className="text-[9px] font-extrabold uppercase bg-emerald-600 text-white px-1.5 py-0.5 rounded">
                                     Aktif
                                   </span>
-                                )}
+                                ) : isPast ? (
+                                  <span className="text-[9px] font-extrabold uppercase bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded">
+                                    Sudah Lewat
+                                  </span>
+                                ) : null}
                               </div>
                               <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-medium text-gray-500">
                                 <div className="flex items-center gap-1">
@@ -224,7 +238,7 @@ export function FinalExamSelectionModal({ isOpen, onClose, examType, batchId }: 
                                 </div>
                                 <div className="flex items-center gap-1">
                                   <Users className="w-3 h-3 text-gray-400" />
-                                  <span>Sisa Kuota: <strong className={cn(isFull ? "text-rose-600" : "text-gray-700")}>{Math.max(0, schedule.max_quota - schedule.current_count)}</strong></span>
+                                  <span>Sisa Kuota: <strong className={cn(isFull ? "text-rose-600" : isPast ? "text-gray-500" : "text-gray-700")}>{Math.max(0, schedule.max_quota - schedule.current_count)}</strong></span>
                                 </div>
                               </div>
                               <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-800">
@@ -241,6 +255,14 @@ export function FinalExamSelectionModal({ isOpen, onClose, examType, batchId }: 
                                   className="w-full sm:w-auto rounded-xl font-bold bg-emerald-100 text-emerald-800 text-xs py-2 px-4 border border-emerald-200 cursor-default"
                                 >
                                   Jadwal Saat Ini
+                                </Button>
+                              ) : isPast ? (
+                                <Button
+                                  disabled
+                                  size="sm"
+                                  className="w-full sm:w-auto rounded-xl font-bold bg-gray-100 text-gray-400 text-xs py-2 px-4 border border-gray-200 cursor-not-allowed shadow-none"
+                                >
+                                  Sudah Lewat
                                 </Button>
                               ) : (
                                 <Button
