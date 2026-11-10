@@ -115,7 +115,7 @@ export default function PendaftaranPage() {
       const activeBatchIds = new Set<string>();
 
       // Filter programs to only show those with an active/open batch
-      const activePrograms = programs.filter(program => program.batch?.status === 'open');
+      const activePrograms = programs.filter(program => program.batch?.status === 'open' && !program.name.toLowerCase().includes('pra-tikrar') && !program.name.toLowerCase().includes('pra tikrar'));
 
       // Add programs from database first (this is the primary source)
       activePrograms.forEach((program) => {

@@ -20,12 +20,14 @@ import { useMyRegistrations } from '@/hooks/useRegistrations';
 import { createClient } from '@/lib/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface RegistrationHubCardProps {
   className?: string;
   showTitle?: boolean;
   alwaysShow?: boolean;
   showMusyrifah?: boolean;
+  showPraTikrar?: boolean;
 }
 
 export function RegistrationHubCard({
@@ -33,6 +35,7 @@ export function RegistrationHubCard({
   showTitle = true,
   alwaysShow = false,
   showMusyrifah = false,
+  showPraTikrar = false,
 }: RegistrationHubCardProps) {
   const { user } = useAuth();
   const { registrationBatch, isLoading: batchLoading } = useRegistrationBatch();
@@ -254,7 +257,7 @@ export function RegistrationHubCard({
                 <div className="flex-1 h-px bg-emerald-200/60"></div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+              <div className={cn("grid gap-4 sm:gap-5", showPraTikrar ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 max-w-xl")}>
                 
                 {/* 1. Tikrar Tahfidz */}
                 <div className="bg-white border-2 border-amber-200/80 hover:border-amber-400 rounded-2xl p-5 sm:p-6 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between group">
@@ -312,59 +315,61 @@ export function RegistrationHubCard({
                 </div>
 
                 {/* 2. Pra-Tikrar */}
-                <div className="bg-white border-2 border-fuchsia-200/80 hover:border-fuchsia-400 rounded-2xl p-5 sm:p-6 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between group">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="w-11 h-11 bg-fuchsia-100 rounded-xl flex items-center justify-center text-fuchsia-700 shadow-inner group-hover:scale-105 transition-transform">
-                        <Sparkles className="w-6 h-6" />
+                {showPraTikrar && (
+                  <div className="bg-white border-2 border-fuchsia-200/80 hover:border-fuchsia-400 rounded-2xl p-5 sm:p-6 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between group">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="w-11 h-11 bg-fuchsia-100 rounded-xl flex items-center justify-center text-fuchsia-700 shadow-inner group-hover:scale-105 transition-transform">
+                          <Sparkles className="w-6 h-6" />
+                        </div>
+                        <span className="text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full bg-fuchsia-50 text-fuchsia-800 border border-fuchsia-200">
+                          Tahsin Dasar
+                        </span>
                       </div>
-                      <span className="text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full bg-fuchsia-50 text-fuchsia-800 border border-fuchsia-200">
-                        Tahsin Dasar
-                      </span>
+
+                      <div>
+                        <h3 className="text-base sm:text-lg font-bold text-gray-900 group-hover:text-fuchsia-800 transition-colors">
+                          Thalibah Pra-Tikrar
+                        </h3>
+                        <p className="text-xs sm:text-sm text-gray-600 mt-1 leading-relaxed">
+                          Perbaikan bacaan dasar Al-Qur'an (Tahsin) & pembekalan makhraj huruf sebelum melanjutkan ke program hafalan.
+                        </p>
+                      </div>
+
+                      <div className="text-[11px] font-medium text-gray-500 pt-2 border-t border-gray-100 flex flex-wrap gap-x-3 gap-y-1">
+                        <span>🎯 Target: <strong className="text-gray-700">Juz 30</strong></span>
+                        <span>•</span>
+                        <span>🎙 Seleksi: <strong className="text-gray-700">Tes Lisan</strong></span>
+                      </div>
                     </div>
 
-                    <div>
-                      <h3 className="text-base sm:text-lg font-bold text-gray-900 group-hover:text-fuchsia-800 transition-colors">
-                        Thalibah Pra-Tikrar
-                      </h3>
-                      <p className="text-xs sm:text-sm text-gray-600 mt-1 leading-relaxed">
-                        Perbaikan bacaan dasar Al-Qur'an (Tahsin) & pembekalan makhraj huruf sebelum melanjutkan ke program hafalan.
-                      </p>
-                    </div>
-
-                    <div className="text-[11px] font-medium text-gray-500 pt-2 border-t border-gray-100 flex flex-wrap gap-x-3 gap-y-1">
-                      <span>🎯 Target: <strong className="text-gray-700">Juz 30</strong></span>
-                      <span>•</span>
-                      <span>🎙 Seleksi: <strong className="text-gray-700">Tes Lisan</strong></span>
-                    </div>
-                  </div>
-
-                  <div className="pt-5">
-                    {hasRegisteredPraTikrar ? (
-                      <Button
-                        disabled
-                        className="w-full bg-emerald-50 text-emerald-700 border border-emerald-300 font-bold py-2.5 rounded-xl cursor-default flex items-center justify-center gap-1.5"
-                      >
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                        Sudah Terdaftar
-                      </Button>
-                    ) : isRegistrationOpen ? (
-                      <Link href={`/pendaftaran/pra-tikrar?batchId=${batchId}`} className="block">
-                        <Button className="w-full bg-gradient-to-r from-fuchsia-700 to-purple-800 hover:from-fuchsia-800 hover:to-purple-900 text-white font-bold py-2.5 rounded-xl shadow-md shadow-fuchsia-900/10 hover:shadow-lg transition-all flex items-center justify-center gap-1.5">
-                          Daftar Pra-Tikrar
-                          <ChevronRight className="w-4 h-4" />
+                    <div className="pt-5">
+                      {hasRegisteredPraTikrar ? (
+                        <Button
+                          disabled
+                          className="w-full bg-emerald-50 text-emerald-700 border border-emerald-300 font-bold py-2.5 rounded-xl cursor-default flex items-center justify-center gap-1.5"
+                        >
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          Sudah Terdaftar
                         </Button>
-                      </Link>
-                    ) : (
-                      <Button
-                        disabled
-                        className="w-full bg-gray-100 text-gray-500 font-bold py-2.5 rounded-xl cursor-not-allowed flex items-center justify-center gap-1.5"
-                      >
-                        Pendaftaran Ditutup
-                      </Button>
-                    )}
+                      ) : isRegistrationOpen ? (
+                        <Link href={`/pendaftaran/pra-tikrar?batchId=${batchId}`} className="block">
+                          <Button className="w-full bg-gradient-to-r from-fuchsia-700 to-purple-800 hover:from-fuchsia-800 hover:to-purple-900 text-white font-bold py-2.5 rounded-xl shadow-md shadow-fuchsia-900/10 hover:shadow-lg transition-all flex items-center justify-center gap-1.5">
+                            Daftar Pra-Tikrar
+                            <ChevronRight className="w-4 h-4" />
+                          </Button>
+                        </Link>
+                      ) : (
+                        <Button
+                          disabled
+                          className="w-full bg-gray-100 text-gray-500 font-bold py-2.5 rounded-xl cursor-not-allowed flex items-center justify-center gap-1.5"
+                        >
+                          Pendaftaran Ditutup
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
 
               </div>
             </div>
