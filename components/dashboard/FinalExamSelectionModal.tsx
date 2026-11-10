@@ -103,7 +103,7 @@ export function FinalExamSelectionModal({ isOpen, onClose, examType, batchId }: 
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] sm:w-full sm:max-w-2xl max-h-[88vh] flex flex-col rounded-2xl sm:rounded-3xl border border-gray-100 shadow-2xl p-0 overflow-hidden bg-white z-[100] [&>button]:text-white [&>button]:hover:text-white/80 [&>button]:top-4 [&>button]:right-4">
+      <DialogContent className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] sm:w-full sm:max-w-2xl max-h-[85vh] max-h-[85dvh] flex flex-col gap-0 rounded-2xl sm:rounded-3xl border border-gray-100 shadow-2xl p-0 overflow-hidden bg-white z-[200] [&>button]:text-white [&>button]:hover:text-white/80 [&>button]:top-4 [&>button]:right-4">
         {/* Header */}
         <DialogHeader className="bg-gradient-to-br from-green-700 via-emerald-700 to-green-800 text-white p-4 sm:p-5 shrink-0 text-left">
           <div className="flex items-center gap-3">
@@ -124,7 +124,7 @@ export function FinalExamSelectionModal({ isOpen, onClose, examType, batchId }: 
         </DialogHeader>
 
         {/* Content Body */}
-        <div className="p-4 sm:p-5 overflow-y-auto flex-1 min-h-0 bg-gray-50/50 space-y-3">
+        <div className="p-4 sm:p-5 overflow-y-auto flex-1 min-h-0 bg-gray-50/50 space-y-3 overscroll-contain touch-pan-y">
           {existingRegistration?.status === 'graded' ? (
             /* Jika ujian sudah selesai dan dinilai */
             <div className="text-center space-y-4 py-4">
