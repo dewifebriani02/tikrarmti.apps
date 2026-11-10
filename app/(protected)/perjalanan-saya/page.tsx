@@ -127,6 +127,15 @@ const getDayNameFromNumber = (dayNum: number | string | undefined | null) => {
   return days[num] || '-';
 };
 
+// Helper to get concise clean batch name (e.g. "Batch 4")
+const getBatchShortName = (b?: { name?: string | null; batch_number?: number | null } | null) => {
+  if (!b) return 'Batch';
+  const match = b.name?.match(/Batch\s+\d+/i);
+  if (match) return match[0];
+  if (b.batch_number) return `Batch ${b.batch_number}`;
+  return b.name || 'Batch';
+};
+
 export default function PerjalananSaya() {
   const { user, isLoading: authLoading, isAuthenticated, isUnauthenticated } = useAuth();
   const router = useRouter();
@@ -194,14 +203,14 @@ export default function PerjalananSaya() {
     const batchesMap = new Map<string, { id: string; name: string }>();
 
     const getBatchLabel = (b: { id: string; name?: string | null; batch_number?: number | null; status?: string | null }) => {
-      const baseName = b.name || (b.batch_number ? `Batch ${b.batch_number}` : 'Batch');
+      const shortName = getBatchShortName(b);
       if (registrationBatch && b.id === registrationBatch.id) {
-        return `${baseName} (Pendaftaran Dibuka)`;
+        return `${shortName} (Pendaftaran Dibuka)`;
       }
       if (activeBatch && b.id === activeBatch.id) {
-        return `${baseName} (Sedang Berjalan)`;
+        return `${shortName} (Sedang Berjalan)`;
       }
-      return baseName;
+      return shortName;
     };
 
     // 1. Add registrationBatch first (so it appears at the top of dropdown)
@@ -225,15 +234,15 @@ export default function PerjalananSaya() {
       registrations.forEach(reg => {
         if (reg.batch_id && !batchesMap.has(reg.batch_id)) {
           const matched = allBatches?.find(b => b.id === reg.batch_id);
-          const baseName = matched?.name || (reg as any).batch_name || 'Batch Pendaftaran';
+          const shortName = matched ? getBatchShortName(matched) : ((reg as any).batch_name?.match(/Batch\s+\d+/i)?.[0] || 'Batch');
           const suffix = (reg.batch_id === registrationBatch?.id)
             ? ' (Pendaftaran Dibuka)'
             : (reg.batch_id === activeBatch?.id)
             ? ' (Sedang Berjalan)'
-            : ' (Riwayat Ikut)';
+            : ' (Riwayat)';
           batchesMap.set(reg.batch_id, {
             id: reg.batch_id,
-            name: `${baseName}${suffix}`
+            name: `${shortName}${suffix}`
           });
         }
       });
@@ -991,7 +1000,7 @@ export default function PerjalananSaya() {
                   <span className="text-[11px] font-semibold text-green-100 hidden sm:inline">Pilih Batch:</span>
                   <select 
                     id="batch-selector"
-                    className="bg-transparent text-white text-xs font-bold outline-none cursor-pointer pr-6 appearance-none border-none focus:ring-0"
+                    className="bg-transparent text-white text-xs font-bold outline-none cursor-pointer pr-6 appearance-none border-none focus:ring-0 max-w-[210px] sm:max-w-none truncate"
                     value={batchId || ''}
                     onChange={(e) => handleSelectBatch(e.target.value)}
                   >
@@ -1021,38 +1030,38 @@ export default function PerjalananSaya() {
 
           {/* Banner jika thalibah aktif sedang melihat batch baru yang dibuka */}
           {activeBatch && batchId !== activeBatch.id && userOngoingReg && (
-            <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-amber-400/20 border border-amber-300/30 text-amber-100 text-xs backdrop-blur-sm">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-amber-300 shrink-0" />
-                <span>
-                  Ukhti terdaftar aktif di <strong>{activeBatch.name}</strong>. Sedang melihat <strong>{batch?.name || 'Batch Baru'}</strong>.
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3.5 rounded-xl bg-amber-400/20 border border-amber-300/30 text-amber-100 text-xs backdrop-blur-sm">
+              <div className="flex items-start sm:items-center gap-2.5">
+                <Sparkles className="w-4 h-4 text-amber-300 shrink-0 mt-0.5 sm:mt-0" />
+                <span className="leading-relaxed">
+                  Ukhti terdaftar aktif di <strong>{getBatchShortName(activeBatch)}</strong>. Saat ini sedang melihat timeline <strong>{getBatchShortName(batch)}</strong>.
                 </span>
               </div>
               <button
                 type="button"
                 onClick={() => handleSelectBatch(activeBatch.id)}
-                className="shrink-0 underline text-amber-200 hover:text-white font-bold text-xs"
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-400/30 hover:bg-amber-400/50 text-white font-bold text-xs shadow-sm transition-all self-start sm:self-auto shrink-0 border border-amber-300/30 whitespace-nowrap"
               >
-                Lihat {activeBatch.name}
+                Lihat {getBatchShortName(activeBatch)} →
               </button>
             </div>
           )}
 
           {/* Banner jika sedang melihat batch aktif namun pendaftaran batch baru dibuka */}
           {registrationBatch && batchId !== registrationBatch.id && (
-            <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-emerald-500/20 border border-emerald-300/30 text-emerald-100 text-xs backdrop-blur-sm">
-              <div className="flex items-center gap-2">
-                <Info className="w-4 h-4 text-emerald-300 shrink-0" />
-                <span>
-                  Sedang menampilkan riwayat <strong>{batch?.name || 'Batch'}</strong>. Pendaftaran <strong>{registrationBatch.name}</strong> telah dibuka!
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3.5 rounded-xl bg-emerald-500/20 border border-emerald-300/30 text-emerald-100 text-xs backdrop-blur-sm">
+              <div className="flex items-start sm:items-center gap-2.5">
+                <Info className="w-4 h-4 text-emerald-300 shrink-0 mt-0.5 sm:mt-0" />
+                <span className="leading-relaxed">
+                  Menampilkan riwayat <strong>{getBatchShortName(batch)}</strong>. Pendaftaran <strong>{getBatchShortName(registrationBatch)}</strong> telah dibuka!
                 </span>
               </div>
               <button
                 type="button"
                 onClick={() => handleSelectBatch(registrationBatch.id)}
-                className="shrink-0 underline text-emerald-200 hover:text-white font-bold text-xs"
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-400/30 hover:bg-emerald-400/50 text-white font-bold text-xs shadow-sm transition-all self-start sm:self-auto shrink-0 border border-emerald-300/30 whitespace-nowrap"
               >
-                Beralih ke {registrationBatch.name}
+                Lihat {getBatchShortName(registrationBatch)} →
               </button>
             </div>
           )}
