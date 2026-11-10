@@ -12,7 +12,8 @@ import {
   ChevronRight,
   CheckCircle2,
   AlertCircle,
-  HelpCircle
+  HelpCircle,
+  Crown
 } from 'lucide-react';
 import { useRegistrationBatch } from '@/hooks/useBatches';
 import { useAuth } from '@/hooks/useAuth';
@@ -52,6 +53,7 @@ export function RegistrationHubCard({
   const isMusyrifahActive = typeof showMusyrifah === 'boolean' ? showMusyrifah : Boolean(formSettings.musyrifah);
   const isTikrarActive = Boolean(formSettings.tikrar_tahfidz);
   const isMuallimahActive = Boolean(formSettings.muallimah);
+  const isKelasBerbayarActive = Boolean(formSettings.kelas_berbayar);
 
   // Check registration period
   const isRegistrationOpen = useMemo(() => {
@@ -508,6 +510,57 @@ export function RegistrationHubCard({
 
               </div>
             </div>
+
+            {/* Kategori 3: Bimbingan Khusus & Kelas Berbayar Mu'allimah */}
+            {isKelasBerbayarActive && (
+              <div>
+                <div className="flex items-center gap-2 mb-4 px-1">
+                  <span className="text-xs font-black uppercase tracking-widest text-indigo-800 bg-indigo-100/80 px-2.5 py-1 rounded-md">
+                    Kategori Bimbingan Khusus (Kelas Berbayar Resmi)
+                  </span>
+                  <div className="flex-1 h-px bg-indigo-200/60"></div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+                  <div className="bg-white border-2 border-indigo-200/80 hover:border-indigo-400 rounded-2xl p-5 sm:p-6 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between group">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="w-11 h-11 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-700 shadow-inner group-hover:scale-105 transition-transform">
+                          <Crown className="w-6 h-6" />
+                        </div>
+                        <span className="text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-800 border border-indigo-200">
+                          Kelas Eksklusif Mu'allimah
+                        </span>
+                      </div>
+
+                      <div>
+                        <h3 className="text-base sm:text-lg font-bold text-gray-900 group-hover:text-indigo-800 transition-colors">
+                          Kelas Berbayar Resmi Mu'allimah MTI
+                        </h3>
+                        <p className="text-xs sm:text-sm text-gray-600 mt-1 leading-relaxed">
+                          Bimbingan intensif talaqqi tahsin & karantina hafalan kelompok kecil (5–15 thalibah) bersama Mu'allimah terverifikasi MTI.
+                        </p>
+                      </div>
+
+                      <div className="text-[11px] font-medium text-gray-500 pt-2 border-t border-gray-100 flex flex-wrap gap-x-3 gap-y-1">
+                        <span>💎 Kurikulum: <strong className="text-gray-700">Disetujui MTI</strong></span>
+                        <span>•</span>
+                        <span>👥 Ruang: <strong className="text-gray-700">Zoom Cloud MTI</strong></span>
+                      </div>
+                    </div>
+
+                    <div className="pt-5">
+                      <Link href="/pendaftaran/kelas-berbayar" className="block">
+                        <Button className="w-full bg-gradient-to-r from-indigo-700 to-purple-800 hover:from-indigo-800 hover:to-purple-900 text-white font-bold py-2.5 rounded-xl shadow-md shadow-indigo-900/10 hover:shadow-lg transition-all flex items-center justify-center gap-1.5">
+                          Lihat Daftar Kelas &amp; Mendaftar
+                          <ChevronRight className="w-4 h-4" />
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
           </div>
         </CardContent>

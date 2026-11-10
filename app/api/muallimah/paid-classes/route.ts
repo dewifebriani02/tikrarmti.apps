@@ -10,13 +10,86 @@ const supabaseAdmin = createSupabaseAdmin();
 export async function GET(request: NextRequest) {
   try {
     const authContext = await getAuthorizationContext();
+    const { searchParams } = new URL(request.url);
+    const scope = searchParams.get('scope'); // 'all' (admin only), 'my' (muallimah only), or 'public'/'approved'
+    const status = searchParams.get('status');
+    const batchId = searchParams.get('batch_id');
+
+    // Public / Approved Scope: Accessible to all users (thalibah / public)
+    if (scope === 'public' || scope === 'approved') {
+      let query = supabaseAdmin
+        .from('muallimah_paid_classes')
+        .select(`
+          *,
+          muallimah:users!muallimah_paid_classes_muallimah_id_fkey(
+            id,
+            full_name,
+            email,
+            whatsapp
+          ),
+          batch:batches(id, name, status)
+        `)
+        .in('status', ['approved', 'active'])
+        .order('created_at', { ascending: false });
+
+      if (batchId && batchId !== 'all') {
+        query = query.eq('batch_id', batchId);
+      }
+
+      const { data, error } = await query;
+      if (error) {
+        console.error('[Paid Classes Public API] Fetch error:', error);
+        return ApiResponses.databaseError(error);
+      }
+
+      const classIds = (data || []).map((c: any) => c.id);
+      const registrationCounts: Record<string, number> = {};
+      const userRegisteredClassIds = new Set<string>();
+
+      if (classIds.length > 0) {
+        const { data: regData } = await supabaseAdmin
+          .from('paid_class_registrations')
+          .select('paid_class_id, status')
+          .in('paid_class_id', classIds)
+          .neq('status', 'cancelled');
+
+        (regData || []).forEach((r: any) => {
+          registrationCounts[r.paid_class_id] = (registrationCounts[r.paid_class_id] || 0) + 1;
+        });
+
+        if (authContext?.userId) {
+          const { data: userRegs } = await supabaseAdmin
+            .from('paid_class_registrations')
+            .select('paid_class_id')
+            .eq('user_id', authContext.userId)
+            .neq('status', 'cancelled');
+
+          (userRegs || []).forEach((ur: any) => {
+            userRegisteredClassIds.add(ur.paid_class_id);
+          });
+        }
+      }
+
+      const enrichedClasses = (data || []).map((c: any) => {
+        const enrolled = registrationCounts[c.id] || 0;
+        const max = c.max_students || 10;
+        return {
+          ...c,
+          enrolled_count: enrolled,
+          remaining_slots: Math.max(0, max - enrolled),
+          is_full: enrolled >= max,
+          is_user_registered: userRegisteredClassIds.has(c.id),
+        };
+      });
+
+      return ApiResponses.success({ classes: enrichedClasses });
+    }
+
+    // Authenticated scope ('my' or 'all')
     if (!authContext) {
       return ApiResponses.unauthorized('Silakan login terlebih dahulu');
     }
 
-    const { searchParams } = new URL(request.url);
-    const scope = searchParams.get('scope'); // 'all' (admin only) or 'my'
-    const status = searchParams.get('status');
     const isAdmin = isUserAdmin(authContext);
 
     let query = supabaseAdmin
@@ -42,13 +115,43 @@ export async function GET(request: NextRequest) {
       query = query.eq('status', status);
     }
 
+    if (batchId && batchId !== 'all') {
+      query = query.eq('batch_id', batchId);
+    }
+
     const { data, error } = await query;
     if (error) {
       console.error('[Paid Classes API] Fetch error:', error);
       return ApiResponses.databaseError(error);
     }
 
-    return ApiResponses.success({ classes: data || [] });
+    // Fetch registration count for classes
+    const classIds = (data || []).map((c: any) => c.id);
+    const registrationCounts: Record<string, number> = {};
+    if (classIds.length > 0) {
+      const { data: regData } = await supabaseAdmin
+        .from('paid_class_registrations')
+        .select('paid_class_id, status')
+        .in('paid_class_id', classIds)
+        .neq('status', 'cancelled');
+
+      (regData || []).forEach((r: any) => {
+        registrationCounts[r.paid_class_id] = (registrationCounts[r.paid_class_id] || 0) + 1;
+      });
+    }
+
+    const enriched = (data || []).map((c: any) => {
+      const enrolled = registrationCounts[c.id] || 0;
+      const max = c.max_students || 10;
+      return {
+        ...c,
+        enrolled_count: enrolled,
+        remaining_slots: Math.max(0, max - enrolled),
+        is_full: enrolled >= max,
+      };
+    });
+
+    return ApiResponses.success({ classes: enriched });
   } catch (error) {
     console.error('[Paid Classes API] Unexpected error:', error);
     return ApiResponses.handleUnknown(error);

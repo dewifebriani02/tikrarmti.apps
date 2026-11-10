@@ -111,7 +111,7 @@ export const FORM_ITEMS_CONFIG: FormItemConfig[] = [
     badge: 'Kelas Khusus / Berbayar',
     category: 'Bimbingan Khusus',
     description: 'Program bimbingan intensif berbayar bersama Mu\'allimah dan pengajuan kelas mandiri.',
-    path: '/muallimah/kelas-berbayar',
+    path: '/pendaftaran/kelas-berbayar',
     color: {
       bg: 'from-indigo-500/10 to-indigo-500/5',
       border: 'border-indigo-200/80',

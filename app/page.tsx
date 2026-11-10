@@ -551,8 +551,8 @@ export default async function Home() {
               <div className="pt-4 border-t border-gray-100 flex items-center justify-between">
                 <span className="text-xs font-semibold text-teal-800">Kuota Terbatas 5–15 Thalibah</span>
                 <Button asChild size="sm" className="bg-teal-800 hover:bg-teal-900 text-white rounded-xl font-bold">
-                  <Link href="/register" className="inline-flex items-center gap-1.5">
-                    <span>Informasi Kelas</span>
+                  <Link href="/pendaftaran/kelas-berbayar" className="inline-flex items-center gap-1.5">
+                    <span>Daftar Kelas Berbayar</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </Link>
                 </Button>
