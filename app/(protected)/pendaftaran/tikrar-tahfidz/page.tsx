@@ -20,6 +20,7 @@ import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { submitTikrarRegistration, getRegistrationQuestions } from './actions'
 import { cn } from '@/lib/utils'
+import { useFormSettings } from '@/hooks/useFormSettings'
 
 interface FormData {
   // Section 1 - Komitmen & Pemahaman
@@ -236,6 +237,7 @@ export default function ThalibahBatch2Page() {
     }
   }
   const { user, isLoading, isAuthenticated, isUnauthenticated } = useAuth()
+  const { settings: formSettings, isLoading: settingsLoading } = useFormSettings()
   const { registrationBatch, isLoading: regBatchLoading } = useRegistrationBatch()
   const searchParams = useSearchParams()
   const urlBatchId = searchParams.get('batchId')
@@ -1713,6 +1715,28 @@ export default function ThalibahBatch2Page() {
     </div>
   )
 
+
+  const isAdmin = user?.roles?.includes('admin') || user?.role === 'admin'
+  if (!settingsLoading && !formSettings.tikrar_tahfidz && !isAdmin) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-purple-50 py-8 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-3xl p-8 shadow-sm border border-gray-100 text-center space-y-4">
+          <div className="h-16 w-16 mx-auto rounded-full bg-amber-50 text-amber-600 flex items-center justify-center">
+            <AlertCircle className="h-8 w-8" />
+          </div>
+          <h2 className="text-xl font-black text-gray-900">Pendaftaran Tikrar Tahfidz Ditutup</h2>
+          <p className="text-sm text-gray-600">
+            Formulir pendaftaran program Tikrar Tahfidz saat ini sedang ditutup atau belum dipublikasikan oleh administrator.
+          </p>
+          <div className="pt-2">
+            <Button onClick={() => router.push('/pendaftaran')} className="w-full bg-amber-700 hover:bg-amber-800 text-white font-bold rounded-xl">
+              Lihat Program Lainnya
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   if (!batchLoading && !activeBatchData) {
     return (

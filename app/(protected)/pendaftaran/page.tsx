@@ -20,6 +20,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { useBatchProgram } from '@/hooks/useBatchProgram';
 import { useMyRegistrations } from '@/hooks/useRegistrations';
+import { useFormSettings } from '@/hooks/useFormSettings';
 import { BatchStatus, ProgramStatus } from '@/types/database';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -52,6 +53,7 @@ interface PendaftaranType {
 export default function PendaftaranPage() {
   const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
+  const { settings: formSettings } = useFormSettings();
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [pendaftaranTypes, setPendaftaranTypes] = useState<PendaftaranType[]>([]);
 
@@ -114,8 +116,28 @@ export default function PendaftaranPage() {
       const transformedData: PendaftaranType[] = [];
       const activeBatchIds = new Set<string>();
 
-      // Filter programs to only show those with an active/open batch
-      const activePrograms = programs.filter(program => program.batch?.status === 'open' && !program.name.toLowerCase().includes('pra-tikrar') && !program.name.toLowerCase().includes('pra tikrar'));
+      // Filter programs to only show those with an active/open batch and published in form settings
+      const activePrograms = programs.filter(program => {
+        if (program.batch?.status !== 'open') return false;
+        const nameLower = program.name.toLowerCase();
+
+        // Pra-Tikrar check
+        if (nameLower.includes('pra-tikrar') || nameLower.includes('pra tikrar')) {
+          return Boolean(formSettings.pra_tikrar);
+        }
+
+        // Tikrar Tahfidz check
+        if (nameLower.includes('tikrar') || nameLower.includes('tahfidz')) {
+          return Boolean(formSettings.tikrar_tahfidz);
+        }
+
+        // Kelas Berbayar check
+        if (nameLower.includes('berbayar')) {
+          return Boolean(formSettings.kelas_berbayar);
+        }
+
+        return true;
+      });
 
       // Add programs from database first (this is the primary source)
       activePrograms.forEach((program) => {
@@ -160,65 +182,69 @@ export default function PendaftaranPage() {
         });
       });
 
-      // Ensure Muallimah and Musyrifah are always available as options for the open batch
+      // Ensure Muallimah and Musyrifah are available as options for the open batch if published
       const targetBatch = batches.find(b => b.status === 'open') || batches[0];
       if (targetBatch) {
-        const hasMuallimah = transformedData.some(p => p.title.toLowerCase().includes('muallimah'));
-        if (!hasMuallimah) {
-          const muallimahType = getProgramTypeByName('muallimah');
-          transformedData.push({
-            id: `program-muallimah-${targetBatch.id}`,
-            title: "Mu'allimah MTI",
-            description: 'Pendaftaran & Akad Komitmen Pengajar Tashih dan Penguji Ujian MTI',
-            icon: ShieldCheck,
-            color: 'purple',
-            benefits: muallimahType.benefits,
-            requirements: muallimahType.requirements,
-            status: mapProgramStatus('open', targetBatch.registration_end_date),
-            batchInfo: {
-              batch: targetBatch.name,
-              period: `${formatDate(targetBatch.start_date)} - ${formatDate(targetBatch.end_date)}`,
-              deadline: formatDate(targetBatch.registration_end_date),
-              capacity: targetBatch.total_quota || 50,
-              registered: 0
-            },
-            price: 'GRATIS',
-            duration: `${targetBatch.duration_weeks || 13} pekan`,
-            programId: 'muallimah',
-            batchId: targetBatch.id
-          });
+        if (formSettings.muallimah) {
+          const hasMuallimah = transformedData.some(p => p.title.toLowerCase().includes('muallimah'));
+          if (!hasMuallimah) {
+            const muallimahType = getProgramTypeByName('muallimah');
+            transformedData.push({
+              id: `program-muallimah-${targetBatch.id}`,
+              title: "Mu'allimah MTI",
+              description: 'Pendaftaran & Akad Komitmen Pengajar Tashih dan Penguji Ujian MTI',
+              icon: ShieldCheck,
+              color: 'purple',
+              benefits: muallimahType.benefits,
+              requirements: muallimahType.requirements,
+              status: mapProgramStatus('open', targetBatch.registration_end_date),
+              batchInfo: {
+                batch: targetBatch.name,
+                period: `${formatDate(targetBatch.start_date)} - ${formatDate(targetBatch.end_date)}`,
+                deadline: formatDate(targetBatch.registration_end_date),
+                capacity: targetBatch.total_quota || 50,
+                registered: 0
+              },
+              price: 'GRATIS',
+              duration: `${targetBatch.duration_weeks || 13} pekan`,
+              programId: 'muallimah',
+              batchId: targetBatch.id
+            });
+          }
         }
 
-        const hasMusyrifah = transformedData.some(p => p.title.toLowerCase().includes('musyrifah'));
-        if (!hasMusyrifah) {
-          const musyrifahType = getProgramTypeByName('musyrifah');
-          transformedData.push({
-            id: `program-musyrifah-${targetBatch.id}`,
-            title: 'Musyrifah / Raisah MTI',
-            description: 'Pendaftaran Tim Pendamping Halaqah dan Kepemimpinan MTI',
-            icon: UserCheck,
-            color: 'blue',
-            benefits: musyrifahType.benefits,
-            requirements: musyrifahType.requirements,
-            status: mapProgramStatus('open', targetBatch.registration_end_date),
-            batchInfo: {
-              batch: targetBatch.name,
-              period: `${formatDate(targetBatch.start_date)} - ${formatDate(targetBatch.end_date)}`,
-              deadline: formatDate(targetBatch.registration_end_date),
-              capacity: targetBatch.total_quota || 50,
-              registered: 0
-            },
-            price: 'GRATIS',
-            duration: `${targetBatch.duration_weeks || 13} pekan`,
-            programId: 'musyrifah',
-            batchId: targetBatch.id
-          });
+        if (formSettings.musyrifah) {
+          const hasMusyrifah = transformedData.some(p => p.title.toLowerCase().includes('musyrifah'));
+          if (!hasMusyrifah) {
+            const musyrifahType = getProgramTypeByName('musyrifah');
+            transformedData.push({
+              id: `program-musyrifah-${targetBatch.id}`,
+              title: 'Musyrifah / Raisah MTI',
+              description: 'Pendaftaran Tim Pendamping Halaqah dan Kepemimpinan MTI',
+              icon: UserCheck,
+              color: 'blue',
+              benefits: musyrifahType.benefits,
+              requirements: musyrifahType.requirements,
+              status: mapProgramStatus('open', targetBatch.registration_end_date),
+              batchInfo: {
+                batch: targetBatch.name,
+                period: `${formatDate(targetBatch.start_date)} - ${formatDate(targetBatch.end_date)}`,
+                deadline: formatDate(targetBatch.registration_end_date),
+                capacity: targetBatch.total_quota || 50,
+                registered: 0
+              },
+              price: 'GRATIS',
+              duration: `${targetBatch.duration_weeks || 13} pekan`,
+              programId: 'musyrifah',
+              batchId: targetBatch.id
+            });
+          }
         }
       }
 
       setPendaftaranTypes(transformedData);
     }
-  }, [batches, programs]);
+  }, [batches, programs, formSettings]);
 
   const getProgramTypeByName = (name: string) => {
     if (name.toLowerCase().includes('musyrifah')) {
@@ -641,10 +667,10 @@ export default function PendaftaranPage() {
                 <Calendar className="w-8 h-8 text-gray-400" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Belum Ada Program Tersedia</h3>
-              <p className="text-gray-600">Program pembelajaran akan segera dibuka. Silakan cembali lagi nanti.</p>
+              <p className="text-gray-600">Program pembelajaran akan segera dibuka. Silakan kembali lagi nanti.</p>
             </CardContent>
           </Card>
         )}
       </div>
-    );
+  );
 }

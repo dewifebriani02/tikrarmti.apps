@@ -18,6 +18,7 @@ import { AdminReregFormBuilderTab } from '@/components/admin/batch-program/Admin
 import { AdminMuallimahFormBuilderTab } from '@/components/admin/batch-program/AdminMuallimahFormBuilderTab';
 import { AdminAkadQuizTab } from '@/components/admin/batch-program/AdminAkadQuizTab';
 import { AdminCommunicationTab } from '@/components/admin/batch-program/AdminCommunicationTab';
+import { AdminFormPublishSwitchboard } from '@/components/admin/batch-program/AdminFormPublishSwitchboard';
 
 type TabType = 'batches' | 'programs' | 'juz' | 'zoom' | 'communication' | 'form-builder' | 'quiz';
 
@@ -438,6 +439,9 @@ export default function AdminBatchProgramPage() {
 
         {activeTab === 'form-builder' && (
           <div className="space-y-6">
+            {/* Panel Saklar Publish/Unpublish untuk Semua Formulir */}
+            <AdminFormPublishSwitchboard />
+
             <div className="flex p-1 space-x-1 bg-white/50 border border-gray-200 rounded-xl max-w-2xl">
               <button
                 onClick={() => setActiveFormSubTab('pendaftaran')}

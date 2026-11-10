@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useRegistrationBatch } from '@/hooks/useBatches';
+import { useFormSettings } from '@/hooks/useFormSettings';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -80,6 +81,7 @@ function MusyrifahRegistrationContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
+  const { settings: formSettings, isLoading: settingsLoading } = useFormSettings();
   const supabase = createClient();
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
@@ -695,6 +697,23 @@ function MusyrifahRegistrationContent() {
           <div className="text-center">
             <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
             <p className="text-gray-600">Memeriksa autentikasi...</p>
+          </div>
+        </div>
+      ) : (!settingsLoading && !formSettings.musyrifah && !(user?.roles?.includes('admin') || user?.role === 'admin')) ? (
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+          <div className="max-w-md w-full bg-white rounded-3xl p-8 shadow-sm border border-gray-100 text-center space-y-4">
+            <div className="h-16 w-16 mx-auto rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
+              <ShieldCheck className="h-8 w-8" />
+            </div>
+            <h2 className="text-xl font-black text-gray-900">Pendaftaran Musyrifah Ditutup</h2>
+            <p className="text-sm text-gray-600">
+              Formulir pendaftaran program Musyrifah / Raisah saat ini sedang ditutup atau belum dipublikasikan oleh administrator.
+            </p>
+            <div className="pt-2">
+              <Button onClick={() => router.push('/pendaftaran')} className="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold rounded-xl">
+                Lihat Program Lainnya
+              </Button>
+            </div>
           </div>
         </div>
       ) : !isAuthenticated ? (

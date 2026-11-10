@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useRegistrationBatch } from '@/hooks/useBatches';
+import { useFormSettings } from '@/hooks/useFormSettings';
 import { useJuzOptions } from '@/hooks/useJuzOptions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -218,6 +219,7 @@ function MuallimahRegistrationContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
+  const { settings: formSettings, isLoading: settingsLoading } = useFormSettings();
   const { registrationBatch, isLoading: batchLoading } = useRegistrationBatch();
   const { juzOptions, isLoading: juzLoading } = useJuzOptions();
 
@@ -810,6 +812,28 @@ function MuallimahRegistrationContent() {
       setIsLoading(false);
     }
   };
+
+  const isAdmin = user?.roles?.includes('admin') || user?.role === 'admin';
+  if (!settingsLoading && !formSettings.muallimah && !isAdmin && !isFormSubmitted) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-3xl p-8 shadow-sm border border-gray-100 text-center space-y-4">
+          <div className="h-16 w-16 mx-auto rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <GraduationCap className="h-8 w-8" />
+          </div>
+          <h2 className="text-xl font-black text-gray-900">Pendaftaran Mu'allimah Ditutup</h2>
+          <p className="text-sm text-gray-600">
+            Formulir pendaftaran dan akad Mu'allimah saat ini sedang ditutup atau belum dipublikasikan oleh administrator.
+          </p>
+          <div className="pt-2">
+            <Button onClick={() => router.push('/pendaftaran')} className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl">
+              Lihat Program Lainnya
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (authLoading || batchLoading || questionsLoading) {
     return (

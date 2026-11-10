@@ -17,6 +17,7 @@ import {
 import { useRegistrationBatch } from '@/hooks/useBatches';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyRegistrations } from '@/hooks/useRegistrations';
+import { useFormSettings } from '@/hooks/useFormSettings';
 import { createClient } from '@/lib/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,16 +35,23 @@ export function RegistrationHubCard({
   className = '',
   showTitle = true,
   alwaysShow = false,
-  showMusyrifah = false,
-  showPraTikrar = false,
+  showMusyrifah,
+  showPraTikrar,
 }: RegistrationHubCardProps) {
   const { user } = useAuth();
   const { registrationBatch, isLoading: batchLoading } = useRegistrationBatch();
   const { registrations } = useMyRegistrations();
+  const { settings: formSettings } = useFormSettings();
 
   const [isRegisteredMuallimah, setIsRegisteredMuallimah] = useState(false);
   const [isRegisteredMusyrifah, setIsRegisteredMusyrifah] = useState(false);
   const [checkingRoleStatus, setCheckingRoleStatus] = useState(false);
+
+  // Dynamic publication status from switchboard, with prop override capability if passed
+  const isPraTikrarActive = typeof showPraTikrar === 'boolean' ? showPraTikrar : Boolean(formSettings.pra_tikrar);
+  const isMusyrifahActive = typeof showMusyrifah === 'boolean' ? showMusyrifah : Boolean(formSettings.musyrifah);
+  const isTikrarActive = Boolean(formSettings.tikrar_tahfidz);
+  const isMuallimahActive = Boolean(formSettings.muallimah);
 
   // Check registration period
   const isRegistrationOpen = useMemo(() => {
@@ -74,6 +82,11 @@ export function RegistrationHubCard({
 
     return registrationBatch.status === 'open';
   }, [registrationBatch]);
+
+  const canRegisterTikrar = isRegistrationOpen && isTikrarActive;
+  const canRegisterPraTikrar = isRegistrationOpen && isPraTikrarActive;
+  const canRegisterMuallimah = isRegistrationOpen && isMuallimahActive;
+  const canRegisterMusyrifah = isRegistrationOpen && isMusyrifahActive;
 
   // Days remaining calculation
   const deadlineInfo = useMemo(() => {
@@ -257,7 +270,7 @@ export function RegistrationHubCard({
                 <div className="flex-1 h-px bg-emerald-200/60"></div>
               </div>
 
-              <div className={cn("grid gap-4 sm:gap-5", showPraTikrar ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 max-w-xl")}>
+              <div className={cn("grid gap-4 sm:gap-5", isPraTikrarActive ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 max-w-xl")}>
                 
                 {/* 1. Tikrar Tahfidz */}
                 <div className="bg-white border-2 border-amber-200/80 hover:border-amber-400 rounded-2xl p-5 sm:p-6 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between group">
@@ -296,7 +309,7 @@ export function RegistrationHubCard({
                         <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                         Sudah Terdaftar
                       </Button>
-                    ) : isRegistrationOpen ? (
+                    ) : canRegisterTikrar ? (
                       <Link href={`/pendaftaran/tikrar-tahfidz?batchId=${batchId}`} className="block">
                         <Button className="w-full bg-gradient-to-r from-amber-600 via-yellow-600 to-amber-700 hover:from-amber-700 hover:via-yellow-700 hover:to-amber-800 text-white font-bold py-2.5 rounded-xl shadow-md shadow-amber-900/10 hover:shadow-lg transition-all flex items-center justify-center gap-1.5">
                           Daftar Tikrar Tahfidz
@@ -308,14 +321,14 @@ export function RegistrationHubCard({
                         disabled
                         className="w-full bg-gray-100 text-gray-500 font-bold py-2.5 rounded-xl cursor-not-allowed flex items-center justify-center gap-1.5"
                       >
-                        Pendaftaran Ditutup
+                        {!isTikrarActive ? 'Pendaftaran Belum Dibuka' : 'Pendaftaran Ditutup'}
                       </Button>
                     )}
                   </div>
                 </div>
 
                 {/* 2. Pra-Tikrar */}
-                {showPraTikrar && (
+                {isPraTikrarActive && (
                   <div className="bg-white border-2 border-fuchsia-200/80 hover:border-fuchsia-400 rounded-2xl p-5 sm:p-6 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between group">
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
@@ -352,7 +365,7 @@ export function RegistrationHubCard({
                           <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                           Sudah Terdaftar
                         </Button>
-                      ) : isRegistrationOpen ? (
+                      ) : canRegisterPraTikrar ? (
                         <Link href={`/pendaftaran/pra-tikrar?batchId=${batchId}`} className="block">
                           <Button className="w-full bg-gradient-to-r from-fuchsia-700 to-purple-800 hover:from-fuchsia-800 hover:to-purple-900 text-white font-bold py-2.5 rounded-xl shadow-md shadow-fuchsia-900/10 hover:shadow-lg transition-all flex items-center justify-center gap-1.5">
                             Daftar Pra-Tikrar
@@ -378,12 +391,12 @@ export function RegistrationHubCard({
             <div>
               <div className="flex items-center gap-2 mb-4 px-1">
                 <span className="text-xs font-black uppercase tracking-widest text-teal-800 bg-teal-100/80 px-2.5 py-1 rounded-md">
-                  Kategori Tim Pengajar {showMusyrifah ? "& Pendamping" : "(Mu'allimah)"}
+                  Kategori Tim Pengajar {isMusyrifahActive ? "& Pendamping" : "(Mu'allimah)"}
                 </span>
                 <div className="flex-1 h-px bg-teal-200/60"></div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+              <div className={cn("grid gap-4 sm:gap-5", isMusyrifahActive ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 max-w-xl")}>
                 
                 {/* 3. Mu'allimah */}
                 <div className="bg-white border-2 border-emerald-200/80 hover:border-emerald-400 rounded-2xl p-5 sm:p-6 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between group">
@@ -420,7 +433,7 @@ export function RegistrationHubCard({
                         <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                         Akad Mengajar Terisi
                       </Button>
-                    ) : isRegistrationOpen ? (
+                    ) : canRegisterMuallimah ? (
                       <Link href={`/pendaftaran/muallimah?batchId=${batchId}`} className="block">
                         <Button className="w-full bg-gradient-to-r from-emerald-700 to-green-800 hover:from-emerald-800 hover:to-green-900 text-white font-bold py-2.5 rounded-xl shadow-md shadow-emerald-950/10 hover:shadow-lg transition-all flex items-center justify-center gap-1.5">
                           Daftar Sebagai Mu'allimah
@@ -432,14 +445,14 @@ export function RegistrationHubCard({
                         disabled
                         className="w-full bg-gray-100 text-gray-500 font-bold py-2.5 rounded-xl cursor-not-allowed flex items-center justify-center gap-1.5"
                       >
-                        Pendaftaran Ditutup
+                        {!isMuallimahActive ? 'Pendaftaran Belum Dibuka' : 'Pendaftaran Ditutup'}
                       </Button>
                     )}
                   </div>
                 </div>
 
                 {/* 4. Musyrifah / Raisah */}
-                {showMusyrifah && (
+                {isMusyrifahActive && (
                   <div className="bg-white border-2 border-blue-200/80 hover:border-blue-400 rounded-2xl p-5 sm:p-6 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between group">
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
@@ -474,7 +487,7 @@ export function RegistrationHubCard({
                           <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                           Sudah Terdaftar
                         </Button>
-                      ) : isRegistrationOpen ? (
+                      ) : canRegisterMusyrifah ? (
                         <Link href={`/pendaftaran/musyrifah?batchId=${batchId}`} className="block">
                           <Button className="w-full bg-gradient-to-r from-blue-700 to-indigo-800 hover:from-blue-800 hover:to-indigo-900 text-white font-bold py-2.5 rounded-xl shadow-md shadow-blue-900/10 hover:shadow-lg transition-all flex items-center justify-center gap-1.5">
                             Daftar Sebagai Musyrifah

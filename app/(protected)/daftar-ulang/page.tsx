@@ -11,6 +11,7 @@ import { submitDaftarUlang, saveDaftarUlangDraft, uploadAkad, updateAkadFiles, a
 import { UserProfileCard } from '@/components/UserProfileCard'
 import { parseAkadFiles } from '@/lib/utils'
 import { isPartnerChoiceLocked } from '@/lib/partner-choice'
+import { useFormSettings } from '@/hooks/useFormSettings'
 
 type Step = 'confirm' | 'pengabdian' | 'akad' | 'halaqah' | 'partner' | 'success'
 
@@ -74,6 +75,7 @@ export default function DaftarUlangPage() {
 
 function DaftarUlangContent() {
   const { user, isAuthenticated } = useAuth()
+  const { settings: formSettings, isLoading: settingsLoading } = useFormSettings()
   const router = useRouter()
   const params = useParams()
   const searchParams = useSearchParams()
@@ -668,6 +670,28 @@ function DaftarUlangContent() {
       akad_files: prev.akad_files.filter((_, i) => i !== index),
     }))
     toast.success('File berhasil dihapus')
+  }
+
+  const isAdmin = user?.roles?.includes('admin') || user?.role === 'admin'
+  if (!settingsLoading && !formSettings.daftar_ulang && !isAdmin && !existingSubmission) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-3xl p-8 shadow-sm border border-gray-100 text-center space-y-4">
+          <div className="h-16 w-16 mx-auto rounded-full bg-teal-50 text-teal-600 flex items-center justify-center">
+            <AlertCircle className="h-8 w-8" />
+          </div>
+          <h2 className="text-xl font-black text-gray-900">Daftar Ulang Ditutup</h2>
+          <p className="text-sm text-gray-600">
+            Formulir daftar ulang santri saat ini sedang ditutup atau belum dipublikasikan oleh administrator.
+          </p>
+          <div className="pt-2">
+            <Button onClick={() => router.push('/dashboard')} className="w-full bg-teal-700 hover:bg-teal-800 text-white font-bold rounded-xl">
+              Kembali ke Dashboard
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   // Loading state
