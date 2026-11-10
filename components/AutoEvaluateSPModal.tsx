@@ -202,7 +202,7 @@ export function AutoEvaluateSPModal({
         </div>
 
         {/* Content Body */}
-        <div className="p-6 overflow-y-auto flex-1 space-y-6">
+        <div className="p-6 overflow-y-auto flex-1 min-h-0 space-y-6 overscroll-contain">
           {loadingPreview ? (
             <div className="py-20 flex flex-col items-center justify-center text-center">
               <Loader2 className="w-10 h-10 text-emerald-600 animate-spin mb-3" />

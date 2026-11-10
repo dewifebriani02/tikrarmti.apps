@@ -532,7 +532,7 @@ export function AdminMusyrifahFormBuilderTab() {
               </div>
             </div>
 
-            <form onSubmit={handleUpdateQuestion} className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
+            <form onSubmit={handleUpdateQuestion} className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 min-h-0 overscroll-contain">
               {/* Label Pertanyaan */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">
@@ -870,7 +870,7 @@ export function AdminMusyrifahFormBuilderTab() {
               </button>
             </div>
 
-            <div className="p-4 sm:p-6 space-y-6 overflow-y-auto flex-1">
+            <div className="p-4 sm:p-6 space-y-6 overflow-y-auto flex-1 min-h-0 overscroll-contain">
               {[1, 2, 3, 4].map(sectionNum => {
                 const sectionQuestions = questions.filter(q => q.section === sectionNum && q.is_active);
                 if (sectionQuestions.length === 0) return null;

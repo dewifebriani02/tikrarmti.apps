@@ -357,6 +357,11 @@
   @apply transform -translate-y-1 scale-110 text-primary;
 }
 
+/* Hide Bottom Navbar when any modal/dialog is open (Radix scroll lock) */
+body[data-scroll-locked] .bottom-navbar-root {
+  display: none !important;
+}
+
 
 /* Hover Effects with Green Army Theme */
 .hover-lift {

@@ -98,9 +98,9 @@ export function MurojaahEnrollModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md p-0 overflow-hidden rounded-3xl border-none shadow-2xl">
+      <DialogContent className="max-w-md w-[92vw] sm:w-full max-h-[82vh] max-h-[82dvh] flex flex-col gap-0 p-0 overflow-hidden rounded-2xl sm:rounded-3xl border-none shadow-2xl z-[200]">
         {/* Header */}
-        <div className="bg-gradient-to-r from-emerald-800 to-green-800 p-5 text-white">
+        <div className="bg-gradient-to-r from-emerald-800 to-green-800 p-5 text-white shrink-0">
           <div className="flex items-center gap-2 mb-1">
             <span className="p-1.5 rounded-lg bg-white/10 backdrop-blur-sm">
               <Sparkles className="w-4 h-4 text-amber-300" />
@@ -117,7 +117,7 @@ export function MurojaahEnrollModal({
           </DialogDescription>
         </div>
 
-        <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+        <div className="p-5 space-y-4 flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y">
           {/* Status Free Banner */}
           {(isFreeEligible || isFreeExtension) ? (
             <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3.5 flex items-start gap-3">
@@ -249,7 +249,7 @@ export function MurojaahEnrollModal({
           )}
         </div>
 
-        <DialogFooter className="p-4 bg-gray-50 border-t border-gray-100 flex flex-row gap-2 justify-end">
+        <DialogFooter className="p-4 bg-gray-50 border-t border-gray-100 shrink-0 flex flex-row gap-2 justify-end">
           <Button
             type="button"
             variant="ghost"

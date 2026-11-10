@@ -11,30 +11,30 @@ export default function BottomNavbar() {
 
   const navItems = [
     {
-      label: 'Dasbor',
+      label: "Dasbor",
       icon: Home,
-      href: '/dashboard',
+      href: "/dashboard",
     },
     {
-      label: 'Perjalanan',
+      label: "Perjalanan",
       icon: Compass,
-      href: '/perjalanan-saya',
+      href: "/perjalanan-saya",
     },
     {
-      label: 'Jurnal',
+      label: "Jurnal",
       icon: BookOpen,
-      href: '/jurnal-harian',
+      href: "/jurnal-harian",
       isCenter: true,
     },
     {
-      label: 'Tashih',
+      label: "Tashih",
       icon: FileText,
-      href: '/tashih',
+      href: "/tashih",
     },
     {
-      label: 'Murajaah',
+      label: "Murajaah",
       icon: RotateCcw,
-      href: '/murojaah',
+      href: "/murojaah",
     },
   ];
 
@@ -45,7 +45,7 @@ export default function BottomNavbar() {
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-[60] pt-2 pointer-events-none xl:hidden">
+    <div className="fixed bottom-0 left-0 right-0 z-[60] pt-2 pointer-events-none xl:hidden bottom-navbar-root">
       <div className="w-full relative pointer-events-auto">
         {/* Background Glass container */}
         <div className="glass-premium rounded-t-[32px] flex items-center justify-around px-2 py-3 shadow-2xl border-t border-white/50 h-[80px]">
@@ -109,8 +109,8 @@ export default function BottomNavbar() {
 
                 {/* Active Indicator Dot */}
                 <div className={cn(
-                  "w-1 h-1 rounded-full bg-green-900 transition-all duration-300 transform",
-                  isActive(item.href) ? "opacity-100 scale-100" : "opacity-0 scale-0"
+                  "w-1 h-1 rounded-full transition-all duration-300",
+                  isActive(item.href) ? "bg-green-800 scale-100" : "bg-transparent scale-0"
                 )} />
               </Link>
             );

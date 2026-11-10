@@ -1197,7 +1197,7 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
 
       {/* MODAL INPUT PRESENSI / CEKLIST PUTARAN */}
       <Dialog open={isLogModalOpen} onOpenChange={setIsLogModalOpen}>
-        <DialogContent className="max-w-md w-[92vw] sm:w-full max-h-[85vh] max-h-[85dvh] flex flex-col p-0 rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl bg-white border border-gray-100 z-[100]">
+        <DialogContent className="max-w-md w-[92vw] sm:w-full max-h-[82vh] max-h-[82dvh] flex flex-col gap-0 p-0 rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl bg-white border border-gray-100 z-[200]">
           <DialogHeader className="p-4 sm:p-6 pb-3 border-b border-gray-100 shrink-0 bg-white">
             <DialogTitle className="text-base sm:text-lg font-bold text-gray-900 flex items-center gap-2">
               <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
@@ -1210,7 +1210,7 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-4 overscroll-contain">
+          <div className="p-4 sm:p-6 overflow-y-auto flex-1 min-h-0 space-y-4 overscroll-contain touch-pan-y">
             <div className="space-y-1.5">
               <Label className="text-xs font-bold text-gray-700">Tanggal Muroja'ah</Label>
               <input
@@ -1277,7 +1277,7 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
             </div>
           </div>
 
-          <DialogFooter className="p-3.5 sm:p-5 border-t border-gray-200 bg-gray-50/95 shrink-0 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2">
+          <DialogFooter className="p-3.5 sm:p-5 border-t border-gray-200 bg-white sm:bg-gray-50/95 shrink-0 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pb-5 sm:pb-5">
             <Button
               type="button"
               variant="outline"
@@ -1300,8 +1300,8 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
 
       {/* MODAL DETAIL PUTARAN */}
       <Dialog open={!!selectedRoundDetails} onOpenChange={(open) => !open && setSelectedRoundDetails(null)}>
-        <DialogContent className="max-w-sm rounded-2xl p-6">
-          <DialogHeader>
+        <DialogContent className="max-w-sm w-[92vw] sm:w-full max-h-[82vh] max-h-[82dvh] flex flex-col gap-0 p-0 rounded-2xl overflow-hidden shadow-2xl bg-white border border-gray-100 z-[200]">
+          <DialogHeader className="p-4 sm:p-5 border-b border-gray-100 shrink-0 bg-white">
             <DialogTitle className="text-base font-bold text-gray-900 flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5 text-emerald-600" />
               Putaran ke-{selectedRoundDetails?.round_number}
@@ -1312,7 +1312,7 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
           </DialogHeader>
 
           {selectedRoundDetails && (
-            <div className="space-y-4 my-2 text-xs">
+            <div className="p-4 sm:p-5 space-y-4 flex-1 min-h-0 overflow-y-auto text-xs overscroll-contain touch-pan-y">
               <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 flex items-center justify-between">
                 <span className="text-gray-500">Tanggal Selesai:</span>
                 <span className="font-bold text-gray-800">
@@ -1349,11 +1349,11 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
             </div>
           )}
 
-          <DialogFooter>
+          <DialogFooter className="p-3.5 sm:p-4 border-t border-gray-100 bg-gray-50/95 shrink-0">
             <Button
               type="button"
               onClick={() => setSelectedRoundDetails(null)}
-              className="w-full bg-gray-900 text-white rounded-xl text-xs"
+              className="w-full bg-gray-900 text-white rounded-xl text-xs h-10"
             >
               Tutup
             </Button>
@@ -1363,7 +1363,7 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
 
       {/* MODAL SELEBRASI WARRIOR */}
       <Dialog open={isWarriorModalOpen} onOpenChange={setIsWarriorModalOpen}>
-        <DialogContent className="max-w-md rounded-3xl p-6 text-center space-y-4">
+        <DialogContent className="max-w-md w-[92vw] sm:w-full max-h-[85dvh] overflow-y-auto rounded-3xl p-6 text-center space-y-4 z-[200]">
           <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-amber-400 to-yellow-500 text-amber-950 flex items-center justify-center text-4xl mx-auto shadow-xl shadow-amber-500/20 animate-bounce">
             🏆
           </div>
