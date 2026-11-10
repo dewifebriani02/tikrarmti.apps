@@ -1331,3 +1331,236 @@ export async function updateMuallimahRegistrationQuestion(
     };
   }
 }
+
+
+/**
+ * Get all Pra-Tikrar registration questions (Admin only)
+ */
+export async function getPraTikrarRegistrationQuestionsAdmin() {
+  try {
+    const { user, supabaseAdmin } = await verifyAdmin();
+
+    const { data, error } = await supabaseAdmin
+      .from("pra_tikrar_registration_questions")
+      .select("*")
+      .order("section", { ascending: true })
+      .order("sort_order", { ascending: true });
+
+    if (error) {
+      await logError(error, {
+        userId: user.id,
+        userEmail: user.email,
+        function: "getPraTikrarRegistrationQuestionsAdmin",
+        errorType: "database",
+      } as LogErrorContext);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+
+    return {
+      success: true,
+      data: (data || []).map(normalizeQuestion),
+    };
+  } catch (error: any) {
+    await logError(error, {
+      function: "getPraTikrarRegistrationQuestionsAdmin",
+      errorType: "runtime",
+    } as LogErrorContext);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch Pra-Tikrar registration questions",
+    };
+  }
+}
+
+/**
+ * Update a Pra-Tikrar registration question (Admin only)
+ */
+export async function updatePraTikrarRegistrationQuestion(
+  id: string,
+  data: {
+    label: string;
+    description?: string | null;
+    warning_text?: string | null;
+    is_active: boolean;
+    is_required: boolean;
+    sort_order: number;
+    options?: any;
+    input_type?: string;
+  }
+) {
+  try {
+    const { user, supabaseAdmin } = await verifyAdmin();
+
+    const updatePayload: Record<string, any> = {
+      label: data.label,
+      description: data.description ?? null,
+      warning_text: data.warning_text ?? null,
+      is_active: Boolean(data.is_active),
+      is_required: Boolean(data.is_required),
+      sort_order: Number(data.sort_order) || 0,
+      updated_at: new Date().toISOString(),
+    };
+    if (data.input_type !== undefined) updatePayload.input_type = data.input_type;
+    if (data.options !== undefined) {
+      updatePayload.options = typeof data.options === "string" ? data.options : JSON.stringify(data.options ?? []);
+    }
+
+    const { data: updatedQuestion, error } = await supabaseAdmin
+      .from("pra_tikrar_registration_questions")
+      .update(updatePayload)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) {
+      await logError(error, {
+        userId: user.id,
+        userEmail: user.email,
+        function: "updatePraTikrarRegistrationQuestion",
+        errorType: "database",
+        context: { id, data },
+      } as LogErrorContext);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+
+    revalidatePath("/admin/batch-program");
+    revalidatePath("/pendaftaran/pra-tikrar");
+
+    return {
+      success: true,
+      data: normalizeQuestion(updatedQuestion),
+    };
+  } catch (error: any) {
+    await logError(error, {
+      function: "updatePraTikrarRegistrationQuestion",
+      errorType: "runtime",
+      context: { id, data },
+    } as LogErrorContext);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to update Pra-Tikrar registration question",
+    };
+  }
+}
+
+/**
+ * Get all Musyrifah registration questions (Admin only)
+ */
+export async function getMusyrifahRegistrationQuestionsAdmin() {
+  try {
+    const { user, supabaseAdmin } = await verifyAdmin();
+
+    const { data, error } = await supabaseAdmin
+      .from("musyrifah_registration_questions")
+      .select("*")
+      .order("section", { ascending: true })
+      .order("sort_order", { ascending: true });
+
+    if (error) {
+      await logError(error, {
+        userId: user.id,
+        userEmail: user.email,
+        function: "getMusyrifahRegistrationQuestionsAdmin",
+        errorType: "database",
+      } as LogErrorContext);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+
+    return {
+      success: true,
+      data: (data || []).map(normalizeQuestion),
+    };
+  } catch (error: any) {
+    await logError(error, {
+      function: "getMusyrifahRegistrationQuestionsAdmin",
+      errorType: "runtime",
+    } as LogErrorContext);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch Musyrifah registration questions",
+    };
+  }
+}
+
+/**
+ * Update a Musyrifah registration question (Admin only)
+ */
+export async function updateMusyrifahRegistrationQuestion(
+  id: string,
+  data: {
+    label: string;
+    description?: string | null;
+    warning_text?: string | null;
+    is_active: boolean;
+    is_required: boolean;
+    sort_order: number;
+    options?: any;
+    input_type?: string;
+  }
+) {
+  try {
+    const { user, supabaseAdmin } = await verifyAdmin();
+
+    const updatePayload: Record<string, any> = {
+      label: data.label,
+      description: data.description ?? null,
+      warning_text: data.warning_text ?? null,
+      is_active: Boolean(data.is_active),
+      is_required: Boolean(data.is_required),
+      sort_order: Number(data.sort_order) || 0,
+      updated_at: new Date().toISOString(),
+    };
+    if (data.input_type !== undefined) updatePayload.input_type = data.input_type;
+    if (data.options !== undefined) {
+      updatePayload.options = typeof data.options === "string" ? data.options : JSON.stringify(data.options ?? []);
+    }
+
+    const { data: updatedQuestion, error } = await supabaseAdmin
+      .from("musyrifah_registration_questions")
+      .update(updatePayload)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) {
+      await logError(error, {
+        userId: user.id,
+        userEmail: user.email,
+        function: "updateMusyrifahRegistrationQuestion",
+        errorType: "database",
+        context: { id, data },
+      } as LogErrorContext);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+
+    revalidatePath("/admin/batch-program");
+    revalidatePath("/pendaftaran/musyrifah");
+
+    return {
+      success: true,
+      data: normalizeQuestion(updatedQuestion),
+    };
+  } catch (error: any) {
+    await logError(error, {
+      function: "updateMusyrifahRegistrationQuestion",
+      errorType: "runtime",
+      context: { id, data },
+    } as LogErrorContext);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to update Musyrifah registration question",
+    };
+  }
+}

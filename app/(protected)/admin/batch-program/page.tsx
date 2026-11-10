@@ -16,6 +16,8 @@ import { AdminZoomTab } from '@/components/admin/batch-program/AdminZoomTab';
 import { AdminFormBuilderTab } from '@/components/admin/batch-program/AdminFormBuilderTab';
 import { AdminReregFormBuilderTab } from '@/components/admin/batch-program/AdminReregFormBuilderTab';
 import { AdminMuallimahFormBuilderTab } from '@/components/admin/batch-program/AdminMuallimahFormBuilderTab';
+import { AdminPraTikrarFormBuilderTab } from '@/components/admin/batch-program/AdminPraTikrarFormBuilderTab';
+import { AdminMusyrifahFormBuilderTab } from '@/components/admin/batch-program/AdminMusyrifahFormBuilderTab';
 import { AdminAkadQuizTab } from '@/components/admin/batch-program/AdminAkadQuizTab';
 import { AdminCommunicationTab } from '@/components/admin/batch-program/AdminCommunicationTab';
 import { AdminFormPublishSwitchboard } from '@/components/admin/batch-program/AdminFormPublishSwitchboard';
@@ -39,7 +41,7 @@ export default function AdminBatchProgramPage() {
   const [showBatchModal, setShowBatchModal] = useState(false);
   const [editingProgram, setEditingProgram] = useState<Program | null>(null);
   const [showProgramModal, setShowProgramModal] = useState(false);
-  const [activeFormSubTab, setActiveFormSubTab] = useState<'pendaftaran' | 'daftar-ulang' | 'muallimah'>('pendaftaran');
+  const [activeFormSubTab, setActiveFormSubTab] = useState<'pendaftaran' | 'pra-tikrar' | 'daftar-ulang' | 'muallimah' | 'musyrifah'>('pendaftaran');
   const [activeQuizSubTab, setActiveQuizSubTab] = useState<'pemahaman-akad'>('pemahaman-akad');
 
   useEffect(() => {
@@ -442,11 +444,11 @@ export default function AdminBatchProgramPage() {
             {/* Panel Saklar Publish/Unpublish untuk Semua Formulir */}
             <AdminFormPublishSwitchboard />
 
-            <div className="flex p-1 space-x-1 bg-white/50 border border-gray-200 rounded-xl max-w-2xl">
+            <div className="flex p-1 space-x-1 bg-white/50 border border-gray-200 rounded-xl overflow-x-auto max-w-3xl">
               <button
                 onClick={() => setActiveFormSubTab('pendaftaran')}
                 className={cn(
-                  'w-full py-2.5 text-sm font-bold leading-5 rounded-lg transition-all',
+                  'px-3.5 py-2 text-xs sm:text-sm font-bold leading-5 rounded-lg whitespace-nowrap transition-all',
                   activeFormSubTab === 'pendaftaran'
                     ? 'bg-purple-600 text-white shadow-sm'
                     : 'text-gray-600 hover:bg-purple-50 hover:text-purple-600'
@@ -455,9 +457,20 @@ export default function AdminBatchProgramPage() {
                 Pendaftaran Tikrar
               </button>
               <button
+                onClick={() => setActiveFormSubTab('pra-tikrar')}
+                className={cn(
+                  'px-3.5 py-2 text-xs sm:text-sm font-bold leading-5 rounded-lg whitespace-nowrap transition-all',
+                  activeFormSubTab === 'pra-tikrar'
+                    ? 'bg-fuchsia-600 text-white shadow-sm'
+                    : 'text-gray-600 hover:bg-fuchsia-50 hover:text-fuchsia-600'
+                )}
+              >
+                Pra-Tikrar
+              </button>
+              <button
                 onClick={() => setActiveFormSubTab('daftar-ulang')}
                 className={cn(
-                  'w-full py-2.5 text-sm font-bold leading-5 rounded-lg transition-all',
+                  'px-3.5 py-2 text-xs sm:text-sm font-bold leading-5 rounded-lg whitespace-nowrap transition-all',
                   activeFormSubTab === 'daftar-ulang'
                     ? 'bg-emerald-600 text-white shadow-sm'
                     : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-600'
@@ -468,19 +481,32 @@ export default function AdminBatchProgramPage() {
               <button
                 onClick={() => setActiveFormSubTab('muallimah')}
                 className={cn(
-                  'w-full py-2.5 text-sm font-bold leading-5 rounded-lg transition-all',
+                  'px-3.5 py-2 text-xs sm:text-sm font-bold leading-5 rounded-lg whitespace-nowrap transition-all',
                   activeFormSubTab === 'muallimah'
-                    ? 'bg-emerald-700 text-white shadow-sm'
-                    : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-700'
+                    ? 'bg-teal-600 text-white shadow-sm'
+                    : 'text-gray-600 hover:bg-teal-50 hover:text-teal-600'
                 )}
               >
                 Mu'allimah
               </button>
+              <button
+                onClick={() => setActiveFormSubTab('musyrifah')}
+                className={cn(
+                  'px-3.5 py-2 text-xs sm:text-sm font-bold leading-5 rounded-lg whitespace-nowrap transition-all',
+                  activeFormSubTab === 'musyrifah'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-gray-600 hover:bg-blue-50 hover:text-blue-600'
+                )}
+              >
+                Musyrifah / Raisah
+              </button>
             </div>
 
             {activeFormSubTab === 'pendaftaran' && <AdminFormBuilderTab />}
+            {activeFormSubTab === 'pra-tikrar' && <AdminPraTikrarFormBuilderTab />}
             {activeFormSubTab === 'daftar-ulang' && <AdminReregFormBuilderTab />}
             {activeFormSubTab === 'muallimah' && <AdminMuallimahFormBuilderTab />}
+            {activeFormSubTab === 'musyrifah' && <AdminMusyrifahFormBuilderTab />}
           </div>
         )}
 
