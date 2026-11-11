@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Loader2, BookOpen, Sparkles, Video } from 'lucide-react'
+import { Loader2, BookOpen, Sparkles, Video, Lock } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAllRegistrations } from '@/hooks/useRegistrations'
 import { useActiveBatch } from '@/hooks/useBatches'
@@ -10,6 +10,7 @@ import { useTashihStatus } from '@/hooks/useDashboard'
 import { saveTashihRecord, getJuzOption, getWeekTashihRecords, getPraTikrarHalaqahList } from './actions'
 import { getRoleRank, ROLE_RANKS } from '@/lib/roles'
 import { parseBlokField } from '@/lib/blok'
+import { getTashihLockStatus } from '@/lib/batch-schedule'
 
 // Import Modular Components
 import { TashihHeader } from './components/TashihHeader'
@@ -132,6 +133,13 @@ export default function TashihPage() {
   const { activeBatch } = useActiveBatch()
   const effectiveBatch = activeRegistration?.batch || activeBatch
   const targetBatchId = activeRegistration?.batch_id || activeRegistration?.batch?.id || activeBatch?.id
+
+  // Status Penguncian Jadwal Batch (Schedule Cutoff Lock - Pekan Review / Ujian Akhir)
+  const tashihLock = React.useMemo(() => {
+    return getTashihLockStatus(effectiveBatch);
+  }, [effectiveBatch]);
+
+  const isBatchLocked = !isAdmin && tashihLock.isLocked;
 
   const { tashihStatus, isLoading: tashihStatusLoading, mutate: mutateTashihStatus } = useTashihStatus(undefined, targetBatchId)
 
@@ -318,6 +326,12 @@ export default function TashihPage() {
     const block = displayBlocks.find(b => b.block_code === blockCode)
     if (!block) return
 
+    // Jika jadwal tashih terkunci (masuk ujian akhir / kbm selesai), blokir form pengisian
+    if (isBatchLocked) {
+      toast.info(tashihLock.reason || 'Pengisian catatan Tashih telah ditutup sesuai kalender akademik angkatan.')
+      return
+    }
+
     const currentWeekNumber = getCurrentWeekNumber()
     if (!isAdmin && blockWeekNumber > currentWeekNumber) {
       toast.info(`Tashih Pekan ${blockWeekNumber} belum dibuka. Jadwal Tashih angkatan saat ini masih Pekan ke-${currentWeekNumber}.`)
@@ -500,6 +514,31 @@ export default function TashihPage() {
         </button>
       </div>
 
+      {/* Schedule Cutoff Lock Banner */}
+      {tashihLock.isLocked && (
+        <div className="p-4 bg-amber-50/90 border border-amber-200/90 rounded-2xl flex items-start gap-3 shadow-xs">
+          <div className="w-8 h-8 rounded-xl bg-amber-600 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
+            <Lock className="w-4 h-4" />
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h4 className="text-xs font-bold text-amber-950">Pengisian Tashih Ditutup</h4>
+              <span className="text-[10px] font-extrabold px-2 py-0.5 bg-amber-200/80 text-amber-900 rounded-full">
+                {tashihLock.badgeLabel}
+              </span>
+              {isAdmin && (
+                <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full">
+                  Mode Admin (Bypass Aktif)
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-amber-900/90 leading-relaxed mt-1">
+              {tashihLock.reason} Seluruh riwayat catatan tashih Ukhti tetap tersimpan aman dan dapat ditinjau pada rekapitulasi di bawah ini.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Header Section */}
       <TashihHeader 
         title={viewMode === 'form' ? "Kembali" : (currentProgramMode === 'pra-tikrar' ? "Tashih Pra-Tikrar" : "Status Tashih")} 
@@ -516,12 +555,19 @@ export default function TashihPage() {
             currentWeekNumber={currentWeekNum}
             onBlockClick={handleBlockClick}
             isAdminPreview={isAdmin && !activeRegistration}
+            isBatchLocked={isBatchLocked}
+            lockReason={tashihLock.reason}
+            batchLockStatus={tashihLock.status}
           />
 
           {/* Rekapitulasi Riwayat & Log Setoran Tashih Thalibah */}
           <TashihHistoryList 
             records={weekRecords as any}
             onEditRecord={(record) => {
+              if (isBatchLocked) {
+                toast.info(tashihLock.reason || 'Pengeditan catatan Tashih telah ditutup sesuai kalender akademik angkatan.')
+                return
+              }
               let parsedHalaqahIds: string[] = []
               if (Array.isArray(record.halaqah_ids)) {
                 parsedHalaqahIds = record.halaqah_ids

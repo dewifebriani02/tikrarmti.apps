@@ -20,9 +20,20 @@ interface TashihStatusGridProps {
   currentWeekNumber: number
   onBlockClick: (blockCode: string, weekNumber: number) => void
   isAdminPreview?: boolean
+  isBatchLocked?: boolean
+  lockReason?: string
+  batchLockStatus?: 'upcoming' | 'active' | 'review' | 'final_exam' | 'closed'
 }
 
-export function TashihStatusGrid({ blocks, currentWeekNumber, onBlockClick, isAdminPreview }: TashihStatusGridProps) {
+export function TashihStatusGrid({
+  blocks,
+  currentWeekNumber,
+  onBlockClick,
+  isAdminPreview,
+  isBatchLocked = false,
+  lockReason,
+  batchLockStatus = 'active'
+}: TashihStatusGridProps) {
   // Group blocks by week_number
   const blocksByWeek = new Map<number, TashihBlock[]>()
   blocks.forEach(block => {
@@ -39,6 +50,10 @@ export function TashihStatusGrid({ blocks, currentWeekNumber, onBlockClick, isAd
   const ziyadahWeek = Math.max(1, activeTashihWeek - 1)
 
   const handleWeekClick = (firstBlock: string, weekNum: number, isFutureWeek: boolean) => {
+    if (isBatchLocked) {
+      toast.info(lockReason || 'Pengisian catatan Tashih telah ditutup sesuai kalender akademik angkatan.')
+      return
+    }
     if (isFutureWeek) {
       toast.info(`Tashih Pekan ${weekNum} belum dibuka. Jadwal Tashih angkatan saat ini masih Pekan ke-${activeTashihWeek}.`)
       return
@@ -58,29 +73,54 @@ export function TashihStatusGrid({ blocks, currentWeekNumber, onBlockClick, isAd
       )}
 
       {/* Helper Banner: Clarifies Active Tashih vs Ziyadah Schedule */}
-      <div className="p-3.5 bg-gradient-to-r from-blue-50 via-teal-50 to-emerald-50 border border-blue-100/80 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-sm">
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-sm">
-            <Calendar className="w-3.5 h-3.5" />
+      {isBatchLocked ? (
+        <div className="p-3.5 bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 border border-amber-200/80 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-sm">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-amber-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+              <Lock className="w-3.5 h-3.5" />
+            </div>
+            <div>
+              <p className="text-xs font-black text-amber-950 leading-tight">
+                Jadwal Angkatan: <span className="text-amber-800 font-extrabold">{batchLockStatus === 'final_exam' ? 'Periode Ujian Akhir' : batchLockStatus === 'review' ? 'Pekan Muraja\'ah (Tashih Selesai)' : batchLockStatus === 'upcoming' ? 'Tashih Belum Dimulai' : 'Masa Tashih Selesai'}</span>
+              </p>
+              <p className="text-[10px] text-amber-800/80 font-medium mt-0.5">
+                {lockReason || 'Pengisian catatan tashih telah ditutup sesuai kalender akademik angkatan.'}
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="text-xs font-black text-gray-900 leading-tight">
-              Jadwal Angkatan: <span className="text-blue-700 font-extrabold">Pekan {activeTashihWeek} Tashih</span>
-              <span className="text-gray-300 mx-1.5">&bull;</span>
-              <span className="text-emerald-700 font-extrabold">Pekan {ziyadahWeek} Ziyadah</span>
-            </p>
-            <p className="text-[10px] text-gray-500 font-medium mt-0.5">
-              Tashih berjalan 1 pekan lebih awal untuk persiapan bacaan pekan depan
-            </p>
-          </div>
-        </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-auto">
-          <span className="text-[10px] font-extrabold text-blue-800 bg-blue-100/90 px-2.5 py-1 rounded-lg border border-blue-200">
-            Pekan Tashih Aktif: P{activeTashihWeek}
-          </span>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <span className="text-[10px] font-extrabold text-amber-900 bg-amber-200/70 px-2.5 py-1 rounded-lg border border-amber-300 flex items-center gap-1">
+              <Lock className="w-3 h-3" />
+              <span>Mode Riwayat</span>
+            </span>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="p-3.5 bg-gradient-to-r from-blue-50 via-teal-50 to-emerald-50 border border-blue-100/80 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-sm">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+              <Calendar className="w-3.5 h-3.5" />
+            </div>
+            <div>
+              <p className="text-xs font-black text-gray-900 leading-tight">
+                Jadwal Angkatan: <span className="text-blue-700 font-extrabold">Pekan {activeTashihWeek} Tashih</span>
+                <span className="text-gray-300 mx-1.5">&bull;</span>
+                <span className="text-emerald-700 font-extrabold">Pekan {ziyadahWeek} Ziyadah</span>
+              </p>
+              <p className="text-[10px] text-gray-500 font-medium mt-0.5">
+                Tashih berjalan 1 pekan lebih awal untuk persiapan bacaan pekan depan
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <span className="text-[10px] font-extrabold text-blue-800 bg-blue-100/90 px-2.5 py-1 rounded-lg border border-blue-200">
+              Pekan Tashih Aktif: P{activeTashihWeek}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* COMPACT: One Card Per Week */}
       <div className="flex flex-col gap-2">
@@ -88,7 +128,7 @@ export function TashihStatusGrid({ blocks, currentWeekNumber, onBlockClick, isAd
           const weekBlocks = blocksByWeek.get(weekNum)!
           const completedInWeek = weekBlocks.filter(b => b.is_completed).length
           const isFullyCompleted = completedInWeek === weekBlocks.length && weekBlocks.length > 0
-          const isFutureWeek = !isAdminPreview && weekNum > activeTashihWeek
+          const isFutureWeek = !isAdminPreview && !isBatchLocked && weekNum > activeTashihWeek
           
           // Get block range label (e.g., H21A - H21D)
           const firstBlock = weekBlocks[0]?.block_code || ''
@@ -102,7 +142,7 @@ export function TashihStatusGrid({ blocks, currentWeekNumber, onBlockClick, isAd
               onClick={() => handleWeekClick(firstBlock, weekNum, isFutureWeek)}
               className={cn(
                 "w-full text-left transition-all duration-300",
-                isFutureWeek ? "cursor-not-allowed opacity-60" : "active:scale-[0.98] cursor-pointer group"
+                isFutureWeek || isBatchLocked ? "cursor-pointer" : "active:scale-[0.98] cursor-pointer group"
               )}
             >
               <Card className={cn(
@@ -111,7 +151,9 @@ export function TashihStatusGrid({ blocks, currentWeekNumber, onBlockClick, isAd
                   ? "bg-gradient-to-r from-green-600 to-green-500 border-green-500 text-white shadow-green-600/20" 
                   : isFutureWeek
                     ? "bg-gray-50 border-gray-200 text-gray-400"
-                    : "bg-white border-gray-100 text-gray-900 hover:border-green-400 hover:shadow-md"
+                    : isBatchLocked
+                      ? "bg-gray-50/80 border-gray-200 text-gray-500 hover:bg-gray-100"
+                      : "bg-white border-gray-100 text-gray-900 hover:border-green-400 hover:shadow-md"
               )}>
                 <div className="flex items-center gap-3">
                   {/* Compact Week ID */}
@@ -121,9 +163,11 @@ export function TashihStatusGrid({ blocks, currentWeekNumber, onBlockClick, isAd
                       ? "bg-gray-300 text-gray-600" 
                       : isFullyCompleted 
                         ? "bg-white/20 text-white" 
-                        : "bg-green-900 text-white"
+                        : isBatchLocked
+                          ? "bg-gray-300 text-gray-600"
+                          : "bg-green-900 text-white"
                   )}>
-                    {isFutureWeek ? <Lock className="w-3.5 h-3.5" /> : weekNum}
+                    {isFutureWeek ? <Lock className="w-3.5 h-3.5" /> : isBatchLocked && !isFullyCompleted ? <Lock className="w-3.5 h-3.5" /> : weekNum}
                   </div>
                   
                   {/* Week Labels */}
@@ -146,7 +190,7 @@ export function TashihStatusGrid({ blocks, currentWeekNumber, onBlockClick, isAd
                          </span>
                       </div>
 
-                      {weekNum === activeTashihWeek && !isFutureWeek && (
+                      {!isBatchLocked && weekNum === activeTashihWeek && !isFutureWeek && (
                         <span className={cn(
                           "text-[9px] font-bold px-1.5 py-0.5 rounded-md", 
                           isFullyCompleted ? "bg-white/25 text-white" : "bg-emerald-100 text-emerald-800"
@@ -158,6 +202,12 @@ export function TashihStatusGrid({ blocks, currentWeekNumber, onBlockClick, isAd
                       {isFutureWeek && (
                         <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-gray-200 text-gray-600 flex items-center gap-1">
                           <Lock className="w-2.5 h-2.5" /> Belum Dibuka
+                        </span>
+                      )}
+
+                      {isBatchLocked && !isFullyCompleted && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-800 flex items-center gap-1">
+                          <Lock className="w-2.5 h-2.5" /> Ditutup
                         </span>
                       )}
                     </div>
@@ -179,7 +229,7 @@ export function TashihStatusGrid({ blocks, currentWeekNumber, onBlockClick, isAd
                   <div className="flex items-center gap-2">
                     {isFullyCompleted ? (
                       <CheckCircle className="w-5 h-5 text-white animate-fadeIn" />
-                    ) : isFutureWeek ? (
+                    ) : isFutureWeek || isBatchLocked ? (
                       <Lock className="w-4 h-4 text-gray-400" />
                     ) : (
                       <div className="w-5 h-5 rounded-full border-2 border-green-200/50 flex items-center justify-center group-hover:border-green-500 transition-colors">
@@ -197,8 +247,8 @@ export function TashihStatusGrid({ blocks, currentWeekNumber, onBlockClick, isAd
       {/* Legend */}
       <div className="flex justify-center gap-4 pt-4 text-[8px] font-black text-gray-600 uppercase tracking-tighter">
          <div className="flex items-center gap-1"><div className="w-2 h-2 rounded bg-green-500" /><span>Selesai</span></div>
-         <div className="flex items-center gap-1"><div className="w-2 h-2 rounded bg-white border-2 border-green-200" /><span>Sedang Berjalan</span></div>
-         <div className="flex items-center gap-1"><div className="w-2 h-2 rounded bg-gray-300" /><span>Terkunci</span></div>
+         <div className="flex items-center gap-1"><div className="w-2 h-2 rounded bg-white border-2 border-green-200" /><span>{isBatchLocked ? 'Tidak Terisi' : 'Sedang Berjalan'}</span></div>
+         <div className="flex items-center gap-1"><div className="w-2 h-2 rounded bg-gray-200" /><span>Terkunci</span></div>
       </div>
     </div>
   )

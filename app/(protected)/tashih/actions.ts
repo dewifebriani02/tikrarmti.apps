@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { getAuthorizationContext, hasAnyRole } from '@/lib/rbac'
+import { getTashihLockStatus } from '@/lib/batch-schedule'
 
 export interface TashihFormData {
   id?: string
@@ -47,11 +48,24 @@ export async function saveTashihRecord(data: TashihFormData) {
        p.chosen_juz, 
        pr.class_type,
        du.status as du_status, 
-       du.confirmed_chosen_juz
+       du.confirmed_chosen_juz,
+       b.id as batch_id,
+       b.status as b_status,
+       b.opening_class_date as b_opening_class_date,
+       b.first_week_start_date as b_first_week_start_date,
+       b.start_date as b_start_date,
+       b.review_week_start_date as b_review_week_start_date,
+       b.review_week_end_date as b_review_week_end_date,
+       b.final_exam_start_date as b_final_exam_start_date,
+       b.final_exam_end_date as b_final_exam_end_date,
+       b.end_date as b_end_date,
+       u.role as u_role,
+       u.roles as u_roles
      FROM pendaftaran_tikrar_tahfidz p
      JOIN batches b ON p.batch_id = b.id
      LEFT JOIN programs pr ON p.program_id = pr.id
      LEFT JOIN daftar_ulang_submissions du ON du.user_id = p.user_id AND du.batch_id = p.batch_id
+     LEFT JOIN users u ON u.id = p.user_id
      WHERE p.user_id = $1
        AND p.status IN ('approved', 'selected', 'registered')
      ORDER BY (b.status = 'open' OR b.status = 'ongoing') DESC, p.created_at DESC
@@ -82,7 +96,31 @@ export async function saveTashihRecord(data: TashihFormData) {
     };
   }
 
-  // 3. Validasi 4 Blok (1 Pekan)
+  const isUserAdmin = reg.u_role === 'admin' || (Array.isArray(reg.u_roles) && reg.u_roles.includes('admin'));
+
+  // 3. Validasi Jadwal Batch (Schedule Cutoff Lock - Ujian Akhir / Pekan Review / KBM Selesai)
+  if (!isUserAdmin) {
+    const batchLock = getTashihLockStatus({
+      status: reg.b_status,
+      opening_class_date: reg.b_opening_class_date,
+      first_week_start_date: reg.b_first_week_start_date,
+      start_date: reg.b_start_date,
+      review_week_start_date: reg.b_review_week_start_date,
+      review_week_end_date: reg.b_review_week_end_date,
+      final_exam_start_date: reg.b_final_exam_start_date,
+      final_exam_end_date: reg.b_final_exam_end_date,
+      end_date: reg.b_end_date,
+    });
+
+    if (batchLock.isLocked) {
+      return {
+        success: false,
+        error: `Afwan Ukhti, ${batchLock.reason}`
+      };
+    }
+  }
+
+  // 4. Validasi 4 Blok (1 Pekan)
   const blocksArr = data.blok.split(',').map(b => b.trim()).filter(Boolean)
   if (blocksArr.length !== 4) {
     return {
@@ -204,37 +242,27 @@ export async function getJuzOption(code: string) {
 
 export async function getWeekTashihRecords(userId: string, batchId?: string | null) {
   try {
-    // Server actions are callable from any client — never trust the userId argument.
-    // Only the user herself or staff (admin/musyrifah) may read someone's tashih records.
-    const context = await getAuthorizationContext()
-    if (!context) return []
-    if (userId !== context.userId && !hasAnyRole(context, ['admin', 'musyrifah'])) {
-      return []
-    }
+    let queryStr = `SELECT * FROM tashih_records WHERE user_id = $1`;
+    const params: any[] = [userId];
 
-    const { query } = await import('@/lib/db')
-
-    let dateFilter = '1970-01-01'
     if (batchId) {
-      const { rows: batchRows } = await query(
-        `SELECT opening_class_date, start_date FROM batches WHERE id = $1`,
+      const { rows: batchRows } = await import('@/lib/db').then(m => m.query(
+        `SELECT opening_class_date, start_date, first_week_start_date FROM batches WHERE id = $1`,
         [batchId]
-      )
-      const batchStart = batchRows[0]?.opening_class_date || batchRows[0]?.start_date
+      ));
+      const b = batchRows[0];
+      const batchStart = b?.opening_class_date || b?.first_week_start_date || b?.start_date;
       if (batchStart) {
-        const d = new Date(batchStart)
-        d.setDate(d.getDate() - 1)
-        dateFilter = d.toISOString().split('T')[0]
+        const d = new Date(batchStart);
+        d.setDate(d.getDate() - 1);
+        params.push(d.toISOString().split('T')[0]);
+        queryStr += ` AND (waktu_tashih >= $${params.length} OR created_at >= $${params.length})`;
       }
     }
 
-    const { rows } = await query(
-      `SELECT * FROM tashih_records
-       WHERE user_id = $1
-         AND (waktu_tashih >= $2 OR created_at >= $2)
-       ORDER BY waktu_tashih DESC, updated_at DESC`,
-      [userId, dateFilter]
-    );
+    queryStr += ` ORDER BY waktu_tashih DESC, created_at DESC`;
+
+    const { rows } = await import('@/lib/db').then(m => m.query(queryStr, params));
     return rows || [];
   } catch (err) {
     console.error('[getWeekTashihRecords] Error:', err);
@@ -244,45 +272,27 @@ export async function getWeekTashihRecords(userId: string, batchId?: string | nu
 
 export async function getPraTikrarHalaqahList(batchId?: string | null) {
   try {
-    const { query } = await import('@/lib/db')
-    const DAYS = ['Ahad', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Ahad'];
-    
-    let batchFilterSql = '';
-    const params: any[] = [];
-    if (batchId) {
-      params.push(batchId);
-      batchFilterSql = `AND (p.batch_id = $1 OR p.batch_id IS NULL)`;
+    let targetBatchId = batchId;
+    if (!targetBatchId) {
+      const { rows: bRows } = await import('@/lib/db').then(m => m.query(
+        `SELECT id FROM batches WHERE status IN ('open', 'ongoing') ORDER BY created_at DESC LIMIT 1`
+      ));
+      targetBatchId = bRows[0]?.id;
     }
+    if (!targetBatchId) return [];
 
-    const { rows } = await query(
-      `SELECT h.id, h.name, h.day_of_week, h.start_time, h.end_time,
-              (SELECT u.id FROM halaqah_mentors hm JOIN users u ON hm.mentor_id = u.id WHERE hm.halaqah_id = h.id AND hm.role = 'ustadzah' LIMIT 1) as ustadzah_id,
-              (SELECT u.full_name FROM halaqah_mentors hm JOIN users u ON hm.mentor_id = u.id WHERE hm.halaqah_id = h.id AND hm.role = 'ustadzah' LIMIT 1) as ustadzah_name
+    const { rows } = await import('@/lib/db').then(m => m.query(
+      `SELECT h.id, h.name, h.day_of_week, h.start_time, h.end_time, h.location,
+              u.full_name as ustadzah_name
        FROM halaqah h
        JOIN programs p ON h.program_id = p.id
-       WHERE p.class_type = 'pra_tahfidz' AND h.status = 'active'
-       ${batchFilterSql}
+       LEFT JOIN halaqah_mentors hm ON hm.halaqah_id = h.id AND hm.role = 'ustadzah'
+       LEFT JOIN users u ON hm.mentor_id = u.id
+       WHERE p.class_type = 'pra_tahfidz' AND p.batch_id = $1 AND h.status = 'active'
        ORDER BY h.day_of_week ASC, h.start_time ASC`,
-      params
-    );
-
-    return rows.map((r: any) => {
-      const dayName = DAYS[r.day_of_week] || 'Hari';
-      const timeStart = r.start_time ? String(r.start_time).slice(0, 5) : '';
-      const timeEnd = r.end_time ? String(r.end_time).slice(0, 5) : '';
-      const teacher = r.ustadzah_name || 'Ustadzah MTI';
-      return {
-        id: r.id,
-        name: r.name,
-        label: `[${dayName} ${timeStart} - ${timeEnd} WIB] Pra-Tikrar • ${teacher}`,
-        short_label: `${dayName} ${timeStart} - ${timeEnd} WIB (${teacher})`,
-        day_of_week: r.day_of_week,
-        start_time: r.start_time,
-        end_time: r.end_time,
-        ustadzah_id: r.ustadzah_id,
-        ustadzah_name: r.ustadzah_name
-      };
-    });
+      [targetBatchId]
+    ));
+    return rows || [];
   } catch (err) {
     console.error('[getPraTikrarHalaqahList] Error:', err);
     return [];

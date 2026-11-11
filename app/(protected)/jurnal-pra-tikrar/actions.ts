@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { query } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { hasRequiredRank, ROLE_RANKS } from '@/lib/roles';
+import { getJurnalLockStatus } from '@/lib/batch-schedule';
 
 export type { 
   PraTikrarEntryInput, 
@@ -71,56 +72,42 @@ export async function getPraTikrarContext(): Promise<PraTikrarContextResponse> {
       availableSessions = sessionRows;
     }
 
-    // 4. Fetch managed halaqahs for Muallimah or Musyrifah
-    let managedHalaqahs: any[] = [];
-    if (activeBatch && (isMuallimah || isMusyrifah || isAdmin)) {
-      if (isAdmin) {
-        managedHalaqahs = availableSessions;
-      } else {
-        managedHalaqahs = availableSessions.filter((s: any) => {
-          return true; // Muallimah / Musyrifah Pra-Tikrar can oversee open sessions
-        });
-      }
-    }
-
-    // 5. Fetch all Pra-Tikrar students (so Mu'allimah & Musyrifah can record ANY student who joins the open Zoom)
+    // 4. Fetch Pra-Tikrar Thalibah Roster
     let praStudentsList: any[] = [];
-    if (activeBatch && (isMuallimah || isMusyrifah || isAdmin)) {
+    let managedHalaqahs: any[] = [];
+
+    if (isMuallimah || isMusyrifah || isAdmin) {
+      managedHalaqahs = availableSessions;
       const { rows: studentRows } = await query(
-        `SELECT DISTINCT u.id, u.full_name, u.nama_kunyah, u.whatsapp, u.email
+        `SELECT u.id as user_id, 
+                u.full_name, 
+                u.nama_kunyah, 
+                u.whatsapp, 
+                p.chosen_juz, 
+                p.status as reg_status,
+                (SELECT COUNT(*) FROM jurnal_pra_tikrar j WHERE j.user_id = u.id) as total_jurnal_count,
+                (SELECT MAX(j.tanggal) FROM jurnal_pra_tikrar j WHERE j.user_id = u.id) as latest_jurnal_date,
+                (SELECT COUNT(*) FROM tashih_records tr WHERE tr.user_id = u.id) as total_tashih_count
          FROM users u
-         WHERE EXISTS (
-           SELECT 1 FROM pendaftaran_tikrar_tahfidz reg 
-           JOIN programs p ON reg.program_id = p.id 
-           WHERE reg.user_id = u.id AND p.class_type = 'pra_tahfidz' AND p.batch_id = $1
-         )
-         OR EXISTS (
-           SELECT 1 FROM halaqah_students hs
-           JOIN halaqah h ON hs.halaqah_id = h.id
-           JOIN programs p ON h.program_id = p.id
-           WHERE hs.thalibah_id = u.id AND p.class_type = 'pra_tahfidz' AND p.batch_id = $1
-         )
-         OR EXISTS (
-           SELECT 1 FROM daftar_ulang_submissions dus
-           JOIN halaqah h ON dus.tashih_halaqah_id = h.id
-           JOIN programs p ON h.program_id = p.id
-           WHERE dus.user_id = u.id AND p.class_type = 'pra_tahfidz' AND p.batch_id = $1
-         )
-         ORDER BY u.full_name ASC`,
-        [activeBatch.id]
+         JOIN pendaftaran_tikrar_tahfidz p ON p.user_id = u.id
+         JOIN programs pr ON p.program_id = pr.id
+         WHERE pr.class_type = 'pra_tahfidz'
+           AND p.status IN ('approved', 'selected', 'registered')
+           AND u.is_blacklisted = false
+         ORDER BY u.full_name ASC`
       );
       praStudentsList = studentRows;
     }
 
-    // 6. Fetch Today's Entry for current user
-    const todayStr = new Date().toISOString().split('T')[0];
+    // 5. Fetch Today's Jurnal Entry (if exists)
+    const today = new Date().toISOString().split('T')[0];
     const { rows: todayRows } = await query(
       `SELECT * FROM jurnal_pra_tikrar WHERE user_id = $1 AND tanggal = $2 LIMIT 1`,
-      [user.id, todayStr]
+      [user.id, today]
     );
     const todayEntry = todayRows[0] || null;
 
-    // 7. Fetch Jurnal History (last 30 entries)
+    // 6. Fetch Jurnal History (last 30 entries)
     const { rows: historyRows } = await query(
       `SELECT j.*, 
               h.name as halaqah_nama,
@@ -166,6 +153,41 @@ export async function savePraTikrarDailyEntry(input: PraTikrarEntryInput) {
   }
 
   try {
+    // Validasi peran admin
+    const { rows: userRows } = await query(
+      `SELECT role, roles FROM users WHERE id = $1`,
+      [user.id]
+    );
+    const u = userRows[0] || {};
+    const roles: string[] = Array.isArray(u.roles) ? u.roles : [u.role || 'thalibah'];
+    const isAdmin = hasRequiredRank(roles, ROLE_RANKS.admin);
+
+    if (!isAdmin) {
+      let targetBatchId = input.batch_id;
+      if (!targetBatchId) {
+        const { rows: bRows } = await query(
+          `SELECT id, status, first_week_start_date, start_date, opening_class_date, final_exam_start_date, end_date FROM batches WHERE status IN ('open', 'ongoing') ORDER BY created_at DESC LIMIT 1`
+        );
+        targetBatchId = bRows[0]?.id;
+      }
+      if (targetBatchId) {
+        const { rows: bRows } = await query(
+          `SELECT id, status, first_week_start_date, start_date, opening_class_date, final_exam_start_date, end_date FROM batches WHERE id = $1`,
+          [targetBatchId]
+        );
+        const batch = bRows[0];
+        if (batch) {
+          const lock = getJurnalLockStatus(batch);
+          if (lock.isLocked) {
+            return {
+              success: false,
+              error: `Afwan Ukhti, ${lock.reason}`
+            };
+          }
+        }
+      }
+    }
+
     const halaqahIdSingle = input.halaqah_id || (input.halaqah_ids && input.halaqah_ids[0]) || null;
     const halaqahIdsArray = input.halaqah_ids && input.halaqah_ids.length > 0 
       ? input.halaqah_ids 
@@ -322,7 +344,35 @@ export async function submitTashihByMuallimah(
     } else {
       const p = paramOrEntryId;
       const { rows } = await query(
-        `INSERT INTO jurnal_pra_tikrar (\n           user_id,\n           halaqah_id,\n           batch_id,\n           tanggal,\n           muallimah_id,\n           status_bacaan,\n           catatan_muallimah,\n           evaluasi_tajwid,\n           jenis_kelas,\n           jenis_kelas_custom,\n           asal_bimbingan,\n           kategori_kelas,\n           tashih_at,\n           updated_at\n         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now(), now())\n         ON CONFLICT (user_id, tanggal) DO UPDATE SET\n           halaqah_id = COALESCE(EXCLUDED.halaqah_id, jurnal_pra_tikrar.halaqah_id),\n           muallimah_id = EXCLUDED.muallimah_id,\n           status_bacaan = EXCLUDED.status_bacaan,\n           catatan_muallimah = EXCLUDED.catatan_muallimah,\n           evaluasi_tajwid = EXCLUDED.evaluasi_tajwid,\n           jenis_kelas = COALESCE(EXCLUDED.jenis_kelas, jurnal_pra_tikrar.jenis_kelas),\n           jenis_kelas_custom = EXCLUDED.jenis_kelas_custom,\n           asal_bimbingan = COALESCE(EXCLUDED.asal_bimbingan, jurnal_pra_tikrar.asal_bimbingan),\n           kategori_kelas = COALESCE(EXCLUDED.kategori_kelas, jurnal_pra_tikrar.kategori_kelas),\n           tashih_at = now(),\n           updated_at = now()\n         RETURNING *`,
+        `INSERT INTO jurnal_pra_tikrar (
+           user_id,
+           halaqah_id,
+           batch_id,
+           tanggal,
+           muallimah_id,
+           status_bacaan,
+           catatan_muallimah,
+           evaluasi_tajwid,
+           jenis_kelas,
+           jenis_kelas_custom,
+           asal_bimbingan,
+           kategori_kelas,
+           tashih_at,
+           updated_at
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now(), now())
+         ON CONFLICT (user_id, tanggal) DO UPDATE SET
+           halaqah_id = COALESCE(EXCLUDED.halaqah_id, jurnal_pra_tikrar.halaqah_id),
+           muallimah_id = EXCLUDED.muallimah_id,
+           status_bacaan = EXCLUDED.status_bacaan,
+           catatan_muallimah = EXCLUDED.catatan_muallimah,
+           evaluasi_tajwid = EXCLUDED.evaluasi_tajwid,
+           jenis_kelas = COALESCE(EXCLUDED.jenis_kelas, jurnal_pra_tikrar.jenis_kelas),
+           jenis_kelas_custom = EXCLUDED.jenis_kelas_custom,
+           asal_bimbingan = COALESCE(EXCLUDED.asal_bimbingan, jurnal_pra_tikrar.asal_bimbingan),
+           kategori_kelas = COALESCE(EXCLUDED.kategori_kelas, jurnal_pra_tikrar.kategori_kelas),
+           tashih_at = now(),
+           updated_at = now()
+         RETURNING *`,
         [
           p.studentId,
           p.halaqahId || null,
@@ -359,7 +409,7 @@ export interface PresensiPayload {
   halaqahId?: string | null;
   batchId?: string | null;
   tanggal: string;
-  kehadiran_zoom: string;
+  kehadiran_zoom?: string;
   catatan_musyrifah?: string;
 }
 

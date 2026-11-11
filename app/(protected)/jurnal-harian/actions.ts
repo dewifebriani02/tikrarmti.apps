@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { saveUploadedFile } from '@/lib/storage'
 import { sniffFileType } from '@/lib/file-type'
 import { query } from '@/lib/db'
+import { getJurnalLockStatus } from '@/lib/batch-schedule'
 
 export interface JurnalFormData {
   batch_id?: string | null
@@ -55,14 +56,22 @@ export async function saveJurnalRecord(data: JurnalFormData) {
          p.status, 
          p.chosen_juz, 
          p.batch_id,
+         b.status as b_status,
          b.opening_class_date as b_opening_class_date,
          b.first_week_start_date as b_first_week_start_date,
          b.start_date as b_start_date,
+         b.review_week_start_date as b_review_week_start_date,
+         b.review_week_end_date as b_review_week_end_date,
+         b.final_exam_start_date as b_final_exam_start_date,
+         b.final_exam_end_date as b_final_exam_end_date,
+         b.end_date as b_end_date,
          du.status as du_status, 
          du.confirmed_chosen_juz,
          u.is_blacklisted,
          u.blacklist_reason,
-         u.blacklist_notes
+         u.blacklist_notes,
+         u.role as u_role,
+         u.roles as u_roles
        FROM users u
        LEFT JOIN pendaftaran_tikrar_tahfidz p ON p.user_id = u.id ${batchFilter} AND p.status IN ('approved', 'selected', 'registered')
        LEFT JOIN batches b ON p.batch_id = b.id
@@ -100,7 +109,31 @@ export async function saveJurnalRecord(data: JurnalFormData) {
       };
     }
 
-    // 3. Validasi Pekan Masa Depan (Future Week Lock)
+    const isUserAdmin = reg.u_role === 'admin' || (Array.isArray(reg.u_roles) && reg.u_roles.includes('admin'));
+
+    // 3. Validasi Jadwal Batch (Schedule Cutoff Lock - Ujian Akhir / Masa KBM Berakhir)
+    if (!isUserAdmin) {
+      const batchLock = getJurnalLockStatus({
+        status: reg.b_status,
+        opening_class_date: reg.b_opening_class_date,
+        first_week_start_date: reg.b_first_week_start_date,
+        start_date: reg.b_start_date,
+        review_week_start_date: reg.b_review_week_start_date,
+        review_week_end_date: reg.b_review_week_end_date,
+        final_exam_start_date: reg.b_final_exam_start_date,
+        final_exam_end_date: reg.b_final_exam_end_date,
+        end_date: reg.b_end_date,
+      });
+
+      if (batchLock.isLocked) {
+        return {
+          success: false,
+          error: `Afwan Ukhti, ${batchLock.reason}`
+        };
+      }
+    }
+
+    // 4. Validasi Pekan Masa Depan (Future Week Lock)
     // Hitung pekan berjalan angkatan
     let currentBatchWeek = 1;
     const firstWeekStart = reg.b_first_week_start_date || reg.b_start_date;
@@ -127,7 +160,7 @@ export async function saveJurnalRecord(data: JurnalFormData) {
     }
 
     // Blokir jika mencoba mengisi pekan masa depan yang belum dibuka
-    if (blockWeekNumber > currentBatchWeek) {
+    if (!isUserAdmin && blockWeekNumber > currentBatchWeek) {
       return {
         success: false,
         error: `Afwan Ukhti, Jurnal Pekan ${blockWeekNumber} belum dibuka. Jadwal Ziyadah saat ini masih Pekan ke-${currentBatchWeek}.`
