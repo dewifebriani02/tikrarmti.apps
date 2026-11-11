@@ -428,6 +428,19 @@ export async function sendReplyMessage(params: {
 
   // 2. Persist to DB and update conversation state
   const inserted = await transaction(async (client) => {
+    const msgMetadata = mediaUrl
+      ? {
+          has_media: true,
+          media_url: mediaUrl,
+          media_mime: "image/jpeg",
+          data: {
+            has_media: true,
+            media_url: mediaUrl,
+            media_mime: "image/jpeg",
+          },
+        }
+      : {};
+
     const insertMsgQuery = `
       INSERT INTO whatsapp_messages (
         conversation_id,
@@ -438,19 +451,21 @@ export async function sendReplyMessage(params: {
         sender_name,
         sender_id,
         watzap_message_id,
+        metadata,
         created_at
       )
-      VALUES ($1, $2, 'outbound', $3, 'sent', $4, $5, $6, NOW())
+      VALUES ($1, $2, 'outbound', $3, 'sent', $4, $5, $6, $7, NOW())
       RETURNING *;
     `;
 
     const msgRes = await client.query(insertMsgQuery, [
       conv.id,
       conv.phone_number,
-      text,
+      savedMessageText,
       params.adminName || 'Admin MTI',
       params.adminId || null,
       sendRes.messageId || null,
+      JSON.stringify(msgMetadata),
     ]);
 
     // Update conversation

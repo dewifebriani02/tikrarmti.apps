@@ -6,7 +6,7 @@ import {
   MessageSquare, Send, Search, RefreshCw, Check, CheckCheck, Clock,
   User, Phone, ExternalLink, CheckCircle2, AlertCircle, Sparkles,
   ArrowDownLeft, ArrowUpRight, Zap, Filter, Archive, CheckSquare,
-  Image as ImageIcon, FileText, Mic, Video, Paperclip, X, Loader2
+  Image as ImageIcon, FileText, Mic, Video, Paperclip, X, Loader2, Download, ZoomIn, Eye
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -88,7 +88,19 @@ export function WhatsAppInboxTab() {
   // Media Attachment State for Reply
   const [attachedImage, setAttachedImage] = useState<{ url: string; name: string } | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [previewModalUrl, setPreviewModalUrl] = useState<string | null>(null);
+  const [previewModalTitle, setPreviewModalTitle] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setPreviewModalUrl(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -392,58 +404,110 @@ export function WhatsAppInboxTab() {
   // Render message bubble with rich media attachment support
   const renderMessageContent = (msg: WhatsAppMessage, isOutbound: boolean, phone: string) => {
     const metadataData = msg.metadata?.data || {};
+    const mediaUrl =
+      msg.metadata?.media_url ||
+      metadataData.media_url ||
+      (msg.metadata as any)?.url ||
+      null;
+
     const hasMedia = Boolean(
+      mediaUrl ||
       metadataData.has_media ||
-      msg.message_body?.startsWith('📷') ||
-      msg.message_body?.startsWith('🎙️') ||
-      msg.message_body?.startsWith('🎥') ||
-      msg.message_body?.startsWith('📄') ||
-      msg.message_body?.includes('[Media/File]') ||
-      msg.message_body?.includes('[Foto / Gambar]')
+      msg.metadata?.has_media ||
+      msg.message_body?.startsWith("📷") ||
+      msg.message_body?.startsWith("🎙️") ||
+      msg.message_body?.startsWith("🎥") ||
+      msg.message_body?.startsWith("📄") ||
+      msg.message_body?.includes("[Media/File]") ||
+      msg.message_body?.includes("[Foto / Gambar]") ||
+      msg.message_body?.includes("[Foto]")
     );
 
-    const mediaMime = metadataData.media_mime || '';
-    const mediaName = metadataData.media_name || '';
-    const mediaUrl = metadataData.media_url || null;
+    const mediaMime = msg.metadata?.media_mime || metadataData.media_mime || "";
+    const mediaName = msg.metadata?.media_name || metadataData.media_name || "";
 
-    let mediaType: 'image' | 'audio' | 'video' | 'document' = 'image';
-    if (mediaMime.startsWith('audio/') || msg.message_body?.includes('🎙️') || msg.message_body?.includes('Pesan Suara')) {
-      mediaType = 'audio';
-    } else if (mediaMime.startsWith('video/') || msg.message_body?.includes('🎥')) {
-      mediaType = 'video';
-    } else if (mediaMime.startsWith('application/') || msg.message_body?.includes('📄') || mediaName) {
-      mediaType = 'document';
+    let mediaType: "image" | "audio" | "video" | "document" = "image";
+    if (mediaMime.startsWith("audio/") || msg.message_body?.includes("🎙️") || msg.message_body?.includes("Pesan Suara")) {
+      mediaType = "audio";
+    } else if (mediaMime.startsWith("video/") || msg.message_body?.includes("🎥")) {
+      mediaType = "video";
+    } else if (mediaMime.startsWith("application/") || msg.message_body?.includes("📄") || mediaName) {
+      mediaType = "document";
     }
 
-    let captionText = msg.message_body || '';
+    let captionText = msg.message_body || "";
     captionText = captionText
-      .replace(/^📷\s*\[Foto\s*\/\s*Gambar\]\s*/i, '')
-      .replace(/^📷\s*\[Foto\]:?\s*/i, '')
-      .replace(/^🎙️\s*\[Pesan Suara\s*\/\s*Voice Note\]\s*/i, '')
-      .replace(/^🎥\s*\[Video\]\s*/i, '')
-      .replace(/^📄\s*\[Dokumen:[^\]]+\]\s*/i, '')
-      .replace(/^\[Media\/File\]\s*/i, '')
+      .replace(/^📷\s*\[Foto\s*\/\s*Gambar\]\s*/i, "")
+      .replace(/^📷\s*\[Foto\]:?\s*/i, "")
+      .replace(/^🎙️\s*\[Pesan Suara\s*\/\s*Voice Note\]\s*/i, "")
+      .replace(/^🎥\s*\[Video\]\s*/i, "")
+      .replace(/^📄\s*\[Dokumen:[^\]]+\]\s*/i, "")
+      .replace(/^\[Media\/File\]\s*/i, "")
       .trim();
 
     return (
       <div className="space-y-2">
         {hasMedia && (
           <div
-            className={`rounded-xl p-2.5 border ${
+            className={`rounded-xl p-2.5 border transition-all ${
               isOutbound
-                ? 'bg-emerald-700/60 border-emerald-500/40 text-white'
-                : 'bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700'
+                ? "bg-emerald-700/60 border-emerald-500/40 text-white"
+                : "bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700"
             }`}
           >
             {mediaUrl ? (
-              <div className="space-y-1.5">
-                <a href={mediaUrl} target="_blank" rel="noopener noreferrer">
+              <div className="space-y-2">
+                {/* Clickable Image Thumbnail with Zoom Hover */}
+                <div
+                  className="relative group rounded-lg overflow-hidden bg-black/10 cursor-pointer"
+                  onClick={() => {
+                    setPreviewModalUrl(mediaUrl);
+                    setPreviewModalTitle(captionText || (isOutbound ? "Foto Balasan Admin" : "Foto WhatsApp"));
+                  }}
+                  title="Klik untuk melihat foto ukuran penuh di aplikasi"
+                >
                   <img
                     src={mediaUrl}
                     alt="Lampiran Media"
-                    className="max-h-60 rounded-lg object-cover w-full cursor-pointer hover:opacity-95 transition-opacity"
+                    className="max-h-64 sm:max-h-72 rounded-lg object-contain w-full bg-slate-900/10 group-hover:scale-[1.01] transition-transform duration-200"
                   />
-                </a>
+                  <div className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    <span className="px-3 py-1.5 rounded-full bg-black/75 text-white text-xs font-medium flex items-center gap-1.5 backdrop-blur-xs shadow-md">
+                      <ZoomIn className="h-3.5 w-3.5" />
+                      Pratinjau Foto
+                    </span>
+                  </div>
+                </div>
+
+                {/* Action Bar */}
+                <div className="flex items-center justify-between gap-2 pt-1 text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPreviewModalUrl(mediaUrl);
+                      setPreviewModalTitle(captionText || (isOutbound ? "Foto Balasan Admin" : "Foto WhatsApp"));
+                    }}
+                    className={`flex items-center gap-1 font-semibold hover:underline ${
+                      isOutbound ? "text-white" : "text-emerald-700 dark:text-emerald-400"
+                    }`}
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    Lihat di Aplikasi
+                  </button>
+
+                  <a
+                    href={mediaUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`flex items-center gap-1 opacity-80 hover:opacity-100 hover:underline ${
+                      isOutbound ? "text-white" : "text-slate-600 dark:text-slate-400"
+                    }`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    Tab Baru
+                  </a>
+                </div>
               </div>
             ) : (
               <div className="flex items-center justify-between gap-3">
@@ -451,28 +515,28 @@ export function WhatsAppInboxTab() {
                   <div
                     className={`p-2 rounded-lg shrink-0 ${
                       isOutbound
-                        ? 'bg-emerald-800 text-emerald-200'
-                        : 'bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300'
+                        ? "bg-emerald-800 text-emerald-200"
+                        : "bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300"
                     }`}
                   >
-                    {mediaType === 'image' && <ImageIcon className="h-5 w-5" />}
-                    {mediaType === 'audio' && <Mic className="h-5 w-5" />}
-                    {mediaType === 'video' && <Video className="h-5 w-5" />}
-                    {mediaType === 'document' && <FileText className="h-5 w-5" />}
+                    {mediaType === "image" && <ImageIcon className="h-5 w-5" />}
+                    {mediaType === "audio" && <Mic className="h-5 w-5" />}
+                    {mediaType === "video" && <Video className="h-5 w-5" />}
+                    {mediaType === "document" && <FileText className="h-5 w-5" />}
                   </div>
                   <div className="min-w-0">
                     <p className="font-semibold text-xs truncate">
-                      {mediaType === 'image' && 'Foto / Gambar WhatsApp'}
-                      {mediaType === 'audio' && 'Pesan Suara (Voice Note)'}
-                      {mediaType === 'video' && 'Video WhatsApp'}
-                      {mediaType === 'document' && (mediaName || 'Dokumen / Berkas')}
+                      {mediaType === "image" && "Foto / Gambar WhatsApp"}
+                      {mediaType === "audio" && "Pesan Suara (Voice Note)"}
+                      {mediaType === "video" && "Video WhatsApp"}
+                      {mediaType === "document" && (mediaName || "Dokumen / Berkas")}
                     </p>
                     <p
                       className={`text-[10px] truncate ${
-                        isOutbound ? 'text-emerald-200' : 'text-slate-500 dark:text-slate-400'
+                        isOutbound ? "text-emerald-200" : "text-slate-500 dark:text-slate-400"
                       }`}
                     >
-                      {mediaMime || 'Tersimpan di WhatsApp HP MTI'}
+                      {mediaMime || "Tersimpan di WhatsApp HP MTI"}
                     </p>
                   </div>
                 </div>
@@ -483,8 +547,8 @@ export function WhatsAppInboxTab() {
                   rel="noopener noreferrer"
                   className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium flex items-center gap-1 shrink-0 transition-colors ${
                     isOutbound
-                      ? 'bg-white/20 hover:bg-white/30 text-white'
-                      : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 border border-emerald-200 dark:border-emerald-800'
+                      ? "bg-white/20 hover:bg-white/30 text-white"
+                      : "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 border border-emerald-200 dark:border-emerald-800"
                   }`}
                   title="Buka percakapan langsung di WhatsApp untuk melihat foto atau file aslinya"
                 >
@@ -505,8 +569,9 @@ export function WhatsAppInboxTab() {
     );
   };
 
-  return (
-    <div className="flex flex-col h-[750px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+    return (
+    <>
+      <div className="flex flex-col h-[750px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
       {/* Hidden File Input for Image Attachment */}
       <input
         type="file"
@@ -1003,5 +1068,67 @@ export function WhatsAppInboxTab() {
         </div>
       </div>
     </div>
+
+    {/* Lightbox / Media Viewer Modal */}
+    {previewModalUrl && (
+      <div
+        className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6"
+        onClick={() => setPreviewModalUrl(null)}
+      >
+        <div
+          className="relative max-w-4xl w-full max-h-[92vh] bg-slate-900 rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-slate-700 animate-in fade-in zoom-in-95 duration-200"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3 bg-slate-950/80 border-b border-slate-800 text-white">
+            <div className="flex items-center gap-2 min-w-0">
+              <ImageIcon className="h-4 w-4 text-emerald-400 shrink-0" />
+              <span className="text-xs font-semibold truncate">
+                {previewModalTitle || "Pratinjau Foto WhatsApp"}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <a
+                href={previewModalUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-2.5 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 text-xs flex items-center gap-1 transition-colors"
+                title="Buka ukuran asli di tab baru"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                <span className="text-[11px] hidden sm:inline">Ukuran Asli</span>
+              </a>
+              <a
+                href={previewModalUrl}
+                download
+                className="px-2.5 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 text-xs flex items-center gap-1 transition-colors"
+                title="Unduh foto"
+              >
+                <Download className="h-3.5 w-3.5" />
+                <span className="text-[11px] hidden sm:inline">Unduh</span>
+              </a>
+              <button
+                type="button"
+                onClick={() => setPreviewModalUrl(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors ml-1"
+                title="Tutup (Esc)"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Image Display */}
+          <div className="p-3 sm:p-6 flex items-center justify-center overflow-auto max-h-[calc(92vh-60px)] bg-black/50">
+            <img
+              src={previewModalUrl}
+              alt="Pratinjau Foto"
+              className="max-h-[75vh] w-auto max-w-full rounded-lg object-contain shadow-2xl select-none"
+            />
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
