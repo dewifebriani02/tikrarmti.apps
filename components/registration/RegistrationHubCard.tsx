@@ -214,7 +214,7 @@ export function RegistrationHubCard({
                   </h2>
                 )}
 
-                <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed font-medium line-clamp-2 sm:line-clamp-none">
+                <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed font-medium">
                   {isRegistrationOpen
                     ? 'Silakan pilih jalur di bawah ini sesuai tujuan dan peran Ukhti. Setiap program memiliki formulir, komitmen waktu, serta tahapan seleksi yang berbeda.'
                     : 'Pendaftaran untuk batch ini saat ini telah ditutup. Silakan pantau pengumuman resmi untuk jadwal pendaftaran batch berikutnya.'}
