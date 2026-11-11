@@ -111,51 +111,34 @@ export default function PendaftaranPage() {
   }, [user, registrations]);
 
   useEffect(() => {
-    // Transform data from API to match expected format
+    // Transform custom/standalone programs not already handled by RegistrationHubCard
     if (batches.length > 0 || programs.length > 0) {
       const transformedData: PendaftaranType[] = [];
-      const activeBatchIds = new Set<string>();
 
-      // Filter programs to only show those with an active/open batch and published in form settings
-      const activePrograms = programs.filter(program => {
+      // Filter programs to only show those not handled by the core RegistrationHubCard
+      const additionalPrograms = programs.filter(program => {
         if (program.batch?.status !== 'open') return false;
         const nameLower = program.name.toLowerCase();
 
-        // Pra-Tikrar check
-        if (nameLower.includes('pra-tikrar') || nameLower.includes('pra tikrar')) {
-          return Boolean(formSettings.pra_tikrar);
-        }
-
-        // Tikrar Tahfidz check
-        if (nameLower.includes('tikrar') || nameLower.includes('tahfidz')) {
-          return Boolean(formSettings.tikrar_tahfidz);
-        }
-
-        // Kelas Berbayar check
-        if (nameLower.includes('berbayar')) {
-          return Boolean(formSettings.kelas_berbayar);
+        // Pra-Tikrar, Tikrar Tahfidz, Mu'allimah, Musyrifah, and Kelas Berbayar are all unified in RegistrationHubCard
+        if (
+          nameLower.includes('pra-tikrar') ||
+          nameLower.includes('pra tikrar') ||
+          nameLower.includes('tikrar') ||
+          nameLower.includes('tahfidz') ||
+          nameLower.includes('muallimah') ||
+          nameLower.includes('musyrifah') ||
+          nameLower.includes('berbayar')
+        ) {
+          return false;
         }
 
         return true;
       });
 
-      // Add programs from database first (this is the primary source)
-      activePrograms.forEach((program) => {
-        // Skip if this is a Thalibah Tahfidz program that matches an active batch
-        if (program.name.toLowerCase().includes('tahfidz') &&
-            program.name.toLowerCase().includes('tikrar')) {
-          // Mark this batch as having a program
-          if (program.batch_id) {
-            activeBatchIds.add(program.batch_id);
-          }
-        }
-
+      additionalPrograms.forEach((program) => {
         const programType = getProgramTypeByName(program.name);
-
-        // All programs are now FREE
         const programPrice = 'GRATIS';
-
-        // Duration from program or batch
         const durationWeeks = program.duration_weeks || program.batch?.duration_weeks || 13;
         const batchDuration = `${durationWeeks} pekan`;
         
@@ -181,66 +164,6 @@ export default function PendaftaranPage() {
           batchId: program.batch_id
         });
       });
-
-      // Ensure Muallimah and Musyrifah are available as options for the open batch if published
-      const targetBatch = batches.find(b => b.status === 'open') || batches[0];
-      if (targetBatch) {
-        if (formSettings.muallimah) {
-          const hasMuallimah = transformedData.some(p => p.title.toLowerCase().includes('muallimah'));
-          if (!hasMuallimah) {
-            const muallimahType = getProgramTypeByName('muallimah');
-            transformedData.push({
-              id: `program-muallimah-${targetBatch.id}`,
-              title: "Mu'allimah MTI",
-              description: 'Pendaftaran & Akad Komitmen Pengajar Tashih dan Penguji Ujian MTI',
-              icon: ShieldCheck,
-              color: 'purple',
-              benefits: muallimahType.benefits,
-              requirements: muallimahType.requirements,
-              status: mapProgramStatus('open', targetBatch.registration_end_date),
-              batchInfo: {
-                batch: targetBatch.name,
-                period: `${formatDate(targetBatch.start_date)} - ${formatDate(targetBatch.end_date)}`,
-                deadline: formatDate(targetBatch.registration_end_date),
-                capacity: targetBatch.total_quota || 50,
-                registered: 0
-              },
-              price: 'GRATIS',
-              duration: `${targetBatch.duration_weeks || 13} pekan`,
-              programId: 'muallimah',
-              batchId: targetBatch.id
-            });
-          }
-        }
-
-        if (formSettings.musyrifah) {
-          const hasMusyrifah = transformedData.some(p => p.title.toLowerCase().includes('musyrifah'));
-          if (!hasMusyrifah) {
-            const musyrifahType = getProgramTypeByName('musyrifah');
-            transformedData.push({
-              id: `program-musyrifah-${targetBatch.id}`,
-              title: 'Musyrifah / Raisah MTI',
-              description: 'Pendaftaran Tim Pendamping Halaqah dan Kepemimpinan MTI',
-              icon: UserCheck,
-              color: 'blue',
-              benefits: musyrifahType.benefits,
-              requirements: musyrifahType.requirements,
-              status: mapProgramStatus('open', targetBatch.registration_end_date),
-              batchInfo: {
-                batch: targetBatch.name,
-                period: `${formatDate(targetBatch.start_date)} - ${formatDate(targetBatch.end_date)}`,
-                deadline: formatDate(targetBatch.registration_end_date),
-                capacity: targetBatch.total_quota || 50,
-                registered: 0
-              },
-              price: 'GRATIS',
-              duration: `${targetBatch.duration_weeks || 13} pekan`,
-              programId: 'musyrifah',
-              batchId: targetBatch.id
-            });
-          }
-        }
-      }
 
       setPendaftaranTypes(transformedData);
     }
@@ -543,133 +466,125 @@ export default function PendaftaranPage() {
           </Card>
         )}
 
-        {/* Unified Registration Hub Card (Featured) */}
+        {/* Unified Registration Hub Card (Primary) */}
         <RegistrationHubCard showTitle={false} alwaysShow={true} />
 
-        {/* Registration Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-8">
-          {pendaftaranTypes.map((type) => {
-            const Icon = type.icon;
-            const isExpanded = selectedType === type.id;
+        {/* Additional Standalone Programs (only rendered if custom programs exist outside RegistrationHubCard) */}
+        {pendaftaranTypes.length > 0 && (
+          <div className="space-y-4 pt-4">
+            <h2 className="text-lg sm:text-xl font-bold text-gray-800">Program Tambahan</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-8">
+              {pendaftaranTypes.map((type) => {
+                const Icon = type.icon;
+                const isExpanded = selectedType === type.id;
 
-            return (
-              <Card key={type.id} className="overflow-hidden hover:shadow-lg transition-all duration-300">
-                {/* Card Header */}
-                <div className="bg-gradient-to-br from-amber-50 via-yellow-50 to-amber-100 p-3 sm:p-4 lg:p-6 border-b border-amber-200 relative overflow-hidden">
-                  {/* Decorative crown sparkles */}
-                  <div className="absolute top-2 right-2 opacity-20">
-                    <Crown className="w-12 h-12 sm:w-16 lg:w-20 text-amber-400" />
-                  </div>
+                return (
+                  <Card key={type.id} className="overflow-hidden hover:shadow-lg transition-all duration-300">
+                    {/* Card Header */}
+                    <div className="bg-gradient-to-br from-amber-50 via-yellow-50 to-amber-100 p-3 sm:p-4 lg:p-6 border-b border-amber-200 relative overflow-hidden">
+                      {/* Decorative crown sparkles */}
+                      <div className="absolute top-2 right-2 opacity-20">
+                        <Crown className="w-12 h-12 sm:w-16 lg:w-20 text-amber-400" />
+                      </div>
 
-                  <div className="flex items-start gap-2 sm:gap-3 lg:gap-4 relative z-10">
-                    <div className="relative flex-shrink-0">
-                      <div className="w-10 h-10 sm:w-12 lg:w-14 h-10 sm:h-12 lg:h-14 bg-gradient-to-br from-amber-400 to-yellow-500 rounded-xl flex items-center justify-center mr-2 sm:mr-3 lg:mr-4 shadow-lg shadow-amber-500/50">
-                        <Crown className="w-5 h-5 sm:w-6 sm:h-6 lg:w-7 lg:h-7 text-white animate-pulse" />
-                      </div>
-                      {/* Sparkle effect */}
-                      <div className="absolute -top-1 -right-1 w-2 h-2 sm:w-2.5 sm:h-2.5 lg:w-3 lg:h-3 bg-yellow-300 rounded-full animate-ping"></div>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 mb-1 leading-tight">{type.title}</h3>
-                      <p className="text-xs sm:text-sm text-gray-600 leading-relaxed line-clamp-2">{type.description}</p>
-                    </div>
-                  </div>
-
-                  {/* Quick Info */}
-                  {type.batchInfo && (
-                    <div className="space-y-2 sm:space-y-3 mt-3 sm:mt-4">
-                      <div className="flex items-center text-gray-700 bg-white/60 rounded-lg px-2 py-1.5 sm:px-3 sm:py-2">
-                        <Calendar className="w-3 h-3 sm:w-4 sm:h-4 mr-1.5 sm:mr-2 text-amber-600 flex-shrink-0" />
-                        <span className="truncate text-xs sm:text-sm">{type.batchInfo.period}</span>
-                      </div>
-                      <div className="flex justify-center">
-                        {getStatusBadge(type.status)}
-                      </div>
-                      <div className="flex items-center text-gray-700 bg-white/60 rounded-lg px-2 py-1.5 sm:px-3 sm:py-2">
-                        <Users className="w-3 h-3 sm:w-4 sm:h-4 mr-1.5 sm:mr-2 text-amber-600 flex-shrink-0" />
-                        <span className="text-xs sm:text-sm">{type.batchInfo.registered}/{type.batchInfo.capacity} peserta</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <CardContent className="p-3 sm:p-4 lg:p-6">
-                  <div className="space-y-3 sm:space-y-4">
-                    {/* Price and Duration */}
-                    {type.price && (
-                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-3 bg-gradient-to-r from-amber-50 to-yellow-50 rounded-lg p-2.5 sm:p-3 lg:p-4 border border-amber-200">
-                        <div className="flex-1">
-                          <p className="text-xs sm:text-sm text-gray-600 mb-1">Biaya Program</p>
-                          <p className="font-bold text-sm sm:text-base lg:text-lg text-gray-900">{type.price}</p>
+                      <div className="flex items-start gap-2 sm:gap-3 lg:gap-4 relative z-10">
+                        <div className="relative flex-shrink-0">
+                          <div className="w-10 h-10 sm:w-12 lg:w-14 h-10 sm:h-12 lg:h-14 bg-gradient-to-br from-amber-400 to-yellow-500 rounded-xl flex items-center justify-center mr-2 sm:mr-3 lg:mr-4 shadow-lg shadow-amber-500/50">
+                            <Crown className="w-5 h-5 sm:w-6 sm:h-6 lg:w-7 lg:h-7 text-white animate-pulse" />
+                          </div>
+                          {/* Sparkle effect */}
+                          <div className="absolute -top-1 -right-1 w-2 h-2 sm:w-2.5 sm:h-2.5 lg:w-3 lg:h-3 bg-yellow-300 rounded-full animate-ping"></div>
                         </div>
-                        {type.duration && (
-                          <div className="flex-1 sm:text-right">
-                            <p className="text-xs sm:text-sm text-gray-600 mb-1">Durasi</p>
-                            <p className="font-medium text-base sm:text-lg text-gray-900">{type.duration}</p>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 mb-1 leading-tight">{type.title}</h3>
+                          <p className="text-xs sm:text-sm text-gray-600 leading-relaxed line-clamp-2">{type.description}</p>
+                        </div>
+                      </div>
+
+                      {/* Quick Info */}
+                      {type.batchInfo && (
+                        <div className="space-y-2 sm:space-y-3 mt-3 sm:mt-4">
+                          <div className="flex items-center text-gray-700 bg-white/60 rounded-lg px-2 py-1.5 sm:px-3 sm:py-2">
+                            <Calendar className="w-3 h-3 sm:w-4 sm:h-4 mr-1.5 sm:mr-2 text-amber-600 flex-shrink-0" />
+                            <span className="truncate text-xs sm:text-sm">{type.batchInfo.period}</span>
+                          </div>
+                          <div className="flex justify-center">
+                            {getStatusBadge(type.status)}
+                          </div>
+                          <div className="flex items-center text-gray-700 bg-white/60 rounded-lg px-2 py-1.5 sm:px-3 sm:py-2">
+                            <Users className="w-3 h-3 sm:w-4 sm:h-4 mr-1.5 sm:mr-2 text-amber-600 flex-shrink-0" />
+                            <span className="text-xs sm:text-sm">{type.batchInfo.registered}/{type.batchInfo.capacity} peserta</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <CardContent className="p-3 sm:p-4 lg:p-6">
+                      <div className="space-y-3 sm:space-y-4">
+                        {/* Price and Duration */}
+                        {type.price && (
+                          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-3 bg-gradient-to-r from-amber-50 to-yellow-50 rounded-lg p-2.5 sm:p-3 lg:p-4 border border-amber-200">
+                            <div className="flex-1">
+                              <p className="text-xs sm:text-sm text-gray-600 mb-1">Biaya Program</p>
+                              <p className="font-bold text-sm sm:text-base lg:text-lg text-gray-900">{type.price}</p>
+                            </div>
+                            {type.duration && (
+                              <div className="flex-1 sm:text-right">
+                                <p className="text-xs sm:text-sm text-gray-600 mb-1">Durasi</p>
+                                <p className="font-medium text-base sm:text-lg text-gray-900">{type.duration}</p>
+                              </div>
+                            )}
                           </div>
                         )}
+
+                        {/* Progress Bar */}
+                        {type.batchInfo && type.batchInfo.capacity > 0 && (
+                          <div>
+                            <div className="flex justify-between text-xs sm:text-sm text-gray-600 mb-2">
+                              <span>Kuota Tersedia</span>
+                              <span className="font-semibold text-amber-600">{type.batchInfo.capacity - type.batchInfo.registered} lagi</span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2.5 sm:h-3 overflow-hidden">
+                              <div
+                                className="bg-gradient-to-r from-amber-500 to-yellow-500 h-full rounded-full transition-all duration-500 shadow-md"
+                                style={{
+                                  width: `${(type.batchInfo.registered / type.batchInfo.capacity) * 100}%`
+                                }}
+                              ></div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Action Button */}
+                        <Button
+                          onClick={() => handleRegistrationClick(type)}
+                          disabled={type.status !== 'open' || isRegisteredForProgram(type) || isAlumniBlocked}
+                          className={`w-full flex items-center justify-center px-4 sm:px-6 py-3 sm:py-4 rounded-lg font-bold text-sm sm:text-base transition-all duration-200 shadow-md hover:shadow-lg ${
+                            type.status === 'open' && !isRegisteredForProgram(type)
+                              ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700'
+                              : 'bg-gray-100 text-gray-500 cursor-not-allowed'
+                          }`}
+                        >
+                          {type.status === 'open' && !isRegisteredForProgram(type) ? (
+                            <>
+                              Daftar Sekarang
+                              <ChevronRight className="w-5 h-5 ml-2" />
+                            </>
+                          ) : isRegisteredForProgram(type) ? (
+                            'Sudah Terdaftar'
+                          ) : type.status === 'upcoming' ? (
+                            'Pendaftaran Akan Dibuka'
+                          ) : (
+                            'Pendaftaran Ditutup'
+                          )}
+                        </Button>
                       </div>
-                    )}
-
-                    {/* Progress Bar */}
-                    {type.batchInfo && type.batchInfo.capacity > 0 && (
-                      <div>
-                        <div className="flex justify-between text-xs sm:text-sm text-gray-600 mb-2">
-                          <span>Kuota Tersedia</span>
-                          <span className="font-semibold text-amber-600">{type.batchInfo.capacity - type.batchInfo.registered} lagi</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2.5 sm:h-3 overflow-hidden">
-                          <div
-                            className="bg-gradient-to-r from-amber-500 to-yellow-500 h-full rounded-full transition-all duration-500 shadow-md"
-                            style={{
-                              width: `${(type.batchInfo.registered / type.batchInfo.capacity) * 100}%`
-                            }}
-                          ></div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Action Button */}
-                    <Button
-                      onClick={() => handleRegistrationClick(type)}
-                      disabled={type.status !== 'open' || isRegisteredForProgram(type) || isAlumniBlocked}
-                      className={`w-full flex items-center justify-center px-4 sm:px-6 py-3 sm:py-4 rounded-lg font-bold text-sm sm:text-base transition-all duration-200 shadow-md hover:shadow-lg ${
-                        type.status === 'open' && !isRegisteredForProgram(type)
-                          ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700'
-                          : 'bg-gray-100 text-gray-500 cursor-not-allowed'
-                      }`}
-                    >
-                      {type.status === 'open' && !isRegisteredForProgram(type) ? (
-                        <>
-                          Daftar Sekarang
-                          <ChevronRight className="w-5 h-5 ml-2" />
-                        </>
-                      ) : isRegisteredForProgram(type) ? (
-                        'Sudah Terdaftar'
-                      ) : type.status === 'upcoming' ? (
-                        'Pendaftaran Akan Dibuka'
-                      ) : (
-                        'Pendaftaran Ditutup'
-                      )}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-
-        {/* Empty State */}
-        {pendaftaranTypes.length === 0 && (
-          <Card>
-            <CardContent className="text-center py-12">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Calendar className="w-8 h-8 text-gray-400" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Belum Ada Program Tersedia</h3>
-              <p className="text-gray-600">Program pembelajaran akan segera dibuka. Silakan kembali lagi nanti.</p>
-            </CardContent>
-          </Card>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
         )}
       </div>
   );
