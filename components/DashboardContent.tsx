@@ -1069,7 +1069,7 @@ export default function DashboardContent() {
                   
                   const newNamePart = `Ustadzah ${halaqahOfTheWeek.muallimah_name}`;
                   
-                  if (prefixPart.toLowerCase().includes('pra')) {
+                  if ((prefixPart || "").toLowerCase().includes('pra')) {
                     return `${prefixPart} | ${newNamePart}`;
                   }
                   

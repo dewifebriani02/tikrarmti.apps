@@ -292,7 +292,11 @@ export async function getPraTikrarHalaqahList(batchId?: string | null) {
        ORDER BY h.day_of_week ASC, h.start_time ASC`,
       [targetBatchId]
     ));
-    return rows || [];
+    return (rows || []).map((r: any) => ({
+      ...r,
+      label: r.name ? (r.ustadzah_name ? `${r.name} (${r.ustadzah_name})` : r.name) : "Sesi Halaqah",
+      short_label: r.name || "Sesi Halaqah"
+    }));
   } catch (err) {
     console.error('[getPraTikrarHalaqahList] Error:', err);
     return [];

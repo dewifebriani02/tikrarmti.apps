@@ -157,7 +157,7 @@ export function UserJadwalHarian({ user, activeBatch, daftarUlangData }: { user:
                 const newNamePart = `Ustadzah ${muallimahName.replace('Ustadzah ', '')}`;
 
                 // Jika Pra-Tikrar, jangan tampilkan Juz (hanya Prefix | Nama)
-                if (prefixPart.toLowerCase().includes('pra')) {
+                if ((prefixPart || "").toLowerCase().includes('pra')) {
                   return `${prefixPart} | ${newNamePart}`;
                 }
                 

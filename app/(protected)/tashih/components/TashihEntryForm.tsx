@@ -84,12 +84,12 @@ export function TashihEntryForm({
   const [sessionSearch, setSessionSearch] = useState('')
   const [showAllSessions, setShowAllSessions] = useState(false)
   
-  const filteredMuallimah = availableMuallimah.filter(m => 
-    m.full_name.toLowerCase().includes(teacherSearch.toLowerCase())
+  const filteredMuallimah = (availableMuallimah || []).filter(m => 
+    (m?.full_name || '').toLowerCase().includes((teacherSearch || '').toLowerCase())
   )
 
-  const filteredSessions = praTikrarHalaqahs.filter(h => 
-    h.label.toLowerCase().includes(sessionSearch.toLowerCase())
+  const filteredSessions = (praTikrarHalaqahs || []).filter(h => 
+    ((h?.label || h?.name) || '').toLowerCase().includes((sessionSearch || '').toLowerCase())
   )
 
   const toggleMasalahTajwid = (id: string) => {
@@ -301,7 +301,7 @@ export function TashihEntryForm({
                         className="h-4 w-4 rounded text-emerald-600 focus:ring-emerald-500"
                       />
                       <div className="flex-1 text-[11px]">
-                        <span>{session.label}</span>
+                        <span>{session.label || session.name || 'Sesi Halaqah'}</span>
                       </div>
                     </label>
                   )
