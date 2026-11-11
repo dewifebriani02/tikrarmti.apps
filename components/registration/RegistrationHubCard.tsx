@@ -137,7 +137,7 @@ export function RegistrationHubCard({
     );
   }, [registrationBatch?.id, registrations]);
 
-  // Check muallimah & musyrifah registrations
+  // Check muallimah & musyrifah registrations via secure server endpoint
   useEffect(() => {
     if (!user?.id || !registrationBatch?.id) {
       setIsRegisteredMuallimah(false);
@@ -146,29 +146,17 @@ export function RegistrationHubCard({
     }
 
     let isMounted = true;
-    const supabase = createClient();
 
     async function checkRoleRegistrations() {
       setCheckingRoleStatus(true);
       try {
-        const [muallimahRes, musyrifahRes] = await Promise.all([
-          supabase
-            .from('muallimah_akads')
-            .select('id')
-            .eq('user_id', user!.id)
-            .eq('batch_id', registrationBatch!.id)
-            .maybeSingle(),
-          supabase
-            .from('musyrifah_registrations')
-            .select('id')
-            .eq('user_id', user!.id)
-            .eq('batch_id', registrationBatch!.id)
-            .maybeSingle()
-        ]);
-
-        if (isMounted) {
-          setIsRegisteredMuallimah(!!muallimahRes.data);
-          setIsRegisteredMusyrifah(!!musyrifahRes.data);
+        const res = await fetch(`/api/pendaftaran/roles-status?batch_id=${registrationBatch!.id}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (isMounted && json?.data) {
+            setIsRegisteredMuallimah(Boolean(json.data.isRegisteredMuallimah));
+            setIsRegisteredMusyrifah(Boolean(json.data.isRegisteredMusyrifah));
+          }
         }
       } catch (err) {
         console.error('Error checking role registrations:', err);
@@ -433,7 +421,7 @@ export function RegistrationHubCard({
                         className="w-full bg-emerald-50 text-emerald-700 border border-emerald-300 font-bold py-2.5 rounded-xl cursor-default flex items-center justify-center gap-1.5"
                       >
                         <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                        Akad Mengajar Terisi
+                        Sudah Terdaftar
                       </Button>
                     ) : canRegisterMuallimah ? (
                       <Link href={`/pendaftaran/muallimah?batchId=${batchId}`} className="block">
