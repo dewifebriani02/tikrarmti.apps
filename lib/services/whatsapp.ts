@@ -64,7 +64,7 @@ const COMMON_HEADERS = {
  * e.g.:
  *  '08123456789'   -> '628123456789'
  *  '+62 812-3456'  -> '628123456789'
- *  '0813-3000-0784'-> '6281330000784'
+ *  '0813-8884-240'-> '628138884240'
  */
 export function normalizePhoneNumber(rawPhone: string): string {
   if (!rawPhone) return '';

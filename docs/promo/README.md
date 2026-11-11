@@ -15,7 +15,7 @@ Untuk menjaga kualitas dan daya tarik pendaftaran, setiap poster harus mengikuti
 1.  **Terminologi**: Gunakan istilah **"Syahadah"** (Penerbitan Syahadah) untuk tahap kelulusan di akhir program.
 2.  **Kontak Resmi**: Setiap media promosi wajib mencantumkan informasi berikut:
     *   🌍 **Website**: `markaztikrar.id`
-    *   📱 **WhatsApp Official**: `081330000784`
+    *   📱 **WhatsApp Official**: `08138884240`
     *   🔗 **Lynk.id**: `https://lynk.id/markaztikrar.id`
 
 ## 📁 Katalog Aset Saat Ini

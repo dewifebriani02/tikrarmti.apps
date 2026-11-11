@@ -239,7 +239,7 @@ export function generateMurajaahDailyText({
   text += `Yassarallah wa barakallahufiikunna.. 🌹\n\n`;
   text += `━━━━━━━━━━━━━━━━❁❁\n\n`;
   text += `𝗠𝗔𝗥𝗞𝗔𝗭 𝗧𝗜𝗞𝗥𝗔𝗥 𝗜𝗡𝗗𝗢𝗡𝗘𝗦𝗜𝗔\n\n`;
-  text += `📱 *MTI OFFICIAL : 081330000784*\n`;
+  text += `📱 *MTI OFFICIAL : 08138884240*\n`;
   text += `🪩 *Website MTI : markaztikrar.id*\n`;
   text += `🔗 *Tap Lynk : https://lynk.id/markaztikrar.id*`;
 
@@ -307,7 +307,7 @@ export function generateMurajaahWeeklyRecap({
   text += `جزاكن الله خيرا وبارك الله فيكن 🌹\n\n`;
   text += `━━━━━━━━━━━━━━━━❁❁\n\n`;
   text += `𝗠𝗔𝗥𝗞𝗔𝗭 𝗧𝗜𝗞𝗥𝗔𝗥 𝗜𝗡𝗗𝗢𝗡𝗘𝗦𝗜𝗔\n\n`;
-  text += `📱 *MTI OFFICIAL : 081330000784*\n`;
+  text += `📱 *MTI OFFICIAL : 08138884240*\n`;
   text += `🪩 *Website MTI : markaztikrar.id*\n`;
   text += `🔗 *Tap Lynk : https://lynk.id/markaztikrar.id*`;
 
@@ -371,7 +371,7 @@ export function generatePengumumanUjianAkhir(): string {
   text += `جزاكن الله خيرا وبارك الله فيكن 🌹\n\n`;
   text += `━━━━━━━━━━━━━━━━❁❁\n`;
   text += `𝗠𝗔𝗥𝗞𝗔𝗭 𝗧𝗜𝗞𝗥𝗔𝗥 𝗜𝗡𝗗𝗢𝗡𝗘𝗦𝗜𝗔\n`;
-  text += `📱 *MTI Official : 081330000784*\n`;
+  text += `📱 *MTI Official : 08138884240*\n`;
   text += `🪩 *Website : markaztikrar.id*`;
 
   return text.trim();
@@ -428,7 +428,7 @@ export function generatePanduanMurajaah40x(): string {
   text += `جزاكن الله خيرا وبارك الله فيكن 🌹\n\n`;
   text += `━━━━━━━━━━━━━━━━❁❁\n`;
   text += `𝗠𝗔𝗥𝗞𝗔𝗭 𝗧𝗜𝗞𝗥𝗔𝗥 𝗜𝗡𝗗𝗢𝗡𝗘𝗦𝗜𝗔\n`;
-  text += `📱 *MTI Official : 081330000784*\n`;
+  text += `📱 *MTI Official : 08138884240*\n`;
   text += `🪩 *Website : markaztikrar.id*`;
 
   return text.trim();

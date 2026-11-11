@@ -124,7 +124,7 @@ export function PosterPendaftaran() {
       <div className="absolute bottom-[40px] left-0 right-0 text-center">
         <p className="text-[14px] font-bold text-slate-400 tracking-[0.25em] mb-2">INFORMASI &amp; PENDAFTARAN</p>
         <p className="text-[18px] font-extrabold text-emerald-950">
-          markaztikrar.id <span className="text-amber-500 mx-2">•</span> WA 081330000784{' '}
+          markaztikrar.id <span className="text-amber-500 mx-2">•</span> WA 08138884240{' '}
           <span className="text-amber-500 mx-2">•</span> lynk.id/markaztikrar.id
         </p>
       </div>

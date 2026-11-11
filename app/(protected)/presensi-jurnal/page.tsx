@@ -2752,7 +2752,7 @@ Barakallahufiikunna..
 ━━━━━━━━━━━━━━━━❁❁
 𝗠𝗔𝗥𝗞𝗔𝗭 𝗧𝗜𝗞𝗥𝗔𝗥 𝗜𝗡𝗗𝗢𝗡𝗘𝗦𝗜𝗔
 
-📱 *MTI OFFICIAL : 081330000784*
+📱 *MTI OFFICIAL : 08138884240*
 🔗 *Tap Lynk : https://lynk.id/markaztikrar.id*`;
 
       navigator.clipboard.writeText(template).then(() => {
@@ -2858,7 +2858,7 @@ Tetap semangat untuk pekan-pekan berikutnya!
 ━━━━━━━━━━━━━━━━❁❁
 𝗠𝗔𝗥𝗞𝗔𝗭 𝗧𝗜𝗞𝗥𝗔𝗥 𝗜𝗡𝗗𝗢𝗡𝗘𝗦𝗜𝗔
 
-📱 *MTI OFFICIAL : 081330000784*
+📱 *MTI OFFICIAL : 08138884240*
 🔗 *Tap Lynk : https://lynk.id/markaztikrar.id*`;
 
       navigator.clipboard.writeText(template).then(() => {

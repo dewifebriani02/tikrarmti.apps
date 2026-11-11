@@ -164,7 +164,7 @@ Semoga Ukhti senantiasa dalam limpahan taufik dan lindungan Allah Ta'ala.
 
 Melalui pesan ini, kami menginformasikan bahwa *nomor resmi layanan notifikasi WhatsApp Markaz Tikrar Indonesia (MTI)* kini aktif melalui:
 
-📱 *0813-3000-0784* (Nomor Resmi MTI)
+📱 *0813-8884-240* (Nomor Resmi MTI)
 
 Nomor ini akan digunakan untuk menyampaikan informasi penting kegiatan thalibah, antara lain:
 1. Notifikasi dan tautan halaqah bimbingan.
@@ -1185,7 +1185,7 @@ export default function AdminWhatsAppPage() {
                   <p className="text-xs text-gray-500 leading-relaxed">
                     Nomor Pengirim:{' '}
                     <span className="font-semibold text-gray-700 font-mono">
-                      {status?.watzap?.displayPhoneNumber || '0813-3000-0784'}
+                      {status?.watzap?.displayPhoneNumber || '0813-8884-240'}
                     </span>
                     {` (${status?.watzap?.accountName || "Markaz Tikrar Indonesia"})`}
                     {status?.watzap?.plan && ` • Paket ${status.watzap.plan}`}
@@ -1396,7 +1396,7 @@ export default function AdminWhatsAppPage() {
                       </div>
                       <div>
                         <div className="text-xs font-bold text-gray-800">
-                          Markaz Tikrar Indonesia (0813-3000-0784)
+                          Markaz Tikrar Indonesia (0813-8884-240)
                         </div>
                         <div className="text-[10px] text-gray-500">Pratinjau Pesan Terpersonalisasi</div>
                       </div>
@@ -1691,7 +1691,7 @@ export default function AdminWhatsAppPage() {
                       </div>
                       <div>
                         <div className="text-xs font-bold text-gray-800">
-                          Markaz Tikrar Indonesia (0813-3000-0784)
+                          Markaz Tikrar Indonesia (0813-8884-240)
                         </div>
                         <div className="text-[10px] text-gray-500">Pratinjau Tampilan Chat</div>
                       </div>
