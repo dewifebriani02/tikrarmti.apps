@@ -302,6 +302,44 @@ export default function DashboardContent() {
     setCurrentWeek(computeCurrentWeek());
   }, [selectedBatch]);
 
+  // Cek apakah masa ziyadah dan murajaah batch ini sudah selesai:
+  // - Masa Ziyadah: Pekan 1 s.d. Pekan 10
+  // - Masa Murajaah: Pekan 11 (Senin s.d. Ahad akhir Pekan 11)
+  // Selesai pada Ahad malam Pekan 11 (Day 76, pukul 23:59:59.999 WIB) atau status batch closed/completed
+  const isZiyadahAndMurajaahFinished = useMemo(() => {
+    const batch = selectedBatch || activeBatch;
+    if (!batch) return false;
+    if (batch.status === 'closed' || batch.status === 'completed') return true;
+
+    const rawDate = batch.first_week_start_date || batch.start_date;
+    if (!rawDate) return false;
+
+    let clean = typeof rawDate === 'string' ? rawDate.trim() : '';
+    if (clean.includes(' ') && !clean.includes('T')) {
+      clean = clean.replace(' ', 'T');
+    }
+    if (clean.endsWith('+00')) {
+      clean = clean.replace('+00', '+00:00');
+    }
+    const parsedDate = new Date(clean.includes('T') ? clean : `${clean}T00:00:00+07:00`);
+    if (isNaN(parsedDate.getTime())) return false;
+
+    // Normalize to Monday 00:00:00 WIB
+    const wibDateStr = parsedDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
+    const [bYear, bMonth, bDay] = wibDateStr.split('-').map(Number);
+    const anchorMidnightWib = new Date(Date.UTC(bYear, bMonth - 1, bDay, -7, 0, 0, 0));
+
+    const dayName = anchorMidnightWib.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'Asia/Jakarta' });
+    const dayIndex = ({ Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 } as Record<string, number>)[dayName] ?? 1;
+    const diffToMonday = dayIndex === 0 ? -6 : (dayIndex === 1 ? 0 : 1 - dayIndex);
+    const week1Monday = new Date(anchorMidnightWib.getTime() + diffToMonday * 24 * 60 * 60 * 1000);
+
+    // Pekan 11 (Murajaah) tuntas pada Ahad malam (Day 76 pukul 23:59:59.999 WIB)
+    const murajaahCutoff = new Date(week1Monday.getTime() + (76 * 24 * 60 * 60 * 1000) + (23 * 3600000 + 59 * 60000 + 59 * 1000 + 999));
+
+    return Date.now() > murajaahCutoff.getTime();
+  }, [selectedBatch, activeBatch]);
+
   const displayStats = {
     totalHariTarget: totalHariTarget,
     hariAktual: (jurnalStatus?.summary.completed_blocks || (canSeeAdminStats ? stats?.hariAktual : 0) || 0),
@@ -766,8 +804,8 @@ export default function DashboardContent() {
         </div>
       )}
 
-      {/* SP Warning Banner */}
-      {!canSeeAdminStats && jurnalStatus?.summary?.sp_summary && (
+      {/* SP Warning Banner - otomatis tidak muncul jika masa ziyadah dan murajaah sudah selesai */}
+      {!isZiyadahAndMurajaahFinished && !canSeeAdminStats && jurnalStatus?.summary?.sp_summary && (
         <div className={cn(
           "relative overflow-hidden rounded-[2rem] p-6 shadow-2xl border-l-8 animate-fadeIn",
           jurnalStatus.summary.sp_summary.sp_level === 3 ? "bg-rose-50 border-rose-600 shadow-rose-950/5" :
@@ -818,8 +856,8 @@ export default function DashboardContent() {
         </div>
       )}
 
-      {/* 2. Progress Jurnal & Tashih */}
-      {(tashihStatus || jurnalStatus || canSeeAdminStats) && (
+      {/* 2. Progress Jurnal & Tashih - otomatis tidak muncul jika masa ziyadah dan murajaah sudah selesai */}
+      {!isZiyadahAndMurajaahFinished && (tashihStatus || jurnalStatus || canSeeAdminStats) && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
           {tashihStatus && (
             <Dialog>

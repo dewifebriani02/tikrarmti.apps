@@ -55,16 +55,46 @@ export function DynamicActionBanner({
   onOpenTransfer,
   onOpenExam,
 }: DynamicActionBannerProps) {
-  // Determine current active lifecycle phase
-  const phase: DashboardPhase = React.useMemo(() => {
-    // 1. If not registered at all
-    if (!hasRegistered) {
-      return 'pendaftaran';
+  // Cek apakah masa pendaftaran / onboarding batch ini masih aktif
+  const isBatchRegistrationOpen = React.useMemo(() => {
+    if (!activeBatch) return false;
+    if (activeBatch.status === 'closed' || activeBatch.status === 'completed') return false;
+
+    const now = new Date();
+    if (activeBatch.registration_end_date) {
+      const match = String(activeBatch.registration_end_date).match(/^(\d{4}-\d{2}-\d{2})/);
+      const deadlineStr = match ? `${match[1]}T23:59:59+07:00` : activeBatch.registration_end_date;
+      const deadline = new Date(deadlineStr);
+
+      if (activeBatch.registration_start_date) {
+        const matchStart = String(activeBatch.registration_start_date).match(/^(\d{4}-\d{2}-\d{2})/);
+        const startStr = matchStart ? `${matchStart[1]}T00:00:00+07:00` : activeBatch.registration_start_date;
+        const start = new Date(startStr);
+        return now >= start && now <= deadline;
+      }
+      return now <= deadline;
     }
 
-    // 2. If registered but hasn't completed daftar ulang
+    return activeBatch.status === 'open';
+  }, [activeBatch]);
+
+  // Determine current active lifecycle phase
+  const phase: DashboardPhase | null = React.useMemo(() => {
+    // 1. Jika belum terdaftar:
+    // Hanya tampilkan ajakan pendaftaran jika masa pendaftaran batch tersebut MASIH BUKA
+    if (!hasRegistered) {
+      return isBatchRegistrationOpen ? 'pendaftaran' : null;
+    }
+
+    // 2. Jika terdaftar tapi belum menyelesaikan daftar ulang:
+    // Hanya tagih daftar ulang jika masa pendaftaran / onboarding batch tersebut MASIH BUKA
     if (!hasPhase3Complete) {
-      return 'daftar_ulang';
+      return isBatchRegistrationOpen ? 'daftar_ulang' : null;
+    }
+
+    // Jika batch sudah selesai/closed, tidak perlu banner aksi KBM
+    if (activeBatch?.status === 'closed' || activeBatch?.status === 'completed') {
+      return null;
     }
 
     // 3. Week 1: Masa Tashih Awal
@@ -84,7 +114,11 @@ export function DynamicActionBanner({
 
     // 6. Week 11+: Masa Ujian Akhir & Pendaftaran Batch Berikutnya
     return 'ujian_akhir_next_batch';
-  }, [hasRegistered, hasPhase3Complete, currentWeek]);
+  }, [hasRegistered, hasPhase3Complete, currentWeek, isBatchRegistrationOpen, activeBatch?.status]);
+
+  if (!phase) {
+    return null;
+  }
 
   return (
     <div className="max-w-6xl mx-auto w-full px-4 md:px-8 mb-6">
