@@ -182,39 +182,39 @@ export function RegistrationHubCard({
   const batchId = registrationBatch.id;
 
   return (
-    <div className={`mb-8 ${className}`}>
-      <Card className="rounded-[2.5rem] border-none shadow-2xl shadow-emerald-950/15 overflow-hidden bg-white ring-1 ring-emerald-900/10">
+    <div className={`mb-6 sm:mb-8 ${className}`}>
+      <Card className="rounded-2xl sm:rounded-[2.5rem] border-none shadow-xl sm:shadow-2xl shadow-emerald-950/15 overflow-hidden bg-white ring-1 ring-emerald-900/10">
         <CardContent className="p-0">
           
-          {/* Header Banner Hub */}
-          <div className="bg-gradient-to-br from-emerald-900 via-teal-900 to-green-950 p-6 sm:p-8 md:p-10 text-white relative overflow-hidden">
+          {/* Header Banner Hub - Minimalist & Compact */}
+          <div className="bg-gradient-to-br from-emerald-900 via-teal-900 to-green-950 p-4 sm:p-6 md:p-8 text-white relative overflow-hidden">
             {/* Background glowing circles */}
             <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl -z-0 pointer-events-none"></div>
             <div className="absolute bottom-0 left-0 w-64 h-64 bg-amber-400/10 rounded-full blur-2xl -z-0 pointer-events-none"></div>
 
-            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-              <div className="space-y-3 max-w-2xl">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black shadow-md uppercase tracking-wider ${
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-6">
+              <div className="space-y-2 sm:space-y-3 max-w-2xl">
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full text-[10px] sm:text-xs font-black shadow-md uppercase tracking-wider ${
                     isRegistrationOpen 
                       ? 'bg-gradient-to-r from-amber-400 to-yellow-500 text-amber-950'
                       : 'bg-stone-700/80 text-stone-200 border border-stone-600'
                   }`}>
-                    {isRegistrationOpen ? <Sparkles className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />}
+                    {isRegistrationOpen ? <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> : <AlertCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5" />}
                     {isRegistrationOpen ? 'Pendaftaran Dibuka' : 'Pendaftaran Ditutup'}
                   </span>
-                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-white/15 text-emerald-100 backdrop-blur-sm border border-white/10">
+                  <span className="px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full text-[10px] sm:text-xs font-bold bg-white/15 text-emerald-100 backdrop-blur-sm border border-white/10">
                     {registrationBatch.name}
                   </span>
                 </div>
 
                 {showTitle && (
-                  <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-tight leading-tight">
+                  <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-tight">
                     Pintu Khidmat & Belajar <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-200 to-emerald-200">Al-Qur'an</span>
                   </h2>
                 )}
 
-                <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed font-medium">
+                <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed font-medium line-clamp-2 sm:line-clamp-none">
                   {isRegistrationOpen
                     ? 'Silakan pilih jalur di bawah ini sesuai tujuan dan peran Ukhti. Setiap program memiliki formulir, komitmen waktu, serta tahapan seleksi yang berbeda.'
                     : 'Pendaftaran untuk batch ini saat ini telah ditutup. Silakan pantau pengumuman resmi untuk jadwal pendaftaran batch berikutnya.'}
@@ -222,15 +222,15 @@ export function RegistrationHubCard({
               </div>
 
               {deadlineInfo && (
-                <div className="bg-black/25 backdrop-blur-md border border-white/15 rounded-2xl p-4 sm:p-5 flex-shrink-0 text-left md:text-right space-y-1 shadow-inner">
-                  <p className="text-[10px] uppercase font-extrabold tracking-widest text-emerald-300 flex items-center md:justify-end gap-1">
-                    <Clock className="w-3.5 h-3.5" />
+                <div className="bg-black/25 backdrop-blur-md border border-white/15 rounded-xl sm:rounded-2xl p-2.5 sm:p-4 md:p-5 flex-shrink-0 text-left md:text-right space-y-0.5 sm:space-y-1 shadow-inner">
+                  <p className="text-[9px] sm:text-[10px] uppercase font-extrabold tracking-widest text-emerald-300 flex items-center md:justify-end gap-1">
+                    <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                     {isRegistrationOpen ? 'Batas Pendaftaran' : 'Pendaftaran Berakhir'}
                   </p>
-                  <p className="text-base sm:text-lg font-black text-white tracking-wide">
+                  <p className="text-sm sm:text-base md:text-lg font-black text-white tracking-wide">
                     {deadlineInfo.formattedDate}
                   </p>
-                  <span className={`inline-block text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
+                  <span className={`inline-block text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full ${
                     !isRegistrationOpen
                       ? 'bg-rose-500/25 text-rose-200 border border-rose-400/30'
                       : deadlineInfo.diffDays <= 3 
