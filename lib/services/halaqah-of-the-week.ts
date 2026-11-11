@@ -31,7 +31,14 @@ const parseBatchDate = (d: any): Date | null => {
   if (!d) return null;
   if (d instanceof Date) return isNaN(d.getTime()) ? null : d;
   if (typeof d === 'string') {
-    const parsed = new Date(d.includes('T') ? d : `${d}T00:00:00+07:00`);
+    let clean = d.trim();
+    if (clean.includes(' ') && !clean.includes('T')) {
+      clean = clean.replace(' ', 'T');
+    }
+    if (clean.endsWith('+00')) {
+      clean = clean.replace('+00', '+00:00');
+    }
+    const parsed = new Date(clean.includes('T') ? clean : `${clean}T00:00:00+07:00`);
     return isNaN(parsed.getTime()) ? null : parsed;
   }
   return null;
@@ -41,14 +48,49 @@ export async function computeHalaqahOfTheWeek(batchId?: string, authUserId?: str
   // 1. Get batch
   let activeBatch: any;
   if (batchId) {
-    const { rows } = await query('SELECT id, name, start_date, end_date FROM batches WHERE id = $1', [batchId]);
+    const { rows } = await query('SELECT id, name, status, start_date, end_date, first_week_start_date FROM batches WHERE id = $1', [batchId]);
     activeBatch = rows[0];
   } else {
-    const { rows } = await query("SELECT id, name, start_date, end_date FROM batches WHERE status IN ('ongoing', 'open') ORDER BY created_at DESC LIMIT 1");
+    const { rows } = await query("SELECT id, name, status, start_date, end_date, first_week_start_date FROM batches WHERE status IN ('ongoing', 'open') ORDER BY created_at DESC LIMIT 1");
     activeBatch = rows[0];
   }
 
   if (!activeBatch) {
+    return { topHalaqah: null, allHalaqahs: [], userRank: null };
+  }
+
+  // If batch is closed/completed, Halaqah of the Week is inactive
+  if (activeBatch.status === 'closed' || activeBatch.status === 'completed') {
+    return { topHalaqah: null, allHalaqahs: [], userRank: null };
+  }
+
+  const rawBatchDate = activeBatch.first_week_start_date || activeBatch.start_date;
+  const batchStart = parseBatchDate(rawBatchDate);
+
+  if (!batchStart) {
+    return { topHalaqah: null, allHalaqahs: [], userRank: null };
+  }
+
+  // Normalize batchStart to Monday 00:00:00 WIB
+  const wibDateStr = batchStart.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
+  const [bYear, bMonth, bDay] = wibDateStr.split('-').map(Number);
+  const anchorMidnightWib = new Date(Date.UTC(bYear, bMonth - 1, bDay, -7, 0, 0, 0));
+  
+  const dayName = anchorMidnightWib.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'Asia/Jakarta' });
+  const dayIndex = ({ Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 } as Record<string, number>)[dayName] ?? 1;
+  const diffToMonday = dayIndex === 0 ? -6 : (dayIndex === 1 ? 0 : 1 - dayIndex);
+  const week1Monday = new Date(anchorMidnightWib.getTime() + diffToMonday * 24 * 60 * 60 * 1000);
+
+  // Masa ziyadah berlangsung selama 10 pekan (Pekan 1 s/d Pekan 10).
+  // Selesai masa ziyadah = Ahad akhir pekan ke-10 (Day 69 pukul 23:59:59.999 WIB).
+  // Pemenang pekan 10 ziyadah terpampang selama 4 hari di pekan ke-11 (Senin s.d. Kamis).
+  // Batas tayang (cutoff) = Kamis pekan ke-11 pukul 23:59:59.999 WIB (Day 73 dari Senin Pekan 1).
+  const hotwCutoff = new Date(week1Monday.getTime() + (73 * 24 * 60 * 60 * 1000) + (23 * 3600000 + 59 * 60000 + 59 * 1000 + 999));
+  
+  const now = Date.now();
+  // Otomatis tidak muncul jika sudah lewat batas hari Kamis berikutnya setelah masa ziyadah tuntas,
+  // atau jika KBM Pekan 1 belum dimulai
+  if (now > hotwCutoff.getTime() || now < week1Monday.getTime()) {
     return { topHalaqah: null, allHalaqahs: [], userRank: null };
   }
 
@@ -96,22 +138,16 @@ export async function computeHalaqahOfTheWeek(batchId?: string, authUserId?: str
     getStudentsArray(h.students).filter((s: any) => s.status === 'active').map((s: any) => s.thalibah_id)
   );
 
-  const batchStart = parseBatchDate(activeBatch.start_date);
   const MAX_CURRICULUM_WEEKS = 10;
-  const currentWeek = batchStart
-    ? Math.ceil((Date.now() - batchStart.getTime()) / (7 * 24 * 60 * 60 * 1000))
-    : 1;
+  const diffDays = Math.floor((now - week1Monday.getTime()) / (24 * 60 * 60 * 1000));
+  const currentWeek = Math.floor(diffDays / 7) + 1;
   const targetWeek = Math.min(MAX_CURRICULUM_WEEKS, Math.max(1, currentWeek - 1));
   const jurnalTargetWeek = Math.max(0, targetWeek - 1);
 
-  let weekStartDate = new Date(0);
-  let weekEndDate = new Date();
-  if (batchStart) {
-    weekStartDate = new Date(batchStart.getTime());
-    weekStartDate.setDate(weekStartDate.getDate() + (targetWeek - 1) * 7);
-    weekEndDate = new Date(batchStart.getTime());
-    weekEndDate.setDate(weekEndDate.getDate() + targetWeek * 7);
-  }
+  let weekStartDate = new Date(week1Monday.getTime());
+  weekStartDate.setDate(weekStartDate.getDate() + (targetWeek - 1) * 7);
+  let weekEndDate = new Date(week1Monday.getTime());
+  weekEndDate.setDate(weekEndDate.getDate() + targetWeek * 7);
 
   // 4. Get Chosen Juz
   const userJuzBaseMap = new Map<string, number>();
