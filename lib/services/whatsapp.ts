@@ -246,6 +246,150 @@ export class WhatsAppService {
   /**
    * Send message (Template alias for backward compatibility)
    */
+  /**
+   * Send WhatsApp Image via WatZap API
+   */
+  public async sendImageUrl(to: string, imageUrl: string, caption?: string): Promise<WhatsAppSendResult> {
+    const formattedPhone = normalizePhoneNumber(to);
+    if (!formattedPhone) {
+      return {
+        success: false,
+        provider: 'none',
+        error: 'Nomor WhatsApp tujuan tidak valid',
+      };
+    }
+
+    const key = this.apiKey;
+    const numKey = this.numberKey;
+
+    if (!key || !numKey) {
+      return {
+        success: false,
+        provider: 'none',
+        error: 'WATZAP_API_KEY atau WATZAP_NUMBER_KEY belum dikonfigurasi di server',
+      };
+    }
+
+    try {
+      const payload: Record<string, string> = {
+        api_key: key,
+        number_key: numKey,
+        phone_no: formattedPhone,
+        url: imageUrl,
+      };
+      if (caption && caption.trim()) {
+        payload.message = caption.trim();
+      }
+
+      const res = await fetch('https://api.watzap.id/v1/send_image_url', {
+        method: 'POST',
+        headers: COMMON_HEADERS,
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (
+        data.status === '200' ||
+        data.status === 200 ||
+        data.status === true ||
+        data.ack === 'successfully'
+      ) {
+        return {
+          success: true,
+          provider: 'watzap',
+          messageId: data.message_id || data.id || `watzap_${Date.now()}`,
+          details: data,
+        };
+      }
+
+      const errorMessage = data.message || 'WatZap gagal mengirim gambar';
+      console.warn('[WhatsAppService] WatZap send image error:', errorMessage, data);
+
+      return {
+        success: false,
+        provider: 'watzap',
+        error: errorMessage,
+        details: data,
+      };
+    } catch (err) {
+      console.error('[WhatsAppService] WatZap image network error:', err);
+      return {
+        success: false,
+        provider: 'watzap',
+        error: (err as Error).message,
+      };
+    }
+  }
+
+  /**
+   * Send WhatsApp File / Document via WatZap API
+   */
+  public async sendFileUrl(to: string, fileUrl: string): Promise<WhatsAppSendResult> {
+    const formattedPhone = normalizePhoneNumber(to);
+    if (!formattedPhone) {
+      return {
+        success: false,
+        provider: 'none',
+        error: 'Nomor WhatsApp tujuan tidak valid',
+      };
+    }
+
+    const key = this.apiKey;
+    const numKey = this.numberKey;
+
+    if (!key || !numKey) {
+      return {
+        success: false,
+        provider: 'none',
+        error: 'WATZAP_API_KEY atau WATZAP_NUMBER_KEY belum dikonfigurasi di server',
+      };
+    }
+
+    try {
+      const res = await fetch('https://api.watzap.id/v1/send_file_url', {
+        method: 'POST',
+        headers: COMMON_HEADERS,
+        body: JSON.stringify({
+          api_key: key,
+          number_key: numKey,
+          phone_no: formattedPhone,
+          url: fileUrl,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (
+        data.status === '200' ||
+        data.status === 200 ||
+        data.status === true ||
+        data.ack === 'successfully'
+      ) {
+        return {
+          success: true,
+          provider: 'watzap',
+          messageId: data.message_id || data.id || `watzap_${Date.now()}`,
+          details: data,
+        };
+      }
+
+      const errorMessage = data.message || 'WatZap gagal mengirim file';
+      return {
+        success: false,
+        provider: 'watzap',
+        error: errorMessage,
+        details: data,
+      };
+    } catch (err) {
+      return {
+        success: false,
+        provider: 'watzap',
+        error: (err as Error).message,
+      };
+    }
+  }
+
   public async sendTemplateMessage(
     to: string,
     templateName: string,

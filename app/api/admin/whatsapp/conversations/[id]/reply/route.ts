@@ -17,8 +17,9 @@ export async function POST(
     const { id } = await params;
     const body = await request.json().catch(() => ({}));
     const message = body.message;
+    const mediaUrl = body.mediaUrl;
 
-    if (!message || typeof message !== 'string' || !message.trim()) {
+    if ((!message || typeof message !== 'string' || !message.trim()) && !mediaUrl) {
       return ApiResponses.badRequest('Pesan balasan wajib diisi');
     }
 
@@ -28,7 +29,8 @@ export async function POST(
 
     const result = await sendReplyMessage({
       conversationId: id,
-      messageText: message.trim(),
+      messageText: (message || '').trim(),
+      mediaUrl: mediaUrl ? String(mediaUrl).trim() : undefined,
       adminName,
       adminId,
     });

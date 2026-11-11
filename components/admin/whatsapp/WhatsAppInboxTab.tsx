@@ -5,7 +5,8 @@ import { toast } from 'sonner';
 import {
   MessageSquare, Send, Search, RefreshCw, Check, CheckCheck, Clock,
   User, Phone, ExternalLink, CheckCircle2, AlertCircle, Sparkles,
-  ArrowDownLeft, ArrowUpRight, Zap, Filter, Archive, CheckSquare
+  ArrowDownLeft, ArrowUpRight, Zap, Filter, Archive, CheckSquare,
+  Image as ImageIcon, FileText, Mic, Video, Paperclip, X, Loader2
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -83,6 +84,11 @@ export function WhatsAppInboxTab() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'unread' | 'open' | 'resolved'>('all');
   const [webhookStatus, setWebhookStatus] = useState<{ configured: boolean; webhookUrl?: string | null } | null>(null);
   const [isConfiguringWebhook, setIsConfiguringWebhook] = useState(false);
+
+  // Media Attachment State for Reply
+  const [attachedImage, setAttachedImage] = useState<{ url: string; name: string } | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -190,12 +196,59 @@ export function WhatsAppInboxTab() {
     }
   }, []);
 
+  // Upload image to send in reply
+  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Mohon pilih file gambar (JPG, PNG, atau WEBP)');
+      return;
+    }
+
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error('Ukuran gambar maksimal 8MB');
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('folder', 'general');
+
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const json = await res.json();
+      if (json.success && json.url) {
+        const fullUrl = json.url.startsWith('http')
+          ? json.url
+          : `${window.location.origin}${json.url}`;
+        setAttachedImage({ url: fullUrl, name: file.name });
+        toast.success('Gambar siap dikirim');
+      } else {
+        toast.error(json.error || 'Gagal mengunggah gambar');
+      }
+    } catch (err: any) {
+      console.error('Image upload error:', err);
+      toast.error('Gagal mengunggah gambar');
+    } finally {
+      setUploadingImage(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   // Send Reply
   const handleSendReply = async () => {
     if (!selectedConvId) return;
     const text = replyText.trim();
-    if (!text) {
-      toast.warning('Tulis pesan balasan terlebih dahulu');
+    const mediaUrl = attachedImage?.url;
+
+    if (!text && !mediaUrl) {
+      toast.warning('Tulis pesan balasan atau lampirkan foto terlebih dahulu');
       return;
     }
 
@@ -204,13 +257,17 @@ export function WhatsAppInboxTab() {
       const res = await fetch(`/api/admin/whatsapp/conversations/${selectedConvId}/reply`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({
+          message: text,
+          mediaUrl: mediaUrl,
+        }),
       });
 
       const data = await res.json();
       if (data.success) {
         toast.success('Balasan berhasil dikirim via WhatsApp');
         setReplyText('');
+        setAttachedImage(null);
 
         // Append to messages
         if (data.data) {
@@ -218,12 +275,13 @@ export function WhatsAppInboxTab() {
         }
 
         // Update conversation list
+        const lastSnippet = mediaUrl ? `📷 [Foto] ${text}` : text;
         setConversations((prev) =>
           prev.map((c) =>
             c.id === selectedConvId
               ? {
                   ...c,
-                  last_message: text,
+                  last_message: lastSnippet,
                   last_message_at: new Date().toISOString(),
                   last_message_direction: 'outbound',
                   unread_count: 0,
@@ -331,8 +389,133 @@ export function WhatsAppInboxTab() {
     return `${date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} ${timeStr}`;
   };
 
+  // Render message bubble with rich media attachment support
+  const renderMessageContent = (msg: WhatsAppMessage, isOutbound: boolean, phone: string) => {
+    const metadataData = msg.metadata?.data || {};
+    const hasMedia = Boolean(
+      metadataData.has_media ||
+      msg.message_body?.startsWith('📷') ||
+      msg.message_body?.startsWith('🎙️') ||
+      msg.message_body?.startsWith('🎥') ||
+      msg.message_body?.startsWith('📄') ||
+      msg.message_body?.includes('[Media/File]') ||
+      msg.message_body?.includes('[Foto / Gambar]')
+    );
+
+    const mediaMime = metadataData.media_mime || '';
+    const mediaName = metadataData.media_name || '';
+    const mediaUrl = metadataData.media_url || null;
+
+    let mediaType: 'image' | 'audio' | 'video' | 'document' = 'image';
+    if (mediaMime.startsWith('audio/') || msg.message_body?.includes('🎙️') || msg.message_body?.includes('Pesan Suara')) {
+      mediaType = 'audio';
+    } else if (mediaMime.startsWith('video/') || msg.message_body?.includes('🎥')) {
+      mediaType = 'video';
+    } else if (mediaMime.startsWith('application/') || msg.message_body?.includes('📄') || mediaName) {
+      mediaType = 'document';
+    }
+
+    let captionText = msg.message_body || '';
+    captionText = captionText
+      .replace(/^📷\s*\[Foto\s*\/\s*Gambar\]\s*/i, '')
+      .replace(/^📷\s*\[Foto\]:?\s*/i, '')
+      .replace(/^🎙️\s*\[Pesan Suara\s*\/\s*Voice Note\]\s*/i, '')
+      .replace(/^🎥\s*\[Video\]\s*/i, '')
+      .replace(/^📄\s*\[Dokumen:[^\]]+\]\s*/i, '')
+      .replace(/^\[Media\/File\]\s*/i, '')
+      .trim();
+
+    return (
+      <div className="space-y-2">
+        {hasMedia && (
+          <div
+            className={`rounded-xl p-2.5 border ${
+              isOutbound
+                ? 'bg-emerald-700/60 border-emerald-500/40 text-white'
+                : 'bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700'
+            }`}
+          >
+            {mediaUrl ? (
+              <div className="space-y-1.5">
+                <a href={mediaUrl} target="_blank" rel="noopener noreferrer">
+                  <img
+                    src={mediaUrl}
+                    alt="Lampiran Media"
+                    className="max-h-60 rounded-lg object-cover w-full cursor-pointer hover:opacity-95 transition-opacity"
+                  />
+                </a>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div
+                    className={`p-2 rounded-lg shrink-0 ${
+                      isOutbound
+                        ? 'bg-emerald-800 text-emerald-200'
+                        : 'bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300'
+                    }`}
+                  >
+                    {mediaType === 'image' && <ImageIcon className="h-5 w-5" />}
+                    {mediaType === 'audio' && <Mic className="h-5 w-5" />}
+                    {mediaType === 'video' && <Video className="h-5 w-5" />}
+                    {mediaType === 'document' && <FileText className="h-5 w-5" />}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-xs truncate">
+                      {mediaType === 'image' && 'Foto / Gambar WhatsApp'}
+                      {mediaType === 'audio' && 'Pesan Suara (Voice Note)'}
+                      {mediaType === 'video' && 'Video WhatsApp'}
+                      {mediaType === 'document' && (mediaName || 'Dokumen / Berkas')}
+                    </p>
+                    <p
+                      className={`text-[10px] truncate ${
+                        isOutbound ? 'text-emerald-200' : 'text-slate-500 dark:text-slate-400'
+                      }`}
+                    >
+                      {mediaMime || 'Tersimpan di WhatsApp HP MTI'}
+                    </p>
+                  </div>
+                </div>
+
+                <a
+                  href={`https://wa.me/${phone}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium flex items-center gap-1 shrink-0 transition-colors ${
+                    isOutbound
+                      ? 'bg-white/20 hover:bg-white/30 text-white'
+                      : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 border border-emerald-200 dark:border-emerald-800'
+                  }`}
+                  title="Buka percakapan langsung di WhatsApp untuk melihat foto atau file aslinya"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  Lihat di WA
+                </a>
+              </div>
+            )}
+          </div>
+        )}
+
+        {captionText && (
+          <p className="whitespace-pre-wrap leading-relaxed select-text text-xs sm:text-sm">
+            {captionText}
+          </p>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="flex flex-col h-[750px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+      {/* Hidden File Input for Image Attachment */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept="image/*"
+        onChange={handleImageFileChange}
+        className="hidden"
+      />
+
       {/* Webhook Status Banner */}
       <div className="px-4 py-2.5 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
         <div className="flex items-center gap-2">
@@ -349,7 +532,7 @@ export function WhatsAppInboxTab() {
             />
           </span>
           <span className="font-medium text-slate-700 dark:text-slate-300">
-            Status Webhook WatZap:
+            Status Webhook WatZap (08138884240):
           </span>
           {webhookStatus?.configured ? (
             <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
@@ -525,7 +708,7 @@ export function WhatsAppInboxTab() {
                       {(conv.batch_name || conv.student_id_number) && (
                         <div className="flex items-center gap-1 mb-1">
                           {conv.batch_name && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium truncate max-w-[150px]">
                               {conv.batch_name}
                             </span>
                           )}
@@ -667,7 +850,7 @@ export function WhatsAppInboxTab() {
                         className={`flex flex-col ${isOutbound ? 'items-end' : 'items-start'}`}
                       >
                         <div
-                          className={`max-w-[78%] rounded-2xl px-4 py-2.5 shadow-xs text-xs sm:text-sm ${
+                          className={`max-w-[80%] rounded-2xl px-4 py-2.5 shadow-xs text-xs sm:text-sm ${
                             isOutbound
                               ? 'bg-emerald-600 text-white rounded-br-xs'
                               : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-700/80 rounded-bl-xs'
@@ -682,10 +865,8 @@ export function WhatsAppInboxTab() {
                             <span>{msg.sender_name || (isOutbound ? 'Admin MTI' : activeConv.display_name)}</span>
                           </div>
 
-                          {/* Message Body */}
-                          <p className="whitespace-pre-wrap leading-relaxed select-text">
-                            {msg.message_body}
-                          </p>
+                          {/* Message Content (with rich media support) */}
+                          {renderMessageContent(msg, isOutbound, activeConv.phone_number)}
 
                           {/* Timestamp & Status */}
                           <div
@@ -724,8 +905,55 @@ export function WhatsAppInboxTab() {
                 ))}
               </div>
 
+              {/* Attached Image Preview Bar */}
+              {attachedImage && (
+                <div className="px-3.5 py-2 bg-emerald-50 dark:bg-emerald-950/40 border-t border-emerald-200 dark:border-emerald-900/60 flex items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <img
+                      src={attachedImage.url}
+                      alt="Preview"
+                      className="h-10 w-10 object-cover rounded-lg border border-emerald-300 shrink-0"
+                    />
+                    <div className="min-w-0">
+                      <p className="font-semibold text-emerald-800 dark:text-emerald-200 text-xs truncate">
+                        {attachedImage.name}
+                      </p>
+                      <p className="text-[10px] text-emerald-600 dark:text-emerald-400">
+                        Gambar siap dikirim ke WhatsApp thalibah
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setAttachedImage(null)}
+                    className="h-7 w-7 p-0 text-emerald-800 hover:text-red-600"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+
               {/* Reply Input Bar */}
               <div className="p-3 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-end gap-2">
+                {/* Media Attachment Button */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={sendingReply || uploadingImage}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="h-[50px] px-3 rounded-xl border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 shrink-0"
+                  title="Lampirkan foto / gambar untuk dikirim ke WhatsApp"
+                >
+                  {uploadingImage ? (
+                    <Loader2 className="h-5 w-5 animate-spin text-emerald-600" />
+                  ) : (
+                    <ImageIcon className="h-5 w-5" />
+                  )}
+                </Button>
+
                 <div className="flex-1 relative">
                   <Textarea
                     placeholder="Ketik balasan untuk thalibah ini... (Enter untuk kirim, Shift+Enter untuk baris baru)"
@@ -742,7 +970,7 @@ export function WhatsAppInboxTab() {
 
                 <Button
                   onClick={handleSendReply}
-                  disabled={sendingReply || !replyText.trim()}
+                  disabled={sendingReply || (!replyText.trim() && !attachedImage)}
                   className="bg-emerald-600 hover:bg-emerald-700 text-white h-[50px] px-4 rounded-xl flex items-center gap-2 shrink-0 font-semibold text-xs shadow-xs"
                 >
                   {sendingReply ? (

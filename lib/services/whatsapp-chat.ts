@@ -141,7 +141,24 @@ export async function processIncomingWebhook(payload: any): Promise<{ handled: b
     }
 
     rawPhone = d.chat_id ? d.chat_id.split('@')[0] : (d.phone_no || d.phone || '');
-    messageBody = d.message_body || (d.has_media ? '[Media/File]' : '');
+    const hasMedia = Boolean(d.has_media);
+    const mediaMime = d.media_mime || '';
+    const mediaName = d.media_name || '';
+    const caption = (d.message_body || '').trim();
+
+    if (hasMedia) {
+      let mediaLabel = '📷 [Foto / Gambar]';
+      if (mediaMime.startsWith('audio/')) {
+        mediaLabel = '🎙️ [Pesan Suara / Voice Note]';
+      } else if (mediaMime.startsWith('video/')) {
+        mediaLabel = '🎥 [Video]';
+      } else if (mediaMime.startsWith('application/') || mediaName) {
+        mediaLabel = `📄 [Dokumen: ${mediaName || 'Berkas'}]`;
+      }
+      messageBody = caption ? `${mediaLabel}\n${caption}` : mediaLabel;
+    } else {
+      messageBody = caption;
+    }
     isFromMe = Boolean(d.is_from_me);
     watzapMsgId = d.message_id || '';
     profilePic = d.profile_picture || '';
@@ -152,7 +169,13 @@ export async function processIncomingWebhook(payload: any): Promise<{ handled: b
   } else if (isWaba) {
     const d = payload.data || {};
     rawPhone = d.phone || '';
-    messageBody = d.message_text || (d.has_media ? '[Media/File]' : '');
+    const hasMedia = Boolean(d.has_media);
+    const caption = (d.message_text || '').trim();
+    if (hasMedia) {
+      messageBody = caption ? `📎 [Media]\n${caption}` : '📎 [Media / Berkas]';
+    } else {
+      messageBody = caption;
+    }
     isFromMe = false;
     watzapMsgId = d.message_raw?.id || `waba_${Date.now()}`;
     if (d.received_at) {
@@ -371,6 +394,7 @@ export async function getConversationById(id: string): Promise<WhatsAppConversat
 export async function sendReplyMessage(params: {
   conversationId: string;
   messageText: string;
+  mediaUrl?: string;
   adminName: string;
   adminId?: string;
 }): Promise<{ success: boolean; message?: WhatsAppMessage; error?: string }> {
@@ -379,13 +403,22 @@ export async function sendReplyMessage(params: {
     return { success: false, error: 'Percakapan tidak ditemukan' };
   }
 
-  const text = params.messageText.trim();
-  if (!text) {
-    return { success: false, error: 'Pesan balasan tidak boleh kosong' };
+  const text = (params.messageText || '').trim();
+  const mediaUrl = (params.mediaUrl || '').trim();
+  if (!text && !mediaUrl) {
+    return { success: false, error: 'Pesan balasan atau media tidak boleh kosong' };
   }
 
   // 1. Send via WatZap Gateway
-  const sendRes = await whatsappService.sendTextMessage(conv.phone_number, text);
+  let sendRes;
+  let savedMessageText = text;
+
+  if (mediaUrl) {
+    sendRes = await whatsappService.sendImageUrl(conv.phone_number, mediaUrl, text || undefined);
+    savedMessageText = text ? `📷 [Foto]: ${text}` : `📷 [Foto]`;
+  } else {
+    sendRes = await whatsappService.sendTextMessage(conv.phone_number, text);
+  }
   if (!sendRes.success) {
     return {
       success: false,
@@ -430,7 +463,7 @@ export async function sendReplyMessage(params: {
          unread_count = 0,
          updated_at = NOW()
        WHERE id = $2`,
-      [text, conv.id]
+      [savedMessageText, conv.id]
     );
 
     return msgRes.rows[0];
