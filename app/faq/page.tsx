@@ -188,15 +188,16 @@ export default function FAQPage() {
       {/* Main Content Area */}
       <main className="max-w-4xl mx-auto px-4 sm:px-6 -mt-6 relative z-20">
         {/* Category Pills & Count */}
-        <div className="bg-white rounded-2xl p-3 sm:p-4 shadow-md border border-gray-200/80 mb-6 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-1.5 overflow-x-auto py-1 scrollbar-none w-full sm:w-auto">
+        <div className="bg-white rounded-2xl p-3 sm:p-4 shadow-md border border-gray-200/80 mb-6 space-y-3">
+          {/* Horizontal scrollable category pills without truncation or ugly scrollbar */}
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide py-1 px-0.5 -mx-0.5 touch-pan-x">
             <button
               onClick={() => setSelectedCategory('all')}
               type="button"
-              className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all ${
+              className={`shrink-0 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all shadow-xs ${
                 selectedCategory === 'all'
-                  ? 'bg-emerald-800 text-white shadow-sm'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  ? 'bg-emerald-800 text-white shadow-sm ring-2 ring-emerald-800/20'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 active:scale-95'
               }`}
             >
               Semua ({totalQuestionsCount})
@@ -206,10 +207,10 @@ export default function FAQPage() {
                 key={idx}
                 onClick={() => setSelectedCategory(cat.category)}
                 type="button"
-                className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all ${
+                className={`shrink-0 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all shadow-xs ${
                   selectedCategory === cat.category
-                    ? 'bg-emerald-800 text-white shadow-sm'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'bg-emerald-800 text-white shadow-sm ring-2 ring-emerald-800/20'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 active:scale-95'
                 }`}
               >
                 {cat.category} ({cat.questions?.length || 0})
@@ -217,8 +218,19 @@ export default function FAQPage() {
             ))}
           </div>
 
-          <div className="text-xs text-gray-500 font-semibold px-2">
-            Menampilkan <strong className="text-gray-900">{filteredItems.length}</strong> pertanyaan
+          {/* Question count & active filter hint */}
+          <div className="flex items-center justify-between pt-2 border-t border-gray-100 text-xs text-gray-500 font-semibold px-1">
+            <span>
+              Menampilkan <strong className="text-gray-900 font-bold">{filteredItems.length}</strong> pertanyaan
+            </span>
+            {selectedCategory !== 'all' && (
+              <button
+                onClick={() => setSelectedCategory('all')}
+                className="text-emerald-700 hover:text-emerald-900 font-bold text-[11px] underline"
+              >
+                Lihat Semua Kategori
+              </button>
+            )}
           </div>
         </div>
 
@@ -251,7 +263,7 @@ export default function FAQPage() {
                 Reset Pencarian
               </Button>
               <a
-                href="https://wa.me/628123456789"
+                href="https://wa.me/628138884240"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 bg-emerald-800 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs sm:text-sm font-bold shadow-sm transition-all"
@@ -333,7 +345,7 @@ export default function FAQPage() {
               </p>
               <div className="flex flex-wrap justify-center gap-3">
                 <a
-                  href="https://wa.me/628123456789"
+                  href="https://wa.me/628138884240"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 bg-emerald-800 hover:bg-emerald-700 text-white font-bold px-6 py-3 rounded-xl shadow-md transition-all text-xs sm:text-sm"
