@@ -20,6 +20,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { LogoutConfirmModal } from '@/components/LogoutConfirmModal';
 import { PersonaSwitcher } from '@/components/PersonaSwitcher';
+import { HeaderBatchSelector } from '@/components/HeaderBatchSelector';
 import { getPersonaLabel } from '@/lib/roles';
 import { formatDynamicNit } from '@/lib/nit';
 
@@ -337,6 +338,9 @@ export default function GlobalAuthenticatedHeader({
 
           {/* Right Section - Actions & Profile */}
           <div className="flex items-center space-x-2 md:space-x-3">
+
+            {/* Batch Selector in Topbar */}
+            {isMounted && <HeaderBatchSelector />}
 
             {/* Quick FAQ / Bantuan Button - Teks selalu terlihat jelas di HP & Desktop */}
             {isMounted && (

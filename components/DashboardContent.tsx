@@ -81,6 +81,28 @@ export default function DashboardContent() {
   const [isThalibahRankModalOpen, setIsThalibahRankModalOpen] = useState(false);
 
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const urlBatchId = searchParams?.get('batch_id');
+    if (urlBatchId) {
+      setSelectedBatchId(urlBatchId);
+      return;
+    }
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('selected_batch_id') : null;
+    if (stored) {
+      setSelectedBatchId(stored);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    const handleBatchChange = (e: any) => {
+      if (e.detail?.batchId) {
+        setSelectedBatchId(e.detail.batchId);
+      }
+    };
+    window.addEventListener('batch-changed', handleBatchChange);
+    return () => window.removeEventListener('batch-changed', handleBatchChange);
+  }, []);
   const [isBatchDropdownOpen, setIsBatchDropdownOpen] = useState(false);
 
   // Default selalu batch aktif; pilihan batch lama dari browser tidak dibaca lagi.
@@ -167,6 +189,59 @@ export default function DashboardContent() {
     isLoading: prayersLoading,
     updateManualCity
   } = usePrayerTimes()
+
+  const upcomingPrayer = useMemo(() => {
+    if (!prayerTimes) return null;
+    const now = new Date();
+    const jakartaTime = now.toLocaleTimeString('en-US', { timeZone: 'Asia/Jakarta', hour12: false });
+    const parts = jakartaTime.split(':');
+    const currH = parseInt(parts[0], 10);
+    const currM = parseInt(parts[1], 10);
+    const currentMinutes = currH * 60 + currM;
+
+    const prayers = [
+      { name: 'Subuh', time: prayerTimes.Fajr },
+      { name: 'Dzuhur', time: prayerTimes.Dhuhr },
+      { name: 'Ashar', time: prayerTimes.Asr },
+      { name: 'Maghrib', time: prayerTimes.Maghrib },
+      { name: 'Isya', time: prayerTimes.Isha },
+    ];
+
+    for (const prayer of prayers) {
+      if (!prayer.time) continue;
+      const [h, m] = prayer.time.split(':').map(Number);
+      const prayerMinutes = h * 60 + m;
+      if (prayerMinutes > currentMinutes) {
+        const diff = prayerMinutes - currentMinutes;
+        const hoursLeft = Math.floor(diff / 60);
+        const minsLeft = diff % 60;
+        const timeLeft = hoursLeft > 0 ? (hoursLeft + 'j ' + minsLeft + 'm') : (minsLeft + 'm');
+        return {
+          name: prayer.name,
+          time: prayer.time,
+          timeLeft,
+          isTomorrow: false,
+        };
+      }
+    }
+
+    if (prayerTimes.Fajr) {
+      const [h, m] = prayerTimes.Fajr.split(':').map(Number);
+      const fajrMinutes = h * 60 + m;
+      const diff = (24 * 60 - currentMinutes) + fajrMinutes;
+      const hoursLeft = Math.floor(diff / 60);
+      const minsLeft = diff % 60;
+      const timeLeft = hoursLeft > 0 ? (hoursLeft + 'j ' + minsLeft + 'm') : (minsLeft + 'm');
+      return {
+        name: 'Subuh',
+        time: prayerTimes.Fajr,
+        timeLeft,
+        isTomorrow: true,
+      };
+    }
+
+    return null;
+  }, [prayerTimes]);
 
   const handleLocationChange = () => {
     const newCity = window.prompt('Masukkan nama kota Ukhti untuk jadwal shalat (contoh: Bogor, Bandung, Surabaya):', locationName === 'Memuat...' ? '' : locationName)
@@ -596,12 +671,7 @@ export default function DashboardContent() {
                   <h1 className="text-xl sm:text-3xl lg:text-4xl font-black tracking-tight break-words leading-tight">
                     {welcomeTheme.greeting}, <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-white/60">{user?.full_name?.split(' ')[0] || 'Ukhti'}!</span>
                   </h1>
-                  {user?.student_id_number && (
-                    <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-mono font-bold bg-white/20 text-white border border-white/30 backdrop-blur-sm shadow-xs self-center">
-                      <Award className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-yellow-300" />
-                      <span>NIT: {user.student_id_number}</span>
-                    </div>
-                  )}
+                  {/* NIT dihilangkan dari greeting card agar lebih minimalis */}
                 </div>
                 <div className="flex flex-wrap items-center gap-x-2.5 sm:gap-x-4 gap-y-0.5 sm:gap-y-1 text-white/80 text-[11px] sm:text-sm font-semibold">
                   <div className="flex items-center gap-1 sm:gap-1.5">
@@ -624,166 +694,45 @@ export default function DashboardContent() {
                 </div>
               </div>
 
-              {/* Ultra-Compact Prayer Times Bar */}
+              {/* Jam Shalat Yang Akan Datang */}
               {prayersLoading ? (
-                <div className="flex items-center gap-3 sm:gap-4 pt-1 sm:pt-2 animate-pulse">
-                   <div className="h-3.5 w-10 sm:h-4 sm:w-12 bg-white/10 rounded-full" />
-                   <div className="h-3.5 w-10 sm:h-4 sm:w-12 bg-white/10 rounded-full" />
-                   <div className="h-3.5 w-10 sm:h-4 sm:w-12 bg-white/10 rounded-full" />
+                <div className="flex items-center gap-2 pt-1 animate-pulse">
+                   <div className="h-4 w-32 bg-white/10 rounded-full" />
                 </div>
-              ) : prayerTimes ? (
-                <div className="flex items-center gap-x-3 sm:gap-x-6 pt-1 sm:pt-2 overflow-x-auto scrollbar-hide">
-                  {[
-                    { label: 'Subuh', time: prayerTimes.Fajr },
-                    { label: 'Dzuhur', time: prayerTimes.Dhuhr },
-                    { label: 'Ashar', time: prayerTimes.Asr },
-                    { label: 'Maghrib', time: prayerTimes.Maghrib },
-                    { label: 'Isya', time: prayerTimes.Isha },
-                  ].map((p, i) => (
-                    <div key={i} className="flex items-center gap-1.5 sm:gap-2 whitespace-nowrap">
-                      <div className="flex flex-col items-start leading-tight">
-                        <span className="text-[7.5px] sm:text-[8px] font-bold text-white/40 uppercase tracking-tighter">{p.label}</span>
-                        <span className="text-xs sm:text-sm font-black text-white tracking-tight">{p.time}</span>
-                      </div>
-                      {i < 4 && <div className="ml-0.5 sm:ml-1 h-3 sm:h-4 w-px bg-white/10" />}
-                    </div>
-                  ))}
+              ) : upcomingPrayer ? (
+                <div className="flex items-center gap-1.5 sm:gap-2 pt-0.5 sm:pt-1 text-white/90">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 sm:py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-[10px] sm:text-xs font-semibold">
+                    <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-300 shrink-0" />
+                    <span className="text-white/70">Shalat Berikutnya:</span>
+                    <span className="font-bold text-white">{upcomingPrayer.name}</span>
+                    <span className="font-mono font-bold text-amber-300">{upcomingPrayer.time}</span>
+                    <span className="text-[9px] sm:text-[10px] text-white/60">({upcomingPrayer.timeLeft})</span>
+                  </div>
                 </div>
-              ) : (
-                <div className="text-[10px] text-white/40 italic pt-1 sm:pt-2">
-                  Jadwal tidak tersedia
-                </div>
-              )}
+              ) : null}
             </div>
             
-            <div className="flex items-center gap-2 sm:gap-3 w-full md:w-auto overflow-x-auto pb-0.5 sm:pb-0 scrollbar-hide snap-x shrink-0">
-              {/* Batch Selector Card */}
-              {availableBatches.length > 0 && (
-                <div className="relative shrink-0 snap-center">
-                  <div
-                    onClick={() => availableBatches.length > 1 && setIsBatchDropdownOpen(prev => !prev)}
-                    className={cn(
-                      "h-13 sm:h-16 lg:h-20 px-3 sm:px-4 min-w-[6.8rem] sm:min-w-[8rem] lg:min-w-[9.5rem] rounded-xl sm:rounded-2xl lg:rounded-[1.75rem] bg-white/15 backdrop-blur-xl border border-white/25 flex flex-col items-center justify-center shadow-lg transition-all",
-                      availableBatches.length > 1 ? "cursor-pointer hover:bg-white/25 active:scale-95" : ""
-                    )}
-                  >
-                    <p className="text-[8px] sm:text-[9px] lg:text-[10px] uppercase font-black text-amber-300 tracking-widest flex items-center gap-1">
-                      <Layers className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-300" />
-                      Angkatan
-                    </p>
-                    <div className="flex items-center gap-1 sm:gap-1.5 mt-0.5">
-                      <span className="text-xs sm:text-sm font-black text-white drop-shadow-sm whitespace-nowrap">
-                        {formatBatchDisplay(selectedBatch?.name || 'Batch Aktif')}
-                      </span>
-                      {availableBatches.length > 1 && (
-                        <ChevronDown className={cn("w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-300 transition-transform duration-200", isBatchDropdownOpen && "rotate-180")} />
-                      )}
-                    </div>
-                    {/* Subtitle with status badge */}
-                    <span className={cn(
-                      "text-[7px] sm:text-[8px] lg:text-[9px] font-bold uppercase tracking-wider px-1.5 sm:px-2 py-0.5 mt-0.5 rounded-full border",
-                      selectedBatch?.status === 'ongoing' ? "text-emerald-300 bg-emerald-950/60 border-emerald-500/30" :
-                      selectedBatch?.status === 'open' ? "text-amber-200 bg-amber-950/60 border-amber-400/30" :
-                      "text-white/70 bg-white/10 border-white/10"
-                    )}>
-                      {selectedBatch?.status === 'ongoing' ? 'Sedang Berjalan' :
-                       selectedBatch?.status === 'open' ? 'Pendaftaran' :
-                       selectedBatch?.status === 'closed' ? 'Selesai' : 'Aktif'}
-                    </span>
-                  </div>
-
-                  {/* Dropdown Menu */}
-                  {isBatchDropdownOpen && availableBatches.length > 1 && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setIsBatchDropdownOpen(false)} />
-                      <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 w-64 bg-slate-900/95 backdrop-blur-2xl border border-white/20 rounded-2xl shadow-2xl p-2 space-y-1 animate-fadeIn">
-                        <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-white/10 mb-1">
-                          <p className="text-[10px] font-black text-amber-300 uppercase tracking-widest flex items-center gap-1.5">
-                            <Layers className="w-3 h-3" />
-                            Ganti Angkatan
-                          </p>
-                          <span className="text-[9px] font-bold text-white/40">{availableBatches.length} Pilihan</span>
-                        </div>
-                        <div className="max-h-60 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
-                          {availableBatches.map(b => {
-                            const isSelected = selectedBatch?.id === b.id || effectiveBatchId === b.id;
-                            return (
-                              <button
-                                key={b.id}
-                                type="button"
-                                onClick={() => {
-                                  handleSelectBatch(b.id);
-                                  setIsBatchDropdownOpen(false);
-                                }}
-                                className={cn(
-                                  "w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between gap-2",
-                                  isSelected
-                                    ? "bg-amber-500/25 text-amber-200 border border-amber-400/40 shadow-sm"
-                                    : "text-white/80 hover:bg-white/10 hover:text-white"
-                                )}
-                              >
-                                <div className="flex flex-col min-w-0">
-                                  <span className="truncate font-black text-white">{b.name}</span>
-                                </div>
-                                {b.status && (
-                                  <span className={cn(
-                                    "text-[9px] px-2 py-0.5 rounded-full font-black uppercase shrink-0",
-                                    b.status === 'ongoing' ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" :
-                                    b.status === 'open' ? "bg-amber-500/20 text-amber-300 border border-amber-500/30" :
-                                    "bg-white/10 text-white/50"
-                                  )}>
-                                    {b.status === 'ongoing' ? 'Berjalan' : b.status === 'open' ? 'Registrasi' : b.status}
-                                  </span>
-                                )}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-
-              {/* Thalibah Rank Card */}
-              {userRank && (
+            {/* Right Section: Compact Thalibah Rank (jika ada) */}
+            {userRank && (
+              <div className="shrink-0 self-start md:self-center pt-2 md:pt-0">
                 <div 
-                  className="relative group shrink-0 snap-center cursor-pointer"
+                  className="relative group cursor-pointer"
                   onClick={() => setIsThalibahRankModalOpen(true)}
                 >
-                  <div className="absolute inset-0 bg-gradient-to-b from-amber-400/20 to-transparent blur-xl opacity-50 rounded-3xl group-hover:opacity-70 transition-opacity" />
-                  <div className="relative h-13 sm:h-16 lg:h-20 px-3 sm:px-5 lg:px-0 lg:w-32 rounded-xl sm:rounded-2xl lg:rounded-[1.75rem] bg-gradient-to-b from-amber-500/10 to-black/40 backdrop-blur-xl border border-amber-500/20 flex flex-col justify-center items-center shadow-lg transition-all group-hover:border-amber-400/50 group-hover:scale-105" title={userRank?.week ? `Klik untuk evaluasi skor kedisiplinan pekan ${userRank.week}` : "Klik untuk evaluasi skor"}>
-                    <div className="flex items-center gap-1 sm:gap-1.5 lg:mb-0.5">
-                       <Trophy className="w-3 h-3 sm:w-3.5 sm:h-3.5 lg:w-4 lg:h-4 text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.5)]" />
-                       <p className="text-[8px] sm:text-[9px] lg:text-[10px] uppercase font-black text-amber-200/80 tracking-wider drop-shadow-md">{userRank?.week ? `Disiplin P${userRank.week}` : "Peringkat"}</p>
+                  <div className="absolute inset-0 bg-gradient-to-b from-amber-400/20 to-transparent blur-xl opacity-50 rounded-2xl group-hover:opacity-70 transition-opacity" />
+                  <div className="relative h-11 sm:h-13 px-3 sm:px-4 rounded-xl sm:rounded-2xl bg-gradient-to-b from-amber-500/10 to-black/40 backdrop-blur-xl border border-amber-500/20 flex flex-col justify-center items-center shadow-lg transition-all group-hover:border-amber-400/50 group-hover:scale-105" title={userRank?.week ? ("Klik untuk evaluasi skor kedisiplinan pekan " + userRank.week) : "Klik untuk evaluasi skor"}>
+                    <div className="flex items-center gap-1 sm:gap-1.5">
+                       <Trophy className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.5)]" />
+                       <p className="text-[7.5px] sm:text-[9px] uppercase font-black text-amber-200/80 tracking-wider drop-shadow-md">{userRank?.week ? ("Disiplin P" + userRank.week) : "Peringkat"}</p>
                     </div>
                     <div className="flex items-baseline gap-1 mt-0.5">
-                      <span className="text-xl sm:text-2xl lg:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-b from-amber-100 to-amber-400 drop-shadow-sm">{userRank.rank}</span>
-                      <span className="text-[10px] sm:text-xs lg:text-sm font-bold text-amber-500/60">/ {userRank.total}</span>
+                      <span className="text-base sm:text-lg font-black text-transparent bg-clip-text bg-gradient-to-b from-amber-100 to-amber-400 drop-shadow-sm">{userRank.rank}</span>
+                      <span className="text-[9px] sm:text-[10px] font-bold text-amber-500/60">/ {userRank.total}</span>
                     </div>
                   </div>
                 </div>
-              )}
-
-              {/* Pekan / Status Card */}
-              <div className="shrink-0 snap-center h-13 sm:h-16 lg:h-20 px-3 sm:px-4 lg:px-5 lg:w-auto min-w-[4.8rem] sm:min-w-[5.5rem] lg:min-w-[6.5rem] rounded-xl sm:rounded-2xl lg:rounded-[1.75rem] bg-white/5 backdrop-blur-xl border border-white/10 flex flex-col items-center justify-center shadow-lg transition-all hover:bg-white/10">
-                <p className="text-[8px] sm:text-[9px] lg:text-[10px] uppercase font-black text-white/50 tracking-widest">
-                  {isBatchUpcoming ? 'Status' : 'Pekan'}
-                </p>
-                {isBatchUpcoming ? (
-                  <div className="flex flex-col items-center mt-0.5">
-                    <span className="text-xs sm:text-sm font-black text-amber-300 uppercase tracking-tight">Pra-KBM</span>
-                    <span className="text-[7.5px] sm:text-[8px] lg:text-[9px] font-semibold text-white/70">Pendaftaran</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 sm:gap-3 lg:gap-2 mt-0.5">
-                    <button onClick={() => setCurrentWeek(w => Math.max(1, w - 1))} className="text-white/40 hover:text-white transition-colors w-4 sm:w-6 lg:w-auto text-center font-medium">‹</button>
-                    <p className="text-xl sm:text-2xl lg:text-3xl font-black text-white/90">{currentWeek}</p>
-                    <button onClick={() => setCurrentWeek(w => w + 1)} className="text-white/40 hover:text-white transition-colors w-4 sm:w-6 lg:w-auto text-center font-medium">›</button>
-                  </div>
-                )}
               </div>
-            </div>
+            )}
           </div>
         </div>
 
