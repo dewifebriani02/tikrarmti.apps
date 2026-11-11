@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { WhatsAppInboxTab } from '@/components/admin/whatsapp/WhatsAppInboxTab';
 
 interface WhatsAppStatus {
   configured: boolean;
@@ -626,7 +627,17 @@ function CcSelectorCard({
 
 
 export default function AdminWhatsAppPage() {
-  const [activeTab, setActiveTab] = useState<'broadcast' | 'individual'>('broadcast');
+  const [activeTab, setActiveTab] = useState<'inbox' | 'broadcast' | 'individual'>('inbox');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get('tab');
+      if (tab === 'broadcast' || tab === 'individual' || tab === 'inbox') {
+        setActiveTab(tab);
+      }
+    }
+  }, []);
 
   // Status state
   const [status, setStatus] = useState<WhatsAppStatus | null>(null);
@@ -1105,27 +1116,38 @@ export default function AdminWhatsAppPage() {
           </div>
 
           {/* Tab Navigation */}
-          <div className="flex items-center gap-2 mt-4 pt-3 border-t border-gray-100">
+          <div className="flex items-center gap-2 mt-4 pt-3 border-t border-gray-100 overflow-x-auto pb-1">
+            <button
+              onClick={() => setActiveTab('inbox')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+                activeTab === 'inbox'
+                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200/70'
+              }`}
+            >
+              <MessageSquare className="h-4 w-4" />
+              Kotak Masuk (Live Chat Inbox)
+            </button>
             <button
               onClick={() => setActiveTab('broadcast')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
                 activeTab === 'broadcast'
                   ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200/70'
               }`}
             >
               <Users className="h-4 w-4" />
-              Broadcast Thalibah Aktif (v_active_thalibah)
+              Broadcast Thalibah Aktif
             </button>
             <button
               onClick={() => setActiveTab('individual')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
                 activeTab === 'individual'
                   ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200/70'
               }`}
             >
-              <MessageSquare className="h-4 w-4" />
+              <Send className="h-4 w-4" />
               Kirim Pesan Perorangan
             </button>
           </div>
@@ -1185,6 +1207,13 @@ export default function AdminWhatsAppPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* TAB 0: KOTAK MASUK & LIVE CHAT INBOX */}
+        {activeTab === 'inbox' && (
+          <div className="space-y-6">
+            <WhatsAppInboxTab />
+          </div>
+        )}
 
         {/* TAB 1: BROADCAST PER BATCH (MENGGUNAKAN v_active_thalibah) */}
         {activeTab === 'broadcast' && (

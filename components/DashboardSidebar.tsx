@@ -177,7 +177,7 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
       });
       baseItems.push({
         href: '/admin/whatsapp',
-        label: 'Broadcast WhatsApp',
+        label: 'WhatsApp Inbox & Broadcast',
         icon: <MessageSquare className="h-5 w-5 text-emerald-600" />,
       });
       baseItems.push({
