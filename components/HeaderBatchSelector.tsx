@@ -84,7 +84,21 @@ export function HeaderBatchSelector() {
     if (match) {
       return `Batch ${match[1]}`;
     }
-    return name.length > 10 ? name.substring(0, 10) + '...' : name;
+    return name.length > 12 ? name.substring(0, 12) + '...' : name;
+  };
+
+  const parseBatchDisplay = (name?: string) => {
+    if (!name) return { title: 'Batch', subtitle: '' };
+    const match = name.match(/(Batch\s*\d+|Angkatan\s*\d+)/i);
+    if (match) {
+      const title = match[1].replace(/\s+/g, ' ');
+      const subtitle = name
+        .replace(match[0], '')
+        .replace(/^[\s\-–—:•|]+|[\s\-–—:•|]+$/g, '')
+        .trim();
+      return { title, subtitle };
+    }
+    return { title: name, subtitle: '' };
   };
 
   const handleSelect = (batch: any) => {
@@ -113,10 +127,10 @@ export function HeaderBatchSelector() {
         type="button"
         onClick={() => setIsOpen(prev => !prev)}
         className={cn(
-          "flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer shadow-2xs select-none",
+          "flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer shadow-xs select-none",
           isOpen
-            ? "bg-amber-100 text-amber-900 border-amber-400/80"
-            : "bg-amber-50/80 hover:bg-amber-100/80 text-amber-900 border-amber-300/70"
+            ? "bg-amber-100 text-amber-900 border-amber-400"
+            : "bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300"
         )}
         title="Ganti Angkatan / Batch"
       >
@@ -128,47 +142,64 @@ export function HeaderBatchSelector() {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-60 sm:w-64 bg-white/95 backdrop-blur-xl border border-amber-200/80 rounded-2xl shadow-xl p-2 z-[100] animate-fadeIn">
-          <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-gray-100 mb-1">
-            <p className="text-[10px] font-black text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
-              <Layers className="w-3 h-3 text-amber-600" />
+        <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-white border border-amber-200/90 rounded-2xl shadow-2xl p-2 z-[100] animate-fadeIn">
+          <div className="flex items-center justify-between px-2.5 py-2 border-b border-amber-100 mb-1.5 bg-amber-50/50 rounded-xl">
+            <p className="text-[11px] font-bold text-amber-950 uppercase tracking-wider flex items-center gap-1.5">
+              <Layers className="w-3.5 h-3.5 text-amber-600" />
               Pilih Angkatan
             </p>
-            <span className="text-[9px] font-bold text-gray-400">{availableBatches.length} Batch</span>
+            <span className="text-[10px] font-bold text-amber-800 bg-amber-100/70 px-2 py-0.5 rounded-full">
+              {availableBatches.length} Batch
+            </span>
           </div>
 
-          <div className="max-h-60 overflow-y-auto space-y-1 custom-scrollbar pr-0.5">
+          <div className="max-h-72 overflow-y-auto space-y-1 custom-scrollbar pr-0.5">
             {availableBatches.map(b => {
               const isSelected = selectedBatch?.id === b.id;
+              const { title, subtitle } = parseBatchDisplay(b.name);
               return (
                 <button
                   key={b.id}
                   type="button"
                   onClick={() => handleSelect(b)}
                   className={cn(
-                    "w-full text-left px-2.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between gap-2 cursor-pointer",
+                    "w-full text-left px-3 py-2 rounded-xl transition-all flex items-center justify-between gap-2.5 cursor-pointer",
                     isSelected
-                      ? "bg-amber-50 text-amber-900 border border-amber-300/80 shadow-2xs"
-                      : "text-gray-700 hover:bg-gray-50 hover:text-gray-900 border border-transparent"
+                      ? "bg-amber-50/90 text-amber-950 border border-amber-300 shadow-2xs"
+                      : "text-gray-800 hover:bg-amber-50/40 hover:text-gray-900 border border-transparent"
                   )}
                 >
-                  <div className="flex items-center gap-2 min-w-0">
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
                     {isSelected ? (
-                      <Check className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <div className="w-4 h-4 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0">
+                        <Check className="w-2.5 h-2.5 stroke-[3]" />
+                      </div>
                     ) : (
-                      <div className="w-3.5 h-3.5 shrink-0" />
+                      <div className="w-4 h-4 rounded-full border border-gray-300 shrink-0" />
                     )}
-                    <span className="truncate font-bold text-gray-900">{b.name}</span>
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <span className={cn(
+                        "text-xs truncate",
+                        isSelected ? "font-black text-amber-950" : "font-bold text-gray-900"
+                      )}>
+                        {title}
+                      </span>
+                      {subtitle ? (
+                        <span className="text-[10px] text-gray-500 truncate leading-tight mt-0.5 font-medium">
+                          {subtitle}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
 
                   {b.status && (
                     <span className={cn(
-                      "text-[9px] px-1.5 py-0.5 rounded-full font-black uppercase shrink-0",
-                      b.status === 'ongoing' ? "bg-emerald-50 text-emerald-700 border border-emerald-200" :
-                      b.status === 'open' ? "bg-amber-50 text-amber-700 border border-amber-200" :
-                      "bg-gray-100 text-gray-500"
+                      "text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider shrink-0",
+                      b.status === 'ongoing' ? "bg-emerald-100 text-emerald-800 border border-emerald-300" :
+                      b.status === 'open' ? "bg-amber-100 text-amber-800 border border-amber-300" :
+                      "bg-gray-100 text-gray-600 border border-gray-200"
                     )}>
-                      {b.status === 'ongoing' ? 'Berjalan' : b.status === 'open' ? 'Registrasi' : b.status}
+                      {b.status === 'ongoing' ? 'Berjalan' : b.status === 'open' ? 'Registrasi' : b.status === 'closed' ? 'Selesai' : b.status}
                     </span>
                   )}
                 </button>
