@@ -257,7 +257,7 @@ export default function ThalibahBatch2Page() {
   const [isAlumni, setIsAlumni] = useState(false)
   const [naikJuzEligibility, setNaikJuzEligibility] = useState<NaikJuzEligibility | null>(null)
   const [checkingEligibility, setCheckingEligibility] = useState(false)
-  const [murojaahCommitmentChecked, setMurojaahCommitmentChecked] = useState(false)
+  const [murojaahCommitmentChecked, setMurojaahCommitmentChecked] = useState(true)
 
 
 
@@ -327,16 +327,22 @@ export default function ThalibahBatch2Page() {
         questions: registrationData.questions || ''
       })
     } else if (typeof window !== 'undefined' && !tikrarRegistration && !hasPrefilledRef.current) {
+      let loadedFromDraft = false
       try {
         const savedDraft = localStorage.getItem(STORAGE_KEY)
         if (savedDraft) {
           const draft = JSON.parse(savedDraft)
           // Only restore if it's from the same user
           if (draft.user_id === user?.id) {
+            hasPrefilledRef.current = true
+            loadedFromDraft = true
             // Convert old boolean format to new string format for has_permission
             const formData = draft.formData
             if (typeof formData.has_permission === 'boolean') {
               formData.has_permission = formData.has_permission ? 'yes' : ''
+            }
+            if (formData.permission_phone && !formData.permission_phone_validation) {
+              formData.permission_phone_validation = formData.permission_phone
             }
             setFormData(formData)
             setCurrentSection(draft.currentSection || 1)
@@ -345,8 +351,33 @@ export default function ThalibahBatch2Page() {
       } catch (error) {
         console.error('Error loading draft:', error)
       }
+
+      // Prefill for returning alumni if no draft was loaded
+      if (!loadedFromDraft && registrations && registrations.length > 0) {
+        hasPrefilledRef.current = true
+        const prevReg = registrations[0] as any
+        setFormData(prev => ({
+          ...prev,
+          understands_commitment: prevReg.understands_commitment ?? prev.understands_commitment,
+          tried_simulation: prevReg.tried_simulation ?? prev.tried_simulation,
+          no_negotiation: prevReg.no_negotiation ?? prev.no_negotiation,
+          saved_contact: prevReg.saved_contact ?? prev.saved_contact,
+          has_permission: prevReg.has_permission || prev.has_permission,
+          permission_name: prevReg.permission_name || prev.permission_name,
+          permission_phone: prevReg.permission_phone || prev.permission_phone,
+          permission_phone_validation: prevReg.permission_phone || prev.permission_phone_validation,
+          no_travel_plans: prevReg.no_travel_plans ?? prev.no_travel_plans,
+          motivation: prevReg.motivation || prev.motivation,
+          ready_for_team: prevReg.ready_for_team || prev.ready_for_team,
+          infaq_amount: prevReg.infaq_amount || prev.infaq_amount,
+          main_time_slot: prevReg.main_time_slot || prev.main_time_slot,
+          backup_time_slot: prevReg.backup_time_slot || prev.backup_time_slot,
+          time_commitment: prevReg.time_commitment ?? prev.time_commitment,
+          understands_program: prevReg.understands_program ?? prev.understands_program,
+        }))
+      }
     }
-  }, [tikrarRegistration, user?.id])
+  }, [tikrarRegistration, user?.id, registrations])
 
   // Fetch user profile data from users table
   useEffect(() => {
@@ -408,6 +439,9 @@ export default function ThalibahBatch2Page() {
           const json = await res.json()
           if (json.success && json.data) {
             setNaikJuzEligibility(json.data)
+            if (json.data.is_alumni && json.data.is_naik_juz && !json.data.is_40x_completed) {
+              setMurojaahCommitmentChecked(true)
+            }
           }
         }
       } catch (err) {
@@ -476,28 +510,42 @@ export default function ThalibahBatch2Page() {
     setIsMounted(true)
   }, [])
 
+  const scrollToFirstError = (errorKeys: string[]) => {
+    if (!errorKeys || errorKeys.length === 0) return
+    setTimeout(() => {
+      for (const key of errorKeys) {
+        const target =
+          document.getElementById(key) ||
+          document.querySelector(`[data-field="${key}"]`) ||
+          document.querySelector(`[name="${key}"]`)
+        if (target) {
+          const container = (target.closest('.space-y-2, .space-y-3, .space-y-4') as HTMLElement) || target
+          container.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          const inputElement = container.querySelector('input:not([type="hidden"]), select, textarea') as HTMLElement
+          if (inputElement && typeof inputElement.focus === 'function') {
+            try {
+              inputElement.focus()
+            } catch (_) {}
+          }
+          return
+        }
+      }
+
+      // Fallback to first error text paragraph (excluding span asterisks)
+      const errorParagraphs = document.querySelectorAll('p.text-red-500, p[class*="text-red"]')
+      if (errorParagraphs.length > 0) {
+        const firstP = errorParagraphs[0] as HTMLElement
+        const container = (firstP.closest('.space-y-2, .space-y-3, .space-y-4') as HTMLElement) || firstP
+        container.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+    }, 100)
+  }
+
   // Auto-scroll to first error field when validation fails
   useEffect(() => {
-    if (Object.keys(errors).length > 0) {
-      // Small delay to ensure error messages are rendered
-      const timer = setTimeout(() => {
-        // Find first error message (text-red-500 class is used for errors)
-        const errorMessages = document.querySelectorAll('.text-red-500')
-        if (errorMessages.length > 0) {
-          const firstError = errorMessages[0] as HTMLElement
-          // Get the parent container that contains the field
-          const fieldContainer = firstError.closest('.space-y-2, .space-y-3') as HTMLElement
-          if (fieldContainer) {
-            fieldContainer.scrollIntoView({ behavior: 'smooth', block: 'center' })
-            // Try to focus the input/select inside the container
-            const inputElement = fieldContainer.querySelector('input, select, textarea') as HTMLElement
-            if (inputElement && typeof inputElement.focus === 'function') {
-              inputElement.focus()
-            }
-          }
-        }
-      }, 100)
-      return () => clearTimeout(timer)
+    const errorKeys = Object.keys(errors)
+    if (errorKeys.length > 0) {
+      scrollToFirstError(errorKeys)
     }
   }, [errors])
 
@@ -534,7 +582,7 @@ export default function ThalibahBatch2Page() {
     return `${formatDate(start)} - ${formatDate(end)}`;
   };
 
-  const validateSection = (section: number): boolean => {
+  const validateSection = (section: number): { isValid: boolean; errors: Record<string, string> } => {
     const newErrors: Record<string, string> = {}
 
     if (section === 0) {
@@ -648,19 +696,31 @@ export default function ThalibahBatch2Page() {
     }
 
     setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+    return {
+      isValid: Object.keys(newErrors).length === 0,
+      errors: newErrors
+    }
   }
 
   const handleNext = () => {
-    if (validateSection(currentSection)) {
-      if (currentSection < totalSections) {
+    const { isValid, errors: validationErrors } = validateSection(currentSection)
+    if (isValid) {
+      setErrors({})
+      if (currentSection < totalSections - 1) {
         setCurrentSection(currentSection + 1)
       }
+    } else {
+      const errorList = Object.values(validationErrors)
+      if (errorList.length > 0) {
+        toast.error(errorList[0])
+      }
+      scrollToFirstError(Object.keys(validationErrors))
     }
   }
 
   const handlePrevious = () => {
-    if (currentSection > 1) {
+    setErrors({})
+    if (currentSection > 0) {
       setCurrentSection(currentSection - 1)
     }
   }
@@ -679,7 +739,15 @@ export default function ThalibahBatch2Page() {
   }, [currentSection, isMounted])
 
   const handleSubmit = async () => {
-    if (!validateSection(currentSection)) return
+    const { isValid, errors: validationErrors } = validateSection(currentSection)
+    if (!isValid) {
+      const errorList = Object.values(validationErrors)
+      if (errorList.length > 0) {
+        toast.error(errorList[0])
+      }
+      scrollToFirstError(Object.keys(validationErrors))
+      return
+    }
     if (!user?.id) {
       toast.error('Sesi login tidak ditemukan. Silakan login kembali.')
       return
@@ -1149,7 +1217,7 @@ export default function ThalibahBatch2Page() {
         )}
  
         {getQuestionMeta('chosen_juz').is_active && (
-          <div className="space-y-3">
+          <div className="space-y-3" data-field="chosen_juz">
             <Label className="text-base font-semibold text-gray-800">
               {getQuestionMeta('chosen_juz').label}
               {getQuestionMeta('chosen_juz').is_required && <span className="text-red-500">*</span>}
@@ -1265,7 +1333,7 @@ export default function ThalibahBatch2Page() {
         )}
  
         {getQuestionMeta('no_travel_plans').is_active && (
-          <div className="space-y-2">
+          <div className="space-y-2" data-field="no_travel_plans">
             {getQuestionMeta('no_travel_plans').warning_text && (
               <div className="bg-blue-50 p-4 rounded-lg border-2 border-blue-300 mb-2">
                 <p className="text-sm text-blue-800 font-semibold mb-2">Informasi Program:</p>
@@ -1301,7 +1369,7 @@ export default function ThalibahBatch2Page() {
         )}
  
         {getQuestionMeta('motivation').is_active && (
-          <div className="space-y-2">
+          <div className="space-y-2" data-field="motivation">
             <Label htmlFor="motivation" className="text-sm font-medium text-gray-700">
               {getQuestionMeta('motivation').label}
               {getQuestionMeta('motivation').is_required && <span className="text-red-500">*</span>}
@@ -1321,7 +1389,7 @@ export default function ThalibahBatch2Page() {
         )}
  
         {getQuestionMeta('ready_for_team').is_active && (
-          <div className="space-y-2">
+          <div className="space-y-2" data-field="ready_for_team">
             <Label className="text-sm font-medium text-gray-700">
               {getQuestionMeta('ready_for_team').label}
               {getQuestionMeta('ready_for_team').is_required && <span className="text-red-500">*</span>}
@@ -1446,7 +1514,7 @@ export default function ThalibahBatch2Page() {
  
       <div className="space-y-4">
         {getQuestionMeta('main_time_slot').is_active && (
-          <div className="space-y-2">
+          <div className="space-y-2" data-field="main_time_slot">
             <Label className="text-sm font-medium text-gray-700">
               {getQuestionMeta('main_time_slot').label}
               {getQuestionMeta('main_time_slot').is_required && <span className="text-red-500">*</span>}
@@ -1472,7 +1540,7 @@ export default function ThalibahBatch2Page() {
         )}
  
         {getQuestionMeta('backup_time_slot').is_active && (
-          <div className="space-y-2">
+          <div className="space-y-2" data-field="backup_time_slot">
             <Label className="text-sm font-medium text-gray-700">
               {getQuestionMeta('backup_time_slot').label}
               {getQuestionMeta('backup_time_slot').is_required && <span className="text-red-500">*</span>}
@@ -1651,7 +1719,7 @@ export default function ThalibahBatch2Page() {
         )}
  
         {getQuestionMeta('questions').is_active && (
-          <div className="space-y-2">
+          <div className="space-y-2" data-field="questions">
             <Label htmlFor="questions" className="text-sm font-medium text-gray-700">
               {getQuestionMeta('questions').label}
               {getQuestionMeta('questions').is_required && <span className="text-red-500">*</span>}
@@ -1841,7 +1909,22 @@ export default function ThalibahBatch2Page() {
 
                 {/* Hide navigation buttons on success */}
                 {submitStatus !== 'success' && submitStatus !== 'success_update' && (
-                  <div className="flex flex-col sm:flex-row justify-between gap-3 sm:gap-4 pt-4 sm:pt-6 border-t">
+                  <div className="space-y-4 pt-4 sm:pt-6 border-t">
+                    {Object.keys(errors).length > 0 && (
+                      <Alert className="bg-red-50 border-red-200">
+                        <AlertCircle className="h-4 w-4 text-red-600" />
+                        <AlertDescription className="text-red-800 text-sm">
+                          <p className="font-semibold mb-1">Mohon lengkapi pertanyaan berikut sebelum melanjutkan:</p>
+                          <ul className="list-disc list-inside space-y-1">
+                            {Object.entries(errors).map(([key, msg]) => (
+                              <li key={key}>{msg}</li>
+                            ))}
+                          </ul>
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
+                    <div className="flex flex-col sm:flex-row justify-between gap-3 sm:gap-4">
                     <Button
                       type="button"
                       variant="outline"
@@ -1882,6 +1965,7 @@ export default function ThalibahBatch2Page() {
                         )}
                       </Button>
                     )}
+                    </div>
                   </div>
                 )}
               </form>
