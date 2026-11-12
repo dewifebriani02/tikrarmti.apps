@@ -13,7 +13,6 @@ interface UserProfile {
   current_juz?: string
   email?: string
   whatsapp?: string
-  telegram?: string
   tanggal_lahir?: string
   tempat_lahir?: string
   jenis_kelamin?: string
@@ -133,13 +132,6 @@ export function UserProfileCard({
                 No. WhatsApp
               </p>
               <p className="text-gray-900 font-semibold text-sm sm:text-base">{userProfile.whatsapp || '-'}</p>
-            </div>
-            <div className="space-y-1">
-              <p className="text-gray-600 font-medium text-xs sm:text-sm flex items-center gap-1">
-                <Phone className="w-3 h-3 sm:w-4 sm:h-4" />
-                No. Telegram
-              </p>
-              <p className="text-gray-900 font-semibold text-sm sm:text-base">{userProfile.telegram || '-'}</p>
             </div>
             <div className="space-y-1">
               <p className="text-gray-600 font-medium text-xs sm:text-sm flex items-center gap-1">

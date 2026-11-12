@@ -35,7 +35,6 @@ function RegisterPageContent() {
     kota: '',
     alamat: '',
     whatsapp: '',
-    telegram: '',
     zonaWaktu: '',
     tanggalLahir: '',
     tempatLahir: '',
@@ -66,7 +65,11 @@ function RegisterPageContent() {
     if (savedData) {
       try {
         const parsed = JSON.parse(savedData);
-        setFormData(parsed);
+        setFormData(prev => ({
+          ...prev,
+          ...parsed,
+          // ensure telegram is omitted if present in old saved data
+        }));
         setSavedDataLoaded(true);
       } catch (e) {
         console.error('Failed to load saved form data');
@@ -94,7 +97,6 @@ function RegisterPageContent() {
       kota: '',
       alamat: '',
       whatsapp: '',
-      telegram: '',
       zonaWaktu: '',
       tanggalLahir: '',
       tempatLahir: '',
@@ -161,13 +163,6 @@ function RegisterPageContent() {
     } else if (!validatePhoneNumberFormat(formData.whatsapp, formData.negara)) {
       const countryCode = countryCodes.find(c => c.name === formData.negara)?.dialCode || '+XX';
       newErrors.whatsapp = `Format WhatsApp tidak valid. Format: ${formData.negara} ${countryCode} [nomor telepon]`;
-    }
-
-    if (!formData.telegram.trim()) {
-      newErrors.telegram = 'Telegram harus diisi';
-    } else if (!validatePhoneNumberFormat(formData.telegram, formData.negara)) {
-      const countryCode = countryCodes.find(c => c.name === formData.negara)?.dialCode || '+XX';
-      newErrors.telegram = `Format Telegram tidak valid. Format: ${formData.negara} ${countryCode} [nomor telepon]`;
     }
 
     if (!formData.zonaWaktu) {
@@ -242,7 +237,6 @@ function RegisterPageContent() {
           kota: formData.kota,
           alamat: formData.alamat,
           whatsapp: formData.whatsapp,
-          telegram: formData.telegram,
           zona_waktu: formData.zonaWaktu,
           tanggal_lahir: tanggalLahirISO,
           tempat_lahir: formData.tempatLahir,
@@ -275,7 +269,7 @@ function RegisterPageContent() {
           console.log('[DEBUG] response.error:', response?.error);
           console.log('[DEBUG] response.error type:', typeof response?.error);
 
-          if (typeof response === 'string') return response
+          if (typeof response === 'string') return response;
 
           // Check for validation errors with issues array (highest priority for specific messages)
           if (response?.error?.details?.issues && Array.isArray(response.error.details.issues)) {
@@ -293,7 +287,6 @@ function RegisterPageContent() {
               kota: 'Kota',
               alamat: 'Alamat',
               whatsapp: 'WhatsApp',
-              telegram: 'Telegram',
               zona_waktu: 'Zona Waktu',
               tanggal_lahir: 'Tanggal Lahir',
               tempat_lahir: 'Tempat Lahir',
@@ -318,20 +311,20 @@ function RegisterPageContent() {
 
           if (response?.error?.message) {
             console.log('[DEBUG] Using response.error.message:', response.error.message);
-            return response.error.message
+            return response.error.message;
           }
           if (response?.error?.code) {
             console.log('[DEBUG] Using response.error.code:', response.error.code);
-            return `Error: ${response.error.code}`
+            return `Error: ${response.error.code}`;
           }
-          if (response?.message) return response.message
+          if (response?.message) return response.message;
           if (response?.error) {
             console.log('[DEBUG] Stringifying response.error');
-            return JSON.stringify(response.error)
+            return JSON.stringify(response.error);
           }
           console.log('[DEBUG] Using default message');
-          return 'Registrasi gagal'
-        }
+          return 'Registrasi gagal';
+        };
 
         const errorMessage = getErrorMessage(data);
         console.log('[DEBUG] Final error message:', errorMessage, 'Type:', typeof errorMessage);
@@ -373,7 +366,7 @@ function RegisterPageContent() {
             />
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-green-900 mb-2">Tikrar MTI Apps</h1>
-          <p className="text-gray-600 text-sm sm:text-base">Bergabung dengan program Tahfidz Al-Qur'an MTI</p>
+          <p className="text-gray-600 text-sm sm:base">Bergabung dengan program Tahfidz Al-Qur'an MTI</p>
         </div>
 
         {/* Registration Form */}
@@ -486,8 +479,7 @@ function RegisterPageContent() {
                       <SelectItem key={negara} value={negara}>
                         {negara}
                       </SelectItem>
-                    ))}
-                  </SelectContent>
+                    ))}\n                  </SelectContent>
                 </Select>
                 {errors.negara && <p className="text-red-500 text-sm mt-1">{errors.negara}</p>}
               </div>
@@ -538,20 +530,6 @@ function RegisterPageContent() {
                   placeholder="812-3456-7890"
                   required
                   error={errors.whatsapp}
-                />
-              </div>
-
-              {/* Telegram */}
-              <div>
-                <PhoneInput
-                  id="telegram"
-                  label="Telegram"
-                  value={formData.telegram}
-                  onChange={(value) => handleInputChange('telegram', value)}
-                  selectedCountry={formData.negara}
-                  placeholder="812-3456-7890"
-                  required
-                  error={errors.telegram}
                 />
               </div>
 

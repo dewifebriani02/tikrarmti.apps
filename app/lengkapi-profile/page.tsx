@@ -36,7 +36,6 @@ export default function LengkapiProfilePage() {
     kota: '',
     alamat: '',
     whatsapp: '',
-    telegram: '',
     zonaWaktu: '',
     tanggalLahir: '',
     tempatLahir: '',
@@ -48,50 +47,64 @@ export default function LengkapiProfilePage() {
 
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isLoading, setIsLoading] = useState(false)
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true)
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle')
   const [errorMessage, setErrorMessage] = useState('')
-  const [isLoadingProfile, setIsLoadingProfile] = useState(true)
   const [returnUrl, setReturnUrl] = useState<string | null>(null)
 
-  // Redirect if not authenticated
+  // Get returnUrl from searchParams
   useEffect(() => {
-    const checkAuth = async () => {
-      const supabase = createClient()
-      const { data: { user: authUser } } = await supabase.auth.getUser()
-      if (!authUser) {
-        setIsClientAuthenticated(false)
-        router.push('/login?redirect=/lengkapi-profile')
-      } else {
-        setClientAuthUser(authUser)
-        setIsClientAuthenticated(true)
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      const returnUrlParam = params.get('returnUrl')
+      if (returnUrlParam) {
+        setReturnUrl(safeRedirectPath(returnUrlParam, '/dashboard'))
       }
-    }
-    checkAuth()
-  }, [router])
-
-  // Check if user came from a registration page and store return URL
-  useEffect(() => {
-    // Check URL params for return URL
-    const params = new URLSearchParams(window.location.search)
-    const returnTo = params.get('returnTo')
-    if (returnTo) {
-      setReturnUrl(safeRedirectPath(returnTo))
     }
   }, [])
 
-  // Load existing user profile if available
+  // Use client-side Supabase auth to avoid stale SSR cookie issues
   useEffect(() => {
-    const loadUserProfile = async () => {
-      if (!clientAuthUser) return
+    const supabase = createClient()
+
+    // Check current session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setIsClientAuthenticated(true)
+        setClientAuthUser(session.user)
+      } else {
+        setIsClientAuthenticated(false)
+        router.push('/login?returnUrl=/lengkapi-profile')
+      }
+    })
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        setIsClientAuthenticated(true)
+        setClientAuthUser(session.user)
+      } else {
+        setIsClientAuthenticated(false)
+        router.push('/login?returnUrl=/lengkapi-profile')
+      }
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [router])
+
+  // Load existing user profile
+  useEffect(() => {
+    async function loadUserProfile() {
+      if (!isClientAuthenticated || !clientAuthUser) return
 
       try {
-        const response = await fetch('/api/auth/me')
+        const response = await fetch('/api/user/profile')
         if (response.ok) {
           const result = await response.json()
-          const userData = result.data || result.user || result
-
-          // Pre-fill form with existing data
-          if (userData) {
+          if (result.user) {
+            const userData = result.user
             setFormData(prev => ({
               ...prev,
               namaLengkap: userData.full_name || clientAuthUser.user_metadata?.full_name || prev.namaLengkap,
@@ -100,7 +113,6 @@ export default function LengkapiProfilePage() {
               kota: userData.kota || prev.kota,
               alamat: userData.alamat || prev.alamat,
               whatsapp: userData.whatsapp || prev.whatsapp,
-              telegram: userData.telegram || prev.telegram,
               zonaWaktu: userData.zona_waktu || prev.zonaWaktu,
               tanggalLahir: userData.tanggal_lahir ? new Date(userData.tanggal_lahir).toISOString().split('T')[0] : prev.tanggalLahir,
               tempatLahir: userData.tempat_lahir || prev.tempatLahir,
@@ -117,48 +129,51 @@ export default function LengkapiProfilePage() {
       }
     }
 
-    if (isClientAuthenticated) {
+    if (isClientAuthenticated && clientAuthUser) {
       loadUserProfile()
     }
-  }, [clientAuthUser, isClientAuthenticated])
+  }, [isClientAuthenticated, clientAuthUser])
 
   const handleInputChange = (field: string, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }))
+    // Clear error when user types
     if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }))
+      setErrors(prev => ({
+        ...prev,
+        [field]: ''
+      }))
     }
   }
 
-  const validateForm = (): boolean => {
+  const validateForm = () => {
     const newErrors: Record<string, string> = {}
 
     // Required fields
-    if (!formData.namaLengkap.trim()) newErrors.namaLengkap = 'Nama lengkap harus diisi'
-    if (!formData.negara) newErrors.negara = 'Negara harus dipilih'
-    if (!formData.kota.trim()) newErrors.kota = 'Kota harus diisi'
-    if (!formData.alamat.trim()) newErrors.alamat = 'Alamat harus diisi'
-    if (!formData.zonaWaktu) newErrors.zonaWaktu = 'Zona waktu harus dipilih'
-    if (!formData.tanggalLahir) newErrors.tanggalLahir = 'Tanggal lahir harus diisi'
-    if (!formData.tempatLahir.trim()) newErrors.tempatLahir = 'Tempat lahir harus diisi'
-    if (!formData.jenisKelamin) newErrors.jenisKelamin = 'Jenis kelamin harus dipilih'
-    if (!formData.pekerjaan.trim()) newErrors.pekerjaan = 'Pekerjaan harus diisi'
-    if (!formData.alasanDaftar.trim()) newErrors.alasanDaftar = 'Alasan mendaftar harus diisi'
+    if (!formData.namaLengkap.trim()) newErrors.namaLengkap = 'Nama lengkap wajib diisi'
+    if (!formData.negara) newErrors.negara = 'Negara wajib dipilih'
+    if (formData.negara === 'Indonesia' && !formData.provinsi) {
+      newErrors.provinsi = 'Provinsi wajib dipilih untuk Indonesia'
+    }
+    if (!formData.kota.trim()) newErrors.kota = 'Kota wajib diisi'
+    if (!formData.alamat.trim()) newErrors.alamat = 'Alamat wajib diisi'
+    if (!formData.whatsapp.trim()) newErrors.whatsapp = 'Nomor WhatsApp wajib diisi'
+    if (!formData.zonaWaktu) newErrors.zonaWaktu = 'Zona waktu wajib dipilih'
+    if (!formData.tanggalLahir) newErrors.tanggalLahir = 'Tanggal lahir wajib diisi'
+    if (!formData.tempatLahir.trim()) newErrors.tempatLahir = 'Tempat lahir wajib diisi'
+    if (!formData.jenisKelamin) newErrors.jenisKelamin = 'Jenis kelamin wajib dipilih'
+    if (!formData.pekerjaan.trim()) newErrors.pekerjaan = 'Pekerjaan wajib diisi'
+    if (!formData.alasanDaftar.trim()) newErrors.alasanDaftar = 'Alasan mendaftar wajib diisi'
 
-    // Validate phone number
-    if (!formData.whatsapp.trim()) {
-      newErrors.whatsapp = 'Nomor WhatsApp harus diisi'
+    // Validate phone numbers with country context
+    if (!formData.whatsapp || !formData.whatsapp.trim()) {
+      newErrors.whatsapp = 'Nomor WhatsApp wajib diisi'
     } else {
       const isValid = validatePhoneNumberFormat(formData.whatsapp, formData.negara)
       if (!isValid) {
         newErrors.whatsapp = 'Format nomor WhatsApp tidak valid'
-      }
-    }
-
-    // Validate telegram if provided
-    if (formData.telegram && formData.telegram.trim()) {
-      const isValid = validatePhoneNumberFormat(formData.telegram, formData.negara)
-      if (!isValid) {
-        newErrors.telegram = 'Format nomor Telegram tidak valid'
       }
     }
 
@@ -193,7 +208,6 @@ export default function LengkapiProfilePage() {
         kota: formData.kota,
         alamat: formData.alamat,
         whatsapp: formData.whatsapp,
-        telegram: formData.telegram || undefined,
         zona_waktu: formData.zonaWaktu,
         tanggal_lahir: new Date(formData.tanggalLahir).toISOString(),
         tempat_lahir: formData.tempatLahir,
@@ -484,25 +498,6 @@ export default function LengkapiProfilePage() {
               </div>
               {errors.whatsapp && (
                 <p className="text-red-500 text-sm mt-1">{errors.whatsapp}</p>
-              )}
-            </div>
-
-            {/* Telegram */}
-            <div>
-              <Label htmlFor="telegram">
-                Nomor Telegram <span className="text-gray-400 text-sm">(Opsional)</span>
-              </Label>
-              <div className={errors.telegram ? 'border border-red-500 rounded-md' : ''}>
-                <PhoneInput
-                  id="telegram"
-                  value={formData.telegram}
-                  onChange={(value) => handleInputChange('telegram', value)}
-                  placeholder="Contoh: 081234567890"
-                  error={errors.telegram}
-                />
-              </div>
-              {errors.telegram && (
-                <p className="text-red-500 text-sm mt-1">{errors.telegram}</p>
               )}
             </div>
 

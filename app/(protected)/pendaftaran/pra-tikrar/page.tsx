@@ -98,8 +98,8 @@ const FALLBACK_QUESTIONS: Record<string, { label: string; description: string | 
   has_telegram: {
     label: "Apakah Ukhti sudah faham jika program ini juga mewajibkan tholibah untuk mempunyai aplikasi telegram untuk proses seleksi?",
     description: "Bismillah.. Alhamdulillah saya sudah download telegram di hp saya",
-    warning_text: "Mohon maaf kami tidak akan mengecek VN seleksi yang dikirim lewat whatsapp jika ada kendala pada aplikasi, karena keterbatasan memori hp admin.",
-    is_required: true
+    warning_text: "",
+    is_required: false
   },
   saved_contact: {
     label: "Apakah Ukhti sudah simpan nomor Whatsapp Admin Kak Mara 0813-1365-0842, Uni Dewi 0856-771-2914, Kak Dewi Nurhayati 0895-1898-4279, Kak Donna 0812-1224-0079, Kak Ucy 0822-2937-0282, Kak Lina 0853-4011-4111, Kak Vivi 0857-0623-2865, Kak Wara 0822-2010-0262?",
@@ -513,11 +513,6 @@ export default function ThalibahBatch2Page() {
         newErrors.no_negotiation = 'Wajib menyetujui tidak menego jumlah tikrar'
       }
       
-      const qTelegram = getQuestionMeta('has_telegram')
-      if (qTelegram.is_active && qTelegram.is_required && !formData.has_telegram) {
-        newErrors.has_telegram = 'Wajib memiliki aplikasi Telegram'
-      }
-      
       const qContact = getQuestionMeta('saved_contact')
       if (qContact.is_active && qContact.is_required && !formData.saved_contact) {
         newErrors.saved_contact = 'Wajib menyimpan nomor kontak admin'
@@ -715,10 +710,6 @@ export default function ThalibahBatch2Page() {
               <p className="text-gray-900 font-semibold">{userProfile?.whatsapp || '-'}</p>
             </div>
             <div className="space-y-1">
-              <p className="text-gray-600 font-medium">No. Telegram</p>
-              <p className="text-gray-900 font-semibold">{userProfile?.telegram || '-'}</p>
-            </div>
-            <div className="space-y-1">
               <p className="text-gray-600 font-medium">Tanggal Lahir</p>
               <p className="text-gray-900 font-semibold">{userProfile?.tanggal_lahir || '-'}</p>
             </div>
@@ -912,39 +903,6 @@ export default function ThalibahBatch2Page() {
             </div>
             {errors.no_negotiation && (
               <p className="text-red-500 text-xs sm:text-sm font-medium">{errors.no_negotiation}</p>
-            )}
-          </div>
-        )}
- 
-        {getQuestionMeta('has_telegram').is_active && (
-          <div className="space-y-2 sm:space-y-3">
-            <Label className="text-sm sm:text-base font-semibold text-gray-800">
-              {getQuestionMeta('has_telegram').label}
-              {getQuestionMeta('has_telegram').is_required && <span className="text-red-500">*</span>}
-            </Label>
-            {getQuestionMeta('has_telegram').warning_text && (
-              <p className="text-xs sm:text-sm text-gray-500 italic mb-2">
-                {getQuestionMeta('has_telegram').warning_text}
-              </p>
-            )}
-            <div className="space-y-2 sm:space-y-3">
-              <div className="flex items-start space-x-2 sm:space-x-4 p-3 sm:p-4 border-2 rounded-lg hover:bg-green-50 transition-all duration-200 cursor-pointer hover:border-green-300">
-                <input
-                  type="radio"
-                  name="has_telegram"
-                  id="has_telegram_yes"
-                  value="yes"
-                  checked={formData.has_telegram}
-                  onChange={() => handleInputChange('has_telegram', true)}
-                  className="mt-1 w-4 h-4 sm:w-5 sm:h-5 text-green-600 focus:ring-green-500"
-                />
-                <Label htmlFor="has_telegram_yes" className="text-sm sm:text-base font-medium text-gray-700 cursor-pointer flex-1">
-                  {getQuestionMeta('has_telegram').description}
-                </Label>
-              </div>
-            </div>
-            {errors.has_telegram && (
-              <p className="text-red-500 text-xs sm:text-sm font-medium">{errors.has_telegram}</p>
             )}
           </div>
         )}

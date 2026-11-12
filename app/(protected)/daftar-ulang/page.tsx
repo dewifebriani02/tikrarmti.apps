@@ -1004,7 +1004,6 @@ function ConfirmDataStep({
   }
   const registrationDetails = [
     { label: 'Email', value: registrationData?.email },
-    { label: 'Nomor Telegram', value: registrationData?.telegram_phone },
     { label: 'Tanggal Lahir', value: registrationData?.birth_date },
     { label: 'Usia', value: registrationData?.age != null ? `${registrationData.age} tahun` : null },
     { label: 'Domisili', value: registrationData?.domicile },
@@ -1021,7 +1020,6 @@ function ConfirmDataStep({
     { label: 'Memahami komitmen program', value: registrationData?.understands_commitment },
     { label: 'Sudah mencoba simulasi', value: registrationData?.tried_simulation },
     { label: 'Menyetujui ketentuan tanpa negosiasi', value: registrationData?.no_negotiation },
-    { label: 'Memiliki aplikasi Telegram', value: registrationData?.has_telegram },
     { label: 'Sudah menyimpan kontak', value: registrationData?.saved_contact },
     { label: 'Tidak memiliki rencana safar', value: registrationData?.no_travel_plans },
     { label: 'Siap dengan komitmen waktu', value: registrationData?.time_commitment },

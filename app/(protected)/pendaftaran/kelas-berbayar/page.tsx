@@ -87,7 +87,6 @@ export default function PendaftaranKelasBerbayarPage() {
     full_name: '',
     email: '',
     whatsapp: '',
-    telegram: '',
     city_domicile: '',
     motivation: '',
     payment_confirmed: false,
@@ -159,7 +158,6 @@ export default function PendaftaranKelasBerbayarPage() {
           full_name: formData.full_name,
           email: formData.email,
           whatsapp: formData.whatsapp,
-          telegram: formData.telegram,
           city_domicile: formData.city_domicile,
           motivation: formData.motivation,
           payment_proof_url: formData.payment_proof_url,
@@ -633,32 +631,17 @@ export default function PendaftaranKelasBerbayarPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">
-                    Username / No. Telegram (Opsional)
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.telegram}
-                    onChange={e => setFormData(prev => ({ ...prev, telegram: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                    placeholder="@username_telegram"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">
-                    Kota / Domisili
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.city_domicile}
-                    onChange={e => setFormData(prev => ({ ...prev, city_domicile: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                    placeholder="Contoh: Jakarta Selatan"
-                  />
-                </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">
+                  Kota / Domisili
+                </label>
+                <input
+                  type="text"
+                  value={formData.city_domicile}
+                  onChange={e => setFormData(prev => ({ ...prev, city_domicile: e.target.value }))}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  placeholder="Contoh: Jakarta Selatan"
+                />
               </div>
 
               <div className="space-y-1.5">
