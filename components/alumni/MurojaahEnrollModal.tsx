@@ -145,6 +145,17 @@ export function MurojaahEnrollModal({
             </div>
           )}
 
+                    {/* Peringatan bila memilih juz yang sedang berjalan */}
+          {selectedJuz === currentJuzCode && (
+            <div className="bg-amber-50 border border-amber-300 rounded-2xl p-3 flex items-start gap-2.5">
+              <span className="text-amber-600 text-sm mt-0.5">⚠️</span>
+              <div className="text-[11px] text-amber-950 leading-relaxed">
+                <span className="font-bold block text-amber-900">Perhatian: Siklus Porsi Ini Sedang Aktif</span>
+                Mendaftarkan ulang porsi yang sama ({currentJuzCode}) akan <strong>mereset putaran kembali ke 0</strong> untuk memulai siklus baru 20 hari.
+              </div>
+            </div>
+          )}
+
           {/* 1. Pilih Porsi Juz */}
           <div className="space-y-1.5">
             <Label className="text-xs font-bold text-gray-800">1. Porsi 1/2 Juz yang Dimurojaah:</Label>
