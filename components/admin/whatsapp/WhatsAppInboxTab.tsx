@@ -6,7 +6,8 @@ import {
   MessageSquare, Send, Search, RefreshCw, Check, CheckCheck, Clock,
   User, Phone, ExternalLink, CheckCircle2, AlertCircle, Sparkles,
   ArrowDownLeft, ArrowUpRight, Zap, Filter, Archive, CheckSquare,
-  Image as ImageIcon, FileText, Mic, Video, Paperclip, X, Loader2, Download, ZoomIn, Eye
+  Image as ImageIcon, FileText, Mic, Video, Paperclip, X, Loader2, Download, ZoomIn, Eye,
+  Bot, AlertTriangle, Settings2
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -26,6 +27,10 @@ export interface WhatsAppConversation {
   unread_count: number;
   status: 'open' | 'resolved' | 'archived';
   profile_pic_url?: string | null;
+  bot_enabled?: boolean;
+  needs_admin?: boolean;
+  escalation_reason?: string | null;
+  escalated_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -78,6 +83,7 @@ export interface WhatsAppInboxTabProps {
 export function WhatsAppInboxTab({ senderNumber = "0813-8884-240" }: WhatsAppInboxTabProps = {}) {
   const [conversations, setConversations] = useState<WhatsAppConversation[]>([]);
   const [totalUnread, setTotalUnread] = useState(0);
+  const [totalNeedsAdmin, setTotalNeedsAdmin] = useState(0);
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
   const [messages, setMessages] = useState<WhatsAppMessage[]>([]);
   const [loadingList, setLoadingList] = useState(true);
@@ -85,7 +91,18 @@ export function WhatsAppInboxTab({ senderNumber = "0813-8884-240" }: WhatsAppInb
   const [sendingReply, setSendingReply] = useState(false);
   const [replyText, setReplyText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'unread' | 'open' | 'resolved'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'unread' | 'needs_admin' | 'open' | 'resolved'>('all');
+  const [botConfig, setBotConfig] = useState<{
+    enabled: boolean;
+    auto_reply_delay_ms: number;
+    escalation_admin_phones: string[];
+    system_prompt_extra: string;
+  }>({ enabled: true, auto_reply_delay_ms: 2000, escalation_admin_phones: [], system_prompt_extra: '' });
+  const [togglingBot, setTogglingBot] = useState(false);
+  const [showBotSettings, setShowBotSettings] = useState(false);
+  const [adminPhonesInput, setAdminPhonesInput] = useState('');
+  const [promptExtraInput, setPromptExtraInput] = useState('');
+  const [savingBotSettings, setSavingBotSettings] = useState(false);
   const [webhookStatus, setWebhookStatus] = useState<{ configured: boolean; webhookUrl?: string | null } | null>(null);
   const [isConfiguringWebhook, setIsConfiguringWebhook] = useState(false);
 
@@ -116,6 +133,114 @@ export function WhatsAppInboxTab({ senderNumber = "0813-8884-240" }: WhatsAppInb
         top: messagesContainerRef.current.scrollHeight,
         behavior: smooth ? 'smooth' : 'auto',
       });
+    }
+  };
+
+  // Fetch AI Bot Settings
+  const fetchBotConfig = async () => {
+    try {
+      const res = await fetch('/api/admin/whatsapp/bot-settings');
+      const data = await res.json();
+      if (data.success && data.data) {
+        setBotConfig(data.data);
+        setAdminPhonesInput((data.data.escalation_admin_phones || []).join(', '));
+        setPromptExtraInput(data.data.system_prompt_extra || '');
+      }
+    } catch (err) {
+      console.error('Error fetching bot settings:', err);
+    }
+  };
+
+  const handleToggleGlobalBot = async () => {
+    setTogglingBot(true);
+    try {
+      const nextEnabled = !botConfig.enabled;
+      const res = await fetch('/api/admin/whatsapp/bot-settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: nextEnabled }),
+      });
+      const data = await res.json();
+      if (data.success && data.data) {
+        setBotConfig(data.data);
+        toast.success(nextEnabled ? 'Asisten AI Chatbot diaktifkan' : 'Asisten AI Chatbot dinonaktifkan');
+      } else {
+        toast.error(data.error?.message || 'Gagal mengubah status AI Chatbot');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Terjadi kesalahan');
+    } finally {
+      setTogglingBot(false);
+    }
+  };
+
+  const handleSaveBotSettings = async () => {
+    setSavingBotSettings(true);
+    try {
+      const phones = adminPhonesInput
+        .split(/[,\n]/)
+        .map((p) => p.trim())
+        .filter(Boolean);
+      const res = await fetch('/api/admin/whatsapp/bot-settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          escalation_admin_phones: phones,
+          system_prompt_extra: promptExtraInput,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.data) {
+        setBotConfig(data.data);
+        toast.success('Pengaturan Asisten AI tersimpan');
+        setShowBotSettings(false);
+      } else {
+        toast.error(data.error?.message || 'Gagal menyimpan pengaturan');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Terjadi kesalahan');
+    } finally {
+      setSavingBotSettings(false);
+    }
+  };
+
+  const handleToggleConvBot = async (conv: WhatsAppConversation) => {
+    const nextBot = !(conv.bot_enabled !== false);
+    try {
+      const res = await fetch(`/api/admin/whatsapp/conversations/${conv.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bot_enabled: nextBot }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setConversations((prev) =>
+          prev.map((c) => (c.id === conv.id ? { ...c, bot_enabled: nextBot } : c))
+        );
+        toast.success(nextBot ? 'AI Bot diaktifkan untuk chat ini' : 'AI Bot dijeda untuk chat ini');
+      }
+    } catch {
+      toast.error('Gagal mengubah status bot percakapan');
+    }
+  };
+
+  const handleResolveEscalation = async (conv: WhatsAppConversation) => {
+    try {
+      const res = await fetch(`/api/admin/whatsapp/conversations/${conv.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ needs_admin: false }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setConversations((prev) =>
+          prev.map((c) => (c.id === conv.id ? { ...c, needs_admin: false, escalation_reason: null } : c))
+        );
+        setTotalNeedsAdmin((prev) => Math.max(0, prev - 1));
+        toast.success('Eskalasi admin ditandai selesai');
+      }
+    } catch {
+      toast.error('Gagal memperbarui status eskalasi');
     }
   };
 
@@ -169,6 +294,7 @@ export function WhatsAppInboxTab({ senderNumber = "0813-8884-240" }: WhatsAppInb
       if (data.success) {
         setConversations(data.data.conversations || []);
         setTotalUnread(data.data.totalUnread || 0);
+        setTotalNeedsAdmin(data.data.totalNeedsAdmin || 0);
 
         // If no conversation is selected and we have items, select the first one
         if (!selectedConvId && data.data.conversations?.length > 0) {
@@ -363,6 +489,7 @@ export function WhatsAppInboxTab({ senderNumber = "0813-8884-240" }: WhatsAppInb
   // Initial load
   useEffect(() => {
     checkWebhookStatus();
+    fetchBotConfig();
     fetchConversations();
   }, [fetchConversations]);
 
@@ -623,7 +750,33 @@ export function WhatsAppInboxTab({ senderNumber = "0813-8884-240" }: WhatsAppInb
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            disabled={togglingBot}
+            onClick={handleToggleGlobalBot}
+            className={`h-7 px-2.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+              botConfig.enabled
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-300'
+                : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400'
+            }`}
+            title="Aktifkan/Matikan balasan otomatis Asisten AI WhatsApp untuk seluruh chat"
+          >
+            <Bot className="h-3.5 w-3.5" />
+            Asisten AI: {botConfig.enabled ? 'Aktif' : 'Nonaktif'}
+          </button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowBotSettings(true)}
+            className="h-7 text-xs border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"
+            title="Atur nomor admin penerima eskalasi & instruksi tambahan AI"
+          >
+            <Settings2 className="h-3 w-3 mr-1" />
+            Setelan Bot
+          </Button>
+
           {!webhookStatus?.configured && (
             <Button
               size="sm"
@@ -694,6 +847,22 @@ export function WhatsAppInboxTab({ senderNumber = "0813-8884-240" }: WhatsAppInb
                 {totalUnread > 0 && (
                   <span className="bg-emerald-500 text-white text-[10px] px-1.5 py-0.2 rounded-full font-bold">
                     {totalUnread}
+                  </span>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatusFilter('needs_admin')}
+                className={`px-2.5 py-1 rounded-lg font-medium transition-colors flex items-center gap-1.5 whitespace-nowrap ${
+                  statusFilter === 'needs_admin'
+                    ? 'bg-amber-600 text-white'
+                    : 'bg-white dark:bg-slate-800 text-amber-700 dark:text-amber-400 hover:bg-amber-50'
+                }`}
+              >
+                Butuh Admin
+                {totalNeedsAdmin > 0 && (
+                  <span className="bg-amber-500 text-white text-[10px] px-1.5 py-0.2 rounded-full font-bold">
+                    {totalNeedsAdmin}
                   </span>
                 )}
               </button>
@@ -778,6 +947,24 @@ export function WhatsAppInboxTab({ senderNumber = "0813-8884-240" }: WhatsAppInb
                           {formatTime(conv.last_message_at)}
                         </span>
                       </div>
+
+                      {/* Escalation / Bot Badges */}
+                      {(conv.needs_admin || conv.bot_enabled === false) && (
+                        <div className="flex flex-wrap items-center gap-1 mb-1">
+                          {conv.needs_admin && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300 font-semibold flex items-center gap-1">
+                              <AlertTriangle className="h-2.5 w-2.5" />
+                              Butuh Admin
+                            </span>
+                          )}
+                          {conv.bot_enabled === false && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium flex items-center gap-1">
+                              <Bot className="h-2.5 w-2.5" />
+                              Bot Dijeda
+                            </span>
+                          )}
+                        </div>
+                      )}
 
                       {/* Thalibah Batch & NIT */}
                       {(conv.batch_name || conv.student_id_number) && (
@@ -869,7 +1056,34 @@ export function WhatsAppInboxTab({ senderNumber = "0813-8884-240" }: WhatsAppInb
                 </div>
 
                 {/* Top Action Buttons */}
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleToggleConvBot(activeConv)}
+                    className={`h-8 text-xs font-medium ${
+                      activeConv.bot_enabled !== false
+                        ? 'border-emerald-200 text-emerald-700 bg-emerald-50/60 hover:bg-emerald-100'
+                        : 'border-slate-200 text-slate-600 hover:bg-slate-100'
+                    }`}
+                    title="Aktifkan/Jeda balasan otomatis AI khusus untuk kontak ini"
+                  >
+                    <Bot className="h-3.5 w-3.5 mr-1" />
+                    {activeConv.bot_enabled !== false ? 'AI: Aktif' : 'AI: Dijeda'}
+                  </Button>
+
+                  {activeConv.needs_admin && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleResolveEscalation(activeConv)}
+                      className="h-8 text-xs font-medium border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100"
+                    >
+                      <Check className="h-3.5 w-3.5 mr-1" />
+                      Selesaikan Eskalasi
+                    </Button>
+                  )}
+
                   <Button
                     size="sm"
                     variant="outline"
@@ -902,6 +1116,18 @@ export function WhatsAppInboxTab({ senderNumber = "0813-8884-240" }: WhatsAppInb
                   </Button>
                 </div>
               </div>
+
+              {/* Escalation Alert Banner if flagged by AI */}
+              {activeConv.needs_admin && (
+                <div className="px-4 py-2 bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200 dark:border-amber-800 flex items-center justify-between gap-2 text-xs text-amber-900 dark:text-amber-200">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                    <span className="truncate">
+                      <strong>Eskalasi AI:</strong> {activeConv.escalation_reason || 'Memerlukan penanganan admin manual.'}
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {/* Message Bubbles Area */}
               <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-3">
@@ -937,7 +1163,12 @@ export function WhatsAppInboxTab({ senderNumber = "0813-8884-240" }: WhatsAppInb
                               isOutbound ? 'text-emerald-100' : 'text-emerald-700 dark:text-emerald-400'
                             }`}
                           >
-                            <span>{msg.sender_name || (isOutbound ? 'Admin MTI' : activeConv.display_name)}</span>
+                            <span className="flex items-center gap-1.5">
+                              {(msg.sender_name === 'Asisten AI MTI' || msg.metadata?.is_ai_bot) && (
+                                <Bot className="h-3 w-3 inline" />
+                              )}
+                              {msg.sender_name || (isOutbound ? 'Admin MTI' : activeConv.display_name)}
+                            </span>
                           </div>
 
                           {/* Message Content (with rich media support) */}
@@ -1078,6 +1309,82 @@ export function WhatsAppInboxTab({ senderNumber = "0813-8884-240" }: WhatsAppInb
         </div>
       </div>
     </div>
+
+    {/* AI Bot Settings Modal */}
+    {showBotSettings && (
+      <div
+        className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"
+        onClick={() => setShowBotSettings(false)}
+      >
+        <div
+          className="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full p-5 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-xl bg-emerald-50 text-emerald-700">
+                <Bot className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                  Pengaturan Asisten AI WhatsApp
+                </h3>
+                <p className="text-[11px] text-slate-500">
+                  Menjawab FAQ, diagnosa kendala login, kirim OTP, & eskalasi admin
+                </p>
+              </div>
+            </div>
+            <Button size="sm" variant="ghost" onClick={() => setShowBotSettings(false)} className="h-8 w-8 p-0">
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="space-y-3 text-xs">
+            <div className="space-y-1.5">
+              <label className="font-semibold text-slate-700 dark:text-slate-300 block">
+                Nomor WhatsApp Admin Penerima Notifikasi Eskalasi
+              </label>
+              <Input
+                placeholder="Contoh: 081234567890, 085612345678"
+                value={adminPhonesInput}
+                onChange={(e) => setAdminPhonesInput(e.target.value)}
+                className="text-xs rounded-xl"
+              />
+              <p className="text-[11px] text-slate-400">
+                Pisahkan dengan koma jika lebih dari satu. Saat AI menandai chat sebagai "Butuh Admin", notifikasi otomatis dikirim ke nomor ini.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="font-semibold text-slate-700 dark:text-slate-300 block">
+                Catatan / Instruksi Tambahan untuk AI (Opsional)
+              </label>
+              <Textarea
+                placeholder="Misal: Saat ini pendaftaran Batch 4 dibuka sampai 30 November 2026..."
+                value={promptExtraInput}
+                onChange={(e) => setPromptExtraInput(e.target.value)}
+                rows={4}
+                className="text-xs rounded-xl"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <Button variant="outline" size="sm" onClick={() => setShowBotSettings(false)} className="text-xs rounded-xl">
+              Batal
+            </Button>
+            <Button
+              size="sm"
+              disabled={savingBotSettings}
+              onClick={handleSaveBotSettings}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs rounded-xl"
+            >
+              {savingBotSettings ? 'Menyimpan...' : 'Simpan Pengaturan'}
+            </Button>
+          </div>
+        </div>
+      </div>
+    )}
 
     {/* Lightbox / Media Viewer Modal */}
     {previewModalUrl && (

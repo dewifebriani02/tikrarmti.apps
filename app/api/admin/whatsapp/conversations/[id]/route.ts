@@ -5,6 +5,8 @@ import {
   getConversationById,
   getConversationMessages,
   markConversationAsRead,
+  setConversationBotEnabled,
+  setConversationEscalation,
   updateConversationStatus,
 } from '@/lib/services/whatsapp-chat';
 
@@ -53,6 +55,14 @@ export async function PATCH(
 
     if (body.status && ['open', 'resolved', 'archived'].includes(body.status)) {
       await updateConversationStatus(id, body.status);
+    }
+
+    if (typeof body.bot_enabled === 'boolean') {
+      await setConversationBotEnabled(id, body.bot_enabled);
+    }
+
+    if (typeof body.needs_admin === 'boolean') {
+      await setConversationEscalation(id, body.needs_admin, body.escalation_reason);
     }
 
     const updated = await getConversationById(id);

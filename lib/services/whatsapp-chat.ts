@@ -14,6 +14,10 @@ export interface WhatsAppConversation {
   unread_count: number;
   status: 'open' | 'resolved' | 'archived';
   profile_pic_url?: string | null;
+  bot_enabled?: boolean;
+  needs_admin?: boolean;
+  escalation_reason?: string | null;
+  escalated_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -116,7 +120,19 @@ export async function findUserByPhone(phone: string): Promise<UserMatch | null> 
 /**
  * Process incoming WatZap Webhook payload (Unofficial & WABA)
  */
-export async function processIncomingWebhook(payload: any): Promise<{ handled: boolean; reason?: string; messageId?: string }> {
+export interface WebhookProcessResult {
+  handled: boolean;
+  reason?: string;
+  messageId?: string;
+  conversationId?: string;
+  phoneNumber?: string;
+  messageBody?: string;
+  direction?: 'inbound' | 'outbound';
+  botEnabled?: boolean;
+  hasMedia?: boolean;
+}
+
+export async function processIncomingWebhook(payload: any): Promise<WebhookProcessResult> {
   if (!payload) {
     return { handled: false, reason: 'Empty payload' };
   }
@@ -210,6 +226,17 @@ export async function processIncomingWebhook(payload: any): Promise<{ handled: b
   const batchName = userMatch?.batch_name || null;
   const userId = userMatch?.id || null;
 
+  // Deduplicate by watzap_message_id so webhook retries do not trigger duplicate AI replies
+  if (watzapMsgId) {
+    const existingMsg = await queryOne<{ id: string }>(
+      `SELECT id FROM whatsapp_messages WHERE watzap_message_id = $1 LIMIT 1`,
+      [watzapMsgId]
+    );
+    if (existingMsg) {
+      return { handled: false, reason: 'Duplicate message ignored', messageId: existingMsg.id };
+    }
+  }
+
   return await transaction(async (client) => {
     // 1. Upsert conversation
     const upsertConvQuery = `
@@ -244,7 +271,7 @@ export async function processIncomingWebhook(payload: any): Promise<{ handled: b
         profile_pic_url = COALESCE(EXCLUDED.profile_pic_url, whatsapp_conversations.profile_pic_url),
         status = CASE WHEN whatsapp_conversations.status = 'resolved' THEN 'open' ELSE whatsapp_conversations.status END,
         updated_at = NOW()
-      RETURNING id;
+      RETURNING id, bot_enabled;
     `;
 
     const convResult = await client.query(upsertConvQuery, [
@@ -261,6 +288,7 @@ export async function processIncomingWebhook(payload: any): Promise<{ handled: b
     ]);
 
     const conversationId = convResult.rows[0].id;
+    const botEnabled = convResult.rows[0].bot_enabled !== false;
 
     // 2. Insert message into whatsapp_messages
     const insertMsgQuery = `
@@ -294,6 +322,12 @@ export async function processIncomingWebhook(payload: any): Promise<{ handled: b
     return {
       handled: true,
       messageId: msgResult.rows[0].id,
+      conversationId,
+      phoneNumber: canonical,
+      messageBody,
+      direction,
+      botEnabled,
+      hasMedia: Boolean(payload?.data?.has_media || payload?.has_media),
     };
   });
 }
@@ -306,7 +340,7 @@ export async function getConversations(params: {
   status?: string;
   limit?: number;
   offset?: number;
-}): Promise<{ conversations: WhatsAppConversation[]; total: number; totalUnread: number }> {
+}): Promise<{ conversations: WhatsAppConversation[]; total: number; totalUnread: number; totalNeedsAdmin: number }> {
   const limit = Math.min(Math.max(params.limit || 50, 1), 100);
   const offset = Math.max(params.offset || 0, 0);
 
@@ -326,6 +360,8 @@ export async function getConversations(params: {
   if (params.status && params.status !== 'all') {
     if (params.status === 'unread') {
       whereClauses.push(`unread_count > 0`);
+    } else if (params.status === 'needs_admin') {
+      whereClauses.push(`needs_admin = true`);
     } else {
       whereClauses.push(`status = $${paramIdx}`);
       queryParams.push(params.status);
@@ -351,15 +387,23 @@ export async function getConversations(params: {
     ${whereSql};
   `;
 
-  const [listRes, countRes] = await Promise.all([
+  const needsAdminCountSql = `
+    SELECT COUNT(*)::int AS total_needs_admin
+    FROM whatsapp_conversations
+    WHERE needs_admin = true;
+  `;
+
+  const [listRes, countRes, needsAdminRes] = await Promise.all([
     query<WhatsAppConversation>(listSql, [...queryParams, limit, offset]),
     query<{ total: number; total_unread: number }>(countSql, queryParams),
+    query<{ total_needs_admin: number }>(needsAdminCountSql),
   ]);
 
   return {
     conversations: listRes.rows,
     total: countRes.rows[0]?.total || 0,
     totalUnread: countRes.rows[0]?.total_unread || 0,
+    totalNeedsAdmin: needsAdminRes.rows[0]?.total_needs_admin || 0,
   };
 }
 
@@ -693,4 +737,102 @@ export async function setWatZapWebhookUrl(targetUrl: string): Promise<{ success:
   } catch (err: any) {
     return { success: false, message: err.message };
   }
+}
+
+
+export interface WhatsAppBotConfig {
+  enabled: boolean;
+  auto_reply_delay_ms: number;
+  escalation_admin_phones: string[];
+  system_prompt_extra: string;
+}
+
+const DEFAULT_BOT_CONFIG: WhatsAppBotConfig = {
+  enabled: true,
+  auto_reply_delay_ms: 2000,
+  escalation_admin_phones: [],
+  system_prompt_extra: '',
+};
+
+export async function getWhatsAppBotConfig(): Promise<WhatsAppBotConfig> {
+  try {
+    const row = await queryOne<{ value: any }>(
+      `SELECT value FROM system_settings WHERE key = 'whatsapp_bot_config' LIMIT 1`
+    );
+    if (!row || !row.value) return DEFAULT_BOT_CONFIG;
+    return {
+      enabled: row.value.enabled !== false,
+      auto_reply_delay_ms: Number(row.value.auto_reply_delay_ms) || 2000,
+      escalation_admin_phones: Array.isArray(row.value.escalation_admin_phones)
+        ? row.value.escalation_admin_phones
+        : [],
+      system_prompt_extra: typeof row.value.system_prompt_extra === 'string'
+        ? row.value.system_prompt_extra
+        : '',
+    };
+  } catch (err) {
+    console.warn('[WhatsAppBot] Failed to load bot config, using default:', err);
+    return DEFAULT_BOT_CONFIG;
+  }
+}
+
+export async function updateWhatsAppBotConfig(
+  patch: Partial<WhatsAppBotConfig>
+): Promise<WhatsAppBotConfig> {
+  const current = await getWhatsAppBotConfig();
+  const next: WhatsAppBotConfig = {
+    enabled: patch.enabled !== undefined ? Boolean(patch.enabled) : current.enabled,
+    auto_reply_delay_ms:
+      patch.auto_reply_delay_ms !== undefined
+        ? Math.min(Math.max(Number(patch.auto_reply_delay_ms) || 2000, 0), 10000)
+        : current.auto_reply_delay_ms,
+    escalation_admin_phones: Array.isArray(patch.escalation_admin_phones)
+      ? patch.escalation_admin_phones.map((p) => String(p).trim()).filter(Boolean)
+      : current.escalation_admin_phones,
+    system_prompt_extra:
+      patch.system_prompt_extra !== undefined
+        ? String(patch.system_prompt_extra).slice(0, 2000)
+        : current.system_prompt_extra,
+  };
+
+  await query(
+    `INSERT INTO system_settings (key, value, updated_at)
+     VALUES ('whatsapp_bot_config', $1::jsonb, NOW())
+     ON CONFLICT (key) DO UPDATE SET
+       value = EXCLUDED.value,
+       updated_at = NOW()`,
+    [JSON.stringify(next)]
+  );
+
+  return next;
+}
+
+export async function setConversationBotEnabled(
+  conversationId: string,
+  enabled: boolean
+): Promise<boolean> {
+  const res = await query(
+    `UPDATE whatsapp_conversations
+     SET bot_enabled = $1, updated_at = NOW()
+     WHERE id = $2`,
+    [enabled, conversationId]
+  );
+  return (res.rowCount || 0) > 0;
+}
+
+export async function setConversationEscalation(
+  conversationId: string,
+  needsAdmin: boolean,
+  reason?: string | null
+): Promise<boolean> {
+  const res = await query(
+    `UPDATE whatsapp_conversations
+     SET needs_admin = $1,
+         escalation_reason = CASE WHEN $1 THEN COALESCE($2, escalation_reason) ELSE NULL END,
+         escalated_at = CASE WHEN $1 THEN NOW() ELSE NULL END,
+         updated_at = NOW()
+     WHERE id = $3`,
+    [needsAdmin, reason || null, conversationId]
+  );
+  return (res.rowCount || 0) > 0;
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { processIncomingWebhook } from '@/lib/services/whatsapp-chat';
+import { handleIncomingAiReply } from '@/lib/services/whatsapp-ai-agent';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,8 +29,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Process asynchronously / safely
+    // 1. Save incoming message to inbox DB
     const result = await processIncomingWebhook(rawBody);
+
+    // 2. Trigger AI Agent reply asynchronously for inbound messages (so webhook returns 200 OK immediately)
+    if (
+      result.handled &&
+      result.direction === 'inbound' &&
+      result.conversationId &&
+      result.phoneNumber &&
+      result.messageBody
+    ) {
+      void handleIncomingAiReply({
+        conversationId: result.conversationId,
+        phoneNumber: result.phoneNumber,
+        messageBody: result.messageBody,
+        botEnabled: result.botEnabled !== false,
+        hasMedia: result.hasMedia,
+      }).catch((aiErr) => {
+        console.error('[WhatsApp Webhook AI Error]', aiErr);
+      });
+    }
 
     return NextResponse.json(
       {
