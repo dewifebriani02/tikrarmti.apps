@@ -35,6 +35,8 @@ function RekamSuaraContent() {
     fileName: string;
     submittedAt: string;
     assessmentStatus?: string;
+    needsRevision?: boolean;
+    notes?: string;
     registrationId?: string;
   } | null>(null);
   const [existingAudioUrl, setExistingAudioUrl] = useState<string | null>(null);
@@ -138,7 +140,11 @@ function RekamSuaraContent() {
           currentReg = thalibahList.find(reg => reg.batch_id === queryBatchId || reg.batch?.id === queryBatchId);
         }
         if (!currentReg && thalibahList.length > 0) {
-          currentReg = thalibahList[0];
+          // Prefer active/open batch or registration needing oral submission or revision
+          currentReg = thalibahList.find(reg => reg.batch?.status === 'open') ||
+                       thalibahList.find(reg => reg.needs_revision === true || reg.oral_assessment_status === 'needs_revision') ||
+                       thalibahList.find(reg => reg.oral_assessment_status !== 'pass') ||
+                       thalibahList[0];
         }
 
         if (currentReg) {
@@ -152,6 +158,8 @@ function RekamSuaraContent() {
               fileName: currentReg.oral_submission_file_name || 'audio.webm',
               submittedAt: currentReg.oral_submitted_at || new Date().toISOString(),
               assessmentStatus: currentReg.oral_assessment_status || 'pending',
+              needsRevision: currentReg.needs_revision === true || currentReg.oral_assessment_status === 'needs_revision',
+              notes: currentReg.oral_assessment_notes || '',
               registrationId: currentReg.id,
             });
           } else {
@@ -460,7 +468,7 @@ function RekamSuaraContent() {
     return null;
   }
 
-  const isGraded = existingSubmission?.assessmentStatus === 'pass' || existingSubmission?.assessmentStatus === 'fail';
+  const isGraded = (existingSubmission?.assessmentStatus === 'pass' || existingSubmission?.assessmentStatus === 'fail') && !existingSubmission?.needsRevision;
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl space-y-6">
@@ -507,6 +515,18 @@ function RekamSuaraContent() {
                 <div className="space-y-3">
                   <p><strong className="text-green-800">Rekaman sudah terkirim</strong></p>
                   <p className="text-sm text-gray-600">Dikirim pada: {new Date(existingSubmission.submittedAt).toLocaleString('id-ID')}</p>
+
+                  {existingSubmission.needsRevision && (
+                    <Alert className="bg-amber-50 border-amber-300">
+                      <AlertCircle className="h-4 w-4 text-amber-600" />
+                      <AlertDescription>
+                        <p className="text-sm font-semibold text-amber-900">Perlu Rekam Ulang / Revisi</p>
+                        {existingSubmission.notes && (
+                          <p className="text-xs text-amber-800 mt-1">Catatan Penguji: {existingSubmission.notes}</p>
+                        )}
+                      </AlertDescription>
+                    </Alert>
+                  )}
 
                   {/* Audio Player */}
                   <div className="bg-white p-3 rounded border border-green-200">

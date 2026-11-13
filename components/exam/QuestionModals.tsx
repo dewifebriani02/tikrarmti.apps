@@ -94,6 +94,7 @@ export function QuestionModals({
               </button>
             </div>
             <EditQuestionForm
+              key={editingQuestion.id}
               question={editingQuestion}
               juzOptions={juzOptions}
               onSave={onUpdate}
@@ -302,19 +303,38 @@ function EditQuestionForm({ question, juzOptions, onSave, onCancel, isSaving }: 
   onCancel: () => void;
   isSaving: boolean;
 }) {
-  const [formData, setFormData] = useState<AdminQuestionEditForm>({
-    juz_number: question.juz_number,
-    section_number: question.section_number || 1,
-    section_title: question.section_title || '',
-    question_number: question.question_number,
-    question_text: question.question_text,
-    question_type: question.question_type || 'multiple_choice',
-    options: (question.options || []).map((opt: any) => ({
-      text: opt.option_text || opt.text || '',
-      isCorrect: opt.is_correct || opt.isCorrect || false
-    })),
-    points: question.points || 1,
-    is_active: question.is_active !== false,
+  const [formData, setFormData] = useState<AdminQuestionEditForm>(() => {
+    let rawOptions = question.options;
+    if (typeof rawOptions === 'string') {
+      try {
+        rawOptions = JSON.parse(rawOptions);
+      } catch {
+        rawOptions = [];
+      }
+    }
+    if (!Array.isArray(rawOptions)) rawOptions = [];
+
+    const hasAnyCorrect = rawOptions.some((o: any) => o.isCorrect === true || o.is_correct === true);
+    const parsedOptions = rawOptions.map((opt: any) => {
+      const text = opt.option_text || opt.text || '';
+      const isCorrect = hasAnyCorrect
+        ? (opt.is_correct === true || opt.isCorrect === true)
+        : (question.correct_answer ? text.trim() === question.correct_answer.trim() : false);
+      return { text, isCorrect };
+    });
+
+    return {
+      juz_number: question.juz_number,
+      section_number: question.section_number || 1,
+      section_title: question.section_title || '',
+      question_number: question.question_number,
+      question_text: question.question_text,
+      question_type: question.question_type || 'multiple_choice',
+      options: parsedOptions,
+      points: question.points || 1,
+      is_active: question.is_active !== false,
+      question_package: question.question_package || 'A',
+    };
   });
 
   const [juzCode, setJuzCode] = useState(juzOptions.find(opt => opt.juz_number === question.juz_number)?.code || '');
@@ -325,24 +345,52 @@ function EditQuestionForm({ question, juzOptions, onSave, onCancel, isSaving }: 
     if (sel) setFormData({ ...formData, juz_number: sel.juz_number as JuzNumber });
   };
 
-  const handleOptionChange = (idx: number, field: string, val: any) => {
-    const next = [...formData.options];
-    next[idx] = { ...next[idx], [field]: val };
+  const handleSetCorrectOption = (idx: number) => {
+    const next = formData.options.map((opt, i) => ({
+      ...opt,
+      isCorrect: i === idx,
+    }));
     setFormData({ ...formData, options: next });
   };
 
+  const handleOptionTextChange = (idx: number, text: string) => {
+    const next = [...formData.options];
+    next[idx] = { ...next[idx], text };
+    setFormData({ ...formData, options: next });
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (formData.options.length > 0 && !formData.options.some(o => o.isCorrect)) {
+      alert('Pilih salah satu opsi sebagai Kunci Jawaban yang benar.');
+      return;
+    }
+    onSave(formData);
+  };
+
   return (
-    <form onSubmit={(e) => { e.preventDefault(); onSave(formData); }} className="p-6 space-y-4 font-sans">
-      <div className="grid grid-cols-2 gap-4">
+    <form onSubmit={handleSubmit} className="p-6 space-y-4 font-sans">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div>
           <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Pilihan Juz</label>
-          <select value={juzCode} onChange={(e) => handleJuzChange(e.target.value)} className="w-full px-3 py-2 border rounded-lg" required>
+          <select value={juzCode} onChange={(e) => handleJuzChange(e.target.value)} className="w-full px-3 py-2 border rounded-lg bg-white" required>
             {juzOptions.map(o => <option key={o.code} value={o.code}>{o.name}</option>)}
           </select>
         </div>
         <div>
+          <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Paket Soal</label>
+          <select
+            value={formData.question_package || 'A'}
+            onChange={(e) => setFormData({ ...formData, question_package: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg bg-white font-medium"
+          >
+            <option value="A">Paket A</option>
+            <option value="B">Paket B</option>
+          </select>
+        </div>
+        <div>
           <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Section</label>
-          <select value={formData.section_number} onChange={(e) => setFormData({ ...formData, section_number: parseInt(e.target.value) })} className="w-full px-3 py-2 border rounded-lg">
+          <select value={formData.section_number} onChange={(e) => setFormData({ ...formData, section_number: parseInt(e.target.value) })} className="w-full px-3 py-2 border rounded-lg bg-white">
             {[1, 2, 3, 4, 5, 6, 7].map(n => <option key={n} value={n}>Section {n}</option>)}
           </select>
         </div>
@@ -356,14 +404,54 @@ function EditQuestionForm({ question, juzOptions, onSave, onCancel, isSaving }: 
         <textarea value={formData.question_text} onChange={(e) => setFormData({ ...formData, question_text: e.target.value })} className="w-full px-3 py-2 border rounded-lg" rows={3} required />
       </div>
       <div>
-        <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Options</label>
-        <div className="space-y-2 mt-2">
-          {formData.options.map((opt, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <input type="checkbox" checked={opt.isCorrect} onChange={(e) => handleOptionChange(i, 'isCorrect', e.target.checked)} className="w-4 h-4 accent-green-600" />
-              <input type="text" value={opt.text} onChange={(e) => handleOptionChange(i, 'text', e.target.value)} className="flex-1 px-3 py-2 border rounded-lg" required />
-            </div>
-          ))}
+        <div className="flex items-center justify-between mb-1">
+          <label className="block text-xs font-bold text-gray-700 uppercase">Pilihan Jawaban & Kunci Jawaban</label>
+          <span className="text-xs text-gray-500 italic">Klik radio button untuk memilih kunci jawaban</span>
+        </div>
+        <div className="space-y-2.5 mt-2">
+          {formData.options.map((opt, i) => {
+            const letter = String.fromCharCode(65 + i);
+            return (
+              <div
+                key={i}
+                className={`flex items-center gap-3 p-2.5 rounded-lg border transition-all ${
+                  opt.isCorrect
+                    ? 'border-green-400 bg-green-50/60 shadow-xs'
+                    : 'border-gray-200 bg-white hover:border-gray-300'
+                }`}
+              >
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="radio"
+                    name={`correct-answer-${question.id}`}
+                    checked={opt.isCorrect}
+                    onChange={() => handleSetCorrectOption(i)}
+                    className="w-4 h-4 text-green-600 focus:ring-green-500 cursor-pointer"
+                  />
+                  <span
+                    className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                      opt.isCorrect ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 border border-gray-300'
+                    }`}
+                  >
+                    {letter}
+                  </span>
+                </label>
+                <input
+                  type="text"
+                  value={opt.text}
+                  onChange={(e) => handleOptionTextChange(i, e.target.value)}
+                  className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                  placeholder={`Teks pilihan ${letter}`}
+                  required
+                />
+                {opt.isCorrect && (
+                  <span className="text-xs font-bold text-green-700 bg-green-200 px-2.5 py-1 rounded-full whitespace-nowrap">
+                    ✓ Kunci Jawaban
+                  </span>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
       <div className="flex gap-3 justify-end pt-4 border-t">

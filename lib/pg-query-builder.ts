@@ -146,7 +146,23 @@ class PgQueryBuilder<T = any> {
 
   // ── Cloning helper ──
   private _addParam(value: any): string {
-    this._params.push(value);
+    let paramVal = value;
+    if (
+      value !== null &&
+      value !== undefined &&
+      typeof value === 'object' &&
+      !(value instanceof Date) &&
+      !Buffer.isBuffer(value)
+    ) {
+      if (Array.isArray(value)) {
+        if (value.length > 0 && typeof value[0] === 'object' && value[0] !== null && !(value[0] instanceof Date)) {
+          paramVal = JSON.stringify(value);
+        }
+      } else {
+        paramVal = JSON.stringify(value);
+      }
+    }
+    this._params.push(paramVal);
     return `$${this._params.length}`;
   }
 

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger-secure';
 import { createServerClient } from '@/lib/supabase/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { getAuthorizationContext, isUserAdmin } from '@/lib/rbac';
+import { deleteUploadedFile } from '@/lib/storage';
 
 // PostgreSQL-backed admin client
 const supabaseAdmin = createSupabaseAdmin();
@@ -19,11 +21,14 @@ export async function PUT(
     // Await params (Next.js 15+ requirement)
     const { id } = await params;
 
-    // Simple authentication using Supabase SSR client
+    // Authentication using native RBAC context or Supabase SSR client fallback
+    const context = await getAuthorizationContext();
     const supabase = createServerClient();
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const { data: { user: sbUser }, error: userError } = await supabase.auth.getUser();
 
-    if (userError || !user) {
+    const user = context ? { id: context.userId, email: context.email, roles: context.roles } : sbUser;
+
+    if (!user) {
       logger.warn('Unauthorized update attempt', {
         ip: clientIP,
         endpoint: `/api/pendaftaran/tikrar/${id}`,
@@ -45,27 +50,29 @@ export async function PUT(
 
     const body = await request.json();
 
-    // Check if user is admin
-    const { data: userData, error: userDataError } = await supabaseAdmin
-      .from('users')
-      .select('roles')
-      .eq('id', user.id)
-      .single();
-
-    const isAdmin = userData?.roles?.includes('admin');
+    const isAdmin = context ? isUserAdmin(context) : (user as any)?.roles?.includes('admin');
 
     // Verify that the user_id in the request matches the authenticated user
     // Skip this check for oral submission updates (they don't need user_id in body)
     // Skip this check for admin users
-    const isOralSubmissionUpdate = body.oral_submission_url !== undefined ||
+    const isDeletingOralSubmission = body.oral_submission_url === null &&
+                                      body.oral_submission_file_name === null &&
+                                      body.oral_submitted_at === null;
+
+    const isOralSubmissionUpdate = isDeletingOralSubmission ||
+                                    body.oral_submission_url !== undefined ||
                                     body.oral_submission_file_name !== undefined ||
                                     body.oral_submitted_at !== undefined;
-    const isOralAssessmentUpdate = body.oral_makhraj_errors !== undefined || body.oral_sifat_errors !== undefined ||
-                                    body.oral_mad_errors !== undefined || body.oral_ghunnah_errors !== undefined ||
-                                    body.oral_harakat_errors !== undefined || body.oral_itmamul_harakat_errors !== undefined ||
-                                    body.oral_total_score !== undefined || body.oral_assessment_status !== undefined ||
-                                    body.oral_assessment_notes !== undefined || body.oral_assessment_audio_url !== undefined ||
-                                    body.selection_status !== undefined || body.needs_revision !== undefined;
+
+    // Do NOT treat resetting oral submission as an admin-only oral assessment update
+    const isOralAssessmentUpdate = !isDeletingOralSubmission && (
+      body.oral_makhraj_errors !== undefined || body.oral_sifat_errors !== undefined ||
+      body.oral_mad_errors !== undefined || body.oral_ghunnah_errors !== undefined ||
+      body.oral_harakat_errors !== undefined || body.oral_itmamul_harakat_errors !== undefined ||
+      body.oral_total_score !== undefined || (body.oral_assessment_status !== undefined && !isDeletingOralSubmission) ||
+      body.oral_assessment_notes !== undefined || body.oral_assessment_audio_url !== undefined ||
+      body.selection_status !== undefined || body.needs_revision !== undefined
+    );
 
     // For non-admin users doing regular updates (not oral submission), verify they own the registration
     // Note: user_id in body is optional, so we only check if it's provided
@@ -110,25 +117,21 @@ export async function PUT(
       }, { status: 404 });
     }
 
-    // Check if trying to delete oral submission (null values)
-    const isDeletingOralSubmission = body.oral_submission_url === null &&
-                                      body.oral_submission_file_name === null &&
-                                      body.oral_submitted_at === null;
-
-    // Prevent deletion if already assessed (non-admin users only)
+    // Prevent deletion if already passed and no revision needed (non-admin users only)
     if (!isAdmin && isDeletingOralSubmission) {
       const assessmentStatus = existingRegistration.oral_assessment_status;
+      const needsRevision = existingRegistration.needs_revision === true || assessmentStatus === 'needs_revision';
 
-      // Allow deletion only if status is 'pending' or 'not_submitted'
-      if (assessmentStatus === 'pass' || assessmentStatus === 'fail') {
-        logger.warn('Attempted to delete assessed oral submission', {
+      // If already passed and not marked for revision, protect the result
+      if (assessmentStatus === 'pass' && !needsRevision) {
+        logger.warn('Attempted to delete passed oral submission', {
           registrationId: id,
           userId: user.id,
           assessmentStatus
         });
 
         return NextResponse.json({
-          error: 'Rekaman sudah dinilai oleh admin. Tidak bisa dihapus.'
+          error: 'Rekaman sudah dinilai dan dinyatakan lulus. Tidak dapat dihapus.'
         }, { status: 403 });
       }
     }
@@ -160,7 +163,31 @@ export async function PUT(
     let isHandled = false;
 
     // Handle oral submission fields
-    if (isOralSubmissionUpdate) {
+    if (isDeletingOralSubmission) {
+      // Clean up physical file on disk
+      try {
+        const oldFile = existingRegistration.oral_submission_file_name;
+        const oldUrl = existingRegistration.oral_submission_url;
+        if (oldFile) {
+          await deleteUploadedFile('selection-audios', oldFile);
+        } else if (oldUrl) {
+          const parts = oldUrl.split('/');
+          const fname = parts[parts.length - 1];
+          if (fname) {
+            await deleteUploadedFile('selection-audios', fname);
+          }
+        }
+      } catch (fileErr) {
+        logger.warn('Failed to delete existing audio file from storage', { error: fileErr });
+      }
+
+      updateData.oral_submission_url = null;
+      updateData.oral_submission_file_name = null;
+      updateData.oral_submitted_at = null;
+      updateData.oral_assessment_status = 'not_submitted';
+      updateData.needs_revision = false;
+      isHandled = true;
+    } else if (isOralSubmissionUpdate) {
       if (body.oral_submission_url !== undefined) updateData.oral_submission_url = body.oral_submission_url;
       if (body.oral_submission_file_name !== undefined) updateData.oral_submission_file_name = body.oral_submission_file_name;
       if (body.oral_submitted_at !== undefined) updateData.oral_submitted_at = body.oral_submitted_at;
@@ -169,6 +196,7 @@ export async function PUT(
       // Automatically clear NEEDS_REVISION if user is submitting a new recording
       if (!isAdmin && body.oral_submission_url !== null && body.oral_submission_url !== undefined) {
         updateData.oral_assessment_notes = null;
+        updateData.needs_revision = false;
       }
       isHandled = true;
     }

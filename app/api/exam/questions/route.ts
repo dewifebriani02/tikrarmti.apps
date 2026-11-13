@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { logger } from '@/lib/logger-secure';
-import { requireAdmin } from '@/lib/rbac';
+import { requireAdmin, getAuthorizationContext } from '@/lib/rbac';
 
 const supabaseAdmin = createSupabaseAdmin();
 
@@ -70,23 +70,9 @@ export async function GET(request: NextRequest) {
 // POST: Create new exam question (Admin only)
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Check if user is admin
-    const { data: userData, error: userError } = await supabaseAdmin
-      .from('users')
-      .select('roles')
-      .eq('id', user.id)
-      .single();
-
-    if (userError || !userData || !userData.roles?.includes('admin')) {
-      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
-    }
+    const authError = await requireAdmin();
+    if (authError) return authError;
+    const context = await getAuthorizationContext();
 
     const body = await request.json();
 
@@ -128,9 +114,15 @@ export async function POST(request: NextRequest) {
       ? (lastQuestion[0].question_number || 0) + 1
       : 1;
 
-    // Find correct answer from options
-    const correctOption = body.options?.find((opt: any) => opt.isCorrect === true);
-    const correctAnswer = correctOption?.text || '';
+    // Format options and find correct answer
+    const rawOptions = body.options || [];
+    const formattedOptions = rawOptions.map((opt: any) => ({
+      text: opt.option_text || opt.text || '',
+      isCorrect: opt.is_correct === true || opt.isCorrect === true
+    }));
+
+    const correctOption = formattedOptions.find((opt: any) => opt.isCorrect === true);
+    const correctAnswer = correctOption?.text || body.correct_answer || '';
 
     // Prepare insert data - match exact schema from migration
     const insertData: Record<string, any> = {
@@ -141,12 +133,12 @@ export async function POST(request: NextRequest) {
       question_number: nextQuestionNumber,
       question_text: body.question_text,
       question_type: body.question_type || 'multiple_choice',
-      options: body.options || [],
+      options: formattedOptions,
       correct_answer: correctAnswer,
       points: body.points || 1,
       is_active: body.is_active !== false,
       question_package: body.question_package || 'A',
-      created_by: user.id
+      created_by: context?.userId || null
     };
 
     // Insert with admin client to bypass RLS
@@ -176,7 +168,7 @@ export async function POST(request: NextRequest) {
       }, { status: 500 });
     }
 
-    logger.info('Question created successfully', { id: newQuestion[0].id });
+    logger.info('Question created successfully', { id: newQuestion[0].id, adminId: context?.userId });
 
     return NextResponse.json({
       data: newQuestion[0],
@@ -199,23 +191,9 @@ export async function POST(request: NextRequest) {
 // PUT: Update exam question (Admin only)
 export async function PUT(request: NextRequest) {
   try {
-    const supabase = createServerClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Check if user is admin
-    const { data: userData, error: userError } = await supabaseAdmin
-      .from('users')
-      .select('roles')
-      .eq('id', user.id)
-      .single();
-
-    if (userError || !userData || !userData.roles?.includes('admin')) {
-      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
-    }
+    const authError = await requireAdmin();
+    if (authError) return authError;
+    const context = await getAuthorizationContext();
 
     const body = await request.json();
     const { id, ...updateData } = body;
@@ -224,9 +202,22 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Question ID required' }, { status: 400 });
     }
 
-    // Update correct_answer based on options
-    if (updateData.options) {
-      updateData.correct_answer = updateData.options.find((opt: any) => opt.isCorrect)?.text || '';
+    // Update options and correct_answer
+    if (updateData.options && Array.isArray(updateData.options)) {
+      const formattedOptions = updateData.options.map((opt: any) => ({
+        text: opt.option_text || opt.text || '',
+        isCorrect: opt.is_correct === true || opt.isCorrect === true
+      }));
+
+      const correctOption = formattedOptions.find((opt: any) => opt.isCorrect === true);
+      if (correctOption) {
+        updateData.correct_answer = correctOption.text;
+      } else if (updateData.correct_answer) {
+        const matched = formattedOptions.find((opt: any) => opt.text.trim() === updateData.correct_answer.trim());
+        if (matched) matched.isCorrect = true;
+      }
+
+      updateData.options = formattedOptions;
     }
 
     const { data: updatedQuestion, error: updateError } = await supabaseAdmin
@@ -241,10 +232,10 @@ export async function PUT(request: NextRequest) {
 
     if (updateError) {
       logger.error('Error updating exam question', { error: updateError });
-      return NextResponse.json({ error: 'Failed to update question' }, { status: 500 });
+      return NextResponse.json({ error: 'Failed to update question', details: updateError.message }, { status: 500 });
     }
 
-    logger.info('Exam question updated', { questionId: id, adminId: user.id });
+    logger.info('Exam question updated', { questionId: id, adminId: context?.userId });
 
     return NextResponse.json({
       data: updatedQuestion,
@@ -260,23 +251,9 @@ export async function PUT(request: NextRequest) {
 // DELETE: Delete exam question (Admin only)
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = createServerClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Check if user is admin
-    const { data: userData, error: userError } = await supabaseAdmin
-      .from('users')
-      .select('roles')
-      .eq('id', user.id)
-      .single();
-
-    if (userError || !userData || !userData.roles?.includes('admin')) {
-      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
-    }
+    const authError = await requireAdmin();
+    if (authError) return authError;
+    const context = await getAuthorizationContext();
 
     const searchParams = request.nextUrl.searchParams;
     const id = searchParams.get('id');
@@ -292,10 +269,10 @@ export async function DELETE(request: NextRequest) {
 
     if (deleteError) {
       logger.error('Error deleting exam question', { error: deleteError });
-      return NextResponse.json({ error: 'Failed to delete question' }, { status: 500 });
+      return NextResponse.json({ error: 'Failed to delete question', details: deleteError.message }, { status: 500 });
     }
 
-    logger.info('Exam question deleted', { questionId: id, adminId: user.id });
+    logger.info('Exam question deleted', { questionId: id, adminId: context?.userId });
 
     return NextResponse.json({
       message: 'Question deleted successfully'
