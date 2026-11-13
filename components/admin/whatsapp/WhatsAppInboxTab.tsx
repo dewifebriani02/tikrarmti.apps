@@ -106,11 +106,17 @@ export function WhatsAppInboxTab({ senderNumber = "0813-8884-240" }: WhatsAppInb
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const scrollToBottom = (smooth = true) => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior: smooth ? 'smooth' : 'auto',
+      });
+    }
   };
 
   // Fetch Webhook Status
@@ -202,7 +208,7 @@ export function WhatsAppInboxTab({ senderNumber = "0813-8884-240" }: WhatsAppInb
           setTotalUnread((prev) => Math.max(0, prev - 1));
         }
 
-        setTimeout(scrollToBottom, 100);
+        if (!silent) setTimeout(() => scrollToBottom(false), 50);
       }
     } catch (err) {
       console.error('Error fetching messages:', err);
@@ -306,7 +312,7 @@ export function WhatsAppInboxTab({ senderNumber = "0813-8884-240" }: WhatsAppInb
           )
         );
 
-        setTimeout(scrollToBottom, 100);
+        setTimeout(() => scrollToBottom(true), 50);
       } else {
         toast.error(data.error?.message || 'Gagal mengirim balasan WhatsApp');
       }
@@ -898,7 +904,7 @@ export function WhatsAppInboxTab({ senderNumber = "0813-8884-240" }: WhatsAppInb
               </div>
 
               {/* Message Bubbles Area */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-3">
                 {loadingMessages ? (
                   <div className="flex flex-col items-center justify-center h-full text-slate-400 text-xs">
                     <RefreshCw className="h-5 w-5 animate-spin mb-2 text-emerald-600" />
