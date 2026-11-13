@@ -103,7 +103,7 @@ export function WhatsAppInboxTab({ senderNumber = "0813-8884-240" }: WhatsAppInb
   const [adminPhonesInput, setAdminPhonesInput] = useState('');
   const [promptExtraInput, setPromptExtraInput] = useState('');
   const [savingBotSettings, setSavingBotSettings] = useState(false);
-  const [webhookStatus, setWebhookStatus] = useState<{ configured: boolean; webhookUrl?: string | null } | null>(null);
+  const [webhookStatus, setWebhookStatus] = useState<{ configured: boolean; webhookUrl?: string | null; instanceOnline?: boolean; instanceError?: string | null } | null>(null);
   const [isConfiguringWebhook, setIsConfiguringWebhook] = useState(false);
 
   // Media Attachment State for Reply
@@ -314,6 +314,11 @@ export function WhatsAppInboxTab({ senderNumber = "0813-8884-240" }: WhatsAppInb
     if (!silent) setLoadingMessages(true);
     try {
       const res = await fetch(`/api/admin/whatsapp/conversations/${convId}`);
+      if (res.status === 404) {
+        setSelectedConvId(null);
+        setMessages([]);
+        return;
+      }
       const data = await res.json();
 
       if (data.success) {
@@ -724,12 +729,20 @@ export function WhatsAppInboxTab({ senderNumber = "0813-8884-240" }: WhatsAppInb
           <span className="flex h-2 w-2 relative">
             <span
               className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
-                webhookStatus?.configured ? 'bg-emerald-400' : 'bg-amber-400'
+                webhookStatus?.configured && webhookStatus?.instanceOnline !== false
+                  ? 'bg-emerald-400'
+                  : webhookStatus?.instanceOnline === false
+                  ? 'bg-red-400'
+                  : 'bg-amber-400'
               }`}
             />
             <span
               className={`relative inline-flex rounded-full h-2 w-2 ${
-                webhookStatus?.configured ? 'bg-emerald-500' : 'bg-amber-500'
+                webhookStatus?.configured && webhookStatus?.instanceOnline !== false
+                  ? 'bg-emerald-500'
+                  : webhookStatus?.instanceOnline === false
+                  ? 'bg-red-500'
+                  : 'bg-amber-500'
               }`}
             />
           </span>
@@ -737,12 +750,18 @@ export function WhatsAppInboxTab({ senderNumber = "0813-8884-240" }: WhatsAppInb
             Status Webhook WatZap ({senderNumber}):
           </span>
           {webhookStatus?.configured ? (
-            <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
-              <Check className="h-3.5 w-3.5" /> Terhubung Aktif
-              <span className="text-slate-400 font-normal">
-                ({webhookStatus.webhookUrl || 'https://markaztikrar.id/api/webhooks/whatsapp'})
+            webhookStatus.instanceOnline === false ? (
+              <span className="text-red-600 dark:text-red-400 font-semibold flex items-center gap-1">
+                <AlertTriangle className="h-3.5 w-3.5" /> Instance WhatsApp Offline ({webhookStatus.instanceError || 'Not Started'}) — Scan ulang QR di app.watzap.id
               </span>
-            </span>
+            ) : (
+              <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                <Check className="h-3.5 w-3.5" /> Terhubung Aktif
+                <span className="text-slate-400 font-normal">
+                  ({webhookStatus.webhookUrl || 'https://markaztikrar.id/api/webhooks/whatsapp'})
+                </span>
+              </span>
+            )
           ) : (
             <span className="text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1">
               <AlertCircle className="h-3.5 w-3.5" /> Belum Dihubungkan

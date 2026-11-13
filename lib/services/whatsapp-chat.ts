@@ -672,6 +672,8 @@ export async function updateConversationStatus(
 export async function getWatZapWebhookStatus(): Promise<{
   configured: boolean;
   webhookUrl?: string | null;
+  instanceOnline?: boolean;
+  instanceError?: string | null;
   error?: string;
 }> {
   const apiKey = process.env.WATZAP_API_KEY?.trim();
@@ -682,25 +684,53 @@ export async function getWatZapWebhookStatus(): Promise<{
   }
 
   try {
-    const res = await fetch('https://api.watzap.id/v1/get_webhook', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ api_key: apiKey, number_key: numberKey }),
-    });
+    const [webhookRes, validateRes] = await Promise.all([
+      fetch('https://api.watzap.id/v1/get_webhook', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ api_key: apiKey, number_key: numberKey }),
+        signal: AbortSignal.timeout(5000),
+      }),
+      fetch('https://api.watzap.id/v1/validate_number', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ api_key: apiKey, number_key: numberKey, phone_no: '628138884240' }),
+        signal: AbortSignal.timeout(5000),
+      }).catch(() => null),
+    ]);
 
-    const data = await res.json();
+    const data = await webhookRes.json();
+    let instanceOnline: boolean | undefined = undefined;
+    let instanceError: string | null = null;
+
+    if (validateRes) {
+      try {
+        const valData = await validateRes.json();
+        if (valData.status === '200' || valData.status === 200 || valData.ack === 'successfully') {
+          instanceOnline = true;
+        } else {
+          instanceOnline = false;
+          instanceError = valData.message || 'WhatsApp Instance Offline';
+        }
+      } catch {
+        // Ignore parse error from validate_number
+      }
+    }
+
     if (data.status === '200' || data.status === 200 || data.ack === 'successfully') {
       return {
         configured: true,
         webhookUrl: data.message || null,
+        instanceOnline,
+        instanceError,
       };
     }
 
     if (data.status === '1005') {
-      return { configured: false, webhookUrl: null };
+      return { configured: false, webhookUrl: null, instanceOnline, instanceError };
     }
 
-    return { configured: false, error: data.message };
+    return { configured: false, error: data.message, instanceOnline, instanceError };
   } catch (err: any) {
     return { configured: false, error: err.message };
   }
