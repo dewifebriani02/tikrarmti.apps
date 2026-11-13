@@ -1,6 +1,8 @@
 import { requireAdmin } from '@/lib/rbac';
 import { ApiResponses } from '@/lib/api-responses';
 import { whatsappService } from '@/lib/services/whatsapp';
+import { recordOutboundMessage } from '@/lib/services/whatsapp-chat';
+import { getCurrentUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,6 +35,20 @@ export async function POST(request: Request) {
 
     if (!result.success) {
       return ApiResponses.badRequest(result.error || 'Gagal mengirim pesan WhatsApp');
+    }
+
+    // Rekam pesan keluar ke Live Chat Inbox agar riwayat percakapan langsung tersinkron
+    try {
+      const currentUser = await getCurrentUser();
+      await recordOutboundMessage({
+        phoneNumber: to,
+        messageText: message || templateName || 'Pesan WhatsApp',
+        adminName: currentUser?.full_name || 'Admin MTI',
+        adminId: currentUser?.id,
+        watzapMessageId: result.messageId,
+      });
+    } catch (recordErr) {
+      console.warn('[WhatsApp Send Route] Gagal mencatat pesan ke inbox:', recordErr);
     }
 
     // Tembusan (CC) ke admin atau grup WhatsApp jika ada

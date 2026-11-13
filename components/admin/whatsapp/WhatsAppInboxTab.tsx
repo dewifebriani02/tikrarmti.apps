@@ -71,7 +71,11 @@ const QUICK_REPLIES = [
   },
 ];
 
-export function WhatsAppInboxTab() {
+export interface WhatsAppInboxTabProps {
+  senderNumber?: string;
+}
+
+export function WhatsAppInboxTab({ senderNumber = "0813-8884-240" }: WhatsAppInboxTabProps = {}) {
   const [conversations, setConversations] = useState<WhatsAppConversation[]>([]);
   const [totalUnread, setTotalUnread] = useState(0);
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
@@ -597,7 +601,7 @@ export function WhatsAppInboxTab() {
             />
           </span>
           <span className="font-medium text-slate-700 dark:text-slate-300">
-            Status Webhook WatZap (08138884240):
+            Status Webhook WatZap ({senderNumber}):
           </span>
           {webhookStatus?.configured ? (
             <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
@@ -1029,7 +1033,7 @@ export function WhatsAppInboxTab() {
                     className="min-h-[50px] max-h-[140px] text-xs resize-none rounded-xl pr-3 pl-3 py-2.5 bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700"
                   />
                   <span className="text-[10px] text-slate-400 mt-1 block">
-                    Pesan akan dikirim langsung via WhatsApp resmi MTI (0813-8884-240).
+                    Pesan akan dikirim langsung via WhatsApp resmi MTI ({senderNumber}).
                   </span>
                 </div>
 

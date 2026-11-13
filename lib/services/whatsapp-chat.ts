@@ -488,6 +488,112 @@ export async function sendReplyMessage(params: {
 }
 
 /**
+ * Record an outbound message sent elsewhere in the system (e.g. Kirim Pesan Perorangan or notifications)
+ * into whatsapp_conversations and whatsapp_messages.
+ */
+export async function recordOutboundMessage(params: {
+  phoneNumber: string;
+  messageText: string;
+  adminName?: string;
+  adminId?: string;
+  watzapMessageId?: string;
+  mediaUrl?: string;
+}): Promise<WhatsAppMessage | null> {
+  const { canonical } = getPhoneVariants(params.phoneNumber);
+  if (!canonical) return null;
+
+  const userMatch = await findUserByPhone(canonical);
+  const displayName = userMatch?.nama_kunyah 
+    ? `${userMatch.full_name} (${userMatch.nama_kunyah})`
+    : userMatch?.full_name || `+${canonical}`;
+
+  const studentIdNumber = userMatch?.student_id_number || null;
+  const batchName = userMatch?.batch_name || null;
+  const userId = userMatch?.id || null;
+  const savedText = params.mediaUrl
+    ? (params.messageText ? `📷 [Foto]: ${params.messageText}` : "📷 [Foto]")
+    : (params.messageText || "");
+
+  return await transaction(async (client) => {
+    const upsertConvQuery = `
+      INSERT INTO whatsapp_conversations (
+        phone_number,
+        display_name,
+        user_id,
+        batch_name,
+        student_id_number,
+        last_message,
+        last_message_at,
+        last_message_direction,
+        unread_count,
+        status,
+        updated_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, NOW(), 'outbound', 0, 'open', NOW())
+      ON CONFLICT (phone_number) DO UPDATE SET
+        display_name = COALESCE(EXCLUDED.display_name, whatsapp_conversations.display_name),
+        user_id = COALESCE(EXCLUDED.user_id, whatsapp_conversations.user_id),
+        batch_name = COALESCE(EXCLUDED.batch_name, whatsapp_conversations.batch_name),
+        student_id_number = COALESCE(EXCLUDED.student_id_number, whatsapp_conversations.student_id_number),
+        last_message = EXCLUDED.last_message,
+        last_message_at = EXCLUDED.last_message_at,
+        last_message_direction = 'outbound',
+        status = CASE WHEN whatsapp_conversations.status = 'resolved' THEN 'open' ELSE whatsapp_conversations.status END,
+        updated_at = NOW()
+      RETURNING id;
+    `;
+
+    const convResult = await client.query(upsertConvQuery, [
+      canonical,
+      displayName,
+      userId,
+      batchName,
+      studentIdNumber,
+      savedText,
+    ]);
+
+    const conversationId = convResult.rows[0].id;
+
+    const msgMetadata = params.mediaUrl
+      ? {
+          has_media: true,
+          media_url: params.mediaUrl,
+          media_mime: "image/jpeg",
+        }
+      : {};
+
+    const insertMsgQuery = `
+      INSERT INTO whatsapp_messages (
+        conversation_id,
+        phone_number,
+        direction,
+        message_body,
+        status,
+        sender_name,
+        sender_id,
+        watzap_message_id,
+        metadata,
+        created_at
+      )
+      VALUES ($1, $2, 'outbound', $3, 'sent', $4, $5, $6, $7, NOW())
+      RETURNING *;
+    `;
+
+    const msgRes = await client.query(insertMsgQuery, [
+      conversationId,
+      canonical,
+      savedText,
+      params.adminName || "Admin MTI",
+      params.adminId || null,
+      params.watzapMessageId || null,
+      JSON.stringify(msgMetadata),
+    ]);
+
+    return msgRes.rows[0];
+  });
+}
+
+/**
  * Mark conversation as read (unread_count = 0)
  */
 export async function markConversationAsRead(conversationId: string): Promise<boolean> {

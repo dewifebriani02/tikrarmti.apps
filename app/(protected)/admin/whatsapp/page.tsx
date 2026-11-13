@@ -1211,7 +1211,7 @@ export default function AdminWhatsAppPage() {
         {/* TAB 0: KOTAK MASUK & LIVE CHAT INBOX */}
         {activeTab === 'inbox' && (
           <div className="space-y-6">
-            <WhatsAppInboxTab />
+            <WhatsAppInboxTab senderNumber={status?.watzap?.displayPhoneNumber || status?.watzap?.senderNumber || "0813-8884-240"} />
           </div>
         )}
 
