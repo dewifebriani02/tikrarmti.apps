@@ -90,12 +90,12 @@ export async function findUserByPhone(phone: string): Promise<UserMatch | null> 
     const pendaftaranRow = await queryOne<any>(
       `SELECT 
          p.user_id, 
-         p.nama_lengkap AS full_name, 
-         p.no_wa AS whatsapp,
+         p.full_name, 
+         p.wa_phone AS whatsapp,
          b.name AS batch_name
        FROM pendaftaran_tikrar_tahfidz p
        LEFT JOIN batches b ON b.id = p.batch_id
-       WHERE regexp_replace(p.no_wa, '[^0-9]', '', 'g') IN ($1, $2)
+       WHERE regexp_replace(p.wa_phone, '[^0-9]', '', 'g') IN ($1, $2)
        ORDER BY p.created_at DESC
        LIMIT 1`,
       [canonical, local]

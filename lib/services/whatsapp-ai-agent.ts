@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI, SchemaType, type FunctionDeclaration } from '@google/generative-ai';
+import { GoogleGenerativeAI, SchemaType, type Content, type FunctionDeclaration, type Part } from '@google/generative-ai';
 import { randomInt } from 'crypto';
 import { query, queryOne, transaction } from '@/lib/db';
 import { sendEmail } from '@/lib/email';
@@ -16,6 +16,42 @@ const OTP_TTL_MINUTES = 15;
 const RESEND_COOLDOWN_SECONDS = 60;
 const MAX_CODES_PER_HOUR = 5;
 const MAX_CODES_PER_DAY = 10;
+const GEMINI_MODEL_CANDIDATES = ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3-flash-preview'];
+
+async function generateContentWithFallback(
+  genAI: GoogleGenerativeAI,
+  systemInstruction: string,
+  contents: Content[],
+  lockedModel?: string
+): Promise<{ result: Awaited<ReturnType<ReturnType<GoogleGenerativeAI['getGenerativeModel']>['generateContent']>>; modelName: string }> {
+  const candidates = lockedModel ? [lockedModel, lockedModel] : GEMINI_MODEL_CANDIDATES;
+  let lastErr: any;
+  for (let i = 0; i < candidates.length; i++) {
+    const modelName = candidates[i];
+    try {
+      const model = genAI.getGenerativeModel({
+        model: modelName,
+        systemInstruction,
+        tools: [{ functionDeclarations: BOT_TOOLS }],
+      });
+      const result = await model.generateContent({ contents }, { timeout: 25000 });
+      return { result, modelName };
+    } catch (err: any) {
+      lastErr = err;
+      const status = err?.status;
+      const msg = String(err?.message || '');
+      const isTransient = status === 503 || status === 429 || msg.includes('503') || msg.includes('429') || msg.includes('abort') || msg.includes('timeout');
+      console.warn(`[WhatsAppAI] Model ${modelName} attempt ${i + 1} failed (${status || msg})`);
+      if (!isTransient && status && status < 500) {
+        throw err;
+      }
+      if (isTransient && i < candidates.length - 1) {
+        await new Promise((r) => setTimeout(r, 500));
+      }
+    }
+  }
+  throw lastErr;
+}
 
 interface MatchedUserRow {
   id: string;
@@ -158,10 +194,10 @@ async function executeDiagnoseLoginIssue(
   if (accounts.length === 0) {
     // Fallback: check pendaftaran_tikrar_tahfidz in case WA exists only in form
     const { canonical, local } = getPhoneVariants(senderPhone);
-    const regRow = await queryOne<{ nama_lengkap: string; status: string; user_id: string | null }>(
-      `SELECT nama_lengkap, status, user_id
+    const regRow = await queryOne<{ full_name: string; status: string; user_id: string | null }>(
+      `SELECT full_name, status, user_id
        FROM pendaftaran_tikrar_tahfidz
-       WHERE regexp_replace(COALESCE(no_wa, ''), '[^0-9]', '', 'g') IN ($1, $2)
+       WHERE regexp_replace(COALESCE(wa_phone, ''), '[^0-9]', '', 'g') IN ($1, $2)
        ORDER BY created_at DESC
        LIMIT 1`,
       [canonical, local]
@@ -348,7 +384,7 @@ async function executeSendPasswordResetOtp(
     success: true,
     masked_email: masked,
     expires_in_minutes: OTP_TTL_MINUTES,
-    verification_url: `https://markaztikrar.id/verifikasi-otp?email=${encodeURIComponent(normalizedEmail)}`,
+    verification_url: 'https://markaztikrar.id/verifikasi-otp',
     message: `Kode OTP 6 digit berhasil dikirim ke email terdaftar (${masked}). Berlaku 15 menit.`,
   };
 }
@@ -390,8 +426,8 @@ async function executeCheckThalibahStatus(senderPhone: string): Promise<Record<s
        LIMIT 1`,
       [user.id]
     ),
-    query<{ juz_code: string; completed_rounds: number; target_rounds: number; status: string; end_date: string | null }>(
-      `SELECT juz_code, completed_rounds, target_rounds, status, end_date::text
+    query<{ juz_code: string; total_completed: number; status: string; expires_at: string | null }>(
+      `SELECT juz_code, total_completed, status, expires_at::text
        FROM murojaah_40x_progress
        WHERE user_id = $1 AND status = 'active'
        ORDER BY created_at DESC
@@ -408,7 +444,13 @@ async function executeCheckThalibahStatus(senderPhone: string): Promise<Record<s
     latest_registration: regRow || null,
     daftar_ulang: daftarUlangRow || null,
     active_halaqah: halaqahRow || null,
-    active_murojaah_40x: murojaahRows.rows,
+    active_murojaah_40x: murojaahRows.rows.map((r) => ({
+      juz_code: r.juz_code,
+      completed_rounds: r.total_completed,
+      target_rounds: 40,
+      status: r.status,
+      expires_at: r.expires_at,
+    })),
   };
 }
 
@@ -588,7 +630,7 @@ export async function handleIncomingAiReply(params: {
         : `Nomor WA pengirim (+${params.phoneNumber}) BELUM TERDAFTAR di tabel users.`;
 
     const systemInstruction = `Kamu adalah *Asisten AI Resmi Markaz Tikrar Indonesia (MTI)* di WhatsApp.
-Tugasmu melayani calon thalibah, thalibah aktif, maupun pengurus dengan ramah, sopan, islami (awali salam jika pesan awal, gunakan sapaan "Ukhti"), ringkas, dan akurat sesuai format WhatsApp (gunakan *tebal* dengan satu tanda bintang, bullet poin rapi, hindari markdown heading # atau tabel kompleks).
+Tugasmu melayani calon thalibah, thalibah aktif, maupun pengurus dengan ramah, sopan, islami (awali salam jika pesan awal, gunakan sapaan "Ukhti"), ringkas, dan akurat sesuai format WhatsApp (WAJIB gunakan *tebal* dengan SATU tanda bintang, JANGAN gunakan **dua bintang** atau backtick, gunakan bullet poin rapi, hindari markdown heading # atau tabel).
 
 ATURAN KETAT:
 1. JAWAB BERDASARKAN DATA: Untuk informasi program, syarat, jadwal, metode tikrar, dan FAQ, gunakan HANYA informasi dari Knowledge Base di bawah. Jangan pernah mengarang aturan/jadwal/biaya baru.
@@ -605,12 +647,6 @@ ${senderIdentitySummary}
 ${knowledgeContext}`;
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
-      systemInstruction,
-      tools: [{ functionDeclarations: BOT_TOOLS }],
-    });
-
     const userPrompt = `RIWAYAT CHAT TERBARU:
 ${historyLines}
 
@@ -619,16 +655,34 @@ Pesan terakhir dari pengirim (${displayName}):
 
 Berikan balasan WhatsApp yang tepat, ramah, dan membantu.`;
 
-    const chat = model.startChat();
-    let result = await chat.sendMessage(userPrompt);
+    const contents: Content[] = [
+      { role: 'user', parts: [{ text: userPrompt }] },
+    ];
+
+    const initialGen = await generateContentWithFallback(genAI, systemInstruction, contents);
+    let result = initialGen.result;
+    const activeModelName = initialGen.modelName;
     const toolsUsed: string[] = [];
 
-    // Handle up to 4 tool-call rounds
+    // Handle up to 4 tool-call rounds (preserving candidate content & thoughtSignature, using role: "user" for functionResponse)
     for (let step = 0; step < 4; step++) {
       const functionCalls = result.response.functionCalls();
       if (!functionCalls || functionCalls.length === 0) break;
 
-      const functionResponses = [];
+      const modelContent = result.response.candidates?.[0]?.content;
+      if (modelContent) {
+        contents.push({
+          role: modelContent.role || 'model',
+          parts: modelContent.parts || [],
+        });
+      } else {
+        contents.push({
+          role: 'model',
+          parts: functionCalls.map((fc) => ({ functionCall: fc })),
+        });
+      }
+
+      const functionResponseParts: Part[] = [];
       for (const call of functionCalls) {
         toolsUsed.push(call.name);
         let toolOutput: Record<string, any>;
@@ -660,7 +714,7 @@ Berikan balasan WhatsApp yang tepat, ramah, dan membantu.`;
           toolOutput = { error: `Unknown tool ${call.name}` };
         }
 
-        functionResponses.push({
+        functionResponseParts.push({
           functionResponse: {
             name: call.name,
             response: toolOutput,
@@ -668,7 +722,13 @@ Berikan balasan WhatsApp yang tepat, ramah, dan membantu.`;
         });
       }
 
-      result = await chat.sendMessage(functionResponses);
+      contents.push({
+        role: 'user',
+        parts: functionResponseParts,
+      });
+
+      const nextGen = await generateContentWithFallback(genAI, systemInstruction, contents, activeModelName);
+      result = nextGen.result;
     }
 
     const replyText = result.response.text()?.trim();
