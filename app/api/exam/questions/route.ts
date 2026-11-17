@@ -2,12 +2,50 @@
 // CRUD operations for exam questions (Admin only)
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { logger } from '@/lib/logger-secure';
 import { requireAdmin, getAuthorizationContext } from '@/lib/rbac';
 
+export const dynamic = 'force-dynamic';
+
 const supabaseAdmin = createSupabaseAdmin();
+
+const NO_STORE_HEADERS = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+  Pragma: 'no-cache',
+  Expires: '0',
+};
+
+function normalizeOptionsAndAnswer(rawOptions: any[], fallbackCorrectAnswer?: string) {
+  const texts = rawOptions.map((opt: any) => String(opt?.option_text ?? opt?.text ?? '').trim());
+  const flaggedIndices = rawOptions
+    .map((opt: any, idx: number) => (opt?.is_correct === true || opt?.isCorrect === true ? idx : -1))
+    .filter((idx: number) => idx >= 0);
+
+  let winningIdx = -1;
+  const trimmedFallback = fallbackCorrectAnswer ? String(fallbackCorrectAnswer).trim() : '';
+
+  if (flaggedIndices.length > 0) {
+    if (trimmedFallback) {
+      const flaggedMatch = flaggedIndices.find((idx) => texts[idx] === trimmedFallback);
+      winningIdx = flaggedMatch !== undefined ? flaggedMatch : flaggedIndices[0];
+    } else {
+      winningIdx = flaggedIndices[0];
+    }
+  } else if (trimmedFallback) {
+    winningIdx = texts.findIndex((t) => t === trimmedFallback);
+  }
+
+  const formattedOptions = texts.map((text, idx) => ({
+    text,
+    isCorrect: idx === winningIdx,
+  }));
+
+  const correctAnswer =
+    winningIdx >= 0 ? formattedOptions[winningIdx].text : trimmedFallback;
+
+  return { formattedOptions, correctAnswer };
+}
 
 // GET: Fetch exam questions (with optional filters)
 export async function GET(request: NextRequest) {
@@ -50,7 +88,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
           data: [],
           total: 0
-        });
+        }, { headers: NO_STORE_HEADERS });
       }
 
       return NextResponse.json({ error: 'Failed to fetch questions', details: fetchError.message }, { status: 500 });
@@ -59,7 +97,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       data: questions || [],
       total: questions?.length || 0
-    });
+    }, { headers: NO_STORE_HEADERS });
 
   } catch (error) {
     logger.error('Error in GET /api/exam/questions', { error: error as Error });
@@ -114,15 +152,9 @@ export async function POST(request: NextRequest) {
       ? (lastQuestion[0].question_number || 0) + 1
       : 1;
 
-    // Format options and find correct answer
-    const rawOptions = body.options || [];
-    const formattedOptions = rawOptions.map((opt: any) => ({
-      text: opt.option_text || opt.text || '',
-      isCorrect: opt.is_correct === true || opt.isCorrect === true
-    }));
-
-    const correctOption = formattedOptions.find((opt: any) => opt.isCorrect === true);
-    const correctAnswer = correctOption?.text || body.correct_answer || '';
+    // Format options and enforce single correct answer
+    const rawOptions = Array.isArray(body.options) ? body.options : [];
+    const { formattedOptions, correctAnswer } = normalizeOptionsAndAnswer(rawOptions, body.correct_answer);
 
     // Prepare insert data - match exact schema from migration
     const insertData: Record<string, any> = {
@@ -173,7 +205,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       data: newQuestion[0],
       message: 'Question created successfully'
-    }, { status: 201 });
+    }, { status: 201, headers: NO_STORE_HEADERS });
 
   } catch (error) {
     logger.error('Error in POST /api/exam/questions', {
@@ -196,36 +228,50 @@ export async function PUT(request: NextRequest) {
     const context = await getAuthorizationContext();
 
     const body = await request.json();
-    const { id, ...updateData } = body;
+    const { id } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'Question ID required' }, { status: 400 });
     }
 
-    // Update options and correct_answer
-    if (updateData.options && Array.isArray(updateData.options)) {
-      const formattedOptions = updateData.options.map((opt: any) => ({
-        text: opt.option_text || opt.text || '',
-        isCorrect: opt.is_correct === true || opt.isCorrect === true
-      }));
+    const ALLOWED_FIELDS = [
+      'juz_number',
+      'juz_code',
+      'section_number',
+      'section_title',
+      'question_number',
+      'question_text',
+      'question_type',
+      'points',
+      'is_active',
+      'question_package',
+    ] as const;
 
-      const correctOption = formattedOptions.find((opt: any) => opt.isCorrect === true);
-      if (correctOption) {
-        updateData.correct_answer = correctOption.text;
-      } else if (updateData.correct_answer) {
-        const matched = formattedOptions.find((opt: any) => opt.text.trim() === updateData.correct_answer.trim());
-        if (matched) matched.isCorrect = true;
+    const updateData: Record<string, any> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    for (const field of ALLOWED_FIELDS) {
+      if (body[field] !== undefined) {
+        updateData[field] = body[field];
       }
+    }
 
+    // Update options and correct_answer, enforcing strictly single isCorrect: true
+    if (Array.isArray(body.options)) {
+      const { formattedOptions, correctAnswer } = normalizeOptionsAndAnswer(
+        body.options,
+        body.correct_answer
+      );
       updateData.options = formattedOptions;
+      updateData.correct_answer = correctAnswer;
+    } else if (body.correct_answer !== undefined) {
+      updateData.correct_answer = String(body.correct_answer).trim();
     }
 
     const { data: updatedQuestion, error: updateError } = await supabaseAdmin
       .from('exam_questions')
-      .update({
-        ...updateData,
-        updated_at: new Date().toISOString()
-      })
+      .update(updateData)
       .eq('id', id)
       .select()
       .single();
@@ -240,7 +286,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({
       data: updatedQuestion,
       message: 'Question updated successfully'
-    });
+    }, { headers: NO_STORE_HEADERS });
 
   } catch (error) {
     logger.error('Error in PUT /api/exam/questions', { error: error as Error });
@@ -276,7 +322,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({
       message: 'Question deleted successfully'
-    });
+    }, { headers: NO_STORE_HEADERS });
 
   } catch (error) {
     logger.error('Error in DELETE /api/exam/questions', { error: error as Error });

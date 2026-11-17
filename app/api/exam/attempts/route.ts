@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
 
     const processedAnswers = body.answers.map((answer: any) => {
       const question = questions.find((q: any) => q.id === answer.questionId);
-      const isCorrect = question && answer.answer === question.correct_answer;
+      const isCorrect = question && answer.answer?.trim() === question.correct_answer?.trim();
 
       if (isCorrect) {
         correctAnswers++;

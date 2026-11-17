@@ -113,7 +113,6 @@ export default function AdminExamsPage() {
                 key={refreshTrigger}
                 onImportClick={() => setShowImport(true)}
                 onAddManualClick={() => setShowAddManual(true)}
-                onSuccess={handleRefresh}
               />
             </Card>
           </TabsContent>

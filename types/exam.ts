@@ -167,6 +167,7 @@ export interface AdminExamStats {
 
 export interface AdminQuestionEditForm {
   juz_number: JuzNumber;
+  juz_code?: string;
   section_number: number;
   section_title: string;
   question_number: number;

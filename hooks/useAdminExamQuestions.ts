@@ -19,7 +19,6 @@ interface JuzOption {
 
 export function useAdminExamQuestions(onSuccess?: () => void) {
   const [allQuestions, setAllQuestions] = useState<ExamQuestion[]>([]);
-  const [questions, setQuestions] = useState<ExamQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedJuz, setSelectedJuz] = useState<JuzNumber | 'all'>('all');
   const [selectedSection, setSelectedSection] = useState<number | 'all'>('all');
@@ -59,7 +58,7 @@ export function useAdminExamQuestions(onSuccess?: () => void) {
 
   const loadJuzOptions = useCallback(async () => {
     try {
-      const response = await fetch('/api/juz');
+      const response = await fetch('/api/juz', { cache: 'no-store' });
       const result = await response.json();
       if (response.ok) {
         setJuzOptions(result.data || []);
@@ -72,8 +71,7 @@ export function useAdminExamQuestions(onSuccess?: () => void) {
   const loadQuestions = useCallback(async () => {
     try {
       setLoading(true);
-      let url = '/api/exam/questions';
-
+      const url = '/api/exam/questions';
       const params = new URLSearchParams();
 
       if (selectedJuz !== 'all') {
@@ -84,56 +82,14 @@ export function useAdminExamQuestions(onSuccess?: () => void) {
         params.append('section', selectedSection.toString());
       }
 
-      const response = await fetch(`${url}?${params.toString()}`);
+      const queryString = params.toString();
+      const response = await fetch(queryString ? `${url}?${queryString}` : url, {
+        cache: 'no-store',
+      });
       const result = await response.json();
 
       if (response.ok) {
-        const rawData = result.data || [];
-        setAllQuestions(rawData);
-        
-        let filteredQuestions = rawData;
-
-        // Apply search filter
-        if (searchQuery) {
-          const query = searchQuery.toLowerCase();
-          filteredQuestions = filteredQuestions.filter((q: ExamQuestion) =>
-            q.question_text.toLowerCase().includes(query) ||
-            q.section_title?.toLowerCase().includes(query) ||
-            q.options?.some((opt: any) => opt.text.toLowerCase().includes(query))
-          );
-        }
-
-        // Apply type filter
-        if (filterType !== 'all') {
-          filteredQuestions = filteredQuestions.filter((q: ExamQuestion) => q.question_type === filterType);
-        }
-
-        // Apply package filter
-        if (filterPackage !== 'all') {
-          filteredQuestions = filteredQuestions.filter((q: ExamQuestion) => (q.question_package || 'B') === filterPackage);
-        }
-
-        // Apply active filter
-        if (filterActive === 'active') {
-          filteredQuestions = filteredQuestions.filter((q: ExamQuestion) => q.is_active !== false);
-        } else if (filterActive === 'inactive') {
-          filteredQuestions = filteredQuestions.filter((q: ExamQuestion) => q.is_active === false);
-        }
-
-        // Apply sorting
-        filteredQuestions = [...filteredQuestions].sort((a: any, b: any) => {
-          let aVal = a[sortField];
-          let bVal = b[sortField];
-
-          if (aVal === null || aVal === undefined) return sortOrder === 'asc' ? 1 : -1;
-          if (bVal === null || bVal === undefined) return sortOrder === 'asc' ? -1 : 1;
-
-          if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1;
-          if (aVal > bVal) return sortOrder === 'asc' ? 1 : -1;
-          return 0;
-        });
-
-        setQuestions(filteredQuestions);
+        setAllQuestions(result.data || []);
       } else {
         toast.error(result.error || 'Failed to load questions');
       }
@@ -143,12 +99,54 @@ export function useAdminExamQuestions(onSuccess?: () => void) {
     } finally {
       setLoading(false);
     }
-  }, [selectedJuz, selectedSection, sortField, sortOrder, searchQuery, filterType, filterActive, filterPackage]);
+  }, [selectedJuz, selectedSection]);
 
   useEffect(() => {
     loadQuestions();
+  }, [loadQuestions]);
+
+  useEffect(() => {
     loadJuzOptions();
-  }, [loadQuestions, loadJuzOptions]);
+  }, [loadJuzOptions]);
+
+  const questions = useMemo(() => {
+    let filteredQuestions = allQuestions;
+
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filteredQuestions = filteredQuestions.filter((q: ExamQuestion) =>
+        q.question_text.toLowerCase().includes(query) ||
+        q.section_title?.toLowerCase().includes(query) ||
+        q.options?.some((opt: any) => (opt.text || opt.option_text || '').toLowerCase().includes(query))
+      );
+    }
+
+    if (filterType !== 'all') {
+      filteredQuestions = filteredQuestions.filter((q: ExamQuestion) => q.question_type === filterType);
+    }
+
+    if (filterPackage !== 'all') {
+      filteredQuestions = filteredQuestions.filter((q: ExamQuestion) => (q.question_package || 'B') === filterPackage);
+    }
+
+    if (filterActive === 'active') {
+      filteredQuestions = filteredQuestions.filter((q: ExamQuestion) => q.is_active !== false);
+    } else if (filterActive === 'inactive') {
+      filteredQuestions = filteredQuestions.filter((q: ExamQuestion) => q.is_active === false);
+    }
+
+    return [...filteredQuestions].sort((a: any, b: any) => {
+      const aVal = a[sortField];
+      const bVal = b[sortField];
+
+      if (aVal === null || aVal === undefined) return sortOrder === 'asc' ? 1 : -1;
+      if (bVal === null || bVal === undefined) return sortOrder === 'asc' ? -1 : 1;
+
+      if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [allQuestions, searchQuery, filterType, filterPackage, filterActive, sortField, sortOrder]);
 
   useEffect(() => {
     if (juzOptions.length > 0 && !aiForm.juz_code) {
@@ -177,7 +175,9 @@ export function useAdminExamQuestions(onSuccess?: () => void) {
       if (selectedJuz !== 'all') params.append('juz', selectedJuz.toString());
       if (selectedSection !== 'all') params.append('section', selectedSection.toString());
 
-      const response = await fetch(`/api/exam/questions/analytics?${params.toString()}`);
+      const response = await fetch(`/api/exam/questions/analytics?${params.toString()}`, {
+        cache: 'no-store',
+      });
       const result = await response.json();
 
       if (response.ok) {
@@ -198,15 +198,17 @@ export function useAdminExamQuestions(onSuccess?: () => void) {
     try {
       const response = await fetch(`/api/exam/questions?id=${questionId}`, {
         method: 'DELETE',
+        cache: 'no-store',
       });
 
       const result = await response.json();
 
       if (response.ok) {
         toast.success('Question deleted successfully');
-        loadQuestions();
+        setAllQuestions(prev => prev.filter(q => q.id !== questionId));
         setShowDeleteModal(false);
         setDeletingQuestionId(null);
+        await loadQuestions();
         if (onSuccess) onSuccess();
       } else {
         toast.error(result.error || 'Failed to delete question');
@@ -218,19 +220,26 @@ export function useAdminExamQuestions(onSuccess?: () => void) {
   };
 
   const handleUpdate = async (formData: AdminQuestionEditForm) => {
+    if (!editingQuestion?.id) return;
     setIsSaving(true);
     try {
       const response = await fetch('/api/exam/questions', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, id: editingQuestion?.id }),
+        cache: 'no-store',
+        body: JSON.stringify({ ...formData, id: editingQuestion.id }),
       });
 
       const result = await response.json();
 
       if (response.ok) {
+        const updatedRow: ExamQuestion | undefined = result.data;
+        if (updatedRow) {
+          setAllQuestions(prev => prev.map(q => (q.id === updatedRow.id ? updatedRow : q)));
+          setPreviewQuestion(prev => (prev && prev.id === updatedRow.id ? updatedRow : prev));
+        }
+        await loadQuestions();
         toast.success('Question updated successfully');
-        loadQuestions();
         setShowEditModal(false);
         setEditingQuestion(null);
         if (onSuccess) onSuccess();
@@ -260,7 +269,7 @@ export function useAdminExamQuestions(onSuccess?: () => void) {
 
       if (response.ok) {
         toast.success(`Successfully generated ${result.data?.length || 0} questions`);
-        loadQuestions();
+        await loadQuestions();
         setShowAIModal(false);
         setAiForm({
           juz_code: juzOptions.length > 0 ? juzOptions[0].code : '',
@@ -335,7 +344,7 @@ export function useAdminExamQuestions(onSuccess?: () => void) {
       
       if (response.ok) {
         toast.success(`Berhasil ${newActiveState ? 'mengaktifkan' : 'mengarsipkan'} soal Juz ${juz_number} Paket ${question_package}`);
-        loadQuestions();
+        await loadQuestions();
       } else {
         toast.error(result.error || 'Failed to update questions');
       }

@@ -85,7 +85,7 @@ export function ExamSimulationTab() {
       if (selectedPackage !== 'all') params.set('package', selectedPackage);
       if (selectedSection !== 'all') params.set('section', selectedSection.toString());
 
-      const res = await fetch(`/api/admin/exams/simulation?${params.toString()}`);
+      const res = await fetch(`/api/admin/exams/simulation?${params.toString()}`, { cache: 'no-store' });
       const data = await res.json();
 
       if (res.ok && data.success) {
