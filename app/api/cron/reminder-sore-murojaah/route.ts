@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server';
 import { createHash, timingSafeEqual } from 'crypto';
 import { query } from '@/lib/db';
 import { whatsappService } from '@/lib/services/whatsapp';
+import {
+  waitBetweenWhatsAppMessages,
+  classifyWhatsAppError,
+} from '@/lib/utils/whatsapp-throttle';
 import { calculateMurojaahDebt, buildMurojaahAfternoonReminder } from '@/lib/murojaah';
 import { getAuthorizationContext } from '@/lib/rbac';
 
@@ -83,7 +87,8 @@ async function handleReminder(request: Request) {
       FROM murojaah_40x_progress p
       JOIN users u ON u.id = p.user_id
       JOIN batches b ON b.id = p.batch_id
-      LEFT JOIN (\n        SELECT progress_id, COUNT(*) as today_count
+      LEFT JOIN (
+        SELECT progress_id, COUNT(*) as today_count
         FROM murojaah_40x_logs
         WHERE completed_at = CURRENT_DATE
         GROUP BY progress_id
@@ -116,7 +121,37 @@ async function handleReminder(request: Request) {
       error?: string;
     }> = [];
 
-    for (const c of candidates) {
+    let stoppedEarly = false;
+    let stopReason: string | null = null;
+    let consecutiveGatewayErrors = 0;
+    let batchPausesCount = 0;
+
+    // Pre-check WhatsApp gateway health so we never blast 50 calls into a disconnected instance
+    if (!dryRun && candidates.length > 0) {
+      const waStatus = await whatsappService.getStatus();
+      if (!waStatus.configured || !waStatus.watzap?.isConnected) {
+        stoppedEarly = true;
+        stopReason = !waStatus.configured
+          ? 'WatZap belum dikonfigurasi'
+          : 'Instance WhatsApp (utama & cadangan) sedang offline/terputus — pengiriman dibatalkan untuk mencegah spam/limit';
+        return NextResponse.json({
+          success: true,
+          timestamp: new Date().toISOString(),
+          mode: 'production',
+          totalCandidates: candidates.length,
+          sentCount: 0,
+          failedCount: 0,
+          skippedCount: candidates.length,
+          stoppedEarly,
+          stopReason,
+          batchPausesCount: 0,
+          results: [],
+        });
+      }
+    }
+
+    for (let i = 0; i < candidates.length; i++) {
+      const c = candidates[i];
       const now = new Date();
       const expiryDate = c.expires_at ? new Date(c.expires_at) : new Date(new Date(c.started_at).getTime() + 20 * 86400000);
       const remainingTime = expiryDate.getTime() - now.getTime();
@@ -164,8 +199,29 @@ async function handleReminder(request: Request) {
           error: sendRes.error,
         });
 
-        // Throttle 1 second to avoid rate limiting
-        await new Promise((r) => setTimeout(r, 1000));
+        if (sendRes.success) {
+          consecutiveGatewayErrors = 0;
+        } else {
+          const errClass = classifyWhatsAppError(sendRes.error, {
+            rateLimited: sendRes.rateLimited,
+            fatalInstanceError: sendRes.fatalInstanceError,
+          });
+          if (errClass.shouldStopBatch) {
+            stoppedEarly = true;
+            stopReason = sendRes.error || 'Pengiriman dihentikan karena rate-limit atau instance WatZap error';
+            console.warn(`[CRON Murojaah] Stopping batch early at ${i + 1}/${candidates.length}: ${stopReason}`);
+            break;
+          }
+          if (sendRes.provider !== 'none') {
+            consecutiveGatewayErrors++;
+            if (consecutiveGatewayErrors >= 3) {
+              stoppedEarly = true;
+              stopReason = `Dihentikan otomatis setelah ${consecutiveGatewayErrors} kegagalan gateway berturut-turut (${sendRes.error || 'error'})`;
+              console.warn(`[CRON Murojaah] ${stopReason}`);
+              break;
+            }
+          }
+        }
       } catch (err: any) {
         results.push({
           userId: c.user_id,
@@ -176,16 +232,37 @@ async function handleReminder(request: Request) {
           sent: false,
           error: err.message,
         });
+        consecutiveGatewayErrors++;
+        if (consecutiveGatewayErrors >= 3) {
+          stoppedEarly = true;
+          stopReason = `Dihentikan otomatis setelah ${consecutiveGatewayErrors} exception berturut-turut (${err.message})`;
+          console.warn(`[CRON Murojaah] ${stopReason}`);
+          break;
+        }
+      }
+
+      // Safe randomized 4-7s throttle + 25-35s pause every 15 messages
+      const waitInfo = await waitBetweenWhatsAppMessages(i, candidates.length);
+      if (waitInfo.batchPaused) {
+        batchPausesCount++;
       }
     }
 
     const successfulCount = results.filter((r) => r.sent).length;
+    const failedCount = results.filter((r) => !r.sent).length;
+    const skippedCount = Math.max(0, candidates.length - results.length);
+
     return NextResponse.json({
       success: true,
+      timestamp: new Date().toISOString(),
       mode: dryRun ? 'dry_run' : 'production',
       totalCandidates: candidates.length,
       sentCount: successfulCount,
-      failedCount: results.length - successfulCount,
+      failedCount: dryRun ? 0 : failedCount,
+      skippedCount,
+      stoppedEarly,
+      stopReason,
+      batchPausesCount,
       results,
     });
   } catch (error: any) {

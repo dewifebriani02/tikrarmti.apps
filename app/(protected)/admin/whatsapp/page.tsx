@@ -16,6 +16,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { WhatsAppInboxTab } from '@/components/admin/whatsapp/WhatsAppInboxTab';
+import {
+  waitBetweenWhatsAppMessages,
+  classifyWhatsAppError,
+} from '@/lib/utils/whatsapp-throttle';
 
 interface WhatsAppStatus {
   configured: boolean;
@@ -659,6 +663,7 @@ export default function AdminWhatsAppPage() {
   const [broadcastIndex, setBroadcastIndex] = useState(0);
   const [broadcastSuccessCount, setBroadcastSuccessCount] = useState(0);
   const [broadcastFailCount, setBroadcastFailCount] = useState(0);
+  const [broadcastStatusNote, setBroadcastStatusNote] = useState<string | null>(null);
   const [broadcastLogs, setBroadcastLogs] = useState<Array<{
     name: string;
     phone: string;
@@ -891,7 +896,7 @@ export default function AdminWhatsAppPage() {
     setSearchQuery('');
   };
 
-  // Run broadcast runner directly with real-time feedback
+  // Run broadcast runner directly with safe randomized throttling (4-7s + batch pause + auto-stop on error/limit)
   const startBroadcast = async () => {
     if (recipients.length === 0 || !broadcastTemplate.trim()) return;
     
@@ -902,8 +907,11 @@ export default function AdminWhatsAppPage() {
     setBroadcastSuccessCount(0);
     setBroadcastFailCount(0);
     setBroadcastLogs([]);
+    setBroadcastStatusNote('Memulai pengiriman dengan jeda aman acak 4–7 detik & istirahat per 15 pesan...');
 
     const activeCcNumbers = getAllCcNumbers();
+    let stoppedByError = false;
+    let consecutiveErrors = 0;
 
     for (let i = 0; i < recipients.length; i++) {
       if (abortBroadcastRef.current) {
@@ -912,6 +920,7 @@ export default function AdminWhatsAppPage() {
 
       setBroadcastIndex(i + 1);
       const recipient = recipients[i];
+      setBroadcastStatusNote(`Mengirim ke ${recipient.fullName} (${i + 1}/${recipients.length})...`);
 
       try {
         const res = await fetch('/api/admin/whatsapp/broadcast', {
@@ -925,38 +934,84 @@ export default function AdminWhatsAppPage() {
 
         const json = await res.json();
         if (json.success && json.data?.success) {
+          consecutiveErrors = 0;
           setBroadcastSuccessCount(prev => prev + 1);
           setBroadcastLogs(prev => [
             { name: recipient.fullName, phone: recipient.whatsapp, success: true, messageId: json.data?.messageId },
             ...prev
           ]);
         } else {
+          const errMsg = json.data?.error || json.message || 'Gagal mengirim pesan';
           setBroadcastFailCount(prev => prev + 1);
           setBroadcastLogs(prev => [
-            { name: recipient.fullName, phone: recipient.whatsapp, success: false, error: json.data?.error || json.message },
+            { name: recipient.fullName, phone: recipient.whatsapp, success: false, error: errMsg },
             ...prev
           ]);
+
+          const errClass = classifyWhatsAppError(errMsg, {
+            rateLimited: json.data?.rateLimited,
+            fatalInstanceError: json.data?.fatalInstanceError,
+          });
+          if (errClass.shouldStopBatch) {
+            stoppedByError = true;
+            const stopText = `Broadcast dihentikan otomatis: ${errMsg}`;
+            setBroadcastStatusNote(stopText);
+            toast.error(stopText);
+            break;
+          }
+
+          consecutiveErrors++;
+          if (consecutiveErrors >= 3) {
+            stoppedByError = true;
+            const stopText = `Broadcast dihentikan otomatis setelah ${consecutiveErrors} kegagalan berturut-turut (${errMsg})`;
+            setBroadcastStatusNote(stopText);
+            toast.error(stopText);
+            break;
+          }
         }
       } catch (err) {
+        const errMsg = (err as Error).message || 'Network error';
         setBroadcastFailCount(prev => prev + 1);
         setBroadcastLogs(prev => [
-          { name: recipient.fullName, phone: recipient.whatsapp, success: false, error: (err as Error).message },
+          { name: recipient.fullName, phone: recipient.whatsapp, success: false, error: errMsg },
           ...prev
         ]);
+        consecutiveErrors++;
+        if (consecutiveErrors >= 3) {
+          stoppedByError = true;
+          const stopText = `Broadcast dihentikan otomatis setelah ${consecutiveErrors} gangguan koneksi berturut-turut`;
+          setBroadcastStatusNote(stopText);
+          toast.error(stopText);
+          break;
+        }
       }
 
-      // Safe delay 2.5 detik per pesan agar tidak terkena anti-spam
       if (i < recipients.length - 1 && !abortBroadcastRef.current) {
-        await new Promise(r => setTimeout(r, 2500));
+        const waitRes = await waitBetweenWhatsAppMessages(i, recipients.length, {
+          shouldAbort: () => abortBroadcastRef.current,
+          onWaitStart: ({ delayMs, batchPaused }) => {
+            const sec = Math.round(delayMs / 1000);
+            setBroadcastStatusNote(
+              batchPaused
+                ? `Istirahat antar batch (${sec} detik) setelah ${i + 1} pesan untuk mencegah blokir WhatsApp...`
+                : `Jeda aman ${sec} detik sebelum penerima berikutnya...`
+            );
+          },
+        });
+        if (waitRes.aborted) {
+          break;
+        }
       }
     }
 
-    // Kirim tembusan salinan broadcast ke nomor Admin yang diceklis
-    if (activeCcNumbers.length > 0 && !abortBroadcastRef.current) {
+    // Kirim tembusan salinan broadcast ke nomor Admin yang diceklis (hanya jika tidak dihentikan error/abort)
+    if (activeCcNumbers.length > 0 && !abortBroadcastRef.current && !stoppedByError) {
       const selectedBatchName = batches.find(b => b.id === selectedBatchId)?.name || 'Batch Thalibah';
       const ccBroadcastMsg = `_📌 [TEMBUSAN BROADCAST ADMIN MTI]_\n\n*Laporan Pengiriman Broadcast ke ${recipients.length} Thalibah:*\n• Angkatan: *${selectedBatchName}*\n• Waktu: *${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} WIB*\n\n*Isi Pesan Broadcast:*\n━━━━━━━━━━━━━━\n${broadcastTemplate}\n━━━━━━━━━━━━━━\n*(Tembusan resmi terkirim otomatis ke Admin MTI)*`;
       
-      for (const ccPhone of activeCcNumbers) {
+      for (let idx = 0; idx < activeCcNumbers.length; idx++) {
+        if (abortBroadcastRef.current) break;
+        const ccPhone = activeCcNumbers[idx];
         try {
           await fetch('/api/admin/whatsapp/send', {
             method: 'POST',
@@ -969,15 +1024,22 @@ export default function AdminWhatsAppPage() {
         } catch (ccErr) {
           console.error('Failed to send broadcast CC to:', ccPhone, ccErr);
         }
+        if (idx < activeCcNumbers.length - 1) {
+          await waitBetweenWhatsAppMessages(idx, activeCcNumbers.length, {
+            shouldAbort: () => abortBroadcastRef.current,
+          });
+        }
       }
     }
 
     // Kirim tembusan salinan broadcast ke grup WhatsApp yang diceklis
-    if (selectedCcGroups.length > 0 && !abortBroadcastRef.current) {
+    if (selectedCcGroups.length > 0 && !abortBroadcastRef.current && !stoppedByError) {
       const selectedBatchName = batches.find(b => b.id === selectedBatchId)?.name || 'Batch Thalibah';
       const ccGroupBroadcastMsg = `_📌 [TEMBUSAN BROADCAST ADMIN MTI]_\n\n*Laporan Pengiriman Broadcast ke ${recipients.length} Thalibah:*\n• Angkatan: *${selectedBatchName}*\n• Waktu: *${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} WIB*\n\n*Isi Pesan Broadcast:*\n━━━━━━━━━━━━━━\n${broadcastTemplate}\n━━━━━━━━━━━━━━\n*(Tembusan resmi terkirim otomatis ke Grup WhatsApp MTI)*`;
 
-      for (const grpId of selectedCcGroups) {
+      for (let idx = 0; idx < selectedCcGroups.length; idx++) {
+        if (abortBroadcastRef.current) break;
+        const grpId = selectedCcGroups[idx];
         try {
           await fetch('/api/admin/whatsapp/send-group', {
             method: 'POST',
@@ -990,14 +1052,23 @@ export default function AdminWhatsAppPage() {
         } catch (grpErr) {
           console.error('Failed to send broadcast CC to group:', grpId, grpErr);
         }
+        if (idx < selectedCcGroups.length - 1) {
+          await waitBetweenWhatsAppMessages(idx, selectedCcGroups.length, {
+            shouldAbort: () => abortBroadcastRef.current,
+          });
+        }
       }
     }
 
+    if (!stoppedByError && !abortBroadcastRef.current) {
+      setBroadcastStatusNote('Broadcast selesai dijalankan dengan throttling aman.');
+    }
     setIsBroadcasting(false);
   };
 
   const stopBroadcast = () => {
     abortBroadcastRef.current = true;
+    setBroadcastStatusNote('Broadcast dihentikan oleh admin.');
     setIsBroadcasting(false);
   };
 
@@ -1367,6 +1438,11 @@ export default function AdminWhatsAppPage() {
                             style={{ width: `${(broadcastIndex / Math.max(recipients.length, 1)) * 100}%` }}
                           />
                         </div>
+                        {broadcastStatusNote && (
+                          <div className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 font-medium">
+                            {broadcastStatusNote}
+                          </div>
+                        )}
                         <div className="flex items-center justify-between text-xs">
                           <span className="text-emerald-700 font-semibold">Berhasil: {broadcastSuccessCount}</span>
                           <span className="text-red-600 font-semibold">Gagal: {broadcastFailCount}</span>
@@ -1382,15 +1458,22 @@ export default function AdminWhatsAppPage() {
                         </div>
                       </div>
                     ) : (
-                      <Button
-                        type="button"
-                        onClick={startBroadcast}
-                        disabled={isBroadcasting || recipients.length === 0 || !broadcastTemplate.trim()}
-                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl py-6 font-bold text-base shadow-lg shadow-emerald-600/20 gap-2"
-                      >
-                        <Send className="h-5 w-5" />
-                        Kirim Broadcast ke {recipients.length} Thalibah Aktif
-                      </Button>
+                      <div className="space-y-3">
+                        {broadcastStatusNote && (
+                          <div className="text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 font-medium">
+                            {broadcastStatusNote}
+                          </div>
+                        )}
+                        <Button
+                          type="button"
+                          onClick={startBroadcast}
+                          disabled={isBroadcasting || recipients.length === 0 || !broadcastTemplate.trim()}
+                          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl py-6 font-bold text-base shadow-lg shadow-emerald-600/20 gap-2"
+                        >
+                          <Send className="h-5 w-5" />
+                          Kirim Broadcast ke {recipients.length} Thalibah Aktif
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </CardContent>

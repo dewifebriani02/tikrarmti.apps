@@ -34,6 +34,8 @@ export async function POST(request: Request) {
         success: res.success,
         messageId: res.messageId,
         error: res.error,
+        rateLimited: res.rateLimited,
+        fatalInstanceError: res.fatalInstanceError,
       });
     }
 

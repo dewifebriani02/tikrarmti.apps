@@ -137,12 +137,16 @@ export async function GET(request: Request) {
           sent: thalibahResult.sentCount,
           failed: thalibahResult.failedCount,
           skipped: thalibahResult.skippedCount,
+          stopped_early: Boolean(thalibahResult.stoppedEarly),
+          stop_reason: thalibahResult.stopReason || null,
         } : null,
         examiners: examinerResult ? {
           total: examinerResult.totalExaminers,
           sent: examinerResult.sentCount,
           failed: examinerResult.failedCount,
           skipped: examinerResult.skippedCount,
+          stopped_early: Boolean(examinerResult.stoppedEarly),
+          stop_reason: examinerResult.stopReason || null,
         } : null,
         // Backward compatibility
         total_candidates: thalibahResult?.totalCandidates || 0,

@@ -9,6 +9,8 @@ export interface WhatsAppSendResult {
   provider: 'watzap' | 'none';
   messageId?: string;
   error?: string;
+  rateLimited?: boolean;
+  fatalInstanceError?: boolean;
   details?: Record<string, unknown>;
 }
 
@@ -129,6 +131,19 @@ export class WhatsAppService {
       msg.includes('license not found') ||
       msg.includes('not started') ||
       msg.includes('disconnected')
+    );
+  }
+
+  private isRateLimitError(data: Record<string, unknown> | null | undefined): boolean {
+    if (!data) return false;
+    const statusStr = String(data.status || '');
+    const msg = String(data.message || '').toLowerCase();
+    return (
+      statusStr === '1004' ||
+      msg.includes('limit exceeded') ||
+      msg.includes('too many request') ||
+      msg.includes('rate limit') ||
+      msg.includes('try again')
     );
   }
 
@@ -306,6 +321,7 @@ export class WhatsAppService {
       return {
         success: false,
         provider: 'none',
+        fatalInstanceError: true,
         error: 'WATZAP_API_KEY atau WATZAP_NUMBER_KEY belum dikonfigurasi di server',
       };
     }
@@ -350,6 +366,8 @@ export class WhatsAppService {
         success: false,
         provider: 'watzap',
         error: errorMessage,
+        rateLimited: this.isRateLimitError(data),
+        fatalInstanceError: this.isInstanceOrLicenseError(data),
         details: data,
       };
     } catch (err) {
@@ -382,6 +400,7 @@ export class WhatsAppService {
       return {
         success: false,
         provider: 'none',
+        fatalInstanceError: true,
         error: 'WATZAP_API_KEY atau WATZAP_NUMBER_KEY belum dikonfigurasi di server',
       };
     }
@@ -431,6 +450,8 @@ export class WhatsAppService {
         success: false,
         provider: 'watzap',
         error: errorMessage,
+        rateLimited: this.isRateLimitError(data),
+        fatalInstanceError: this.isInstanceOrLicenseError(data),
         details: data,
       };
     } catch (err) {
@@ -463,6 +484,7 @@ export class WhatsAppService {
       return {
         success: false,
         provider: 'none',
+        fatalInstanceError: true,
         error: 'WATZAP_API_KEY atau WATZAP_NUMBER_KEY belum dikonfigurasi di server',
       };
     }
@@ -505,6 +527,8 @@ export class WhatsAppService {
         success: false,
         provider: 'watzap',
         error: errorMessage,
+        rateLimited: this.isRateLimitError(data),
+        fatalInstanceError: this.isInstanceOrLicenseError(data),
         details: data,
       };
     } catch (err) {
@@ -559,6 +583,7 @@ export class WhatsAppService {
       return {
         success: false,
         provider: 'none',
+        fatalInstanceError: true,
         error: 'WATZAP_API_KEY atau WATZAP_NUMBER_KEY belum dikonfigurasi di server',
       };
     }
@@ -603,6 +628,8 @@ export class WhatsAppService {
         success: false,
         provider: 'watzap',
         error: errorMessage,
+        rateLimited: this.isRateLimitError(data),
+        fatalInstanceError: this.isInstanceOrLicenseError(data),
         details: data,
       };
     } catch (err) {

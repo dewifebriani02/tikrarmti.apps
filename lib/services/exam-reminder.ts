@@ -1,5 +1,9 @@
 import { query } from '@/lib/db';
 import { whatsappService, normalizePhoneNumber } from '@/lib/services/whatsapp';
+import {
+  waitBetweenWhatsAppMessages,
+  classifyWhatsAppError,
+} from '@/lib/utils/whatsapp-throttle';
 import { formatMuallimahName } from '@/lib/roles';
 
 export interface ExamReminderCandidate {
@@ -68,6 +72,8 @@ export interface SendH1ExamRemindersResult {
   sentCount: number;
   failedCount: number;
   skippedCount: number;
+  stoppedEarly?: boolean;
+  stopReason?: string | null;
   results: {
     registrationId: string;
     fullName: string;
@@ -86,6 +92,8 @@ export interface SendH1ExaminerRemindersResult {
   sentCount: number;
   failedCount: number;
   skippedCount: number;
+  stoppedEarly?: boolean;
+  stopReason?: string | null;
   results: {
     examinerId: string;
     examinerName: string;
@@ -490,8 +498,37 @@ export async function sendH1ExaminerReminders(
   let sentCount = 0;
   let failedCount = 0;
   let skippedCount = 0;
+  let stoppedEarly = false;
+  let stopReason: string | null = null;
+  let consecutiveGatewayErrors = 0;
 
-  for (const item of toProcess) {
+  if (!dryRun && toProcess.length > 0) {
+    const waStatus = await whatsappService.getStatus();
+    if (!waStatus.configured || !waStatus.watzap?.isConnected) {
+      stoppedEarly = true;
+      stopReason = !waStatus.configured
+        ? 'WatZap belum dikonfigurasi'
+        : 'Instance WhatsApp (utama & cadangan) sedang offline/terputus — reminder penguji dibatalkan';
+      return {
+        success: true,
+        targetDate,
+        dryRun,
+        totalExaminers: examiners.length,
+        sentCount: 0,
+        failedCount: 0,
+        skippedCount: examiners.length,
+        stoppedEarly,
+        stopReason,
+        results: [],
+      };
+    }
+  }
+
+  let processedCount = 0;
+  for (let i = 0; i < toProcess.length; i++) {
+    const item = toProcess[i];
+    processedCount++;
+
     const formattedPhone = normalizePhoneNumber(item.whatsapp);
     if (!formattedPhone) {
       skippedCount++;
@@ -523,6 +560,7 @@ export async function sendH1ExaminerReminders(
       const sendRes = await whatsappService.sendTextMessage(formattedPhone, messageText);
       if (sendRes.success) {
         sentCount++;
+        consecutiveGatewayErrors = 0;
         // Update database timestamp on all schedules for this examiner on this date
         await query(
           `UPDATE final_exam_schedules SET reminder_examiner_sent_at = NOW(), updated_at = NOW() WHERE id = ANY($1::uuid[])`,
@@ -545,9 +583,26 @@ export async function sendH1ExaminerReminders(
           success: false,
           error: sendRes.error || 'Gagal mengirim WhatsApp ke ustadzah',
         });
-      }
 
-      await new Promise(res => setTimeout(res, 2300));
+        const errClass = classifyWhatsAppError(sendRes.error, {
+          rateLimited: sendRes.rateLimited,
+          fatalInstanceError: sendRes.fatalInstanceError,
+        });
+        if (errClass.shouldStopBatch) {
+          stoppedEarly = true;
+          stopReason = sendRes.error || 'Reminder penguji dihentikan karena rate-limit / instance WatZap error';
+          console.warn(`[ExamReminder] Stopping examiner batch early: ${stopReason}`);
+          break;
+        }
+        if (sendRes.provider !== 'none') {
+          consecutiveGatewayErrors++;
+          if (consecutiveGatewayErrors >= 3) {
+            stoppedEarly = true;
+            stopReason = `Reminder penguji dihentikan setelah ${consecutiveGatewayErrors} kegagalan gateway berturut-turut`;
+            break;
+          }
+        }
+      }
     } catch (err: any) {
       failedCount++;
       results.push({
@@ -557,8 +612,18 @@ export async function sendH1ExaminerReminders(
         success: false,
         error: err.message,
       });
+      consecutiveGatewayErrors++;
+      if (consecutiveGatewayErrors >= 3) {
+        stoppedEarly = true;
+        stopReason = `Reminder penguji dihentikan setelah ${consecutiveGatewayErrors} exception berturut-turut`;
+        break;
+      }
     }
+
+    await waitBetweenWhatsAppMessages(i, toProcess.length);
   }
+
+  const unreachedCount = Math.max(0, toProcess.length - processedCount);
 
   return {
     success: true,
@@ -567,7 +632,9 @@ export async function sendH1ExaminerReminders(
     totalExaminers: examiners.length,
     sentCount,
     failedCount,
-    skippedCount: skippedCount + (examiners.length - toProcess.length),
+    skippedCount: skippedCount + unreachedCount + (examiners.length - toProcess.length),
+    stoppedEarly,
+    stopReason,
     results,
   };
 }
@@ -589,8 +656,37 @@ export async function sendH1ExamReminders(
   let sentCount = 0;
   let failedCount = 0;
   let skippedCount = 0;
+  let stoppedEarly = false;
+  let stopReason: string | null = null;
+  let consecutiveGatewayErrors = 0;
 
-  for (const item of toProcess) {
+  if (!dryRun && toProcess.length > 0) {
+    const waStatus = await whatsappService.getStatus();
+    if (!waStatus.configured || !waStatus.watzap?.isConnected) {
+      stoppedEarly = true;
+      stopReason = !waStatus.configured
+        ? 'WatZap belum dikonfigurasi'
+        : 'Instance WhatsApp (utama & cadangan) sedang offline/terputus — reminder thalibah dibatalkan';
+      return {
+        success: true,
+        targetDate,
+        dryRun,
+        totalCandidates: candidates.length,
+        sentCount: 0,
+        failedCount: 0,
+        skippedCount: candidates.length,
+        stoppedEarly,
+        stopReason,
+        results: [],
+      };
+    }
+  }
+
+  let processedCount = 0;
+  for (let i = 0; i < toProcess.length; i++) {
+    const item = toProcess[i];
+    processedCount++;
+
     const formattedPhone = normalizePhoneNumber(item.whatsapp);
     if (!formattedPhone) {
       skippedCount++;
@@ -631,6 +727,7 @@ export async function sendH1ExamReminders(
       const sendRes = await whatsappService.sendTextMessage(formattedPhone, messageText);
       if (sendRes.success) {
         sentCount++;
+        consecutiveGatewayErrors = 0;
         // Update database timestamp to prevent duplicate reminder
         await query(
           `UPDATE final_exam_registrations SET reminder_h1_sent_at = NOW(), updated_at = NOW() WHERE id = $1`,
@@ -653,10 +750,26 @@ export async function sendH1ExamReminders(
           success: false,
           error: sendRes.error || 'Gagal mengirim WhatsApp',
         });
-      }
 
-      // Delay between sends to stay safely under WatZap 30 calls/min rate limit
-      await new Promise(res => setTimeout(res, 2300));
+        const errClass = classifyWhatsAppError(sendRes.error, {
+          rateLimited: sendRes.rateLimited,
+          fatalInstanceError: sendRes.fatalInstanceError,
+        });
+        if (errClass.shouldStopBatch) {
+          stoppedEarly = true;
+          stopReason = sendRes.error || 'Reminder ujian dihentikan karena rate-limit / instance WatZap error';
+          console.warn(`[ExamReminder] Stopping thalibah batch early: ${stopReason}`);
+          break;
+        }
+        if (sendRes.provider !== 'none') {
+          consecutiveGatewayErrors++;
+          if (consecutiveGatewayErrors >= 3) {
+            stoppedEarly = true;
+            stopReason = `Reminder ujian dihentikan setelah ${consecutiveGatewayErrors} kegagalan gateway berturut-turut`;
+            break;
+          }
+        }
+      }
     } catch (err: any) {
       failedCount++;
       results.push({
@@ -666,8 +779,19 @@ export async function sendH1ExamReminders(
         success: false,
         error: err.message,
       });
+      consecutiveGatewayErrors++;
+      if (consecutiveGatewayErrors >= 3) {
+        stoppedEarly = true;
+        stopReason = `Reminder ujian dihentikan setelah ${consecutiveGatewayErrors} exception berturut-turut`;
+        break;
+      }
     }
+
+    // Safe randomized 4-7s throttle + 25-35s pause every 15 messages
+    await waitBetweenWhatsAppMessages(i, toProcess.length);
   }
+
+  const unreachedCount = Math.max(0, toProcess.length - processedCount);
 
   return {
     success: true,
@@ -676,7 +800,9 @@ export async function sendH1ExamReminders(
     totalCandidates: candidates.length,
     sentCount,
     failedCount,
-    skippedCount: skippedCount + (candidates.length - toProcess.length),
+    skippedCount: skippedCount + unreachedCount + (candidates.length - toProcess.length),
+    stoppedEarly,
+    stopReason,
     results,
   };
 }
