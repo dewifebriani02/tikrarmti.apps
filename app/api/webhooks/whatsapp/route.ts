@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { processIncomingWebhook } from '@/lib/services/whatsapp-chat';
+import { processIncomingWebhook, handleMurojaahOptOut } from '@/lib/services/whatsapp-chat';
 import { handleIncomingAiReply } from '@/lib/services/whatsapp-ai-agent';
+import { isMurojaahOptOutCommand } from '@/lib/utils/whatsapp-opt-out';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,7 +33,15 @@ export async function POST(req: NextRequest) {
     // 1. Save incoming message to inbox DB
     const result = await processIncomingWebhook(rawBody);
 
-    // 2. Trigger AI Agent reply asynchronously for inbound messages (so webhook returns 200 OK immediately)
+    // 2. Check for explicit opt-out ("STOP") before AI auto-reply
+    let optOutResult:
+      | {
+          disabledCount: number;
+          matchedUsers: number;
+          confirmationSent: boolean;
+        }
+      | undefined;
+
     if (
       result.handled &&
       result.direction === 'inbound' &&
@@ -40,15 +49,23 @@ export async function POST(req: NextRequest) {
       result.phoneNumber &&
       result.messageBody
     ) {
-      void handleIncomingAiReply({
-        conversationId: result.conversationId,
-        phoneNumber: result.phoneNumber,
-        messageBody: result.messageBody,
-        botEnabled: result.botEnabled !== false,
-        hasMedia: result.hasMedia,
-      }).catch((aiErr) => {
-        console.error('[WhatsApp Webhook AI Error]', aiErr);
-      });
+      if (isMurojaahOptOutCommand(result.messageBody, result.hasMedia)) {
+        optOutResult = await handleMurojaahOptOut({
+          conversationId: result.conversationId,
+          phoneNumber: result.phoneNumber,
+        });
+      } else {
+        // 3. Trigger AI Agent reply asynchronously for non-STOP inbound messages
+        void handleIncomingAiReply({
+          conversationId: result.conversationId,
+          phoneNumber: result.phoneNumber,
+          messageBody: result.messageBody,
+          botEnabled: result.botEnabled !== false,
+          hasMedia: result.hasMedia,
+        }).catch((aiErr) => {
+          console.error('[WhatsApp Webhook AI Error]', aiErr);
+        });
+      }
     }
 
     return NextResponse.json(
@@ -57,6 +74,8 @@ export async function POST(req: NextRequest) {
         handled: result.handled,
         reason: result.reason,
         messageId: result.messageId,
+        optOutProcessed: Boolean(optOutResult),
+        optOut: optOutResult,
       },
       { status: 200 }
     );

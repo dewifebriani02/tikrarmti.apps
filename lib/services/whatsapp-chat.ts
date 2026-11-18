@@ -866,3 +866,141 @@ export async function setConversationEscalation(
   );
   return (res.rowCount || 0) > 0;
 }
+
+/**
+ * Disables Murojaah 40x afternoon WhatsApp reminders for all user accounts
+ * matching the sender's phone number and sends a non-AI system confirmation.
+ */
+export async function handleMurojaahOptOut(params: {
+  conversationId: string;
+  phoneNumber: string;
+}): Promise<{
+  disabledCount: number;
+  matchedUsers: number;
+  confirmationSent: boolean;
+}> {
+  const { canonical, local } = getPhoneVariants(params.phoneNumber);
+  const bare = canonical.startsWith('62') ? canonical.slice(2) : canonical;
+  const phoneVariants = Array.from(new Set([canonical, local, bare].filter(Boolean)));
+
+  let userIds: string[] = [];
+  if (phoneVariants.length > 0) {
+    const [usersRes, regRes, convRes] = await Promise.all([
+      query<{ id: string }>(
+        `SELECT id FROM users
+         WHERE regexp_replace(COALESCE(whatsapp, ''), '[^0-9]', '', 'g') = ANY($1::text[])`,
+        [phoneVariants]
+      ),
+      query<{ id: string }>(
+        `SELECT DISTINCT user_id AS id
+         FROM pendaftaran_tikrar_tahfidz
+         WHERE user_id IS NOT NULL
+           AND regexp_replace(COALESCE(wa_phone, ''), '[^0-9]', '', 'g') = ANY($1::text[])`,
+        [phoneVariants]
+      ),
+      queryOne<{ user_id: string | null }>(
+        `SELECT user_id FROM whatsapp_conversations WHERE id = $1`,
+        [params.conversationId]
+      ),
+    ]);
+
+    const idSet = new Set<string>();
+    for (const r of usersRes.rows) if (r.id) idSet.add(r.id);
+    for (const r of regRes.rows) if (r.id) idSet.add(r.id);
+    if (convRes?.user_id) idSet.add(convRes.user_id);
+    userIds = Array.from(idSet);
+  }
+
+  let disabledCount = 0;
+  let totalProgressRows = 0;
+
+  if (userIds.length > 0) {
+    const [updateRes, countRow] = await Promise.all([
+      query<{ id: string }>(
+        `UPDATE murojaah_40x_progress
+         SET is_reminder_active = false, updated_at = NOW()
+         WHERE user_id = ANY($1::uuid[])
+           AND COALESCE(is_reminder_active, true) = true
+         RETURNING id`,
+        [userIds]
+      ),
+      queryOne<{ cnt: string }>(
+        `SELECT COUNT(*)::text AS cnt
+         FROM murojaah_40x_progress
+         WHERE user_id = ANY($1::uuid[])`,
+        [userIds]
+      ),
+    ]);
+
+    disabledCount = updateRes.rowCount || updateRes.rows.length || 0;
+    totalProgressRows = Number(countRow?.cnt || 0);
+  }
+
+  const confirmationText =
+    disabledCount > 0
+      ? `Wa'alaikumussalam warahmatullah. Pengingat sore Murojaah 40x melalui WhatsApp telah dinonaktifkan untuk akun Ukhti. Jika suatu saat ingin menyalakannya kembali, silakan buka menu Muraja'ah 40x di https://markaztikrar.id/murojaah.`
+      : totalProgressRows > 0
+      ? `Wa'alaikumussalam warahmatullah. Pengingat sore Murojaah 40x untuk akun Ukhti saat ini sudah dalam status nonaktif.`
+      : `Baarakallahu fiik. Permintaan STOP telah dicatat — nomor Ukhti tidak terdaftar dalam daftar pengingat sore Murojaah 40x yang aktif.`;
+
+  let confirmationSent = false;
+  try {
+    const sendRes = await whatsappService.sendTextMessage(params.phoneNumber, confirmationText);
+    confirmationSent = Boolean(sendRes.success);
+
+    await transaction(async (client) => {
+      if (sendRes.success) {
+        await client.query(
+          `INSERT INTO whatsapp_messages (
+             conversation_id,
+             phone_number,
+             direction,
+             message_body,
+             status,
+             sender_name,
+             watzap_message_id,
+             metadata,
+             created_at
+           )
+           VALUES ($1, $2, 'outbound', $3, 'sent', $4, $5, $6, NOW())`,
+          [
+            params.conversationId,
+            canonical || params.phoneNumber,
+            confirmationText,
+            'Sistem MTI (Auto Opt-Out)',
+            sendRes.messageId || null,
+            JSON.stringify({
+              is_opt_out_reply: true,
+              disabled_count: disabledCount,
+              matched_users: userIds.length,
+            }),
+          ]
+        );
+      }
+
+      await client.query(
+        `UPDATE whatsapp_conversations
+         SET last_message = COALESCE($1, last_message),
+             last_message_at = CASE WHEN $1 IS NOT NULL THEN NOW() ELSE last_message_at END,
+             last_message_direction = CASE WHEN $1 IS NOT NULL THEN 'outbound' ELSE last_message_direction END,
+             unread_count = 0,
+             status = 'resolved',
+             updated_at = NOW()
+         WHERE id = $2`,
+        [sendRes.success ? confirmationText : null, params.conversationId]
+      );
+    });
+  } catch (err) {
+    console.warn('[WhatsAppOptOut] Failed sending/recording confirmation:', err);
+  }
+
+  console.log(
+    `[WhatsAppOptOut] Processed STOP for +${params.phoneNumber}: matchedUsers=${userIds.length}, disabledCount=${disabledCount}, confirmationSent=${confirmationSent}`
+  );
+
+  return {
+    disabledCount,
+    matchedUsers: userIds.length,
+    confirmationSent,
+  };
+}
