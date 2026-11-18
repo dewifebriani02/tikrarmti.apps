@@ -14,6 +14,8 @@ export async function GET() {
         t.id,
         t.content,
         t.rating,
+        t.batch_name,
+        t.program_name,
         t.created_at,
         t.is_approved,
         CASE WHEN u.id IS NOT NULL THEN

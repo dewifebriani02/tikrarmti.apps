@@ -3,12 +3,14 @@
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { Star, ChevronLeft, ChevronRight, MapPin, X, Sparkles, ArrowRight, MessageSquareQuote } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
+import { formatBatchBadge } from '@/lib/utils/batch-label';
 
 export interface Testimonial {
   id: string;
   content: string;
   rating: number;
+  batch_name?: string | null;
   created_at: string;
   user?: {
     full_name: string;
@@ -68,7 +70,7 @@ export function LandingTestimonialsCarousel({ testimonials }: { testimonials: Te
 
   const scroll = (direction: 'left' | 'right') => {
     if (scrollRef.current) {
-      const { scrollLeft, clientWidth } = scrollRef.current;
+      const { scrollLeft } = scrollRef.current;
       const cardWidth = 360;
       const scrollAmount = direction === 'left' ? -cardWidth : cardWidth;
       scrollRef.current.scrollTo({
@@ -102,6 +104,8 @@ export function LandingTestimonialsCarousel({ testimonials }: { testimonials: Te
     if (text.length <= limit) return text;
     return text.substring(0, limit) + '...';
   };
+
+  const selectedBatchBadge = selectedTestimonial ? formatBatchBadge(selectedTestimonial.batch_name) : null;
 
   return (
     <div className="relative max-w-6xl mx-auto px-4 space-y-8">
@@ -207,6 +211,7 @@ export function LandingTestimonialsCarousel({ testimonials }: { testimonials: Te
             const locationAndAge = locationName
               ? `${locationName}${age ? `, ${age} thn` : ''}`
               : (age ? `${age} thn` : null);
+            const batchBadge = formatBatchBadge(t.batch_name);
 
             return (
               <div
@@ -250,13 +255,20 @@ export function LandingTestimonialsCarousel({ testimonials }: { testimonials: Te
 
                   {/* Profile info & Domicile */}
                   <div className="pt-4 border-t border-gray-150/70 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-100 to-emerald-50 border border-emerald-100/50 text-emerald-700 flex items-center justify-center font-black text-sm">
+                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-100 to-emerald-50 border border-emerald-100/50 text-emerald-700 flex items-center justify-center font-black text-sm shrink-0">
                       {initials}
                     </div>
-                    <div className="min-w-0">
-                      <h4 className="font-extrabold text-gray-900 text-xs sm:text-sm truncate">
-                        {t.user?.full_name || 'Hamba Allah'}
-                      </h4>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h4 className="font-extrabold text-gray-900 text-xs sm:text-sm truncate">
+                          {t.user?.full_name || 'Hamba Allah'}
+                        </h4>
+                        {batchBadge && (
+                          <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            {batchBadge}
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center gap-1 text-[10px] sm:text-xs text-emerald-700/80 font-semibold mt-0.5">
                         {locationAndAge ? (
                           <>
@@ -334,15 +346,22 @@ export function LandingTestimonialsCarousel({ testimonials }: { testimonials: Te
             {/* Scrollable Testimony Content */}
             <div className="p-6 overflow-y-auto space-y-6 flex-1">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-100 to-emerald-50 border border-emerald-100/50 text-emerald-700 flex items-center justify-center font-black text-base shadow-sm">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-100 to-emerald-50 border border-emerald-100/50 text-emerald-700 flex items-center justify-center font-black text-base shadow-sm shrink-0">
                   {selectedTestimonial.user?.full_name
                     ? selectedTestimonial.user.full_name.substring(0, 2).toUpperCase()
                     : 'HA'}
                 </div>
                 <div className="flex flex-col">
-                  <h4 className="font-bold text-gray-900 text-lg">
-                    {selectedTestimonial.user?.full_name || 'Hamba Allah'}
-                  </h4>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h4 className="font-bold text-gray-900 text-lg">
+                      {selectedTestimonial.user?.full_name || 'Hamba Allah'}
+                    </h4>
+                    {selectedBatchBadge && (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                        {selectedBatchBadge}
+                      </span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-1.5 text-sm text-emerald-700 font-medium">
                     {(selectedTestimonial.user?.kota || selectedTestimonial.user?.tanggal_lahir) ? (
                       <>

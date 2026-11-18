@@ -19,11 +19,13 @@ import {
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { formatBatchBadge } from '@/lib/utils/batch-label';
 
 interface TestimonialItem {
   id: string;
   content: string;
   rating: number;
+  batch_name?: string | null;
   created_at: string;
   user?: {
     full_name: string;
@@ -271,6 +273,7 @@ export default function TestimoniPage() {
               const locationAndAge = locationName
                 ? `${locationName}${age ? `, ${age} thn` : ''}`
                 : (age ? `${age} thn` : null);
+              const batchBadge = formatBatchBadge(t.batch_name);
 
               return (
                 <Card
@@ -306,10 +309,17 @@ export default function TestimoniPage() {
                     <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-100 to-emerald-50 border border-emerald-100 text-emerald-800 flex items-center justify-center font-black text-sm shrink-0">
                       {initials}
                     </div>
-                    <div className="min-w-0">
-                      <h4 className="font-extrabold text-gray-900 text-xs sm:text-sm truncate">
-                        {t.user?.full_name || 'Hamba Allah'}
-                      </h4>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h4 className="font-extrabold text-gray-900 text-xs sm:text-sm truncate">
+                          {t.user?.full_name || 'Hamba Allah'}
+                        </h4>
+                        {batchBadge && (
+                          <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            {batchBadge}
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center gap-1 text-[10px] sm:text-xs text-emerald-750 font-semibold mt-0.5">
                         {locationAndAge ? (
                           <>

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 // Import FAQ component as default export
 import FAQComponent from '@/components/FAQ';
 import { LandingTestimonialsCarousel } from '@/components/LandingTestimonialsCarousel';
+import { AnNabaSimulationSection } from '@/components/AnNabaSimulationSection';
 import { BatchRetentionCarousel, BatchProgramData } from '@/components/BatchRetentionCarousel';
 import {
   Star,
@@ -630,11 +631,23 @@ export default async function Home() {
                 <item.icon className="w-8 h-8 mx-auto mb-3 text-amber-600" />
                 <h3 className="text-lg font-bold mb-2 text-emerald-950">{item.title}</h3>
                 <p className="text-gray-600 text-xs sm:text-sm leading-relaxed">{item.description}</p>
+                {item.step === "01" && (
+                  <a
+                    href="#simulasi"
+                    className="inline-flex items-center gap-1 mt-3 text-xs font-bold text-emerald-700 hover:text-emerald-900 hover:underline"
+                  >
+                    <span>Coba Simulasi An-Naba&apos; 40x</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </a>
+                )}
               </div>
             ))}
           </div>
         </div>
       </section>
+
+      {/* Interactive An-Naba 1-11 x 40x Simulation Section */}
+      <AnNabaSimulationSection />
 
       {/* Testimonials Section - Retained */}
       {testimonials && testimonials.length > 0 && (

@@ -31,6 +31,8 @@ interface WhatsAppStatus {
     isConnected?: boolean;
     expiresOn?: string;
     type?: string;
+    fallbackActive?: boolean;
+    fallbackSenderNumber?: string;
   };
 }
 
@@ -1172,7 +1174,11 @@ export default function AdminWhatsAppPage() {
                     <h3 className="font-bold text-gray-900 text-base">
                       Layanan WhatsApp Gateway Resmi
                     </h3>
-                    {status?.watzap?.isConnected ? (
+                    {status?.watzap?.fallbackActive ? (
+                      <Badge className="bg-amber-100 text-amber-900 hover:bg-amber-100 border-amber-300 text-xs">
+                        Mode Cadangan Aktif
+                      </Badge>
+                    ) : status?.watzap?.isConnected ? (
                       <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200 text-xs">
                         Aktif & Terhubung
                       </Badge>
@@ -1190,6 +1196,13 @@ export default function AdminWhatsAppPage() {
                     {` (${status?.watzap?.accountName || "Markaz Tikrar Indonesia"})`}
                     {status?.watzap?.plan && ` • Paket ${status.watzap.plan}`}
                   </p>
+                  {status?.watzap?.fallbackActive && (
+                    <p className="text-[11px] text-amber-700 font-medium mt-1">
+                      Nomor utama sedang offline — pengiriman otomatis dialihkan via nomor cadangan{" "}
+                      <span className="font-mono font-bold">{status.watzap.fallbackSenderNumber || "-"}</span>.{" "}
+                      Mohon scan ulang QR perangkat utama di app.watzap.id.
+                    </p>
+                  )}
                 </div>
               </div>
 

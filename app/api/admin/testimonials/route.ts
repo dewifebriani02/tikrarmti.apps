@@ -21,6 +21,8 @@ export async function GET(request: NextRequest) {
         t.user_id,
         t.content,
         t.rating,
+        t.batch_name,
+        t.program_name,
         t.is_approved,
         t.created_at,
         t.updated_at,

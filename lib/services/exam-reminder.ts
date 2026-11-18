@@ -547,7 +547,7 @@ export async function sendH1ExaminerReminders(
         });
       }
 
-      await new Promise(res => setTimeout(res, 1200));
+      await new Promise(res => setTimeout(res, 2300));
     } catch (err: any) {
       failedCount++;
       results.push({
@@ -655,8 +655,8 @@ export async function sendH1ExamReminders(
         });
       }
 
-      // Small delay between sends to respect gateway rate limits
-      await new Promise(res => setTimeout(res, 1200));
+      // Delay between sends to stay safely under WatZap 30 calls/min rate limit
+      await new Promise(res => setTimeout(res, 2300));
     } catch (err: any) {
       failedCount++;
       results.push({

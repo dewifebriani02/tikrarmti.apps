@@ -23,6 +23,8 @@ export interface WatZapStatusInfo {
   isConnected?: boolean;
   expiresOn?: string;
   type?: string;
+  fallbackActive?: boolean;
+  fallbackSenderNumber?: string;
 }
 
 export interface WhatsAppGroupInfo {
@@ -85,6 +87,7 @@ export class WhatsAppService {
 
   private watzapApiKey = '';
   private watzapNumberKey = '';
+  private cachedFallbackKey: { key: string; waNumber?: string; expiresAt: number } | null = null;
 
   private constructor() {
     this.watzapApiKey = process.env.WATZAP_API_KEY?.trim() || '';
@@ -106,8 +109,110 @@ export class WhatsAppService {
     return WhatsAppService.instance;
   }
 
+  private isWatZapSuccess(data: Record<string, unknown> | null | undefined): boolean {
+    if (!data) return false;
+    return (
+      data.status === '200' ||
+      data.status === 200 ||
+      data.status === true ||
+      data.ack === 'successfully'
+    );
+  }
+
+  private isInstanceOrLicenseError(data: Record<string, unknown> | null | undefined): boolean {
+    if (!data) return false;
+    const statusStr = String(data.status || '');
+    const msg = String(data.message || '').toLowerCase();
+    return (
+      statusStr === '1005' ||
+      msg.includes('instance not started') ||
+      msg.includes('license not found') ||
+      msg.includes('not started') ||
+      msg.includes('disconnected')
+    );
+  }
+
+  private async validateLicenseOnline(apiKey: string, numKey: string): Promise<boolean> {
+    try {
+      const res = await fetch('https://api.watzap.id/v1/validate_number', {
+        method: 'POST',
+        headers: COMMON_HEADERS,
+        body: JSON.stringify({
+          api_key: apiKey,
+          number_key: numKey,
+          phone_no: '628138884240',
+        }),
+        signal: AbortSignal.timeout(6000),
+      });
+      const json = await res.json();
+      return this.isWatZapSuccess(json);
+    } catch {
+      return false;
+    }
+  }
+
   /**
-   * Check connection and integration status via WatZap checking_key
+   * When the configured primary WATZAP_NUMBER_KEY is disconnected/offline or returns
+   * "License Not Found" / "WhatsApp Instance Not Started", check WatZap checking_key
+   * for another connected unofficial license key on the same account.
+   */
+  private async resolveWorkingFallbackNumberKey(
+    failedNumKey: string
+  ): Promise<{ key: string; waNumber?: string } | null> {
+    const key = this.apiKey;
+    if (!key) return null;
+
+    const now = Date.now();
+    if (
+      this.cachedFallbackKey &&
+      this.cachedFallbackKey.key !== failedNumKey &&
+      this.cachedFallbackKey.expiresAt > now
+    ) {
+      return { key: this.cachedFallbackKey.key, waNumber: this.cachedFallbackKey.waNumber };
+    }
+
+    try {
+      const resp = await fetch('https://api.watzap.id/v1/checking_key', {
+        method: 'POST',
+        headers: COMMON_HEADERS,
+        body: JSON.stringify({ api_key: key }),
+        signal: AbortSignal.timeout(7000),
+      });
+      if (!resp.ok) return null;
+      const json = await resp.json();
+      const licenses = Array.isArray(json?.data?.licenses_key) ? json.data.licenses_key : [];
+
+      const candidates = licenses.filter(
+        (lic: { key?: string; type?: string; is_connected?: boolean; connection_status?: string }) =>
+          lic?.key &&
+          lic.key !== failedNumKey &&
+          (lic.type === 'unofficial' || !lic.type) &&
+          (lic.is_connected || lic.connection_status === 'connected')
+      );
+
+      for (const lic of candidates) {
+        const online = await this.validateLicenseOnline(key, lic.key);
+        if (online) {
+          this.cachedFallbackKey = {
+            key: lic.key,
+            waNumber: lic.wa_number,
+            expiresAt: now + 5 * 60 * 1000,
+          };
+          console.warn(
+            `[WhatsAppService] Primary key ${failedNumKey} offline; using connected fallback license ${lic.key} (${lic.wa_number || 'unknown'})`
+          );
+          return { key: lic.key, waNumber: lic.wa_number };
+        }
+      }
+    } catch (err) {
+      console.warn('[WhatsAppService] Failed resolving fallback license:', err);
+    }
+
+    return null;
+  }
+
+  /**
+   * Check connection and integration status via WatZap checking_key + live validate_number
    */
   public async getStatus(): Promise<WhatsAppStatusResult> {
     const key = this.apiKey;
@@ -130,14 +235,18 @@ export class WhatsAppService {
     }
 
     try {
-      const resp = await fetch('https://api.watzap.id/v1/checking_key', {
-        method: 'POST',
-        headers: COMMON_HEADERS,
-        body: JSON.stringify({
-          api_key: key,
-          number_key: numKey,
+      const [resp, primaryLiveOnline] = await Promise.all([
+        fetch('https://api.watzap.id/v1/checking_key', {
+          method: 'POST',
+          headers: COMMON_HEADERS,
+          body: JSON.stringify({
+            api_key: key,
+            number_key: numKey,
+          }),
+          signal: AbortSignal.timeout(7000),
         }),
-      });
+        this.validateLicenseOnline(key, numKey),
+      ]);
 
       if (resp.ok) {
         const json = await resp.json();
@@ -146,7 +255,6 @@ export class WhatsAppService {
           result.watzap.plan = json.data.plan;
           result.watzap.expiresOn = json.data.expires_on;
 
-          // Find license matching our number_key or pick first connected
           const licenses = json.data.licenses_key || [];
           const matchedLicense = licenses.find(
             (lic: { key?: string }) => lic.key === numKey
@@ -157,11 +265,18 @@ export class WhatsAppService {
             result.watzap.displayPhoneNumber = matchedLicense.wa_number
               ? `+${matchedLicense.wa_number.replace(/^(\d{2})(\d{3})(\d{4})(\d+)/, '$1 $2-$3-$4')}`
               : undefined;
-            result.watzap.isConnected = Boolean(
-              matchedLicense.is_connected || matchedLicense.connection_status === 'connected'
-            );
+            result.watzap.isConnected = primaryLiveOnline;
             result.watzap.type = matchedLicense.type || 'unofficial';
           }
+        }
+      }
+
+      if (!primaryLiveOnline) {
+        const fallback = await this.resolveWorkingFallbackNumberKey(numKey);
+        if (fallback) {
+          result.watzap.fallbackActive = true;
+          result.watzap.fallbackSenderNumber = fallback.waNumber;
+          result.watzap.isConnected = true;
         }
       }
     } catch (err) {
@@ -172,7 +287,7 @@ export class WhatsAppService {
   }
 
   /**
-   * Send WhatsApp message via WatZap API
+   * Send WhatsApp message via WatZap API (with automatic connected-license fallback)
    */
   public async sendTextMessage(to: string, message: string): Promise<WhatsAppSendResult> {
     const formattedPhone = normalizePhoneNumber(to);
@@ -195,27 +310,31 @@ export class WhatsAppService {
       };
     }
 
-    try {
+    const postSend = async (useNumberKey: string) => {
       const res = await fetch('https://api.watzap.id/v1/send_message', {
         method: 'POST',
         headers: COMMON_HEADERS,
         body: JSON.stringify({
           api_key: key,
-          number_key: numKey,
+          number_key: useNumberKey,
           phone_no: formattedPhone,
           message: message,
         }),
       });
+      return res.json();
+    };
 
-      const data = await res.json();
+    try {
+      let data = await postSend(numKey);
 
-      // WatZap success response: status 200 / true, or ack: successfully
-      if (
-        data.status === '200' ||
-        data.status === 200 ||
-        data.status === true ||
-        data.ack === 'successfully'
-      ) {
+      if (!this.isWatZapSuccess(data) && this.isInstanceOrLicenseError(data)) {
+        const fallback = await this.resolveWorkingFallbackNumberKey(numKey);
+        if (fallback) {
+          data = await postSend(fallback.key);
+        }
+      }
+
+      if (this.isWatZapSuccess(data)) {
         return {
           success: true,
           provider: 'watzap',
@@ -244,10 +363,7 @@ export class WhatsAppService {
   }
 
   /**
-   * Send message (Template alias for backward compatibility)
-   */
-  /**
-   * Send WhatsApp Image via WatZap API
+   * Send WhatsApp Image via WatZap API (with automatic connected-license fallback)
    */
   public async sendImageUrl(to: string, imageUrl: string, caption?: string): Promise<WhatsAppSendResult> {
     const formattedPhone = normalizePhoneNumber(to);
@@ -270,10 +386,10 @@ export class WhatsAppService {
       };
     }
 
-    try {
+    const postImage = async (useNumberKey: string) => {
       const payload: Record<string, string> = {
         api_key: key,
-        number_key: numKey,
+        number_key: useNumberKey,
         phone_no: formattedPhone,
         url: imageUrl,
       };
@@ -286,15 +402,20 @@ export class WhatsAppService {
         headers: COMMON_HEADERS,
         body: JSON.stringify(payload),
       });
+      return res.json();
+    };
 
-      const data = await res.json();
+    try {
+      let data = await postImage(numKey);
 
-      if (
-        data.status === '200' ||
-        data.status === 200 ||
-        data.status === true ||
-        data.ack === 'successfully'
-      ) {
+      if (!this.isWatZapSuccess(data) && this.isInstanceOrLicenseError(data)) {
+        const fallback = await this.resolveWorkingFallbackNumberKey(numKey);
+        if (fallback) {
+          data = await postImage(fallback.key);
+        }
+      }
+
+      if (this.isWatZapSuccess(data)) {
         return {
           success: true,
           provider: 'watzap',
@@ -323,7 +444,7 @@ export class WhatsAppService {
   }
 
   /**
-   * Send WhatsApp File / Document via WatZap API
+   * Send WhatsApp File / Document via WatZap API (with automatic connected-license fallback)
    */
   public async sendFileUrl(to: string, fileUrl: string): Promise<WhatsAppSendResult> {
     const formattedPhone = normalizePhoneNumber(to);
@@ -346,26 +467,31 @@ export class WhatsAppService {
       };
     }
 
-    try {
+    const postFile = async (useNumberKey: string) => {
       const res = await fetch('https://api.watzap.id/v1/send_file_url', {
         method: 'POST',
         headers: COMMON_HEADERS,
         body: JSON.stringify({
           api_key: key,
-          number_key: numKey,
+          number_key: useNumberKey,
           phone_no: formattedPhone,
           url: fileUrl,
         }),
       });
+      return res.json();
+    };
 
-      const data = await res.json();
+    try {
+      let data = await postFile(numKey);
 
-      if (
-        data.status === '200' ||
-        data.status === 200 ||
-        data.status === true ||
-        data.ack === 'successfully'
-      ) {
+      if (!this.isWatZapSuccess(data) && this.isInstanceOrLicenseError(data)) {
+        const fallback = await this.resolveWorkingFallbackNumberKey(numKey);
+        if (fallback) {
+          data = await postFile(fallback.key);
+        }
+      }
+
+      if (this.isWatZapSuccess(data)) {
         return {
           success: true,
           provider: 'watzap',
@@ -396,8 +522,6 @@ export class WhatsAppService {
     languageCode = 'id',
     components?: Record<string, unknown>[]
   ): Promise<WhatsAppSendResult> {
-    // WatZap Unofficial does not require Meta pre-approved templates.
-    // If text message is provided inside components, use it, otherwise compose standard message.
     let composedMessage = `Pemberitahuan dari Markaz Tikrar Indonesia (MTI) [${templateName}]`;
 
     if (components && Array.isArray(components)) {
@@ -416,7 +540,7 @@ export class WhatsAppService {
   }
 
   /**
-   * Send WhatsApp message to a group via WatZap API
+   * Send WhatsApp message to a group via WatZap API (with automatic connected-license fallback)
    */
   public async sendGroupMessage(groupId: string, message: string): Promise<WhatsAppSendResult> {
     const cleanGroupId = groupId.trim();
@@ -439,26 +563,31 @@ export class WhatsAppService {
       };
     }
 
-    try {
+    const postGroup = async (useNumberKey: string) => {
       const res = await fetch('https://api.watzap.id/v1/send_message_group', {
         method: 'POST',
         headers: COMMON_HEADERS,
         body: JSON.stringify({
           api_key: key,
-          number_key: numKey,
+          number_key: useNumberKey,
           group_id: cleanGroupId,
           message: message,
         }),
       });
+      return res.json();
+    };
 
-      const data = await res.json();
+    try {
+      let data = await postGroup(numKey);
 
-      if (
-        data.status === '200' ||
-        data.status === 200 ||
-        data.status === true ||
-        data.ack === 'successfully'
-      ) {
+      if (!this.isWatZapSuccess(data) && this.isInstanceOrLicenseError(data)) {
+        const fallback = await this.resolveWorkingFallbackNumberKey(numKey);
+        if (fallback) {
+          data = await postGroup(fallback.key);
+        }
+      }
+
+      if (this.isWatZapSuccess(data)) {
         return {
           success: true,
           provider: 'watzap',
@@ -501,17 +630,28 @@ export class WhatsAppService {
       };
     }
 
-    try {
+    const fetchGroups = async (useNumberKey: string) => {
       const res = await fetch('https://api.watzap.id/v1/groups', {
         method: 'POST',
         headers: COMMON_HEADERS,
         body: JSON.stringify({
           api_key: key,
-          number_key: numKey,
+          number_key: useNumberKey,
         }),
       });
+      return res.json();
+    };
 
-      const data = await res.json();
+    try {
+      let data = await fetchGroups(numKey);
+
+      if (this.isInstanceOrLicenseError(data)) {
+        const fallback = await this.resolveWorkingFallbackNumberKey(numKey);
+        if (fallback) {
+          data = await fetchGroups(fallback.key);
+        }
+      }
+
       const rawGroups = data.groups || {};
       const groups: WhatsAppGroupInfo[] = Object.keys(rawGroups).map(gid => {
         const item = rawGroups[gid] || {};

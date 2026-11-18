@@ -24,11 +24,13 @@ import {
 import Link from 'next/link';
 import { Button } from "@/components/ui/button";
 import { cn } from '@/lib/utils';
+import { formatBatchBadge } from '@/lib/utils/batch-label';
 
 interface Testimonial {
   id: string;
   content: string;
   rating: number;
+  batch_name?: string | null;
   is_approved: boolean;
   created_at: string;
   user?: {
@@ -47,6 +49,8 @@ export default function AlumniPage() {
 
   // Testimonial States
   const [testimonial, setTestimonial] = useState<Testimonial | null>(null);
+  const [targetBatchName, setTargetBatchName] = useState<string | null>(null);
+  const [pastTestimonials, setPastTestimonials] = useState<Testimonial[]>([]);
   const [testimonialContent, setTestimonialContent] = useState('');
   const [testimonialRating, setTestimonialRating] = useState(5);
   const [ratingHover, setRatingHover] = useState<number | null>(null);
@@ -89,10 +93,16 @@ export default function AlumniPage() {
         const tData = await tRes.json();
         setIsAlumni(tData.isAlumni);
         setIsAdmin(tData.isAdmin || false);
+        setTargetBatchName(tData.targetBatchName || null);
+        setPastTestimonials(Array.isArray(tData.pastTestimonials) ? tData.pastTestimonials : []);
         if (tData.testimonial) {
           setTestimonial(tData.testimonial);
           setTestimonialContent(tData.testimonial.content);
           setTestimonialRating(tData.testimonial.rating);
+        } else {
+          setTestimonial(null);
+          setTestimonialContent('');
+          setTestimonialRating(5);
         }
       }
     } catch (err) {
@@ -118,7 +128,8 @@ export default function AlumniPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           content: testimonialContent,
-          rating: testimonialRating
+          rating: testimonialRating,
+          batch_name: targetBatchName || undefined
         })
       });
 
@@ -274,9 +285,16 @@ export default function AlumniPage() {
           <Card className="rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-6 bg-white space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-gray-100">
               <div>
-                <h3 className="text-sm sm:text-base font-bold text-gray-900">
-                  {testimonial && !isEditingTestimonial ? 'Ulasan Testimoni Ukhti' : 'Tulis Testimoni'}
-                </h3>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-sm sm:text-base font-bold text-gray-900">
+                    {testimonial && !isEditingTestimonial ? 'Ulasan Testimoni Ukhti' : 'Tulis Testimoni'}
+                  </h3>
+                  {formatBatchBadge(testimonial?.batch_name || targetBatchName) && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                      {formatBatchBadge(testimonial?.batch_name || targetBatchName)}
+                    </span>
+                  )}
+                </div>
                 <p className="text-[11px] text-gray-500 mt-0.5">
                   Berikan kesan pesan pengalaman belajar Ukhti di MTI untuk memotivasi calon hafidzah lainnya.
                 </p>
@@ -412,6 +430,32 @@ export default function AlumniPage() {
             )}
           </Card>
 
+          {/* Riwayat Testimoni Batch Sebelumnya (jika ada) */}
+          {pastTestimonials.filter((pt) => pt.id !== testimonial?.id).length > 0 && (
+            <Card className="rounded-2xl border border-emerald-100 shadow-sm p-5 bg-emerald-50/30 space-y-3">
+              <h4 className="text-xs font-bold text-emerald-950 uppercase tracking-wider">
+                Riwayat Testimoni Batch Sebelumnya
+              </h4>
+              <div className="space-y-2.5">
+                {pastTestimonials
+                  .filter((pt) => pt.id !== testimonial?.id)
+                  .map((pt) => (
+                    <div key={pt.id} className="bg-white rounded-xl p-3.5 border border-emerald-100 space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                          {formatBatchBadge(pt.batch_name) || 'Batch Sebelumnya'}
+                        </span>
+                        <span className="text-[10px] font-semibold text-gray-500">
+                          {pt.is_approved ? 'Disetujui' : 'Menunggu Verifikasi'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-700 italic leading-relaxed">"{pt.content}"</p>
+                    </div>
+                  ))}
+              </div>
+            </Card>
+          )}
+
           {/* Daftar Testimoni Alumni Lainnya */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -455,7 +499,14 @@ export default function AlumniPage() {
                             {initials}
                           </div>
                           <div>
-                            <h4 className="font-bold text-gray-900 text-xs">{t.user?.full_name || 'Hamba Allah'}</h4>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <h4 className="font-bold text-gray-900 text-xs">{t.user?.full_name || 'Hamba Allah'}</h4>
+                              {formatBatchBadge(t.batch_name) && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                  {formatBatchBadge(t.batch_name)}
+                                </span>
+                              )}
+                            </div>
                             <p className="text-[10px] text-gray-400">
                               {locationName ? `${locationName} • ` : ''}
                               {new Date(t.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Jakarta' })}

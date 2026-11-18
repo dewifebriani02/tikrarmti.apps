@@ -115,6 +115,17 @@ export function RegistrationHubCard({
   }, [registrationBatch]);
 
   // Check thalibah registrations in the registration batch
+  const pendingTikrarRegistration = useMemo(() => {
+    if (!registrationBatch?.id || !registrations.length) return null;
+    return registrations.find(
+      reg =>
+        reg.batch_id === registrationBatch.id &&
+        reg.program?.name?.toLowerCase().includes('tahfidz') &&
+        !reg.program?.name?.toLowerCase().includes('pra') &&
+        reg.status === 'pending'
+    ) || null;
+  }, [registrationBatch?.id, registrations]);
+
   const hasRegisteredTikrar = useMemo(() => {
     if (!registrationBatch?.id || !registrations.length) return false;
     return registrations.some(
@@ -292,13 +303,26 @@ export function RegistrationHubCard({
 
                   <div className="pt-5">
                     {hasRegisteredTikrar ? (
-                      <Button
-                        disabled
-                        className="w-full bg-emerald-50 text-emerald-700 border border-emerald-300 font-bold py-2.5 rounded-xl cursor-default flex items-center justify-center gap-1.5"
-                      >
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                        Sudah Terdaftar
-                      </Button>
+                      <div className="space-y-2">
+                        <Button
+                          disabled
+                          className="w-full bg-emerald-50 text-emerald-700 border border-emerald-300 font-bold py-2.5 rounded-xl cursor-default flex items-center justify-center gap-1.5"
+                        >
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          Sudah Terdaftar
+                        </Button>
+                        {pendingTikrarRegistration && isRegistrationOpen && (
+                          <Link href={`/pendaftaran/tikrar-tahfidz?batchId=${batchId}&edit=true`} className="block">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full border-amber-300 text-amber-800 hover:bg-amber-50 font-bold rounded-xl text-xs"
+                            >
+                              Ubah Pilihan Juz / Jadwal
+                            </Button>
+                          </Link>
+                        )}
+                      </div>
                     ) : canRegisterTikrar ? (
                       <Link href={`/pendaftaran/tikrar-tahfidz?batchId=${batchId}`} className="block">
                         <Button className="w-full bg-gradient-to-r from-amber-600 via-yellow-600 to-amber-700 hover:from-amber-700 hover:via-yellow-700 hover:to-amber-800 text-white font-bold py-2.5 rounded-xl shadow-md shadow-amber-900/10 hover:shadow-lg transition-all flex items-center justify-center gap-1.5">
