@@ -7,7 +7,7 @@ import {
   CheckSquare, Square,
   MessageSquare, Send, CheckCircle2, AlertCircle, RefreshCw, 
   ArrowLeft, Shield, Phone, Search, Clock, Sparkles, Check, Zap,
-  Users, Play, Pause, AlertTriangle, Layers, UserCheck
+  Users, Play, Pause, AlertTriangle, Layers, UserCheck, Bot
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { WhatsAppInboxTab } from '@/components/admin/whatsapp/WhatsAppInboxTab';
+import { WhatsAppAutoMessagesTab } from '@/components/admin/whatsapp/WhatsAppAutoMessagesTab';
 import {
   waitBetweenWhatsAppMessages,
   classifyWhatsAppError,
@@ -633,16 +634,29 @@ function CcSelectorCard({
 
 
 export default function AdminWhatsAppPage() {
-  const [activeTab, setActiveTab] = useState<'inbox' | 'broadcast' | 'individual'>('inbox');
+  const [activeTab, setActiveTab] = useState<'inbox' | 'broadcast' | 'individual' | 'auto'>('inbox');
+  const [autoMsgStats, setAutoMsgStats] = useState<{ active: number; total: number } | null>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const tab = params.get('tab');
-      if (tab === 'broadcast' || tab === 'individual' || tab === 'inbox') {
+      if (tab === 'broadcast' || tab === 'individual' || tab === 'inbox' || tab === 'auto') {
         setActiveTab(tab);
       }
     }
+    fetch('/api/admin/whatsapp/auto-messages')
+      .then((r) => r.json())
+      .then((json) => {
+        if (json?.success && Array.isArray(json?.data?.items)) {
+          const items = json.data.items;
+          setAutoMsgStats({
+            active: items.filter((i: { enabled: boolean }) => i.enabled).length,
+            total: items.length,
+          });
+        }
+      })
+      .catch(() => {});
   }, []);
 
   // Status state
@@ -1223,6 +1237,30 @@ export default function AdminWhatsAppPage() {
               <Send className="h-4 w-4" />
               Kirim Pesan Perorangan
             </button>
+            <button
+              onClick={() => setActiveTab('auto')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+                activeTab === 'auto'
+                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200/70'
+              }`}
+            >
+              <Bot className="h-4 w-4" />
+              <span>Pesan Otomatis</span>
+              {autoMsgStats && (
+                <span
+                  className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold ${
+                    activeTab === 'auto'
+                      ? 'bg-white/20 text-white'
+                      : autoMsgStats.active > 0
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : 'bg-gray-200 text-gray-600'
+                  }`}
+                >
+                  {autoMsgStats.active}/{autoMsgStats.total} Aktif
+                </span>
+              )}
+            </button>
           </div>
         </div>
       </div>
@@ -1296,6 +1334,15 @@ export default function AdminWhatsAppPage() {
         {activeTab === 'inbox' && (
           <div className="space-y-6">
             <WhatsAppInboxTab senderNumber={status?.watzap?.displayPhoneNumber || status?.watzap?.senderNumber || "0813-8884-240"} />
+          </div>
+        )}
+
+        {/* TAB 3: PESAN OTOMATIS ON/OFF */}
+        {activeTab === 'auto' && (
+          <div className="space-y-6">
+            <WhatsAppAutoMessagesTab
+              onCountChange={(active, total) => setAutoMsgStats({ active, total })}
+            />
           </div>
         )}
 

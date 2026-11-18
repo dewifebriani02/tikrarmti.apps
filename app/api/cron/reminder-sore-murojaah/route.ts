@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createHash, timingSafeEqual } from 'crypto';
 import { query } from '@/lib/db';
 import { whatsappService } from '@/lib/services/whatsapp';
+import { getWhatsAppAutoMessagesConfig } from '@/lib/services/whatsapp-auto-settings';
 import {
   waitBetweenWhatsAppMessages,
   classifyWhatsAppError,
@@ -68,6 +69,27 @@ async function handleReminder(request: Request) {
     const { searchParams } = new URL(request.url);
     const dryRun = searchParams.get('dry_run') === 'true' || searchParams.get('test') === 'true';
     const limit = parseInt(searchParams.get('limit') || '50', 10);
+
+    if (!dryRun) {
+      const { config: autoConfig } = await getWhatsAppAutoMessagesConfig();
+      if (!autoConfig.reminder_sore_murojaah) {
+        console.log('[CRON Murojaah] Skipped: reminder_sore_murojaah disabled by admin setting.');
+        return NextResponse.json({
+          success: true,
+          timestamp: new Date().toISOString(),
+          mode: 'production',
+          disabledBySetting: true,
+          totalCandidates: 0,
+          sentCount: 0,
+          failedCount: 0,
+          skippedCount: 0,
+          stoppedEarly: true,
+          stopReason: 'Pengingat Sore Murojaah 40x otomatis sedang dinonaktifkan oleh Admin di /admin/whatsapp',
+          batchPausesCount: 0,
+          results: [],
+        });
+      }
+    }
 
     // Fetch active Murojaah 40x participants with incomplete rounds today
     const { rows: candidates } = await query(`

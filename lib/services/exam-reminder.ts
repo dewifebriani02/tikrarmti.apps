@@ -1,5 +1,6 @@
 import { query } from '@/lib/db';
 import { whatsappService, normalizePhoneNumber } from '@/lib/services/whatsapp';
+import { getWhatsAppAutoMessagesConfig } from '@/lib/services/whatsapp-auto-settings';
 import {
   waitBetweenWhatsAppMessages,
   classifyWhatsAppError,
@@ -491,6 +492,25 @@ export async function sendH1ExaminerReminders(
   const dryRun = Boolean(options.dryRun);
   const force = Boolean(options.force);
 
+  if (!dryRun) {
+    const { config: autoConfig } = await getWhatsAppAutoMessagesConfig();
+    if (!autoConfig.reminder_ujian_lisan_examiner) {
+      console.log('[ExamReminder] Skipped examiner reminders: disabled by admin setting.');
+      return {
+        success: true,
+        targetDate,
+        dryRun,
+        totalExaminers: 0,
+        sentCount: 0,
+        failedCount: 0,
+        skippedCount: 0,
+        stoppedEarly: true,
+        stopReason: 'Pengingat otomatis H-1 Ujian Lisan (Ustadzah Penguji) sedang dinonaktifkan oleh Admin di /admin/whatsapp',
+        results: [],
+      };
+    }
+  }
+
   const examiners = await getH1ExaminerCandidates(targetDate);
   const toProcess = force ? examiners : examiners.filter(e => !e.alreadySent);
 
@@ -648,6 +668,25 @@ export async function sendH1ExamReminders(
   const targetDate = options.targetDate || getTomorrowWibDateString();
   const dryRun = Boolean(options.dryRun);
   const force = Boolean(options.force);
+
+  if (!dryRun) {
+    const { config: autoConfig } = await getWhatsAppAutoMessagesConfig();
+    if (!autoConfig.reminder_ujian_lisan_thalibah) {
+      console.log('[ExamReminder] Skipped thalibah reminders: disabled by admin setting.');
+      return {
+        success: true,
+        targetDate,
+        dryRun,
+        totalCandidates: 0,
+        sentCount: 0,
+        failedCount: 0,
+        skippedCount: 0,
+        stoppedEarly: true,
+        stopReason: 'Pengingat otomatis H-1 Ujian Lisan (Thalibah) sedang dinonaktifkan oleh Admin di /admin/whatsapp',
+        results: [],
+      };
+    }
+  }
 
   const candidates = await getH1ExamCandidates(targetDate);
   const toProcess = force ? candidates : candidates.filter(c => !c.alreadySent);

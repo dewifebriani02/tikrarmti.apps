@@ -3,6 +3,7 @@ import { randomInt } from 'crypto';
 import { query, queryOne, transaction } from '@/lib/db';
 import { sendEmail } from '@/lib/email';
 import { whatsappService } from './whatsapp';
+import { getWhatsAppAutoMessagesConfig } from './whatsapp-auto-settings';
 import {
   getPhoneVariants,
   getWhatsAppBotConfig,
@@ -469,9 +470,11 @@ async function executeEscalateToAdmin(
     await setConversationBotEnabled(conversationId, false);
   }
 
-  // Optional WhatsApp notification to configured admin phones
+  // Optional WhatsApp notification to configured admin phones (gated by auto-message toggle)
+  const { config: autoConfig } = await getWhatsAppAutoMessagesConfig();
   const notifiedAdmins: string[] = [];
-  for (const adminPhone of adminPhones) {
+  if (autoConfig.ai_escalation_admin_alert) {
+    for (const adminPhone of adminPhones) {
     if (!adminPhone) continue;
     try {
       const alertText =
@@ -484,6 +487,7 @@ async function executeEscalateToAdmin(
       if (res.success) notifiedAdmins.push(adminPhone);
     } catch (err) {
       console.warn('[WhatsAppAI] Failed notifying admin phone:', adminPhone, err);
+    }
     }
   }
 

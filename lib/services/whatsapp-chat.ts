@@ -1,5 +1,6 @@
 import { query, queryOne, transaction } from '@/lib/db';
 import { normalizePhoneNumber, whatsappService } from './whatsapp';
+import { getWhatsAppAutoMessagesConfig } from './whatsapp-auto-settings';
 
 export interface WhatsAppConversation {
   id: string;
@@ -943,10 +944,18 @@ export async function handleMurojaahOptOut(params: {
       ? `Wa'alaikumussalam warahmatullah. Pengingat sore Murojaah 40x untuk akun Ukhti saat ini sudah dalam status nonaktif.`
       : `Baarakallahu fiik. Permintaan STOP telah dicatat — nomor Ukhti tidak terdaftar dalam daftar pengingat sore Murojaah 40x yang aktif.`;
 
+  const { config: autoConfig } = await getWhatsAppAutoMessagesConfig();
+  const shouldSendConfirmation = autoConfig.auto_reply_stop_opt_out;
+
   let confirmationSent = false;
   try {
-    const sendRes = await whatsappService.sendTextMessage(params.phoneNumber, confirmationText);
+    const sendRes = shouldSendConfirmation
+      ? await whatsappService.sendTextMessage(params.phoneNumber, confirmationText)
+      : { success: false, messageId: undefined as string | undefined };
     confirmationSent = Boolean(sendRes.success);
+    if (!shouldSendConfirmation) {
+      console.log(`[WhatsAppOptOut] Outbound confirmation WA skipped (disabled by admin setting) for +${params.phoneNumber}`);
+    }
 
     await transaction(async (client) => {
       if (sendRes.success) {
