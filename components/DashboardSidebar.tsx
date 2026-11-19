@@ -6,7 +6,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { 
   X, BookOpen, GraduationCap, Users, LogOut, ChevronLeft, ChevronRight, Eye,
   LayoutGrid, ClipboardList, FileText, UserCheck, BarChart3, Calendar, Shield, Settings,
-  MessageSquare, HeartHandshake, HelpCircle, Award, ArrowRightLeft, Video, Database, RotateCcw, Sparkles, Landmark, Flame
+  MessageSquare, HeartHandshake, HelpCircle, Award, ArrowRightLeft, Video, Database, RotateCcw, Sparkles, Landmark, Flame, Globe
 } from 'lucide-react';
 import { ROLE_RANKS, hasRequiredRank, isStaff } from '@/lib/roles';
 import { useAuth } from '@/hooks/useAuth';
@@ -71,6 +71,11 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
         href: '/dashboard',
         label: 'Dasbor Admin',
         icon: <LayoutGrid className="h-5 w-5 text-emerald-600" />,
+      });
+      baseItems.push({
+        href: '/?view=landing',
+        label: 'Lihat Landing Page',
+        icon: <Globe className="h-5 w-5 text-amber-600" />,
       });
       baseItems.push({
         href: '/statistik',
@@ -442,7 +447,15 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
   };
   const navItems = getNavItems();
 
+  const isAdminAccount =
+    isAdminPersona ||
+    (user?.roles || []).some((r) => r === 'admin' || r === 'super_admin') ||
+    ['admin', 'super_admin'].includes((user as any)?.primaryRole || '');
+
   const isActive = (href: string) => {
+    if (href.startsWith('/?')) {
+      return pathname === '/';
+    }
     if (href.includes('?tab=')) {
       const [path, query] = href.split('?');
       const tabParam = new URLSearchParams(query).get('tab');
@@ -473,7 +486,7 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
         {/* Logo */}
         <div className="flex items-center justify-between h-16 border-b border-green-900/20 px-3 flex-shrink-0">
           {!isCollapsed ? (
-            <Link href="/" className="flex items-center space-x-2 min-w-0">
+            <Link href={isAdminAccount ? "/?view=landing" : "/"} className="flex items-center space-x-2 min-w-0">
               <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10">
                 <Image
                     src="https://github.com/dewifebriani-project/File-Public/blob/main/Markaz%20Tikrar%20Indonesia.jpg?raw=true"
@@ -491,7 +504,7 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
               </div>
             </Link>
           ) : (
-            <Link href="/" className="flex items-center justify-center w-full">
+            <Link href={isAdminAccount ? "/?view=landing" : "/"} className="flex items-center justify-center w-full">
               <div className="flex-shrink-0 w-10 h-10">
                 <Image
                     src="https://github.com/dewifebriani-project/File-Public/blob/main/Markaz%20Tikrar%20Indonesia.jpg?raw=true"

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Eye, EyeOff, AlertCircle, CheckCircle2, HelpCircle } from "lucide-react";
+import { Eye, EyeOff, AlertCircle, CheckCircle2, HelpCircle, Globe } from "lucide-react";
 import { loginAction } from '@/app/login/actions';
 import { safeRedirectPath } from '@/lib/utils/safe-redirect';
 
@@ -382,14 +382,21 @@ function LoginPageContent() {
                 </Link>
               </div>
 
-              {/* FAQ Helper Link */}
-              <div className="mt-6 pt-4 border-t border-gray-100 text-center">
+              {/* FAQ & Landing Page Helper Links */}
+              <div className="mt-6 pt-4 border-t border-gray-100 flex flex-col items-center gap-2.5 text-center">
                 <Link
                   href="/faq"
                   className="inline-flex items-center gap-2 text-xs sm:text-sm font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 px-4 py-2.5 rounded-xl transition-all shadow-2xs"
                 >
                   <HelpCircle className="w-4 h-4 text-emerald-700" />
                   <span>Ada kendala atau pertanyaan? Baca FAQ &amp; Bantuan</span>
+                </Link>
+                <Link
+                  href="/?view=landing"
+                  className="inline-flex items-center gap-2 text-xs sm:text-sm font-semibold text-amber-900 hover:text-amber-950 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 px-4 py-2 rounded-xl transition-all"
+                >
+                  <Globe className="w-4 h-4 text-amber-700" />
+                  <span>Lihat Landing Page (Beranda Publik)</span>
                 </Link>
               </div>
 

@@ -38,11 +38,16 @@ import { redirect } from 'next/navigation';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default async function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams?: { view?: string };
+}) {
   const supabaseAuth = createClient();
   const { data: { user } } = await supabaseAuth.auth.getUser();
+  const forceLandingView = searchParams?.view === 'landing';
 
-  if (user) {
+  if (user && !forceLandingView) {
     redirect('/dashboard');
   }
 
@@ -236,14 +241,29 @@ export default async function Home() {
 
           {/* Quick Login Bar */}
           <div className="inline-flex items-center gap-3 bg-white/90 backdrop-blur border border-emerald-100 shadow-sm rounded-full px-5 py-2.5 text-sm text-gray-700">
-            <span>Sudah memiliki akun thalibah/mu&apos;allimah?</span>
-            <Link
-              href="/login"
-              className="font-bold text-emerald-900 hover:text-emerald-700 inline-flex items-center gap-1 hover:underline underline-offset-2"
-            >
-              <span>Masuk di sini</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
+            {user ? (
+              <>
+                <span>Mode pratinjau Landing Page (sedang login).</span>
+                <Link
+                  href="/dashboard"
+                  className="font-bold text-emerald-900 hover:text-emerald-700 inline-flex items-center gap-1 hover:underline underline-offset-2"
+                >
+                  <span>Kembali ke Dasbor</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </>
+            ) : (
+              <>
+                <span>Sudah memiliki akun thalibah/mu&apos;allimah?</span>
+                <Link
+                  href="/login"
+                  className="font-bold text-emerald-900 hover:text-emerald-700 inline-flex items-center gap-1 hover:underline underline-offset-2"
+                >
+                  <span>Masuk di sini</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </>
+            )}
           </div>
 
         </div>

@@ -19,10 +19,12 @@ export default function Header() {
       .catch(() => {});
   }, []);
 
+  const homeHref = isLoggedIn ? '/?view=landing' : '/';
+
   return (
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-xl shadow-md border-b border-green-900/20 w-full">
       <div className="container mx-auto px-3 sm:px-4 md:px-6 py-3 sm:py-3 md:py-4 flex justify-between items-center">
-        <Link href="/" className="flex items-center space-x-2 sm:space-x-2 md:space-x-3 group flex-shrink-0">
+        <Link href={homeHref} className="flex items-center space-x-2 sm:space-x-2 md:space-x-3 group flex-shrink-0">
           <Image
             src="/mti-logo.jpg"
             alt="Markaz Tikrar Indonesia Logo"
@@ -37,13 +39,13 @@ export default function Header() {
         </Link>
 
         <nav className="hidden lg:flex items-center space-x-6 xl:space-x-8">
-          <Link href="/#program" className="text-black hover:text-green-900 transition-colors font-medium text-sm xl:text-base">
+          <Link href={`${homeHref}#program`} className="text-black hover:text-green-900 transition-colors font-medium text-sm xl:text-base">
             Program
           </Link>
-          <Link href="/#alur" className="text-black hover:text-green-900 transition-colors font-medium text-sm xl:text-base">
+          <Link href={`${homeHref}#alur`} className="text-black hover:text-green-900 transition-colors font-medium text-sm xl:text-base">
             Alur
           </Link>
-          <Link href="/#testimoni" className="text-black hover:text-green-900 transition-colors font-medium text-sm xl:text-base">
+          <Link href={`${homeHref}#testimoni`} className="text-black hover:text-green-900 transition-colors font-medium text-sm xl:text-base">
             Testimoni
           </Link>
           <Link

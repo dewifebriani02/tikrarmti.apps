@@ -88,7 +88,10 @@ export default function DashboardContent() {
       setSelectedBatchId(urlBatchId);
       return;
     }
-    const stored = typeof window !== 'undefined' ? localStorage.getItem('selected_batch_id') : null;
+    let stored: string | null = null;
+    try {
+      stored = typeof window !== 'undefined' ? localStorage.getItem('selected_batch_id') : null;
+    } catch {}
     if (stored) {
       setSelectedBatchId(stored);
     }
@@ -192,8 +195,9 @@ export default function DashboardContent() {
 
   const upcomingPrayer = useMemo(() => {
     if (!prayerTimes) return null;
-    const now = new Date();
-    const jakartaTime = now.toLocaleTimeString('en-US', { timeZone: 'Asia/Jakarta', hour12: false });
+    try {
+      const now = new Date();
+      const jakartaTime = now.toLocaleTimeString('en-US', { timeZone: 'Asia/Jakarta', hour12: false });
     const parts = jakartaTime.split(':');
     const currH = parseInt(parts[0], 10);
     const currM = parseInt(parts[1], 10);
@@ -241,6 +245,9 @@ export default function DashboardContent() {
     }
 
     return null;
+    } catch {
+      return null;
+    }
   }, [prayerTimes]);
 
   const handleLocationChange = () => {
@@ -307,7 +314,7 @@ export default function DashboardContent() {
   }, [user?.id, effectiveBatchId]);
 
   const hasRegisteredTikrar = useMemo(() => {
-    return effectiveBatchId && registrations.some(reg => reg.batch_id === effectiveBatchId);
+    return Boolean(effectiveBatchId && (registrations || []).some(reg => reg.batch_id === effectiveBatchId));
   }, [effectiveBatchId, registrations])
 
   // Combined loading state
@@ -348,7 +355,7 @@ export default function DashboardContent() {
     return days[num] || `${dayNum}`
   }
 
-  const totalHariTarget = (jurnalStatus?.summary.total_blocks || (canSeeAdminStats ? stats?.totalHariTarget : 0) || 0)
+  const totalHariTarget = (jurnalStatus?.summary?.total_blocks || (canSeeAdminStats ? stats?.totalHariTarget : 0) || 0)
 
   // Calculate current week based on selected batch timeline
   const targetStartDate = selectedBatch?.first_week_start_date || selectedBatch?.start_date;
@@ -417,9 +424,9 @@ export default function DashboardContent() {
 
   const displayStats = {
     totalHariTarget: totalHariTarget,
-    hariAktual: (jurnalStatus?.summary.completed_blocks || (canSeeAdminStats ? stats?.hariAktual : 0) || 0),
-    persentaseProgress: (jurnalStatus && (jurnalStatus.summary.total_blocks || 0) > 0)
-      ? Math.round((jurnalStatus.summary.completed_blocks / jurnalStatus.summary.total_blocks) * 100)
+    hariAktual: (jurnalStatus?.summary?.completed_blocks || (canSeeAdminStats ? stats?.hariAktual : 0) || 0),
+    persentaseProgress: (jurnalStatus?.summary && (jurnalStatus.summary.total_blocks || 0) > 0)
+      ? Math.round(((jurnalStatus.summary.completed_blocks || 0) / jurnalStatus.summary.total_blocks) * 100)
       : (canSeeAdminStats ? stats?.persentaseProgress : 0) || 0
   }
 
@@ -604,20 +611,31 @@ export default function DashboardContent() {
 
   const toGregorianLabel = () => {
     if (gregorianDate) return `${gregorianDate.day} ${gregorianDate.month} ${gregorianDate.year}`
-    return new Intl.DateTimeFormat('id-ID', { year: 'numeric',
-      month: 'long',
-      day: 'numeric', timeZone: 'Asia/Jakarta' }).format(new Date())
+    try {
+      return new Intl.DateTimeFormat('id-ID', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        timeZone: 'Asia/Jakarta',
+      }).format(new Date())
+    } catch {
+      return new Date().toLocaleDateString('id-ID')
+    }
   }
 
   const toHijriLabel = () => {
     if (hijriDate) return `${hijriDate.day} ${hijriDate.month} ${hijriDate.year} ${hijriDate.designation}`
-    const options: Intl.DateTimeFormatOptions = {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      calendar: 'islamic-umalqura'
+    try {
+      const options: Intl.DateTimeFormatOptions = {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        calendar: 'islamic-umalqura',
+      }
+      return new Intl.DateTimeFormat('id-ID', options).format(new Date())
+    } catch {
+      return ''
     }
-    return new Intl.DateTimeFormat('id-ID', options).format(new Date())
   }
 
   const isDropout = registrationStatus.registered && registrationStatus.status === 'dropout';
@@ -678,11 +696,15 @@ export default function DashboardContent() {
                     <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 opacity-70" />
                     <span>{toGregorianLabel()}</span>
                   </div>
-                  <div className="hidden sm:block w-1.5 h-1.5 rounded-full bg-white/20" />
-                  <div className="flex items-center gap-1 sm:gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-yellow-400" />
-                    <span>{toHijriLabel()}</span>
-                  </div>
+                  {toHijriLabel() && (
+                    <>
+                      <div className="hidden sm:block w-1.5 h-1.5 rounded-full bg-white/20" />
+                      <div className="flex items-center gap-1 sm:gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-yellow-400" />
+                        <span>{toHijriLabel()}</span>
+                      </div>
+                    </>
+                  )}
                   <button 
                     onClick={handleLocationChange}
                     className="flex items-center gap-1 sm:gap-1.5 text-white/90 bg-white/10 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full border border-white/10 hover:bg-white/20 transition-all group lg:ml-3 text-[10px] sm:text-xs"
@@ -808,7 +830,7 @@ export default function DashboardContent() {
       {/* 2. Progress Jurnal & Tashih - otomatis tidak muncul jika masa ziyadah dan murajaah sudah selesai */}
       {!isZiyadahAndMurajaahFinished && (tashihStatus || jurnalStatus || canSeeAdminStats) && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-          {tashihStatus && (
+          {tashihStatus && tashihStatus.summary && tashihStatus.juz_info && (
             <Dialog>
               <DialogTrigger asChild>
                 <div className="block group cursor-pointer">
@@ -835,7 +857,7 @@ export default function DashboardContent() {
                         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                           <div className="text-center flex flex-col justify-center px-1 sm:px-2">
                             <p className="text-lg sm:text-xl font-black text-emerald-700 leading-none">
-                              {Math.round((tashihStatus.summary.completed_blocks / tashihStatus.summary.total_blocks) * 100)}%
+                              {(tashihStatus.summary.total_blocks > 0 ? Math.round(((tashihStatus.summary.completed_blocks || 0) / tashihStatus.summary.total_blocks) * 100) : 0)}%
                             </p>
                             <p className="text-[8px] sm:text-[9px] uppercase font-bold text-emerald-600/70 tracking-wider mt-1 whitespace-nowrap">
                               {tashihStatus.summary.completed_blocks} / {tashihStatus.summary.total_blocks} Blok
@@ -857,7 +879,7 @@ export default function DashboardContent() {
                       <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
                         <div
                           className="bg-gradient-to-r from-emerald-500 to-teal-500 h-full rounded-full transition-all duration-1000 ease-out"
-                          style={{ width: `${(tashihStatus.summary.completed_blocks / tashihStatus.summary.total_blocks) * 100}%` }}
+                          style={{ width: `${tashihStatus.summary.total_blocks > 0 ? ((tashihStatus.summary.completed_blocks || 0) / tashihStatus.summary.total_blocks) * 100 : 0}%` }}
                         ></div>
                       </div>
                     </CardContent>
@@ -884,7 +906,7 @@ export default function DashboardContent() {
                       <p className="text-xs text-emerald-700/80 font-medium mt-0.5">Telah disetorkan {tashihStatus.summary.completed_blocks} dari total {tashihStatus.summary.total_blocks} blok.</p>
                     </div>
                     <div className="w-14 h-14 rounded-full bg-emerald-100 border-2 border-emerald-200 flex items-center justify-center shrink-0">
-                      <p className="text-sm font-black text-emerald-600">{Math.round((tashihStatus.summary.completed_blocks / tashihStatus.summary.total_blocks) * 100)}%</p>
+                      <p className="text-sm font-black text-emerald-600">{(tashihStatus.summary.total_blocks > 0 ? Math.round(((tashihStatus.summary.completed_blocks || 0) / tashihStatus.summary.total_blocks) * 100) : 0)}%</p>
                     </div>
                   </div>
 
@@ -922,7 +944,7 @@ export default function DashboardContent() {
             </Dialog>
           )}
 
-        {jurnalStatus && (
+        {jurnalStatus && jurnalStatus.summary && jurnalStatus.juz_info && (
             <Dialog>
               <DialogTrigger asChild>
                 <div className="block group cursor-pointer">
@@ -949,7 +971,7 @@ export default function DashboardContent() {
                         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                           <div className="text-center flex flex-col justify-center px-1 sm:px-2">
                             <p className="text-lg sm:text-xl font-black text-purple-700 leading-none">
-                              {Math.round((jurnalStatus.summary.completed_blocks / jurnalStatus.summary.total_blocks) * 100)}%
+                              {(jurnalStatus.summary.total_blocks > 0 ? Math.round(((jurnalStatus.summary.completed_blocks || 0) / jurnalStatus.summary.total_blocks) * 100) : 0)}%
                             </p>
                             <p className="text-[8px] sm:text-[9px] uppercase font-bold text-purple-600/70 tracking-wider mt-1 whitespace-nowrap">
                               {jurnalStatus.summary.completed_blocks} / {jurnalStatus.summary.total_blocks} Blok
@@ -971,7 +993,7 @@ export default function DashboardContent() {
                       <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
                         <div
                           className="bg-gradient-to-r from-purple-500 to-pink-500 h-full rounded-full transition-all duration-1000 ease-out"
-                          style={{ width: `${(jurnalStatus.summary.completed_blocks / jurnalStatus.summary.total_blocks) * 100}%` }}
+                          style={{ width: `${jurnalStatus.summary.total_blocks > 0 ? ((jurnalStatus.summary.completed_blocks || 0) / jurnalStatus.summary.total_blocks) * 100 : 0}%` }}
                         ></div>
                       </div>
                     </CardContent>
@@ -998,7 +1020,7 @@ export default function DashboardContent() {
                       <p className="text-xs text-purple-700/80 font-medium mt-0.5">Telah diselesaikan {jurnalStatus.summary.completed_blocks} dari total {jurnalStatus.summary.total_blocks} blok.</p>
                     </div>
                     <div className="w-14 h-14 rounded-full bg-purple-100 border-2 border-purple-200 flex items-center justify-center shrink-0">
-                      <p className="text-sm font-black text-purple-600">{Math.round((jurnalStatus.summary.completed_blocks / jurnalStatus.summary.total_blocks) * 100)}%</p>
+                      <p className="text-sm font-black text-purple-600">{(jurnalStatus.summary.total_blocks > 0 ? Math.round(((jurnalStatus.summary.completed_blocks || 0) / jurnalStatus.summary.total_blocks) * 100) : 0)}%</p>
                     </div>
                   </div>
 
@@ -1063,8 +1085,9 @@ export default function DashboardContent() {
               </div>
               <h2 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight mb-1 break-words">
                 {(() => {
-                  if (!halaqahOfTheWeek.name.includes(' | ')) return halaqahOfTheWeek.name;
-                  const parts = halaqahOfTheWeek.name.split(' | ');
+                  const hotwName = halaqahOfTheWeek.name || '';
+                  if (!hotwName.includes(' | ')) return hotwName;
+                  const parts = hotwName.split(' | ');
                   const prefixPart = parts[0];
                   
                   const newNamePart = `Ustadzah ${halaqahOfTheWeek.muallimah_name}`;
@@ -1371,7 +1394,15 @@ export default function DashboardContent() {
                         <div>
                           <p className="text-xs font-bold text-gray-900">{activity.title}</p>
                           <p className="text-[10px] text-gray-400">
-                            {new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' }).format(activity.date)}
+                            {activity.date && !isNaN(activity.date.getTime())
+                              ? (() => {
+                                  try {
+                                    return new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' }).format(activity.date);
+                                  } catch {
+                                    return '';
+                                  }
+                                })()
+                              : ''}
                           </p>
                         </div>
                       </div>

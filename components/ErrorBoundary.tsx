@@ -1,6 +1,11 @@
 'use client';
 
 import React from 'react';
+import {
+  attemptChunkRecovery,
+  clearClientCachesAndRedirect,
+  isChunkLoadError,
+} from '@/lib/chunk-recovery';
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -28,23 +33,9 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     this.setState({ errorInfo });
 
     // Otomatis reload jika terjadi ChunkLoadError akibat deployment / update versi
-    if (typeof window !== 'undefined') {
-      const msg = error?.message || '';
-      const isChunkError =
-        error?.name === 'ChunkLoadError' ||
-        msg.includes('Loading chunk') ||
-        msg.includes('Failed to fetch dynamically imported module');
-
-      if (isChunkError) {
-        const key = 'last_chunk_error_reload';
-        const last = parseInt(sessionStorage.getItem(key) || '0', 10);
-        const now = Date.now();
-        if (now - last > 10000) {
-          sessionStorage.setItem(key, now.toString());
-          console.warn('[ErrorBoundary] ChunkLoadError terdeteksi setelah deployment. Memuat ulang halaman...');
-          window.location.reload();
-        }
-      }
+    if (typeof window !== 'undefined' && isChunkLoadError(error)) {
+      console.warn('[ErrorBoundary] ChunkLoadError terdeteksi setelah deployment. Memuat ulang halaman...');
+      attemptChunkRecovery();
     }
   }
 
@@ -85,7 +76,7 @@ function DefaultErrorFallback({ error, reset }: { error?: Error; reset: () => vo
           </div>
         )}
 
-        <div className="flex flex-col sm:flex-row justify-center gap-2.5">
+        <div className="flex flex-col sm:flex-row justify-center gap-2.5 flex-wrap">
           <button
             onClick={() => window.location.reload()}
             className="bg-green-900 hover:bg-green-800 text-white px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all shadow-sm active:scale-95"
@@ -97,6 +88,12 @@ function DefaultErrorFallback({ error, reset }: { error?: Error; reset: () => vo
             className="border border-gray-200 hover:bg-gray-50 text-gray-700 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all active:scale-95"
           >
             Coba Lagi
+          </button>
+          <button
+            onClick={() => clearClientCachesAndRedirect('/login')}
+            className="bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all active:scale-95"
+          >
+            Bersihkan Cache
           </button>
           <button
             onClick={() => window.location.href = '/dashboard'}

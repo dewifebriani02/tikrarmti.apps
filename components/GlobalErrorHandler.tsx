@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { attemptChunkRecovery, isChunkLoadError } from '@/lib/chunk-recovery';
 
 export default function GlobalErrorHandler() {
   useEffect(() => {
@@ -13,13 +14,19 @@ export default function GlobalErrorHandler() {
         event.preventDefault();
         return;
       }
+
+      if (isChunkLoadError(event.reason)) {
+        attemptChunkRecovery();
+      }
     };
 
     // Handle runtime errors
     const handleError = (event: ErrorEvent) => {
       // Ignore hydration errors in development (they're handled by React)
-      if (event.error?.message?.includes('Hydration failed') ||
-          event.error?.message?.includes('hydrating this Suspense boundary')) {
+      if (
+        event.error?.message?.includes('Hydration failed') ||
+        event.error?.message?.includes('hydrating this Suspense boundary')
+      ) {
         event.preventDefault();
         return;
       }
@@ -30,6 +37,10 @@ export default function GlobalErrorHandler() {
       if (event.error?.message?.includes('message channel closed')) {
         event.preventDefault();
         return;
+      }
+
+      if (isChunkLoadError(event.error || event.message)) {
+        attemptChunkRecovery();
       }
     };
 

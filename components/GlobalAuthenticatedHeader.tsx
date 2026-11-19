@@ -16,6 +16,7 @@ import {
   LogOut,
   RefreshCw,
   Trash2,
+  Globe,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { LogoutConfirmModal } from '@/components/LogoutConfirmModal';
@@ -40,6 +41,10 @@ export default function GlobalAuthenticatedHeader({
 
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const isAdminAccount =
+    (user?.roles || []).some((r: string) => r === 'admin' || r === 'super_admin') ||
+    ['admin', 'super_admin'].includes((user as any)?.primaryRole || '') ||
+    ['admin', 'super_admin'].includes((user as any)?.role || '');
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -339,6 +344,18 @@ export default function GlobalAuthenticatedHeader({
           <div className="flex items-center space-x-2 md:space-x-3">
 
 
+            {/* Quick Landing Page Button for Admin */}
+            {isMounted && isAdminAccount && (
+              <Link
+                href="/?view=landing"
+                className="hidden sm:flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-300/80 rounded-lg transition-colors shadow-2xs"
+                title="Lihat Landing Page (Beranda Publik)"
+              >
+                <Globe className="w-4 h-4 text-amber-700 shrink-0" />
+                <span>Landing Page</span>
+              </Link>
+            )}
+
             {/* Quick FAQ / Bantuan Button - Teks selalu terlihat jelas di HP & Desktop */}
             {isMounted && (
               <button
@@ -516,6 +533,16 @@ export default function GlobalAuthenticatedHeader({
                   {isMounted && <PersonaSwitcher variant="menu" />}
 
                   <div className="p-2">
+                    {isAdminAccount && (
+                      <Link
+                        href="/?view=landing"
+                        onClick={() => setShowProfileDropdown(false)}
+                        className="flex items-center space-x-3 px-3 py-2 text-sm font-semibold text-amber-900 bg-amber-50/70 hover:bg-amber-100 rounded-lg transition-colors duration-200 w-full mb-1"
+                      >
+                        <Globe className="w-4 h-4 text-amber-700" />
+                        <span>Lihat Landing Page</span>
+                      </Link>
+                    )}
 
                     <Link
                       href="/pengaturan"
