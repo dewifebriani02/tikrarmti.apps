@@ -515,7 +515,8 @@ export async function POST(request: NextRequest) {
 
 /**
  * PATCH /api/alumni/murojaah-40x
- * Update settings (e.g. toggle WhatsApp reminder active/inactive)
+ * 1) Edit a round log (methods, completed_at, notes) when log_id is provided
+ * 2) Update settings (e.g. toggle WhatsApp reminder active/inactive)
  */
 export async function PATCH(request: NextRequest) {
   try {
@@ -525,6 +526,86 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
+
+    // Branch 1: Edit an existing round log (methods, completed_at, notes)
+    if (body.log_id !== undefined) {
+      const { log_id, methods, completed_at, notes } = body;
+
+      if (typeof log_id !== 'string' || !log_id.trim()) {
+        return NextResponse.json({ success: false, error: 'log_id tidak valid' }, { status: 400 });
+      }
+
+      if (!Array.isArray(methods) || methods.length === 0) {
+        return NextResponse.json(
+          { success: false, error: 'Pilih minimal satu metode murojaah (Pasangan, Tarteel, Sholat, atau Aktifitas Lain)' },
+          { status: 400 }
+        );
+      }
+
+      const uniqueMethods = Array.from(new Set(methods)) as MurojaahMethod[];
+      const isValidMethods = uniqueMethods.every((m) => VALID_METHODS.includes(m));
+      if (!isValidMethods) {
+        return NextResponse.json({ success: false, error: 'Metode yang dipilih tidak sesuai ketentuan' }, { status: 400 });
+      }
+
+      if (typeof completed_at !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(completed_at.trim())) {
+        return NextResponse.json({ success: false, error: 'Format tanggal tidak valid' }, { status: 400 });
+      }
+
+      const trimmedDate = completed_at.trim();
+      const parsedDate = new Date(`${trimmedDate}T00:00:00Z`);
+      if (isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== trimmedDate) {
+        return NextResponse.json({ success: false, error: 'Tanggal tidak valid' }, { status: 400 });
+      }
+
+      const sanitizedNotes = typeof notes === 'string' && notes.trim() ? notes.trim() : null;
+
+      const { rows: updatedLogs } = await query(
+        `UPDATE murojaah_40x_logs
+         SET completed_at = $1, methods = $2, notes = $3
+         WHERE id = $4 AND user_id = $5
+         RETURNING *`,
+        [trimmedDate, uniqueMethods, sanitizedNotes, log_id.trim(), user.id]
+      );
+
+      if (updatedLogs.length === 0) {
+        return NextResponse.json(
+          { success: false, error: 'Catatan putaran tidak ditemukan' },
+          { status: 404 }
+        );
+      }
+
+      const updatedLog = updatedLogs[0];
+
+      // Keep progress start/expiry consistent if Round 1 (primary) date changed
+      if (updatedLog.round_number === 1 && updatedLog.juz_segment === 'primary') {
+        await query(
+          `UPDATE murojaah_40x_progress
+           SET started_at = $1::timestamptz,
+               expires_at = $1::timestamptz + INTERVAL '20 days',
+               updated_at = NOW()
+           WHERE id = $2 AND user_id = $3`,
+          [trimmedDate, updatedLog.progress_id, user.id]
+        );
+      } else {
+        await query(
+          `UPDATE murojaah_40x_progress
+           SET updated_at = NOW()
+           WHERE id = $1 AND user_id = $2`,
+          [updatedLog.progress_id, user.id]
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `Putaran ke-${updatedLog.round_number} (${updatedLog.juz_segment === 'primary' ? 'Juz Utama' : 'Bagian A'}) berhasil diperbarui.`,
+        data: {
+          log: updatedLog,
+        },
+      });
+    }
+
+    // Branch 2: Toggle WhatsApp reminder active/inactive
     const { progress_id, is_reminder_active } = body;
 
     if (!progress_id || typeof is_reminder_active !== 'boolean') {

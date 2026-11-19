@@ -31,7 +31,8 @@ import {
   RefreshCw,
   Lock,
   Bell,
-  BellOff
+  BellOff,
+  Pencil
 } from 'lucide-react';
 import { MurojaahMethod, MurojaahSegment, Murojaah40xLog, Murojaah40xProgress } from '@/types/database';
 import { MurojaahCommunityDirectory } from './MurojaahCommunityDirectory';
@@ -84,6 +85,7 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
   
   // Modal states
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
+  const [editingLog, setEditingLog] = useState<Murojaah40xLog | null>(null);
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [selectedRoundDetails, setSelectedRoundDetails] = useState<Murojaah40xLog | null>(null);
@@ -149,9 +151,18 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
       setIsEnrollModalOpen(true);
       return;
     }
+    setEditingLog(null);
     setSelectedMethods(['pasangan']);
     setLogDate(getWibDateString(new Date()));
     setLogNotes('');
+    setIsLogModalOpen(true);
+  };
+
+  const handleOpenEditModal = (log: Murojaah40xLog) => {
+    setEditingLog(log);
+    setSelectedMethods(log.methods?.length ? [...log.methods] : ['pasangan']);
+    setLogDate(getWibDateString(log.completed_at));
+    setLogNotes(log.notes || '');
     setIsLogModalOpen(true);
   };
 
@@ -161,9 +172,37 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
       toast.error('Pilih minimal satu metode murojaah');
       return;
     }
+    if (!logDate) {
+      toast.error('Tanggal murojaah wajib diisi');
+      return;
+    }
 
     try {
       setSubmitting(true);
+      if (editingLog) {
+        const res = await fetch('/api/alumni/murojaah-40x', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            log_id: editingLog.id,
+            methods: selectedMethods,
+            completed_at: logDate,
+            notes: logNotes
+          })
+        });
+
+        const json = await res.json();
+        if (res.ok && json.success) {
+          toast.success(json.message);
+          setIsLogModalOpen(false);
+          setEditingLog(null);
+          fetchData(juz_info?.code);
+        } else {
+          toast.error(json.error || 'Gagal memperbarui putaran murojaah');
+        }
+        return;
+      }
+
       const res = await fetch('/api/alumni/murojaah-40x', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -183,13 +222,13 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
         if (json.data?.warrior_awarded) {
           setIsWarriorModalOpen(true);
         }
-        fetchData();
+        fetchData(juz_info?.code);
       } else {
         toast.error(json.error || 'Gagal mencatat putaran murojaah');
       }
     } catch (err: any) {
       console.error('Error saving murojaah 40x log:', err);
-      toast.error('Terjadi kesalahan saat mencatat putaran');
+      toast.error(editingLog ? 'Terjadi kesalahan saat memperbarui putaran' : 'Terjadi kesalahan saat mencatat putaran');
     } finally {
       setSubmitting(false);
     }
@@ -814,9 +853,10 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
                         <div className="flex items-center gap-1 text-[11px] font-semibold text-emerald-800">
                           <Calendar className="w-3 h-3 text-emerald-600" />
                           <span>
-                            {new Date(log.completed_at).toLocaleDateString('id-ID', {
+                            {new Date(`${getWibDateString(log.completed_at)}T00:00:00+07:00`).toLocaleDateString('id-ID', {
                               day: 'numeric',
-                              month: 'short'
+                              month: 'short',
+                              timeZone: 'Asia/Jakarta'
                             })}
                           </span>
                         </div>
@@ -851,14 +891,24 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
 
                       {/* Box Footer Actions */}
                       <div className="flex items-center justify-between pt-1 text-[11px]">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedRoundDetails(log)}
-                          className="font-bold text-emerald-700 hover:text-emerald-900 hover:underline flex items-center gap-1"
-                        >
-                          <span>Rincian</span>
-                          <ChevronRight className="w-3 h-3" />
-                        </button>
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedRoundDetails(log)}
+                            className="font-bold text-emerald-700 hover:text-emerald-900 hover:underline flex items-center gap-1"
+                          >
+                            <span>Rincian</span>
+                            <ChevronRight className="w-3 h-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditModal(log)}
+                            className="font-bold text-amber-700 hover:text-amber-900 hover:underline flex items-center gap-1"
+                          >
+                            <Pencil className="w-3 h-3" />
+                            <span>Edit</span>
+                          </button>
+                        </div>
 
                         {isLatest && (
                           <button
@@ -1195,18 +1245,39 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
         </div>
       )}
 
-      {/* MODAL INPUT PRESENSI / CEKLIST PUTARAN */}
-      <Dialog open={isLogModalOpen} onOpenChange={setIsLogModalOpen}>
+      {/* MODAL INPUT PRESENSI / EDIT PUTARAN */}
+      <Dialog
+        open={isLogModalOpen}
+        onOpenChange={(open) => {
+          setIsLogModalOpen(open);
+          if (!open) setEditingLog(null);
+        }}
+      >
         <DialogContent className="max-w-md w-[92vw] sm:w-full max-h-[82vh] max-h-[82dvh] flex flex-col gap-0 p-0 rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl bg-white border border-gray-100 z-[200]">
           <DialogHeader className="p-4 sm:p-6 pb-3 border-b border-gray-100 shrink-0 bg-white">
             <DialogTitle className="text-base sm:text-lg font-bold text-gray-900 flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
-                <Check className="w-4 h-4 stroke-[3]" />
+              <div className={cn(
+                "w-8 h-8 rounded-xl flex items-center justify-center shrink-0",
+                editingLog ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"
+              )}>
+                {editingLog ? <Pencil className="w-4 h-4" /> : <Check className="w-4 h-4 stroke-[3]" />}
               </div>
-              <span className="truncate">Presensi Muraja'ah — Putaran ke-{nextRoundNumber}</span>
+              <span className="truncate">
+                {editingLog
+                  ? `Edit Putaran ke-${editingLog.round_number}`
+                  : `Presensi Muraja'ah — Putaran ke-${nextRoundNumber}`}
+              </span>
             </DialogTitle>
             <DialogDescription className="text-xs text-gray-500">
-              Porsi {activeSegment === 'primary' ? `Juz Utama (${juz_info?.code})` : `Bagian A (${juz_info?.optional_part_a_code})`} • Tandai kehadiran dan metode yang digunakan
+              {editingLog ? (
+                <>
+                  Porsi {editingLog.juz_segment === 'primary' ? `Juz Utama (${juz_info?.code})` : `Bagian A (${juz_info?.optional_part_a_code})`} • Perbarui metode, tanggal, atau catatan putaran
+                </>
+              ) : (
+                <>
+                  Porsi {activeSegment === 'primary' ? `Juz Utama (${juz_info?.code})` : `Bagian A (${juz_info?.optional_part_a_code})`} • Tandai kehadiran dan metode yang digunakan
+                </>
+              )}
             </DialogDescription>
           </DialogHeader>
 
@@ -1281,7 +1352,10 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
             <Button
               type="button"
               variant="outline"
-              onClick={() => setIsLogModalOpen(false)}
+              onClick={() => {
+                setIsLogModalOpen(false);
+                setEditingLog(null);
+              }}
               className="rounded-xl text-xs font-medium text-gray-600 px-4 h-11 sm:h-10 border-gray-200 hover:bg-gray-100"
             >
               Batal
@@ -1292,7 +1366,11 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
               onClick={handleSaveLog}
               className="bg-emerald-800 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold px-6 h-12 sm:h-10 shadow-lg active:scale-95 transition-all w-full sm:w-auto"
             >
-              {submitting ? 'Menyimpan...' : `✓ Simpan Putaran ke-${nextRoundNumber}`}
+              {submitting
+                ? 'Menyimpan...'
+                : editingLog
+                  ? '✓ Simpan Perubahan'
+                  : `✓ Simpan Putaran ke-${nextRoundNumber}`}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1316,10 +1394,11 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
               <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 flex items-center justify-between">
                 <span className="text-gray-500">Tanggal Selesai:</span>
                 <span className="font-bold text-gray-800">
-                  {new Date(selectedRoundDetails.completed_at).toLocaleDateString('id-ID', {
+                  {new Date(`${getWibDateString(selectedRoundDetails.completed_at)}T00:00:00+07:00`).toLocaleDateString('id-ID', {
                     day: 'numeric',
                     month: 'long',
-                    year: 'numeric'
+                    year: 'numeric',
+                    timeZone: 'Asia/Jakarta'
                   })}
                 </span>
               </div>
@@ -1349,14 +1428,29 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
             </div>
           )}
 
-          <DialogFooter className="p-3.5 sm:p-4 border-t border-gray-100 bg-gray-50/95 shrink-0">
+          <DialogFooter className="p-3.5 sm:p-4 border-t border-gray-100 bg-gray-50/95 shrink-0 flex flex-col-reverse sm:flex-row gap-2">
             <Button
               type="button"
+              variant="outline"
               onClick={() => setSelectedRoundDetails(null)}
-              className="w-full bg-gray-900 text-white rounded-xl text-xs h-10"
+              className="w-full sm:flex-1 rounded-xl text-xs h-10 border-gray-200"
             >
               Tutup
             </Button>
+            {selectedRoundDetails && (
+              <Button
+                type="button"
+                onClick={() => {
+                  const target = selectedRoundDetails;
+                  setSelectedRoundDetails(null);
+                  handleOpenEditModal(target);
+                }}
+                className="w-full sm:flex-1 bg-emerald-800 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold h-10 gap-1.5"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                <span>Edit Putaran</span>
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
