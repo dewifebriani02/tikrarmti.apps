@@ -112,16 +112,18 @@ async function handleReminder(request: Request) {
       LEFT JOIN (
         SELECT progress_id, COUNT(*) as today_count
         FROM murojaah_40x_logs
-        WHERE completed_at = CURRENT_DATE
+        WHERE completed_at = (NOW() AT TIME ZONE 'Asia/Jakarta')::date
         GROUP BY progress_id
       ) today_log ON today_log.progress_id = p.id
       WHERE p.status = 'active'
+        AND p.total_completed > 0
         AND p.total_completed < 40
+        AND b.status IN ('closed', 'ongoing')
         AND COALESCE(p.is_reminder_active, true) = true
         AND COALESCE(today_log.today_count, 0) < 2
         AND u.whatsapp IS NOT NULL
         AND TRIM(u.whatsapp) != ''
-        -- Hanya kirim ke peserta Muroja'ah Warrior/Alumni yang sah (bukan pendaftar baru)
+        -- Hanya kirim ke peserta yang sudah mulai murojaah pada batch aktif/lalu (bukan batch pendaftaran baru)
         AND EXISTS (
           SELECT 1 FROM pendaftaran_tikrar_tahfidz past_reg
           JOIN batches past_b ON past_b.id = past_reg.batch_id

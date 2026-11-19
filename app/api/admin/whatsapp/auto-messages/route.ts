@@ -115,7 +115,7 @@ function buildAutoMessageItems(
       title: 'Pengingat Sore Murojaah 40x',
       category: 'cron',
       scheduleLabel: 'Cron Harian • 16:30 WIB',
-      recipientLabel: 'Peserta Murojaah 40x aktif (< 2 putaran hari ini & belum STOP)',
+      recipientLabel: 'Peserta Murojaah 40x aktif (sudah mulai > 0 putaran, bukan batch pendaftaran baru, < 2 putaran hari ini & belum STOP)',
       description:
         'Mengirim pengingat otomatis harian sore menjelang maghrib berisi rincian target hari ini, hutang putaran, dan tautan input murojaah.',
       disabledBehavior:
