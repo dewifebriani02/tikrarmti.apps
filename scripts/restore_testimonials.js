@@ -15,8 +15,6 @@ async function restoreAndClean() {
       'dee8cb41-dca9-49d1-bd91-a38b8445b3ee',
       '68525f51-6b32-4b52-9e39-526d4335f9c6',
       '40e6f7bd-51fe-46ef-b530-9fa2b54320f8',
-      'fe293527-1400-44a1-a0f6-baf3b482e708',
-      'c268b81a-b54d-426f-b1f5-f6eb622e2211',
       '7d014e16-1e50-4ce5-8cf7-2a989271a36d',
       'bcb2d453-dcd0-43f0-8149-85f133f97dc5'
     ];
