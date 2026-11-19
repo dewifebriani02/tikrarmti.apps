@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { 
@@ -636,6 +636,12 @@ function CcSelectorCard({
 export default function AdminWhatsAppPage() {
   const [activeTab, setActiveTab] = useState<'inbox' | 'broadcast' | 'individual' | 'auto'>('inbox');
   const [autoMsgStats, setAutoMsgStats] = useState<{ active: number; total: number } | null>(null);
+
+  const handleAutoMsgCountChange = useCallback((active: number, total: number) => {
+    setAutoMsgStats((prev) =>
+      prev && prev.active === active && prev.total === total ? prev : { active, total }
+    );
+  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -1341,7 +1347,7 @@ export default function AdminWhatsAppPage() {
         {activeTab === 'auto' && (
           <div className="space-y-6">
             <WhatsAppAutoMessagesTab
-              onCountChange={(active, total) => setAutoMsgStats({ active, total })}
+              onCountChange={handleAutoMsgCountChange}
             />
           </div>
         )}

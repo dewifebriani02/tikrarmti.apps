@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import {
   Clock,
@@ -43,37 +43,48 @@ export function WhatsAppAutoMessagesTab({ onCountChange }: WhatsAppAutoMessagesT
   const [items, setItems] = useState<AutoMessageItem[]>([]);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [bulkSaving, setBulkSaving] = useState(false);
   const [expandedPreviews, setExpandedPreviews] = useState<Record<string, boolean>>({});
 
-  const notifyCount = useCallback(
-    (list: AutoMessageItem[]) => {
-      if (onCountChange) {
-        const active = list.filter((i) => i.enabled).length;
-        onCountChange(active, list.length);
-      }
-    },
-    [onCountChange]
-  );
+  const hasLoadedRef = useRef(false);
+  const onCountChangeRef = useRef(onCountChange);
+
+  useEffect(() => {
+    onCountChangeRef.current = onCountChange;
+  }, [onCountChange]);
+
+  const notifyCount = useCallback((list: AutoMessageItem[]) => {
+    if (onCountChangeRef.current) {
+      const active = list.filter((i) => i.enabled).length;
+      onCountChangeRef.current(active, list.length);
+    }
+  }, []);
 
   const fetchAutoMessages = useCallback(async () => {
-    setLoading(true);
+    if (!hasLoadedRef.current) {
+      setLoading(true);
+    } else {
+      setRefreshing(true);
+    }
     try {
       const res = await fetch('/api/admin/whatsapp/auto-messages');
       const json = await res.json();
       if (res.ok && json.success && json.data) {
         const list: AutoMessageItem[] = json.data.items || [];
+        hasLoadedRef.current = true;
         setItems(list);
         setUpdatedAt(json.data.updatedAt || null);
         notifyCount(list);
       } else {
         toast.error(json.error?.message || 'Gagal memuat daftar pesan otomatis');
       }
-    } catch (err: any) {
-      toast.error(err.message || 'Gagal terhubung ke server');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Gagal terhubung ke server');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [notifyCount]);
 
@@ -102,8 +113,8 @@ export function WhatsAppAutoMessagesTab({ onCountChange }: WhatsAppAutoMessagesT
       } else {
         toast.error(json.error?.message || 'Gagal mengubah status pesan otomatis');
       }
-    } catch (err: any) {
-      toast.error(err.message || 'Terjadi kesalahan saat menyimpan');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Terjadi kesalahan saat menyimpan');
     } finally {
       setSavingKey(null);
     }
@@ -131,8 +142,8 @@ export function WhatsAppAutoMessagesTab({ onCountChange }: WhatsAppAutoMessagesT
       } else {
         toast.error(json.error?.message || 'Gagal memperbarui semua pengaturan');
       }
-    } catch (err: any) {
-      toast.error(err.message || 'Terjadi kesalahan saat menyimpan');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Terjadi kesalahan saat menyimpan');
     } finally {
       setBulkSaving(false);
     }
@@ -323,7 +334,7 @@ export function WhatsAppAutoMessagesTab({ onCountChange }: WhatsAppAutoMessagesT
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={loading || bulkSaving}
+                disabled={loading || refreshing || bulkSaving}
                 onClick={() => handleBulkToggle(true)}
                 className="rounded-xl border-emerald-200 text-emerald-700 hover:bg-emerald-50 text-xs font-bold gap-1.5"
               >
@@ -334,7 +345,7 @@ export function WhatsAppAutoMessagesTab({ onCountChange }: WhatsAppAutoMessagesT
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={loading || bulkSaving}
+                disabled={loading || refreshing || bulkSaving}
                 onClick={() => handleBulkToggle(false)}
                 className="rounded-xl border-red-200 text-red-700 hover:bg-red-50 text-xs font-bold gap-1.5"
               >
@@ -345,11 +356,11 @@ export function WhatsAppAutoMessagesTab({ onCountChange }: WhatsAppAutoMessagesT
                 type="button"
                 variant="ghost"
                 size="sm"
-                disabled={loading}
+                disabled={loading || refreshing}
                 onClick={fetchAutoMessages}
                 className="rounded-xl text-gray-500 hover:text-gray-800 text-xs gap-1.5"
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-3.5 h-3.5 ${loading || refreshing ? 'animate-spin' : ''}`} />
                 Muat Ulang
               </Button>
             </div>
@@ -357,10 +368,24 @@ export function WhatsAppAutoMessagesTab({ onCountChange }: WhatsAppAutoMessagesT
         </CardHeader>
 
         <CardContent className="p-6 space-y-8">
-          {loading ? (
+          {loading && items.length === 0 ? (
             <div className="py-12 text-center text-gray-400 text-xs flex flex-col items-center justify-center gap-2">
               <RefreshCw className="w-6 h-6 animate-spin text-emerald-600" />
               <span>Memuat konfigurasi pesan otomatis WhatsApp...</span>
+            </div>
+          ) : items.length === 0 ? (
+            <div className="py-12 text-center text-gray-500 text-xs flex flex-col items-center justify-center gap-3">
+              <span>Konfigurasi pesan otomatis belum tersedia atau gagal dimuat.</span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={fetchAutoMessages}
+                className="rounded-xl text-xs gap-1.5"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                Coba Muat Ulang
+              </Button>
             </div>
           ) : (
             <>
