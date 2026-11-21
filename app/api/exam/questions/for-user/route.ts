@@ -109,10 +109,10 @@ export async function GET(request: NextRequest) {
       registrations.find((r) => r.selection_status === 'waitlist') ||
       registrations[0];
 
-    // Get batch to check selection dates and status
+    // Get batch to check selection/final-exam dates and status
     const { data: batch, error: batchError } = await supabaseAdmin
       .from('batches')
-      .select('id, name, status, registration_start_date, registration_end_date, re_enrollment_date, opening_class_date, min_final_exam_score')
+      .select('id, name, status, registration_start_date, registration_end_date, re_enrollment_date, opening_class_date, final_exam_start_date, final_exam_end_date, min_final_exam_score')
       .eq('id', registration.batch_id)
       .single();
 
@@ -126,6 +126,7 @@ export async function GET(request: NextRequest) {
     // Detect source mode
     const source = request.nextUrl.searchParams.get('source') || 'selection';
     const isFinalExam = source === 'final-exam';
+    const examType = isFinalExam ? 'final-exam' : 'selection';
 
     // For selection mode: check batch open + selection dates (which are aligned with registration dates)
     if (!isFinalExam) {
@@ -257,23 +258,25 @@ export async function GET(request: NextRequest) {
       // Use default config if not found
     }
 
-    // Check if user has reached max attempts
+    // Check if user has reached max attempts for this exam_type
     // Only count submitted attempts, not in-progress ones
-    if (config && config.max_attempts) {
+    const maxAttemptsToCheck = isFinalExam ? 1 : config?.max_attempts;
+    if (maxAttemptsToCheck) {
       const { data: existingAttempts, error: attemptsError } = await supabaseAdmin
         .from('exam_attempts')
         .select('id, status')
         .eq('user_id', user.id)
         .eq('registration_id', registration.id)
+        .eq('exam_type', examType)
         .eq('status', 'submitted');
 
       const submittedCount = existingAttempts?.length || 0;
 
-      if (!attemptsError && submittedCount >= config.max_attempts) {
+      if (!attemptsError && submittedCount >= maxAttemptsToCheck) {
         return NextResponse.json({
           error: 'Kesempatan Ujian Habis',
-          details: `Mohon maaf ukhti, kesempatan ujian telah habis (${config.max_attempts}x percobaan). Tetap semangat dan terus berikhtiar, Allah Maha Mengetahui yang terbaik untuk hamba-Nya.`,
-          maxAttempts: config.max_attempts
+          details: `Mohon maaf ukhti, kesempatan ujian telah habis (${maxAttemptsToCheck}x percobaan). Tetap semangat dan terus berikhtiar, Allah Maha Mengetahui yang terbaik untuk hamba-Nya.`,
+          maxAttempts: maxAttemptsToCheck
         }, { status: 400 });
       }
     }
@@ -376,13 +379,27 @@ export async function GET(request: NextRequest) {
       showResults: true
     } : null;
 
+    let existingAttemptId: string | null = registration.exam_attempt_id;
+    if (isFinalExam) {
+      const { data: finalAttempt } = await supabaseAdmin
+        .from('exam_attempts')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('registration_id', registration.id)
+        .eq('exam_type', 'final-exam')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      existingAttemptId = finalAttempt?.id || null;
+    }
+
     return NextResponse.json({
       data: processedQuestions,
       total: processedQuestions.length,
       examJuzNumber: requiredJuzNumber,
       chosenJuz: chosenJuz,
       registrationId: registration.id,
-      existingAttemptId: registration.exam_attempt_id,
+      existingAttemptId,
       source,
       config: isFinalExam ? finalExamConfig : (config ? {
         durationMinutes: config.duration_minutes,

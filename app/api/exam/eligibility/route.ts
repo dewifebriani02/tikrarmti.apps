@@ -19,12 +19,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const batchId = request.nextUrl.searchParams.get('batchId') || request.nextUrl.searchParams.get('batch_id');
+
     // Get user's tikrar registration
-    const { data: registrations, error: regError } = await supabaseAdmin
+    let regQuery = supabaseAdmin
       .from('pendaftaran_tikrar_tahfidz')
       .select('*')
       .eq('user_id', user.id)
-      .eq('status', 'approved')
+      .eq('status', 'approved');
+
+    if (batchId) {
+      regQuery = regQuery.eq('batch_id', batchId);
+    }
+
+    const { data: registrations, error: regError } = await regQuery
       .order('created_at', { ascending: false });
 
     if (regError) {
@@ -42,7 +50,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ data: eligibility });
     }
 
-    const registration = registrations[0];
+    const registration =
+      registrations.find((r) => r.selection_status === 'selected') ||
+      registrations[0];
 
     const source = request.nextUrl.searchParams.get("source");
     const isFinalExam = source === "final-exam";
@@ -109,12 +119,13 @@ export async function GET(request: NextRequest) {
         });
       }
 
-      // Check if attempt already submitted
+      // Check if final-exam attempt already submitted
       const { data: attempts } = await supabaseAdmin
         .from("exam_attempts")
         .select("*")
         .eq("user_id", user.id)
         .eq("registration_id", registration.id)
+        .eq("exam_type", "final-exam")
         .eq("juz_number", targetJuzNum)
         .eq("status", "submitted");
 
@@ -187,12 +198,13 @@ export async function GET(request: NextRequest) {
     const maxAttempts = config?.max_attempts || 1;
     const passingScore = config?.passing_score || 80;
 
-    // Check existing attempts for this user and required juz
+    // Check existing selection attempts for this user and required juz
     const { data: attempts, error: attemptError } = await supabaseAdmin
       .from('exam_attempts')
       .select('*')
       .eq('user_id', user.id)
       .eq('registration_id', registration.id)
+      .eq('exam_type', 'selection')
       .eq('juz_number', requiredJuz);
 
     if (attemptError) {

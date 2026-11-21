@@ -85,12 +85,49 @@ export async function GET(
       percentage: calculateScore(data.correct, data.total)
     }));
 
+    let passingScore = 70;
+    if (attempt.exam_type === 'final-exam') {
+      passingScore = 80;
+      if (attempt.registration_id) {
+        const { data: regBatch } = await supabaseAdmin
+          .from('pendaftaran_tikrar_tahfidz')
+          .select('batch_id')
+          .eq('id', attempt.registration_id)
+          .single();
+
+        if (regBatch?.batch_id) {
+          const { data: batch } = await supabaseAdmin
+            .from('batches')
+            .select('name, min_final_exam_score')
+            .eq('id', regBatch.batch_id)
+            .single();
+
+          if (batch?.min_final_exam_score !== undefined && batch?.min_final_exam_score !== null) {
+            passingScore = batch.min_final_exam_score;
+          } else if (batch?.name) {
+            const match = batch.name.match(/Batch\s*(\d+)/i);
+            if (match && parseInt(match[1], 10) < 3) {
+              passingScore = 70;
+            }
+          }
+        }
+      }
+    } else {
+      const { data: config } = await supabaseAdmin
+        .from('exam_configurations')
+        .select('passing_score')
+        .eq('is_active', true)
+        .single();
+      passingScore = config?.passing_score ?? 70;
+    }
+
     return NextResponse.json({
       result: {
         attempt,
         sections,
         overall_percentage: attempt.score,
-        passed: attempt.score >= 60
+        passing_score: passingScore,
+        passed: attempt.score >= passingScore
       }
     }, { status: 200 });
 

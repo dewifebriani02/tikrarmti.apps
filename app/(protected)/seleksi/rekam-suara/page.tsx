@@ -142,7 +142,7 @@ function RekamSuaraContent() {
         if (!currentReg && thalibahList.length > 0) {
           // Prefer active/open batch or registration needing oral submission or revision
           currentReg = thalibahList.find(reg => reg.batch?.status === 'open') ||
-                       thalibahList.find(reg => reg.needs_revision === true || reg.oral_assessment_status === 'needs_revision') ||
+                       thalibahList.find(reg => reg.needs_revision === true || reg.oral_assessment_status === 'needs_revision' || reg.oral_assessment_notes === 'NEEDS_REVISION') ||
                        thalibahList.find(reg => reg.oral_assessment_status !== 'pass') ||
                        thalibahList[0];
         }
@@ -158,7 +158,7 @@ function RekamSuaraContent() {
               fileName: currentReg.oral_submission_file_name || 'audio.webm',
               submittedAt: currentReg.oral_submitted_at || new Date().toISOString(),
               assessmentStatus: currentReg.oral_assessment_status || 'pending',
-              needsRevision: currentReg.needs_revision === true || currentReg.oral_assessment_status === 'needs_revision',
+              needsRevision: currentReg.needs_revision === true || currentReg.oral_assessment_status === 'needs_revision' || currentReg.oral_assessment_notes === 'NEEDS_REVISION',
               notes: currentReg.oral_assessment_notes || '',
               registrationId: currentReg.id,
             });
@@ -318,7 +318,11 @@ function RekamSuaraContent() {
     const regId = activeRegistrationId || existingSubmission?.registrationId;
     if (!audioBlob || !user?.id) return;
 
-    if (existingSubmission && (existingSubmission.assessmentStatus === 'pass' || existingSubmission.assessmentStatus === 'fail')) {
+    if (
+      existingSubmission &&
+      (existingSubmission.assessmentStatus === 'pass' || existingSubmission.assessmentStatus === 'fail') &&
+      !existingSubmission.needsRevision
+    ) {
       setError('Rekaman suara sudah dinilai dan tidak dapat diubah.');
       return;
     }
@@ -382,6 +386,7 @@ function RekamSuaraContent() {
         fileName,
         submittedAt: new Date().toISOString(),
         assessmentStatus: 'pending',
+        needsRevision: false,
         registrationId: regId,
       });
 
@@ -521,7 +526,7 @@ function RekamSuaraContent() {
                       <AlertCircle className="h-4 w-4 text-amber-600" />
                       <AlertDescription>
                         <p className="text-sm font-semibold text-amber-900">Perlu Rekam Ulang / Revisi</p>
-                        {existingSubmission.notes && (
+                        {existingSubmission.notes && existingSubmission.notes !== 'NEEDS_REVISION' && (
                           <p className="text-xs text-amber-800 mt-1">Catatan Penguji: {existingSubmission.notes}</p>
                         )}
                       </AlertDescription>

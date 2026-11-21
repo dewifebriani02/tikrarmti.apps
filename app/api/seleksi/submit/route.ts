@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { createServerClient } from '@/lib/supabase/server';
+import { getAuthorizationContext } from '@/lib/rbac';
 import { saveUploadedFile } from '@/lib/storage';
 
 // PostgreSQL-backed admin client
@@ -10,11 +11,13 @@ export async function POST(request: NextRequest) {
   try {
     console.log('🎵 API: Received audio submission request');
 
-    // Simple authentication using Supabase SSR client
+    // Authentication using native RBAC context or Supabase SSR client fallback
+    const context = await getAuthorizationContext();
     const supabase = createServerClient();
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const { data: { user: sbUser }, error: userError } = await supabase.auth.getUser();
+    const user = context ? { id: context.userId, email: context.email } : sbUser;
 
-    if (userError || !user) {
+    if (!user) {
       console.error('❌ API: Auth error:', userError);
       return NextResponse.json(
         { error: 'Unauthorized - Invalid session. Please login again.', needsLogin: true },
@@ -155,8 +158,13 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Found registration:', existingRegistration.id);
 
-    // Allow re-recording / editing unless already graded ('pass' or 'fail')
-    if (submissionData.type === 'oral' && existingRegistration.oral_submission_url) {
+    const needsRevision =
+      existingRegistration.needs_revision === true ||
+      existingRegistration.oral_assessment_status === 'needs_revision' ||
+      existingRegistration.oral_assessment_notes === 'NEEDS_REVISION';
+
+    // Allow re-recording / editing unless already graded ('pass' or 'fail') without a revision request
+    if (submissionData.type === 'oral' && existingRegistration.oral_submission_url && !needsRevision) {
       const isGraded = existingRegistration.oral_assessment_status === 'pass' ||
                        existingRegistration.oral_assessment_status === 'fail' ||
                        (existingRegistration.selection_status && existingRegistration.selection_status !== 'pending');
@@ -188,6 +196,10 @@ export async function POST(request: NextRequest) {
       updateData.oral_submission_file_name = submissionData.file_name;
       updateData.oral_submitted_at = new Date().toISOString();
       updateData.oral_assessment_status = 'pending';
+      updateData.needs_revision = false;
+      if (existingRegistration.oral_assessment_notes === 'NEEDS_REVISION') {
+        updateData.oral_assessment_notes = null;
+      }
       // selection_status tetap 'pending' sampai admin review
     } else {
       updateData.written_quiz_answers = submissionData.answers;
@@ -231,11 +243,13 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    // Simple authentication using Supabase SSR client
+    // Authentication using native RBAC context or Supabase SSR client fallback
+    const context = await getAuthorizationContext();
     const supabase = createServerClient();
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const { data: { user: sbUser } } = await supabase.auth.getUser();
+    const user = context ? { id: context.userId, email: context.email } : sbUser;
 
-    if (userError || !user) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized - Invalid session. Please login again.', needsLogin: true },
         { status: 401 }

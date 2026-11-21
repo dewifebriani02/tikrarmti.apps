@@ -35,6 +35,7 @@ export default function ExamPage() {
 function ExamContent() {
   const searchParams = useSearchParams();
   const source = searchParams?.get('source') || '';
+  const batchId = searchParams?.get('batchId') || '';
   const router = useRouter();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -68,8 +69,13 @@ function ExamContent() {
     try {
       setLoading(true);
 
+      const queryParams = new URLSearchParams();
+      if (source) queryParams.set('source', source);
+      if (batchId) queryParams.set('batchId', batchId);
+      const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
+
       // Check eligibility
-      const eligibilityResponse = await fetch('/api/exam/eligibility' + (source ? '?source=' + source : ''));
+      const eligibilityResponse = await fetch('/api/exam/eligibility' + queryString);
       const eligibilityResult = await eligibilityResponse.json();
 
       if (!eligibilityResponse.ok || !eligibilityResult.data.isEligible) {
@@ -84,7 +90,7 @@ function ExamContent() {
       const startResponse = await fetch('/api/exam/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ juz_number: requiredJuz, source }),
+        body: JSON.stringify({ juz_number: requiredJuz, source, batchId: batchId || undefined }),
       });
 
       const startResult = await startResponse.json();
@@ -98,7 +104,7 @@ function ExamContent() {
       setAttempt(startResult.attempt);
 
       // Load questions
-      const questionsResponse = await fetch('/api/exam/questions/for-user' + (source ? '?source=' + source : ''));
+      const questionsResponse = await fetch('/api/exam/questions/for-user' + queryString);
       const questionsResult = await questionsResponse.json();
 
       if (questionsResponse.ok) {
@@ -198,7 +204,11 @@ function ExamContent() {
 
       if (response.ok) {
         toast.success('Exam submitted successfully!');
-        router.push(`/exam/results?attemptId=${attempt.id}` + (source ? `&source=${source}` : ''));
+        const resultParams = new URLSearchParams();
+        resultParams.set('attemptId', attempt.id);
+        if (source) resultParams.set('source', source);
+        if (batchId) resultParams.set('batchId', batchId);
+        router.push(`/exam/results?${resultParams.toString()}`);
       } else {
         toast.error(result.error || 'Failed to submit exam');
       }
@@ -356,7 +366,7 @@ function ExamContent() {
             {currentQuestion.options?.map((option, index) => {
               const optText = (option as any).option_text || option.text;
               const isSelected = answers[currentQuestion.id] === optText;
-              const isArabicOpt = /[؀-ۿݐ-ݿࢠ-ࣿ]/.test(optText);
+              const isArabicOpt = /[\u0600-\u06ff\u0750-\u077f\u08a0-\u08ff]/.test(optText);
               return (
                 <button
                   key={index}

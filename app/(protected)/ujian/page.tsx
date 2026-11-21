@@ -42,7 +42,10 @@ export default function UjianPage() {
         const data = await res.json();
         const list = data.registrations || data.data || [];
         if (list.length > 0) {
-          const approved = list.find((r: any) => r.status === "approved" || r.selection_status === "passed") || list[0];
+          const approved =
+            list.find((r: any) => r.status === "approved" && r.selection_status === "selected") ||
+            list.find((r: any) => r.status === "approved" || r.selection_status === "selected" || r.selection_status === "passed") ||
+            list[0];
           setUserRegistration(approved);
         }
       } catch (e) {
@@ -85,15 +88,15 @@ export default function UjianPage() {
         setRegistrations(Array.isArray(result.data) ? result.data : result.data ? [result.data] : []);
       }
 
-      // Also fetch exam attempts to check if written exam has been completed
+      // Fetch final-exam written attempt strictly scoped to source=final-exam and effectiveBatch
       try {
-        const attemptRes = await fetch('/api/exam/attempts');
+        const attemptUrl = `/api/exam/attempts?source=final-exam${effectiveBatch?.id ? `&batchId=${effectiveBatch.id}` : ''}`;
+        const attemptRes = await fetch(attemptUrl);
         const attemptData = await attemptRes.json();
-        if (attemptData.attempt) {
-          setWrittenAttempt(attemptData.attempt);
-        }
+        setWrittenAttempt(attemptRes.ok ? (attemptData.attempt || null) : null);
       } catch (err) {
         console.error('Fetch written attempt error:', err);
+        setWrittenAttempt(null);
       }
     } catch (error) {
       console.error('Fetch registrations error:', error);
@@ -124,6 +127,9 @@ export default function UjianPage() {
 
   const isWrittenCompleted = writtenRegistration?.status === 'graded' || writtenAttempt?.status === 'submitted';
   const writtenScore = writtenRegistration?.score ?? writtenRegistration?.score_tulisan ?? writtenAttempt?.score;
+
+  const resultsHref = `/exam/results?source=final-exam${writtenAttempt?.id ? `&attemptId=${writtenAttempt.id}` : ''}${effectiveBatch?.id ? `&batchId=${effectiveBatch.id}` : ''}`;
+  const startExamHref = `/exam?source=final-exam${effectiveBatch?.id ? `&batchId=${effectiveBatch.id}` : ''}`;
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 space-y-6 animate-fadeInUp pb-24 font-sans">
@@ -480,7 +486,7 @@ export default function UjianPage() {
 
             {/* Tombol Aksi Ujian Tulisan */}
             {isWrittenCompleted ? (
-              <Link href="/exam/results?source=final-exam" className="block w-full">
+              <Link href={resultsHref} className="block w-full">
                 <Button
                   variant="outline"
                   className="w-full border-emerald-200 text-emerald-800 hover:bg-emerald-50 font-bold py-3 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition-all"
@@ -491,7 +497,7 @@ export default function UjianPage() {
                 </Button>
               </Link>
             ) : isExamOpen && !isExamEnded ? (
-              <Link href="/exam?source=final-exam" className="block w-full">
+              <Link href={startExamHref} className="block w-full">
                 <Button
                   className="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 rounded-xl shadow-sm text-xs sm:text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.99]"
                 >

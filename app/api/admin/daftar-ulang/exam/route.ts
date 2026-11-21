@@ -33,11 +33,12 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'registrationId is required' }, { status: 400 });
     }
 
-    // First delete exam attempts for this registration
+    // First delete selection exam attempts for this registration
     const { error: attemptsError } = await supabaseAdmin
       .from('exam_attempts')
       .delete()
-      .eq('registration_id', registrationId);
+      .eq('registration_id', registrationId)
+      .eq('exam_type', 'selection');
 
     if (attemptsError) {
       console.error('Error deleting exam attempts', attemptsError, registrationId);

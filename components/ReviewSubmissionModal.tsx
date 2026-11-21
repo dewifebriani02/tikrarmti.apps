@@ -68,12 +68,14 @@ export function ReviewSubmissionModal({
   const fetchWrittenData = async () => {
     setLoading(true);
     try {
-      // 1. Fetch attempt answers
-      const attemptRes = await fetch('/api/exam/attempts');
+      const batchId = registrationStatus?.registration?.batch_id;
+      const batchQuery = batchId ? `&batchId=${encodeURIComponent(batchId)}` : '';
+      // 1. Fetch attempt answers (selection exam)
+      const attemptRes = await fetch(`/api/exam/attempts?source=selection${batchQuery}`);
       const attemptData = await attemptRes.json();
       
       // 2. Fetch questions to match with answers
-      const questionsRes = await fetch('/api/exam/questions/for-user');
+      const questionsRes = await fetch(`/api/exam/questions/for-user?source=selection${batchQuery}`);
       const questionsData = await questionsRes.json();
       
       setQuestions(questionsData.data || []);
@@ -206,6 +208,9 @@ export function ReviewSubmissionModal({
   };
 
   const renderOralReview = () => {
+    const canRetract = !['pass', 'fail'].includes(registrationStatus.oralAssessmentStatus || '') || registrationStatus.needsRevision;
+    const isPendingAssessment = !['pass', 'fail'].includes(registrationStatus.oralAssessmentStatus || '') || registrationStatus.needsRevision;
+
     return (
       <div className="space-y-8 py-2">
         <div className="text-center space-y-4">
@@ -216,12 +221,14 @@ export function ReviewSubmissionModal({
             <h3 className="text-xl font-black text-gray-900">Rekaman Ujian Lisan</h3>
             <p className="text-sm text-gray-500 mt-1">
               Status: <span className="text-emerald-600 font-bold uppercase tracking-wider">
-                {registrationStatus.oralAssessmentStatus === 'pending' 
-                  ? 'Belum Dinilai' 
-                  : (registrationStatus.showSelectionResult 
-                      ? (registrationStatus.oralAssessmentStatus === 'pass' ? 'Lulus ✓' : 'Tidak Lulus') 
-                      : 'Selesai'
-                    )
+                {registrationStatus.needsRevision
+                  ? 'Perlu Rekam Ulang'
+                  : isPendingAssessment
+                    ? 'Belum Dinilai'
+                    : (registrationStatus.showSelectionResult
+                        ? (registrationStatus.oralAssessmentStatus === 'pass' ? 'Lulus ✓' : 'Tidak Lulus')
+                        : 'Selesai'
+                      )
                 }
               </span>
             </p>
@@ -233,7 +240,7 @@ export function ReviewSubmissionModal({
           {registrationStatus.oralSubmissionUrl ? (
             <div className="flex flex-col gap-4">
               <SafeAudioPlayer src={registrationStatus.oralSubmissionUrl} />
-              {registrationStatus.oralAssessmentStatus === 'pending' && (
+              {canRetract && (
                 <Button
                   onClick={handleRetract}
                   disabled={isRetracting}
@@ -276,7 +283,7 @@ export function ReviewSubmissionModal({
           <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm text-center">
             <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Status Penilaian</p>
             <p className="text-sm font-black text-emerald-600">
-              {registrationStatus.oralAssessmentStatus === 'pending' ? 'Belum Dinilai' : 'Selesai ✓'}
+              {isPendingAssessment ? 'Belum Dinilai' : 'Selesai ✓'}
             </p>
           </div>
           <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm text-center">
@@ -546,9 +553,6 @@ export function ReviewSubmissionModal({
     const isBackupSlotMatch = currentUser?.backup_time_slot === partner?.backup_time_slot;
     const isJuzMatch = currentUser?.chosen_juz === partner?.chosen_juz;
     const isTimezoneMatch = (currentUser?.zona_waktu || 'WIB').toUpperCase() === (partner?.zona_waktu || 'WIB').toUpperCase();
-
-    // Add Lisan match
-
 
     return (
       <div className="space-y-8">

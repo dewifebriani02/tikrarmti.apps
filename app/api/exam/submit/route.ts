@@ -45,6 +45,9 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
+    const examType = attempt.exam_type === 'final-exam' ? 'final-exam' : 'selection';
+    const isFinalExam = examType === 'final-exam';
+
     // Get all questions for this juz
     const { data: questions, error: questionsError } = await supabaseAdmin
       .from('exam_questions')
@@ -72,8 +75,11 @@ export async function POST(request: NextRequest) {
     });
 
     // Calculate score
+    // For final-exam, questions are sampled up to 100 from the bank, so use submitted question count / attempt.total_questions
     const correctAnswers = gradedAnswers.filter(a => a.isCorrect).length;
-    const totalQuestions = questions.length;
+    const totalQuestions = isFinalExam
+      ? (gradedAnswers.length || attempt.total_questions || questions.length)
+      : questions.length;
     const score = calculateScore(correctAnswers, totalQuestions);
 
     // Update exam attempt
@@ -82,6 +88,7 @@ export async function POST(request: NextRequest) {
       .update({
         answers: gradedAnswers,
         correct_answers: correctAnswers,
+        total_questions: totalQuestions,
         score,
         status: 'submitted',
         submitted_at: new Date().toISOString()
@@ -101,73 +108,105 @@ export async function POST(request: NextRequest) {
       .select('*')
       .eq('is_active', true)
       .single();
-      
-    const maxAttempts = config?.max_attempts || 1;
-    const passingScore = config?.passing_score || 80;
-    
-    // Get past submitted attempts count for this user, registration, and juz
+
+    let maxAttempts = config?.max_attempts || 1;
+    let passingScore = config?.passing_score || 80;
+
+    if (isFinalExam) {
+      maxAttempts = 1;
+      passingScore = 80;
+
+      if (attempt.registration_id) {
+        const { data: regBatch } = await supabaseAdmin
+          .from('pendaftaran_tikrar_tahfidz')
+          .select('batch_id')
+          .eq('id', attempt.registration_id)
+          .single();
+
+        if (regBatch?.batch_id) {
+          const { data: batch } = await supabaseAdmin
+            .from('batches')
+            .select('name, min_final_exam_score')
+            .eq('id', regBatch.batch_id)
+            .single();
+
+          if (batch?.min_final_exam_score !== undefined && batch?.min_final_exam_score !== null) {
+            passingScore = batch.min_final_exam_score;
+          } else if (batch?.name) {
+            const match = batch.name.match(/Batch\s*(\d+)/i);
+            if (match && parseInt(match[1], 10) < 3) {
+              passingScore = 70;
+            }
+          }
+        }
+      }
+    }
+
+    // Get past submitted attempts count for this user, registration, exam_type, and juz
     const { data: pastAttempts } = await supabaseAdmin
       .from('exam_attempts')
       .select('id')
       .eq('user_id', user.id)
       .eq('registration_id', attempt.registration_id)
+      .eq('exam_type', examType)
       .eq('juz_number', attempt.juz_number)
       .eq('status', 'submitted');
-      
-    // The current one will also be submitted now, so total submitted = pastAttempts.length (since the update above already set it to submitted, pastAttempts will include it if we query after, or maybe it won't if the transaction hasn't propagated? Actually, we just updated it above!)
-    // Let's just count pastAttempts length. Since we just updated `id: attemptId` to 'submitted', `pastAttempts` will INCLUDE this attempt!
+
     const totalSubmitted = pastAttempts ? pastAttempts.length : 1;
     const passed = score >= passingScore;
-    
+
     let finalJuz = undefined;
-    
-    if (!passed && totalSubmitted >= maxAttempts) {
-       // Demotion logic! Get chosen_juz from registration
-       const { data: reg } = await supabaseAdmin
-         .from('pendaftaran_tikrar_tahfidz')
-         .select('chosen_juz')
-         .eq('id', attempt.registration_id)
-         .single();
-         
-       if (reg && reg.chosen_juz) {
-         // Demotion logic: 30 -> 30, 29 -> 30, 28 -> 29, 1 -> 30, 2 -> 1, N -> N-1
-         const targetJuzNum = parseInt(reg.chosen_juz.replace(/[AB]/g, '') || '0');
-         const suffix = reg.chosen_juz.replace(/\d/g, '');
-         let newJuzNum = targetJuzNum;
-         
-         if (targetJuzNum === 29) newJuzNum = 30;
-         else if (targetJuzNum === 28) newJuzNum = 29;
-         else if (targetJuzNum === 1) newJuzNum = 30;
-         else if (targetJuzNum >= 2 && targetJuzNum <= 27) newJuzNum = targetJuzNum - 1;
-         
-         finalJuz = `${newJuzNum}${suffix}`;
-       }
-    }
 
-    // Update registration with exam results
-    const regUpdateData: any = {
-      exam_score: score,
-      exam_submitted_at: new Date().toISOString(),
-    };
-    
-    if (finalJuz) {
-      regUpdateData.chosen_juz = finalJuz;
-    }
-    
-    // Only mark it as 'completed' if they passed OR ran out of attempts.
-    if (passed || totalSubmitted >= maxAttempts) {
-      regUpdateData.exam_status = 'completed';
-    } else {
-      regUpdateData.exam_status = 'not_started'; // Or keep it in_progress, but not_started allows taking a new one smoothly.
-    }
+    // Selection-only demotion & registration status update (never mutate selection fields on final-exam)
+    if (!isFinalExam) {
+      if (!passed && totalSubmitted >= maxAttempts) {
+        // Demotion logic! Get chosen_juz from registration
+        const { data: reg } = await supabaseAdmin
+          .from('pendaftaran_tikrar_tahfidz')
+          .select('chosen_juz')
+          .eq('id', attempt.registration_id)
+          .single();
 
-    const { error: regUpdateError } = await supabaseAdmin
-      .from('pendaftaran_tikrar_tahfidz')
-      .update(regUpdateData)
-      .eq('id', attempt.registration_id);
+        if (reg && reg.chosen_juz) {
+          // Demotion logic: 30 -> 30, 29 -> 30, 28 -> 29, 1 -> 30, 2 -> 1, N -> N-1
+          const targetJuzNum = parseInt(reg.chosen_juz.replace(/[AB]/g, '') || '0');
+          const suffix = reg.chosen_juz.replace(/\d/g, '');
+          let newJuzNum = targetJuzNum;
 
-    if (regUpdateError) {
-      logger.error('Error updating registration exam score', { error: regUpdateError });
+          if (targetJuzNum === 29) newJuzNum = 30;
+          else if (targetJuzNum === 28) newJuzNum = 29;
+          else if (targetJuzNum === 1) newJuzNum = 30;
+          else if (targetJuzNum >= 2 && targetJuzNum <= 27) newJuzNum = targetJuzNum - 1;
+
+          finalJuz = `${newJuzNum}${suffix}`;
+        }
+      }
+
+      // Update registration with selection exam results
+      const regUpdateData: any = {
+        exam_score: score,
+        exam_submitted_at: new Date().toISOString(),
+      };
+
+      if (finalJuz) {
+        regUpdateData.chosen_juz = finalJuz;
+      }
+
+      // Only mark it as 'completed' if they passed OR ran out of attempts.
+      if (passed || totalSubmitted >= maxAttempts) {
+        regUpdateData.exam_status = 'completed';
+      } else {
+        regUpdateData.exam_status = 'not_started';
+      }
+
+      const { error: regUpdateError } = await supabaseAdmin
+        .from('pendaftaran_tikrar_tahfidz')
+        .update(regUpdateData)
+        .eq('id', attempt.registration_id);
+
+      if (regUpdateError) {
+        logger.error('Error updating registration exam score', { error: regUpdateError });
+      }
     }
 
     // Process flagged questions
@@ -197,10 +236,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Calculate result summary by section
+    // Calculate result summary by section (for final-exam, scope to sampled questions in this attempt)
     const sectionResults = new Map<number, { total: number; correct: number; title: string }>();
+    const answeredIdsSet = new Set(gradedAnswers.map(a => a.questionId));
+    const questionsForSections = isFinalExam
+      ? questions.filter(q => answeredIdsSet.has(q.id))
+      : questions;
 
-    questions.forEach(q => {
+    questionsForSections.forEach(q => {
       if (!sectionResults.has(q.section_number)) {
         sectionResults.set(q.section_number, {
           total: 0,
@@ -230,6 +273,7 @@ export async function POST(request: NextRequest) {
       attemptId,
       userId: user.id,
       juzNumber: attempt.juz_number,
+      examType,
       score,
       correctAnswers,
       totalQuestions
@@ -243,6 +287,7 @@ export async function POST(request: NextRequest) {
         sections,
         overall_percentage: score,
         passed,
+        passing_score: passingScore,
         finalJuz,
         attemptsUsed: totalSubmitted,
         maxAttempts

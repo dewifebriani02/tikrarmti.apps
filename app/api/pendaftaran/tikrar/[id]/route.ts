@@ -117,21 +117,24 @@ export async function PUT(
       }, { status: 404 });
     }
 
-    // Prevent deletion if already passed and no revision needed (non-admin users only)
+    // Prevent deletion if already graded ('pass' or 'fail') and no revision needed (non-admin users only)
     if (!isAdmin && isDeletingOralSubmission) {
       const assessmentStatus = existingRegistration.oral_assessment_status;
-      const needsRevision = existingRegistration.needs_revision === true || assessmentStatus === 'needs_revision';
+      const needsRevision =
+        existingRegistration.needs_revision === true ||
+        assessmentStatus === 'needs_revision' ||
+        existingRegistration.oral_assessment_notes === 'NEEDS_REVISION';
 
-      // If already passed and not marked for revision, protect the result
-      if (assessmentStatus === 'pass' && !needsRevision) {
-        logger.warn('Attempted to delete passed oral submission', {
+      // If already graded and not marked for revision, protect the result
+      if ((assessmentStatus === 'pass' || assessmentStatus === 'fail') && !needsRevision) {
+        logger.warn('Attempted to delete graded oral submission', {
           registrationId: id,
           userId: user.id,
           assessmentStatus
         });
 
         return NextResponse.json({
-          error: 'Rekaman sudah dinilai dan dinyatakan lulus. Tidak dapat dihapus.'
+          error: 'Rekaman sudah dinilai dan tidak dapat dihapus.'
         }, { status: 403 });
       }
     }
@@ -186,6 +189,9 @@ export async function PUT(
       updateData.oral_submitted_at = null;
       updateData.oral_assessment_status = 'not_submitted';
       updateData.needs_revision = false;
+      if (existingRegistration.oral_assessment_notes === 'NEEDS_REVISION') {
+        updateData.oral_assessment_notes = null;
+      }
       isHandled = true;
     } else if (isOralSubmissionUpdate) {
       if (body.oral_submission_url !== undefined) updateData.oral_submission_url = body.oral_submission_url;
@@ -221,6 +227,7 @@ export async function PUT(
       if (body.oral_assessment_notes !== undefined) updateData.oral_assessment_notes = body.oral_assessment_notes;
       if (body.oral_assessment_audio_url !== undefined) updateData.oral_assessment_audio_url = body.oral_assessment_audio_url;
       if (body.selection_status !== undefined) updateData.selection_status = body.selection_status;
+      if (body.needs_revision !== undefined) updateData.needs_revision = body.needs_revision;
       isHandled = true;
     }
 
