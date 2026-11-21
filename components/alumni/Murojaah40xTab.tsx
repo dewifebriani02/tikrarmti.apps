@@ -141,11 +141,6 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
       toast.error(wajib_murojaah.reason || 'Program Murojaah 40x terkunci sebelum Murojaah Wajib Pekan 11 tuntas.');
       return;
     }
-    if (data?.warrior?.is_expired) {
-      toast.error('Tantangan 20 hari telah berakhir. Silakan re-registrasi porsi untuk memulai siklus baru.');
-      setIsEnrollModalOpen(true);
-      return;
-    }
     if (isSlotRequired) {
       toast.info("Silakan daftar / atur jam luang simak terlebih dahulu sebelum mengisi presensi Muroja'ah 40x.");
       setIsEnrollModalOpen(true);
@@ -400,7 +395,7 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
                         <CheckCircle2 className="w-3.5 h-3.5 text-amber-300" /> Telah Diraih! Barakallahu fiik.
                       </span>
                     ) : warrior?.is_expired ? (
-                      <span className="text-rose-300 font-bold">20 Hari Telah Berakhir</span>
+                      <span className="text-amber-200 font-bold">20 Hari Warrior Terlampaui</span>
                     ) : (
                       <span>
                         Hari ke-{warrior?.days_elapsed || 1} • <span className="text-amber-300 font-bold">Sisa {warrior?.days_remaining || 0} hari lagi</span>
@@ -533,7 +528,7 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
                 <Button
                   size="sm"
                   onClick={() => handleOpenLogModal(nextRoundNumber)}
-                  disabled={isSegmentCompleted || warrior?.is_expired}
+                  disabled={isSegmentCompleted}
                   className={cn(
                     "rounded-xl text-xs font-bold px-5 py-2.5 shadow-xs gap-1.5 transition-all",
                     isSlotRequired
@@ -562,24 +557,25 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
         </Card>
       )}
 
-      {/* EXPIRED WARNING BANNER */}
+      {/* WARRIOR 20-DAY WINDOW PASSED NOTICE (NON-BLOCKING) */}
       {warrior?.is_expired && !isSegmentCompleted && (
-        <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-xs animate-shake">
-          <div className="flex items-start gap-2.5 text-rose-950">
-            <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-xs">
+          <div className="flex items-start gap-2.5 text-amber-950">
+            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
             <div>
-              <span className="font-extrabold text-rose-900 block">Tantangan 20 Hari Telah Berakhir</span>
-              <p className="text-[11px] text-rose-700 mt-0.5">
-                Target 40 putaran belum tuntas dalam 20 hari. Ukhti dapat melakukan re-registrasi porsi untuk memulai siklus 20 hari yang baru.
+              <span className="font-extrabold text-amber-900 block">Batas Tantangan Warrior (20 Hari) Terlampaui</span>
+              <p className="text-[11px] text-amber-800 mt-0.5">
+                Ukhti tetap dapat melanjutkan ceklist putaran hingga 40/40 tuntas untuk syarat naik juz, atau memulai ulang siklus baru dari 0 bila ingin mengulang tantangan Warrior 20 hari.
               </p>
             </div>
           </div>
           <Button
             size="sm"
+            variant="outline"
             onClick={() => setIsEnrollModalOpen(true)}
-            className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shrink-0 shadow-xs"
+            className="border-amber-300 text-amber-900 hover:bg-amber-100 rounded-xl text-xs font-bold shrink-0"
           >
-            Re-Registrasi Siklus Baru
+            Mulai Siklus Baru
           </Button>
         </div>
       )}

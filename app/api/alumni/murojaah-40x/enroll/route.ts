@@ -87,7 +87,21 @@ export async function POST(request: NextRequest) {
       const { rows } = await query(
         `UPDATE murojaah_40x_progress
          SET started_at = NOW(),
-             expires_at = NOW() + INTERVAL '20 days',\n             status = 'active',\n             total_completed = 0,\n             completed_at = NULL,\n             is_warrior_eligible = false,\n             infaq_amount = $1,\n             infaq_status = $2,\n             infaq_payment_proof = $3,\n             is_free_extension = $4,\n             time_slot_main = $5,\n             time_slot_backup = $6,\n             partner_matching_active = $7,\n             updated_at = NOW()\n         WHERE id = $8\n         RETURNING *`,
+             expires_at = NOW() + INTERVAL '20 days',
+             status = 'active',
+             total_completed = 0,
+             completed_at = NULL,
+             is_warrior_eligible = false,
+             infaq_amount = $1,
+             infaq_status = $2,
+             infaq_payment_proof = $3,
+             is_free_extension = $4,
+             time_slot_main = $5,
+             time_slot_backup = $6,
+             partner_matching_active = $7,
+             updated_at = NOW()
+         WHERE id = $8
+         RETURNING *`,
         [
           finalInfaqAmount,
           finalInfaqStatus,

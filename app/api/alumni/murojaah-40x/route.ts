@@ -208,27 +208,36 @@ export async function GET(request: NextRequest) {
     const primaryLogs = logs.filter(l => l.juz_segment === 'primary');
     const partALogs = logs.filter(l => l.juz_segment === 'part_a_optional');
 
-    // 4. Calculate Warrior Challenge Status (<= 20 Days)
+    // 4. Calculate Warrior Challenge Status (<= 20 Days in WIB)
     const totalCompletedNum = Number(progress.total_completed || 0);
-    const startDate = logs.length > 0 ? new Date(logs[0].completed_at) : new Date(progress.started_at);
+    const startDayStr = primaryLogs.length > 0
+      ? getWibDateString(primaryLogs[0].completed_at)
+      : getWibDateString(progress.started_at);
+    const startDate = new Date(`${startDayStr}T00:00:00+07:00`);
     const now = new Date();
-    const expiryDate = progress.expires_at ? new Date(progress.expires_at) : new Date(startDate.getTime() + 20 * 86400000);
+    const computedExpiry = new Date(new Date(`${startDayStr}T23:59:59+07:00`).getTime() + 20 * 86400000);
+    const expiryDate = progress.expires_at
+      ? new Date(Math.max(new Date(progress.expires_at).getTime(), computedExpiry.getTime()))
+      : computedExpiry;
 
     let daysElapsed = 1;
     let daysRemaining = 20;
+    let diffDays = 0;
 
     if (totalCompletedNum > 0) {
-      const endDateForElapsed = progress.completed_at ? new Date(progress.completed_at) : now;
-      const diffTime = Math.max(0, endDateForElapsed.getTime() - startDate.getTime());
-      daysElapsed = Math.min(20, Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24))));
+      const endDayStr = progress.completed_at ? getWibDateString(progress.completed_at) : getWibDateString(now);
+      const startDayMs = new Date(`${startDayStr}T00:00:00Z`).getTime();
+      const endDayMs = new Date(`${endDayStr}T00:00:00Z`).getTime();
+      diffDays = Math.max(0, Math.round((endDayMs - startDayMs) / (1000 * 60 * 60 * 24)));
+      daysElapsed = Math.min(20, Math.max(1, diffDays + 1));
 
       const remainingTime = expiryDate.getTime() - now.getTime();
-      daysRemaining = Math.max(0, Math.ceil(remainingTime / (1000 * 60 * 60 * 24)));
+      daysRemaining = Math.min(20, Math.max(0, Math.ceil(remainingTime / (1000 * 60 * 60 * 24))));
     }
 
     const isCompleted = totalCompletedNum >= 40;
     const isExpired = totalCompletedNum > 0 && !isCompleted && (daysRemaining <= 0 || now > expiryDate);
-    const isWarriorEligible = isCompleted && daysElapsed <= 20;
+    const isWarriorEligible = isCompleted && diffDays <= 20;
 
     // 5. Fetch user badge if already awarded
     const userBadge = await queryOne(
@@ -306,7 +315,7 @@ export async function GET(request: NextRequest) {
           target_days: 20,
           is_expired: isExpired,
           is_completed: isCompleted,
-          can_log_round: !isExpired,
+          can_log_round: !isCompleted,
           free_extension_unlocked: hasAnyWarriorBadge
         },
         batch: {
@@ -348,7 +357,7 @@ export async function POST(request: NextRequest) {
       juz_segment = 'primary', 
       methods = [], 
       notes = '', 
-      completed_at = new Date().toISOString().split('T')[0] 
+      completed_at = getWibDateString(new Date()) 
     } = body;
 
     // 1. Validate segment
@@ -407,17 +416,8 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // 4. Check if 20-day challenge has expired (only after first round started)
-    if (progress.expires_at && Number(progress.total_completed || 0) > 0) {
-      const expiry = new Date(progress.expires_at);
-      const now = new Date();
-      if (now > expiry && Number(progress.total_completed || 0) < 40) {
-        return NextResponse.json({
-          success: false,
-          error: 'Batas waktu tantangan 20 hari untuk porsi ini telah berakhir. Silakan lakukan re-registrasi porsi untuk memulai siklus 20 hari yang baru.'
-        }, { status: 400 });
-      }
-    }
+    // 4. Note: 20-day window governs Murojaah Warrior badge eligibility only.
+    // Thalibah remain allowed to log rounds 1..40 even after 20 days or when backdating Round 1.
 
     // 5. Calculate next round number for this segment
     const { rows: maxRoundRows } = await query(
@@ -457,24 +457,29 @@ export async function POST(request: NextRequest) {
       const isCompleted = newTotal >= 40;
       const isFirstRound = currentMax === 0;
 
-      const startDate = isFirstRound ? new Date(completed_at) : new Date(progress.started_at);
-      const completionDate = new Date();
-      const diffTime = Math.abs(completionDate.getTime() - startDate.getTime());
-      const durationDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      const trimmedCompletedAt = getWibDateString(completed_at);
+      const startDayStr = isFirstRound ? trimmedCompletedAt : getWibDateString(progress.started_at);
+      const completionDayStr = getWibDateString(new Date());
+      const startDayMs = new Date(`${startDayStr}T00:00:00Z`).getTime();
+      const completionDayMs = new Date(`${completionDayStr}T00:00:00Z`).getTime();
+      const durationDays = Math.max(0, Math.round((completionDayMs - startDayMs) / (1000 * 60 * 60 * 24)));
       const isEligibleWarrior = isCompleted && durationDays <= 20;
+
+      const startedAtIso = `${trimmedCompletedAt}T00:00:00+07:00`;
+      const expiresAtIso = new Date(new Date(`${trimmedCompletedAt}T23:59:59+07:00`).getTime() + 20 * 86400000).toISOString();
 
       const { rows: progRows } = await query(
         `UPDATE murojaah_40x_progress
          SET total_completed = $1,
              started_at = CASE WHEN $5 = true THEN $6::timestamptz ELSE started_at END,
-             expires_at = CASE WHEN $5 = true THEN $6::timestamptz + INTERVAL '20 days' ELSE expires_at END,
+             expires_at = CASE WHEN $5 = true THEN $7::timestamptz ELSE expires_at END,
              completed_at = CASE WHEN $2 = true THEN NOW() ELSE completed_at END,
              status = CASE WHEN $2 = true THEN 'completed' ELSE status END,
              is_warrior_eligible = CASE WHEN $3 = true THEN true ELSE is_warrior_eligible END,
              updated_at = NOW()
          WHERE id = $4
          RETURNING *`,
-        [newTotal, isCompleted, isEligibleWarrior, progress.id, isFirstRound, completed_at]
+        [newTotal, isCompleted, isEligibleWarrior, progress.id, isFirstRound, startedAtIso, expiresAtIso]
       );
       updatedProgress = progRows[0];
 
@@ -577,15 +582,17 @@ export async function PATCH(request: NextRequest) {
 
       const updatedLog = updatedLogs[0];
 
-      // Keep progress start/expiry consistent if Round 1 (primary) date changed
+      // Keep progress start/expiry consistent if Round 1 (primary) date changed (in WIB)
       if (updatedLog.round_number === 1 && updatedLog.juz_segment === 'primary') {
+        const startedAtIso = `${trimmedDate}T00:00:00+07:00`;
+        const expiresAtIso = new Date(new Date(`${trimmedDate}T23:59:59+07:00`).getTime() + 20 * 86400000).toISOString();
         await query(
           `UPDATE murojaah_40x_progress
            SET started_at = $1::timestamptz,
-               expires_at = $1::timestamptz + INTERVAL '20 days',
+               expires_at = $2::timestamptz,
                updated_at = NOW()
-           WHERE id = $2 AND user_id = $3`,
-          [trimmedDate, updatedLog.progress_id, user.id]
+           WHERE id = $3 AND user_id = $4`,
+          [startedAtIso, expiresAtIso, updatedLog.progress_id, user.id]
         );
       } else {
         await query(
@@ -683,6 +690,8 @@ export async function DELETE(request: NextRequest) {
       await query(
         `UPDATE murojaah_40x_progress
          SET total_completed = $1,
+             started_at = CASE WHEN $1 = 0 THEN NOW() ELSE started_at END,
+             expires_at = CASE WHEN $1 = 0 THEN NOW() + INTERVAL '20 days' ELSE expires_at END,
              completed_at = NULL,
              status = 'active',
              is_warrior_eligible = false,
