@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAdminUsers, useAdminStats, useMuallimahRegistrations, useAdminBatches } from '@/lib/hooks/useAdminData';
-import { resetUserPassword } from '../actions';
+import { resetUserPassword } from '@/lib/admin/admin-client';
 import { toast } from 'sonner';
 import { UserStats } from '@/components/admin/users/UserStats';
 import { UserFilters } from '@/components/admin/users/UserFilters';

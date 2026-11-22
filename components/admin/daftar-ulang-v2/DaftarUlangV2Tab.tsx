@@ -29,7 +29,7 @@ import {
   Database,
   ArrowLeft
 } from 'lucide-react';
-import { getJuzOptionsAdmin } from '@/app/(protected)/admin/actions';
+import { getJuzOptionsAdmin } from '@/lib/admin/admin-client';
 import { DaftarUlangHalaqahTab } from '@/components/DaftarUlangHalaqahTab';
 import { EditDaftarUlangModal } from './EditDaftarUlangModal';
 import { getWhatsAppUrl } from '@/lib/utils/whatsapp';

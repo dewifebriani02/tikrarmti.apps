@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase/server';
-import { createSupabaseAdmin } from '@/lib/supabase';
-import { resetUserPassword } from '@/app/(protected)/admin/actions';
+import { resetUserPasswordImpl } from '@/lib/admin/admin-service';
 
 /**
  * POST /api/admin/users/[id]/reset-password
@@ -21,8 +19,7 @@ export async function POST(
       );
     }
 
-    // Call server action
-    const result = await resetUserPassword(userId);
+    const result = await resetUserPasswordImpl(userId);
 
     if (!result.success) {
       return NextResponse.json(

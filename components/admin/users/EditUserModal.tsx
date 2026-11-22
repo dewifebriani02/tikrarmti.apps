@@ -6,7 +6,7 @@ import { AdminUser } from './types';
 import { formatDynamicNit } from '@/lib/nit';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { updateUser } from '@/app/(protected)/admin/actions';
+import { updateUser } from '@/lib/admin/admin-client';
 
 interface EditUserModalProps {
   user: AdminUser;

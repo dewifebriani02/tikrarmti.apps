@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import {
   getPraTikrarRegistrationQuestionsAdmin,
   updatePraTikrarRegistrationQuestion,
-} from '@/app/(protected)/admin/actions';
+} from '@/lib/admin/admin-client';
 
 interface Question {
   id: string;

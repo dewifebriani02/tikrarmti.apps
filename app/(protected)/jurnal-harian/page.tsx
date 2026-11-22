@@ -8,7 +8,6 @@ import { useAllRegistrations } from '@/hooks/useRegistrations'
 import { useActiveBatch } from '@/hooks/useBatches'
 import { useAuth } from '@/hooks/useAuth'
 import { useJurnalStatus } from '@/hooks/useDashboard'
-import { saveJurnalRecord } from './actions'
 import { getRoleRank, ROLE_RANKS } from '@/lib/roles'
 import { getJurnalLockStatus } from '@/lib/batch-schedule'
 
@@ -251,13 +250,18 @@ export default function JurnalHarianPage() {
         calculatedWeek = blockNum > 10 ? blockNum - 10 : blockNum;
       }
 
-      const result = await saveJurnalRecord({
-        ...data,
-        batch_id: targetBatchId || null,
-        juz_code: juzToUse || data.juz_code,
-        weekNumber: calculatedWeek
+      const res = await fetch('/api/jurnal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...data,
+          batch_id: targetBatchId || null,
+          juz_code: juzToUse || data.juz_code,
+          weekNumber: calculatedWeek
+        }),
       })
-      if (result.success) {
+      const result = await res.json().catch(() => null)
+      if (res.ok && result?.success) {
         toast.success(result.message || 'Jurnal berhasil disimpan!')
         await mutateJurnalStatus()
         setViewMode('status')
@@ -271,7 +275,7 @@ export default function JurnalHarianPage() {
           }, 50)
         }
       } else {
-        toast.error(result.error)
+        toast.error(result?.error || `Gagal menyimpan jurnal (HTTP ${res.status}). Silakan coba lagi.`)
       }
     } catch (error: any) {
       const errMsg = error?.message || "";

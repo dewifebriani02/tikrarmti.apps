@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { addThalibahToHalaqah, getEligibleThalibahForHalaqah } from '@/app/(protected)/admin/halaqah/actions';
+import { addThalibahToHalaqahImpl, getEligibleThalibahForHalaqahImpl } from '@/lib/admin/halaqah-service';
 
 /**
  * POST /api/admin/daftar-ulang/halaqah/add-thalibah
@@ -36,14 +36,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Call server action
-    const result = await addThalibahToHalaqah({
+    const result = await addThalibahToHalaqahImpl({
       halaqahId,
       thalibahIds,
       halaqahType
     });
 
-    console.log('[API add-thalibah] Server action result:', result);
+    console.log('[API add-thalibah] Service result:', result);
 
     if (!result.success) {
       return NextResponse.json(
@@ -78,10 +77,9 @@ export async function GET(request: NextRequest) {
 
     console.log('[API add-thalibah] GET request, batchId:', batchId);
 
-    // Call server action
-    const result = await getEligibleThalibahForHalaqah(batchId);
+    const result = await getEligibleThalibahForHalaqahImpl(batchId);
 
-    console.log('[API add-thalibah] Server action result:', result);
+    console.log('[API add-thalibah] Service result:', result);
 
     if (!result.success) {
       return NextResponse.json(

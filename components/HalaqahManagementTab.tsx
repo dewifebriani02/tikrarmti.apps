@@ -40,7 +40,7 @@ import { EditHalaqahModal } from '@/components/EditHalaqahModal';
 import { AssignThalibahModal } from '@/components/AssignThalibahModal';
 import { ManualCreateHalaqahModal } from '@/components/ManualCreateHalaqahModal';
 import { formatSchedule, formatClassType } from '@/lib/format-utils';
-import { updateHalaqah, deleteHalaqah } from '@/app/(protected)/admin/halaqah/actions';
+import { updateHalaqah, deleteHalaqah } from '@/lib/admin/halaqah-client';
 import { createClient } from '@/lib/supabase/client';
 import { HalaqahStats, HalaqahStatsData } from '@/components/admin/halaqah/HalaqahStats';
 import { ScheduleOverlapAnalysis } from '@/components/admin/halaqah/ScheduleOverlapAnalysis';

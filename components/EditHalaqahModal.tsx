@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { X, Loader2, Save, Search, UserMinus, UserPlus, Shield } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { updateHalaqah, searchUsersForAsisten, assignAsisten, removeAsisten } from '@/app/(protected)/admin/halaqah/actions';
+import { updateHalaqah, searchUsersForAsisten, assignAsisten, removeAsisten } from '@/lib/admin/halaqah-client';
 
 interface Halaqah {
   id: string;

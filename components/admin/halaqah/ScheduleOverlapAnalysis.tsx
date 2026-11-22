@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import { Calendar, Clock, AlertTriangle, Video, CheckCircle2, Loader2, X, ChevronDown } from 'lucide-react';
 import { formatClassType } from '@/lib/format-utils';
-import { updateHalaqah } from '@/app/(protected)/admin/halaqah/actions';
+import { updateHalaqah } from '@/lib/admin/halaqah-client';
 import toast from 'react-hot-toast';
 
 interface Halaqah {

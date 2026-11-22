@@ -12,10 +12,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { 
-  getPraTikrarContext, 
-  savePraTikrarDailyEntry
-} from '@/app/(protected)/jurnal-pra-tikrar/actions';
 import {
   PraTikrarContextResponse,
   PraTikrarEntryInput,
@@ -105,7 +101,8 @@ export function PraTikrarJurnalForm({ user, activeBatch, activeRegistration }: P
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await getPraTikrarContext();
+      const response = await fetch('/api/jurnal-pra-tikrar', { cache: 'no-store' });
+      const res = (await response.json().catch(() => null)) || { success: false, error: 'Gagal memuat data Pra-Tikrar' };
       setContext(res);
 
       if (res.todayEntry) {
@@ -185,16 +182,21 @@ export function PraTikrarJurnalForm({ user, activeBatch, activeRegistration }: P
 
     try {
       setSaving(true);
-      const res = await savePraTikrarDailyEntry({
-        ...formData,
-        batch_id: context?.activeBatch?.id || activeBatch?.id,
+      const response = await fetch('/api/jurnal-pra-tikrar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...formData,
+          batch_id: context?.activeBatch?.id || activeBatch?.id,
+        }),
       });
+      const res = await response.json().catch(() => null);
 
-      if (res.success) {
+      if (response.ok && res?.success) {
         toast.success(res.message || 'Jurnal Pra-Tikrar berhasil disimpan!');
         loadData();
       } else {
-        toast.error(res.error || 'Gagal menyimpan jurnal');
+        toast.error(res?.error || `Gagal menyimpan jurnal (HTTP ${response.status})`);
       }
     } catch (e: any) {
       const errMsg = e?.message || "";

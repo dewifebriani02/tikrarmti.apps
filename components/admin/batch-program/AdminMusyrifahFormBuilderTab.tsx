@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import {
   getMusyrifahRegistrationQuestionsAdmin,
   updateMusyrifahRegistrationQuestion,
-} from '@/app/(protected)/admin/actions';
+} from '@/lib/admin/admin-client';
 
 interface Question {
   id: string;

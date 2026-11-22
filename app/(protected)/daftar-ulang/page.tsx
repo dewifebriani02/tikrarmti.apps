@@ -7,7 +7,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { CheckCircle, AlertCircle, Clock, Users, Calendar, Upload, Download, ChevronRight, ChevronLeft, Info, FileText, X, ImageIcon, Trash2, Pencil } from 'lucide-react'
-import { submitDaftarUlang, saveDaftarUlangDraft, uploadAkad, updateAkadFiles, approveDaftarUlangSubmission, getReregistrationQuestions, resetAkadThalibah } from './actions'
 import { UserProfileCard } from '@/components/UserProfileCard'
 import { parseAkadFiles } from '@/lib/utils'
 import { isPartnerChoiceLocked } from '@/lib/partner-choice'
@@ -160,8 +159,9 @@ function DaftarUlangContent() {
       setIsLoading(true)
       try {
         // Fetch questions
-        const questionsResult = await getReregistrationQuestions()
-        if (questionsResult.success && questionsResult.data) {
+        const questionsResponse = await fetch('/api/daftar-ulang/questions', { cache: 'no-store' })
+        const questionsResult = await questionsResponse.json().catch(() => null)
+        if (questionsResponse.ok && questionsResult?.success && questionsResult.data) {
           setReregQuestions(questionsResult.data)
         }
 
@@ -443,14 +443,23 @@ function DaftarUlangContent() {
           dataToSave.partner_type = formData.partner_type
         }
 
-        const result = await saveDaftarUlangDraft(registrationData.id, dataToSave)
-        if (result.success) {
-          setDraftSaved(true)
-          setTimeout(() => setDraftSaved(false), 2000)
-          
-          if (!existingSubmission) {
-            setExistingSubmission({ status: 'draft', ...dataToSave })
+        try {
+          const draftRes = await fetch('/api/daftar-ulang/draft', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ registrationId: registrationData.id, data: dataToSave }),
+          })
+          const result = await draftRes.json().catch(() => null)
+          if (draftRes.ok && result?.success) {
+            setDraftSaved(true)
+            setTimeout(() => setDraftSaved(false), 2000)
+
+            if (!existingSubmission) {
+              setExistingSubmission({ status: 'draft', ...dataToSave })
+            }
           }
+        } catch (draftErr) {
+          console.error('Auto-save draft error:', draftErr)
         }
       }
     }, 1000)
@@ -569,9 +578,14 @@ function DaftarUlangContent() {
         akad_files_count: submitData.akad_files?.length
       })
 
-      const result = await submitDaftarUlang(registrationData.id, submitData)
+      const submitRes = await fetch('/api/daftar-ulang/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ registrationId: registrationData.id, data: submitData }),
+      })
+      const result = await submitRes.json().catch(() => null)
 
-      if (result.success) {
+      if (submitRes.ok && result?.success) {
         toast.success(result.message || 'Berhasil disimpan!')
         
         if (currentStep === 'akad') {
@@ -582,7 +596,7 @@ function DaftarUlangContent() {
           setCurrentStep('success')
         }
       } else {
-        toast.error(result.error || 'Gagal mengirim daftar ulang')
+        toast.error(result?.error || `Gagal mengirim daftar ulang (HTTP ${submitRes.status}). Silakan coba lagi.`)
       }
     } catch (error: any) {
       console.error('Submit error:', error)
@@ -605,13 +619,18 @@ function DaftarUlangContent() {
 
     setIsLoading(true)
     try {
-      const result = await updateAkadFiles(registrationData.id, formData.akad_files)
+      const updateRes = await fetch('/api/daftar-ulang/update-akad', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ registrationId: registrationData.id, akadFiles: formData.akad_files }),
+      })
+      const result = await updateRes.json().catch(() => null)
 
-      if (result.success) {
+      if (updateRes.ok && result?.success) {
         toast.success(result.message || 'File akad berhasil diperbarui')
         router.push('/perjalanan-saya')
       } else {
-        toast.error(result.error || 'Gagal memperbarui file akad')
+        toast.error(result?.error || `Gagal memperbarui file akad (HTTP ${updateRes.status}).`)
       }
     } catch (error: any) {
       console.error('Save akad edit error:', error)
@@ -631,19 +650,23 @@ function DaftarUlangContent() {
         const formDataToUpload = new FormData()
         formDataToUpload.append('file', file)
 
-        const result = await uploadAkad(formDataToUpload)
+        const uploadRes = await fetch('/api/daftar-ulang/upload-akad', {
+          method: 'POST',
+          body: formDataToUpload,
+        })
+        const result = await uploadRes.json().catch(() => null)
 
         if (!result) {
           throw new Error('Gagal menghubungi server. Kemungkinan ukuran file terlalu besar.')
         }
 
-        if (result.success && result.data) {
+        if (uploadRes.ok && result?.success && result.data) {
           return {
             url: result.data.url,
             name: result.data.name
           }
         }
-        throw new Error(result.error || 'Gagal upload file')
+        throw new Error(result?.error || `Gagal upload file (HTTP ${uploadRes.status})`)
       })
 
       const uploadedFiles = await Promise.all(uploadPromises)
@@ -2417,12 +2440,22 @@ function SuccessStep({ existingSubmission }: { existingSubmission?: any }) {
     if (!confirm('Apakah Ukhti yakin ingin menghapus file akad dan mengulang pengiriman?')) return;
     
     setIsResetting(true);
-    const result = await resetAkadThalibah(existingSubmission.id);
-    if (result.success) {
-      toast.success(result.message || 'File Akad berhasil dihapus');
-      window.location.reload();
-    } else {
-      toast.error(result.error || 'Gagal mereset akad');
+    try {
+      const resetRes = await fetch('/api/daftar-ulang/reset-akad', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ submissionId: existingSubmission.id }),
+      });
+      const result = await resetRes.json().catch(() => null);
+      if (resetRes.ok && result?.success) {
+        toast.success(result.message || 'File Akad berhasil dihapus');
+        window.location.reload();
+      } else {
+        toast.error(result?.error || 'Gagal mereset akad');
+        setIsResetting(false);
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Gagal mereset akad');
       setIsResetting(false);
     }
   };
@@ -2430,14 +2463,22 @@ function SuccessStep({ existingSubmission }: { existingSubmission?: any }) {
   const handleApprove = async () => {
     if (!existingSubmission?.id) return
 
-    const result = await approveDaftarUlangSubmission(existingSubmission.id)
+    try {
+      const approveRes = await fetch('/api/daftar-ulang/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ submissionId: existingSubmission.id }),
+      })
+      const result = await approveRes.json().catch(() => null)
 
-    if (result.success) {
-      toast.success(result.message || 'Pendaftaran berhasil disetujui')
-      // Refresh the page to show updated status
-      router.refresh()
-    } else {
-      toast.error(result.error || 'Gagal menyetujui pendaftaran')
+      if (approveRes.ok && result?.success) {
+        toast.success(result.message || 'Pendaftaran berhasil disetujui')
+        router.refresh()
+      } else {
+        toast.error(result?.error || 'Gagal menyetujui pendaftaran')
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Gagal menyetujui pendaftaran')
     }
   }
 

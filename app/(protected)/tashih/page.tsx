@@ -7,7 +7,6 @@ import { useAllRegistrations } from '@/hooks/useRegistrations'
 import { useActiveBatch } from '@/hooks/useBatches'
 import { useAuth } from '@/hooks/useAuth'
 import { useTashihStatus } from '@/hooks/useDashboard'
-import { saveTashihRecord, getJuzOption, getWeekTashihRecords, getPraTikrarHalaqahList } from './actions'
 import { getRoleRank, ROLE_RANKS } from '@/lib/roles'
 import { parseBlokField } from '@/lib/blok'
 import { getTashihLockStatus } from '@/lib/batch-schedule'
@@ -209,13 +208,17 @@ export default function TashihPage() {
   // Muat daftar sesi halaqah Pra-Tikrar (Open Schedule) untuk dropdown sesi di form tashih
   useEffect(() => {
     let isMounted = true
-    getPraTikrarHalaqahList(targetBatchId).then(data => {
-      if (isMounted && data) {
-        setPraTikrarHalaqahs(data)
-      }
-    }).catch(err => {
-      console.error('Error loading pra-tikrar halaqah list:', err)
-    })
+    const qs = targetBatchId ? `&batch_id=${encodeURIComponent(targetBatchId)}` : ''
+    fetch(`/api/tashih?action=pra-tikrar-halaqah${qs}`, { cache: 'no-store' })
+      .then(res => res.json().catch(() => null))
+      .then(json => {
+        if (isMounted && json?.success && json.data) {
+          setPraTikrarHalaqahs(json.data)
+        }
+      })
+      .catch(err => {
+        console.error('Error loading pra-tikrar halaqah list:', err)
+      })
     return () => { isMounted = false }
   }, [targetBatchId])
 
@@ -228,8 +231,9 @@ export default function TashihPage() {
   const loadJuzInfo = async (juzCode: string) => {
     setIsLoadingBlocks(true)
     try {
-      const juzData = await getJuzOption(juzCode)
-      if (juzData) setSelectedJuzInfo(juzData)
+      const res = await fetch(`/api/tashih?action=juz&code=${encodeURIComponent(juzCode)}`, { cache: 'no-store' })
+      const json = await res.json().catch(() => null)
+      if (res.ok && json?.success && json.data) setSelectedJuzInfo(json.data)
     } catch (error) {
       console.error('Error loading juz info:', error)
     } finally {
@@ -258,8 +262,12 @@ export default function TashihPage() {
   const loadWeekRecords = async () => {
     if (!user) return
     try {
-      const data = await getWeekTashihRecords(user.id, targetBatchId)
-      setWeekRecords(data || [])
+      const qs = targetBatchId ? `&batch_id=${encodeURIComponent(targetBatchId)}` : ''
+      const res = await fetch(`/api/tashih?action=records${qs}`, { cache: 'no-store' })
+      const json = await res.json().catch(() => null)
+      if (res.ok && json?.success) {
+        setWeekRecords(json.data || [])
+      }
     } catch (error) {
       console.error('Error loading records:', error)
     }
@@ -432,13 +440,18 @@ export default function TashihPage() {
       waktu_tashih: new Date(formData.tanggalTashih).toISOString()
     }
     try {
-      const result = await saveTashihRecord(submissionData as any)
-      if (result.success) {
-        toast.success(result.message)
+      const res = await fetch('/api/tashih', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(submissionData),
+      })
+      const result = await res.json().catch(() => null)
+      if (res.ok && result?.success) {
+        toast.success(result.message || 'Tashih berhasil disimpan!')
         await loadWeekRecords(); await mutateTashihStatus()
         setViewMode('status'); setSelectedBlocksForEditing([])
       } else {
-        toast.error(result.error)
+        toast.error(result?.error || `Gagal menyimpan tashih (HTTP ${res.status}). Silakan coba lagi.`)
       }
     } catch (error) {
       toast.error('Gagal menyimpan')

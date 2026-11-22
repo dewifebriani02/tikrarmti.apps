@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { RefreshCw, BookOpen, Save, X, Edit, AlertCircle, Info, Sparkles, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { getReregistrationQuestionsAdmin, updateReregistrationQuestion } from '@/app/(protected)/admin/actions';
+import { getReregistrationQuestionsAdmin, updateReregistrationQuestion } from '@/lib/admin/admin-client';
 
 interface Question {
   id: string;
