@@ -106,6 +106,8 @@ export async function PATCH(
       if (body.schedule_day !== undefined) updates.schedule_day = body.schedule_day.trim();
       if (body.time_start !== undefined) updates.time_start = body.time_start.trim();
       if (body.time_end !== undefined) updates.time_end = body.time_end.trim();
+      if (body.duration_info !== undefined) updates.duration_info = body.duration_info?.trim() || null;
+      if (body.student_prerequisites !== undefined) updates.student_prerequisites = body.student_prerequisites?.trim() || null;
       if (body.max_students !== undefined) updates.max_students = parseInt(body.max_students) || 10;
       if (body.fee_amount !== undefined) updates.fee_amount = parseFloat(body.fee_amount) || 0;
       if (body.facilities !== undefined) updates.facilities = body.facilities.trim();
@@ -127,6 +129,8 @@ export async function PATCH(
         schedule_day: updatedData.schedule_day,
         time_start: updatedData.time_start,
         time_end: updatedData.time_end,
+        duration_info: updatedData.duration_info,
+        student_prerequisites: updatedData.student_prerequisites,
         fee_amount: Number(updatedData.fee_amount) || 0,
         max_students: Number(updatedData.max_students) || 10,
         facilities: updatedData.facilities,

@@ -4,26 +4,22 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft,
-  Sparkles,
   Search,
   Filter,
   Calendar,
   Clock,
-  Users,
   CheckCircle2,
-  AlertCircle,
-  ExternalLink,
   Crown,
   BookOpen,
-  DollarSign,
-  HelpCircle,
   RefreshCw,
   X,
   Send,
   MessageCircle,
-  Check,
   ShieldCheck,
-  GraduationCap
+  GraduationCap,
+  Hourglass,
+  UserCheck,
+  Sparkles
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { toast, Toaster } from 'sonner';
@@ -44,6 +40,8 @@ interface PaidClass {
   time_start: string;
   time_end: string;
   timezone: string;
+  duration_info?: string | null;
+  student_prerequisites?: string | null;
   max_students: number;
   fee_amount: number;
   facilities: string | null;
@@ -111,9 +109,9 @@ export default function PendaftaranKelasBerbayarPage() {
       const res = await fetch('/api/muallimah/paid-classes?scope=public');
       const data = await res.json();
       if (res.ok) {
-        setClasses(data.classes || []);
+        setClasses(data?.data?.classes || data?.classes || []);
       } else {
-        toast.error(data.message || 'Gagal memuat daftar kelas berbayar');
+        toast.error(data?.error?.message || data?.message || 'Gagal memuat daftar kelas berbayar');
       }
     } catch (err: any) {
       console.error('Error fetching paid classes:', err);
@@ -167,7 +165,7 @@ export default function PendaftaranKelasBerbayarPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.message || 'Pendaftaran gagal');
+        throw new Error(data?.error?.message || data?.message || 'Pendaftaran gagal');
       }
 
       toast.success('Alhamdulillah, pendaftaran berhasil dikirim!');
@@ -205,6 +203,7 @@ export default function PendaftaranKelasBerbayarPage() {
         c.class_name.toLowerCase().includes(query) ||
         c.subject_material.toLowerCase().includes(query) ||
         (c.description && c.description.toLowerCase().includes(query)) ||
+        (c.student_prerequisites && c.student_prerequisites.toLowerCase().includes(query)) ||
         (c.muallimah?.full_name && c.muallimah.full_name.toLowerCase().includes(query));
 
       const matchDay = selectedDay === 'all' || c.schedule_day.trim() === selectedDay;
@@ -229,7 +228,7 @@ export default function PendaftaranKelasBerbayarPage() {
       {/* Header Sticky Bar */}
       <div className="bg-white/95 backdrop-blur-md border-b border-gray-100 sticky top-0 z-20 shadow-xs">
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <Link
                 href="/pendaftaran"
@@ -249,16 +248,26 @@ export default function PendaftaranKelasBerbayarPage() {
               </div>
             </div>
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={fetchApprovedClasses}
-              disabled={loading}
-              className="rounded-xl border-gray-200 text-xs font-bold gap-1.5"
-            >
-              <RefreshCw className={cn('w-3.5 h-3.5', loading && 'animate-spin')} />
-              <span className="hidden sm:inline">Segarkan Data</span>
-            </Button>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/muallimah/kelas-berbayar"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold transition-colors"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                <span>Buka Kelas (Mu'allimah)</span>
+              </Link>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={fetchApprovedClasses}
+                disabled={loading}
+                className="rounded-xl border-gray-200 text-xs font-bold gap-1.5"
+              >
+                <RefreshCw className={cn('w-3.5 h-3.5', loading && 'animate-spin')} />
+                <span className="hidden sm:inline">Segarkan Data</span>
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -366,17 +375,26 @@ export default function PendaftaranKelasBerbayarPage() {
                 Tidak ditemukan kelas berbayar yang cocok dengan pencarian atau filter hari yang Ukhti pilih. Silakan atur ulang kata kunci pencarian.
               </p>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setSearchQuery('');
-                setSelectedDay('all');
-              }}
-              className="rounded-xl text-xs font-bold"
-            >
-              Reset Filter
-            </Button>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedDay('all');
+                }}
+                className="rounded-xl text-xs font-bold"
+              >
+                Reset Filter
+              </Button>
+              <Link
+                href="/muallimah/kelas-berbayar"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold shadow-xs transition-colors"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                Ajukan Kelas (Khusus Mu'allimah)
+              </Link>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -454,7 +472,20 @@ export default function PendaftaranKelasBerbayarPage() {
                         </p>
                       )}
 
-                      {/* Schedule & Time */}
+                      {/* Student Prerequisites */}
+                      {c.student_prerequisites && (
+                        <div className="p-3 rounded-2xl bg-amber-50/70 border border-amber-200/80 text-xs text-amber-950 space-y-1">
+                          <p className="text-[10px] font-extrabold uppercase tracking-wider text-amber-800 flex items-center gap-1">
+                            <UserCheck className="w-3.5 h-3.5 text-amber-700" />
+                            Pra-Syarat Thalibah
+                          </p>
+                          <p className="text-xs leading-relaxed text-amber-950/90">
+                            {c.student_prerequisites}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Schedule, Time & Duration */}
                       <div className="space-y-1.5 pt-2 border-t border-gray-100 text-xs text-gray-700">
                         <div className="flex items-center gap-2">
                           <Calendar className="w-3.5 h-3.5 text-gray-400" />
@@ -464,6 +495,12 @@ export default function PendaftaranKelasBerbayarPage() {
                           <Clock className="w-3.5 h-3.5 text-gray-400" />
                           <span>Waktu: <strong className="text-gray-900">{c.time_start} - {c.time_end} {c.timezone || 'WIB'}</strong></span>
                         </div>
+                        {c.duration_info && (
+                          <div className="flex items-center gap-2">
+                            <Hourglass className="w-3.5 h-3.5 text-teal-600" />
+                            <span>Durasi: <strong className="text-teal-800">{c.duration_info}</strong></span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Quota Progress Bar */}
@@ -578,6 +615,22 @@ export default function PendaftaranKelasBerbayarPage() {
                     {registeringClass.schedule_day}, {registeringClass.time_start} - {registeringClass.time_end} {registeringClass.timezone}
                   </span>
                 </div>
+                {registeringClass.duration_info && (
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold">Durasi Program:</span>
+                    <span className="font-semibold text-teal-800">
+                      {registeringClass.duration_info}
+                    </span>
+                  </div>
+                )}
+                {registeringClass.student_prerequisites && (
+                  <div className="pt-1 border-t border-indigo-200/60 space-y-0.5">
+                    <span className="font-bold block">Pra-Syarat Thalibah:</span>
+                    <span className="font-medium text-indigo-900 block">
+                      {registeringClass.student_prerequisites}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between items-center pt-1 border-t border-indigo-200/60">
                   <span className="font-bold">Infaq Bulanan:</span>
                   <span className="font-black text-indigo-950 text-sm">

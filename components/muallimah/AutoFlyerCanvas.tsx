@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef, useEffect, useState } from 'react';
-import { Download, Copy, Check, Sparkles, MessageCircle, Eye } from 'lucide-react';
+import { Download, Copy, Check, Sparkles, MessageCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 export interface FlyerClassData {
@@ -11,6 +11,8 @@ export interface FlyerClassData {
   schedule_day: string;
   time_start: string;
   time_end: string;
+  duration_info?: string;
+  student_prerequisites?: string;
   fee_amount: number;
   max_students: number;
   facilities?: string;
@@ -54,7 +56,7 @@ export function AutoFlyerCanvas({ data, className = '' }: AutoFlyerCanvasProps) 
 
     // Subtle Geometric Star / Arabesque Accent
     ctx.save();
-    ctx.strokeStyle = 'rgba(217, 119, 6, 0.15)'; // warm gold low opacity
+    ctx.strokeStyle = 'rgba(217, 119, 6, 0.15)';
     ctx.lineWidth = 1.5;
     for (let i = 0; i < 4; i++) {
       ctx.beginPath();
@@ -65,7 +67,7 @@ export function AutoFlyerCanvas({ data, className = '' }: AutoFlyerCanvasProps) 
 
     // Elegant Outer Double Border
     ctx.save();
-    ctx.strokeStyle = 'rgba(251, 191, 36, 0.4)'; // gold border
+    ctx.strokeStyle = 'rgba(251, 191, 36, 0.4)';
     ctx.lineWidth = 4;
     ctx.strokeRect(40, 40, width - 80, height - 80);
 
@@ -93,7 +95,7 @@ export function AutoFlyerCanvas({ data, className = '' }: AutoFlyerCanvasProps) 
     ctx.save();
     ctx.fillStyle = 'rgba(251, 191, 36, 0.18)';
     ctx.beginPath();
-    ctx.roundRect(width / 2 - 240, 85, 480, 52, 26);
+    ctx.roundRect(width / 2 - 240, 80, 480, 50, 25);
     ctx.fill();
     ctx.strokeStyle = '#f59e0b';
     ctx.lineWidth = 1.5;
@@ -103,25 +105,25 @@ export function AutoFlyerCanvas({ data, className = '' }: AutoFlyerCanvasProps) 
     ctx.font = 'bold 20px sans-serif';
     ctx.textAlign = 'center';
     ctx.letterSpacing = '2px';
-    ctx.fillText('MARKAZ TIKRAR INDONESIA', width / 2, 118);
+    ctx.fillText('MARKAZ TIKRAR INDONESIA', width / 2, 112);
     ctx.restore();
 
     // Small Tagline
     ctx.fillStyle = '#a7f3d0';
     ctx.font = '600 18px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('PROGRAM BIMBINGAN KHUSUS & INTENSIF', width / 2, 175);
+    ctx.fillText('PROGRAM BIMBINGAN KHUSUS & INTENSIF', width / 2, 165);
 
     // Bismillah Calligraphy Placeholder or Text
     ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
     ctx.font = 'bold 24px serif';
-    ctx.fillText('بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ', width / 2, 225);
+    ctx.fillText('بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ', width / 2, 212);
 
     // Main Title Box
     ctx.save();
     ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
     ctx.beginPath();
-    ctx.roundRect(80, 270, width - 160, 220, 24);
+    ctx.roundRect(80, 245, width - 160, 200, 24);
     ctx.fill();
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
     ctx.lineWidth = 2;
@@ -129,54 +131,58 @@ export function AutoFlyerCanvas({ data, className = '' }: AutoFlyerCanvasProps) 
 
     // Class Name (Headline)
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 44px sans-serif';
+    ctx.font = 'bold 42px sans-serif';
     ctx.textAlign = 'center';
 
     const classNameText = data.class_name || 'Kelas Bimbingan Al-Quran';
-    // Multi-line wrap if too long
     if (classNameText.length > 30) {
       const words = classNameText.split(' ');
       const mid = Math.ceil(words.length / 2);
       const line1 = words.slice(0, mid).join(' ');
       const line2 = words.slice(mid).join(' ');
-      ctx.fillText(line1, width / 2, 345);
-      ctx.fillText(line2, width / 2, 400);
+      ctx.fillText(line1, width / 2, 315);
+      ctx.fillText(line2, width / 2, 368);
     } else {
-      ctx.fillText(classNameText, width / 2, 365);
+      ctx.fillText(classNameText, width / 2, 338);
     }
 
     // Subject Material Badge
     ctx.fillStyle = '#fef3c7';
-    ctx.font = 'italic 600 24px sans-serif';
-    ctx.fillText(`Materi: ${data.subject_material || 'Tahsin & Talaqqi'}`, width / 2, 445);
+    ctx.font = 'italic 600 22px sans-serif';
+    const materialLine = `Materi: ${data.subject_material || 'Tahsin & Talaqqi'}`;
+    ctx.fillText(
+      materialLine.length > 62 ? materialLine.slice(0, 59) + '...' : materialLine,
+      width / 2,
+      416
+    );
     ctx.restore();
 
     // Pengajar / Mu'allimah Section
     ctx.save();
     ctx.fillStyle = 'rgba(251, 191, 36, 0.12)';
     ctx.beginPath();
-    ctx.roundRect(140, 520, width - 280, 110, 20);
+    ctx.roundRect(140, 470, width - 280, 102, 20);
     ctx.fill();
     ctx.strokeStyle = '#f59e0b';
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
     ctx.fillStyle = '#fcd34d';
-    ctx.font = '600 20px sans-serif';
+    ctx.font = '600 18px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('DIBIMBING LANGSUNG OLEH:', width / 2, 560);
+    ctx.fillText('DIBIMBING LANGSUNG OLEH:', width / 2, 506);
 
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 32px sans-serif';
-    ctx.fillText(`Ustadzah ${data.muallimah_name || 'Muallimah MTI'}`, width / 2, 605);
+    ctx.font = 'bold 30px sans-serif';
+    ctx.fillText(`Ustadzah ${data.muallimah_name || 'Muallimah MTI'}`, width / 2, 548);
     ctx.restore();
 
     // Schedule & Details Grid (2 Columns)
-    const cardY = 660;
-    const cardH = 210;
+    const cardY = 598;
+    const cardH = 215;
     const cardW = 430;
 
-    // Left Card: Jadwal Bimbingan
+    // Left Card: Jadwal & Durasi Bimbingan
     ctx.save();
     ctx.fillStyle = 'rgba(255, 255, 255, 0.07)';
     ctx.beginPath();
@@ -187,21 +193,29 @@ export function AutoFlyerCanvas({ data, className = '' }: AutoFlyerCanvasProps) 
     ctx.stroke();
 
     ctx.fillStyle = '#6ee7b7';
-    ctx.font = 'bold 22px sans-serif';
+    ctx.font = 'bold 21px sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText('🗓️ JADWAL BELAJAR', 110, cardY + 45);
+    ctx.fillText('🗓️ JADWAL & DURASI', 110, cardY + 42);
 
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 26px sans-serif';
-    ctx.fillText(data.schedule_day || 'Senin & Kamis', 110, cardY + 95);
+    ctx.font = 'bold 24px sans-serif';
+    const dayText = data.schedule_day || 'Senin & Kamis';
+    ctx.fillText(dayText.length > 26 ? dayText.slice(0, 24) + '...' : dayText, 110, cardY + 86);
 
     ctx.fillStyle = '#fef3c7';
-    ctx.font = '600 24px sans-serif';
-    ctx.fillText(`Pukul ${data.time_start || '05:30'} - ${data.time_end || '06:30'} WIB`, 110, cardY + 140);
+    ctx.font = '600 22px sans-serif';
+    ctx.fillText(`Pukul ${data.time_start || '05:30'} - ${data.time_end || '06:30'} WIB`, 110, cardY + 126);
 
     ctx.fillStyle = '#a7f3d0';
-    ctx.font = '16px sans-serif';
-    ctx.fillText('Ruang Belajar: Zoom Meeting MTI', 110, cardY + 180);
+    ctx.font = 'bold 18px sans-serif';
+    const durText = data.duration_info?.trim()
+      ? `Durasi: ${data.duration_info.trim()}`
+      : 'Ruang Belajar: Zoom Meeting MTI';
+    ctx.fillText(durText.length > 34 ? durText.slice(0, 31) + '...' : durText, 110, cardY + 168);
+
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+    ctx.font = '15px sans-serif';
+    ctx.fillText('Live Zoom Meeting Resmi MTI', 110, cardY + 195);
     ctx.restore();
 
     // Right Card: Kuota & Biaya SPP
@@ -215,72 +229,100 @@ export function AutoFlyerCanvas({ data, className = '' }: AutoFlyerCanvasProps) 
     ctx.stroke();
 
     ctx.fillStyle = '#fbbf24';
-    ctx.font = 'bold 22px sans-serif';
+    ctx.font = 'bold 21px sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText('💎 INFAQ / SPP & KUOTA', width - 80 - cardW + 30, cardY + 45);
+    ctx.fillText('💎 INFAQ / SPP & KUOTA', width - 80 - cardW + 30, cardY + 42);
 
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 28px sans-serif';
     const feeFormatted = Number(data.fee_amount || 0).toLocaleString('id-ID');
-    ctx.fillText(`Rp ${feeFormatted}`, width - 80 - cardW + 30, cardY + 95);
+    ctx.fillText(`Rp ${feeFormatted}`, width - 80 - cardW + 30, cardY + 88);
 
     ctx.fillStyle = '#fde68a';
     ctx.font = 'bold 20px sans-serif';
-    ctx.fillText(`Kuota: Terbatas (${data.max_students || 10} Thalibah)`, width - 80 - cardW + 30, cardY + 140);
+    ctx.fillText(`Kuota: Terbatas (${data.max_students || 10} Thalibah)`, width - 80 - cardW + 30, cardY + 132);
 
     ctx.fillStyle = '#a7f3d0';
     ctx.font = '16px sans-serif';
-    ctx.fillText('Eksklusif & Fokus Bimbingan', width - 80 - cardW + 30, cardY + 180);
+    ctx.fillText('Eksklusif & Fokus Bimbingan', width - 80 - cardW + 30, cardY + 172);
     ctx.restore();
 
-    // Facilities Section
-    const facY = 900;
+    // Prerequisites & Facilities Sections
+    const hasPrereq = Boolean(data.student_prerequisites?.trim());
+    if (hasPrereq) {
+      const prereqY = 834;
+      ctx.save();
+      ctx.fillStyle = 'rgba(251, 191, 36, 0.1)';
+      ctx.beginPath();
+      ctx.roundRect(80, prereqY, width - 160, 92, 18);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(251, 191, 36, 0.35)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      ctx.fillStyle = '#fcd34d';
+      ctx.font = 'bold 18px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('🎯 PRA-SYARAT THALIBAH:', 110, prereqY + 33);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '500 18px sans-serif';
+      const prereqText = data.student_prerequisites!.trim();
+      ctx.fillText(
+        prereqText.length > 78 ? prereqText.slice(0, 75) + '...' : prereqText,
+        110,
+        prereqY + 67
+      );
+      ctx.restore();
+    }
+
+    const facY = hasPrereq ? 946 : 842;
+    const facH = hasPrereq ? 196 : 265;
     ctx.save();
     ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
     ctx.beginPath();
-    ctx.roundRect(80, facY, width - 160, 230, 20);
+    ctx.roundRect(80, facY, width - 160, facH, 20);
     ctx.fill();
     ctx.strokeStyle = 'rgba(251, 191, 36, 0.25)';
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
     ctx.fillStyle = '#fcd34d';
-    ctx.font = 'bold 22px sans-serif';
+    ctx.font = 'bold 21px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('✨ FASILITAS & BENEFIT KELAS', width / 2, facY + 40);
+    ctx.fillText('✨ FASILITAS & BENEFIT KELAS', width / 2, facY + 38);
 
     const defaultFacs = [
       '✅ Bimbingan Interaktif Live Zoom Tatap Muka',
       '✅ Rekaman Video Setiap Sesi (Akses Kapan Saja)',
       '✅ E-Sertifikat Kelulusan Resmi Markaz Tikrar',
       '✅ Modul Pembelajaran PDF & Bahan Bacaan Lengkap',
-      '✅ Grup Pendampingan WhatsApp Bersama Mu\'allimah'
     ];
     const userFacs = data.facilities
       ? data.facilities.split(',').map(f => `✅ ${f.trim()}`).filter(Boolean)
       : defaultFacs;
 
     ctx.fillStyle = '#ffffff';
-    ctx.font = '500 20px sans-serif';
+    ctx.font = '500 19px sans-serif';
     ctx.textAlign = 'left';
-    const displayedFacs = userFacs.slice(0, 4);
+    const displayedFacs = userFacs.slice(0, hasPrereq ? 3 : 4);
     displayedFacs.forEach((fac, idx) => {
-      ctx.fillText(fac, 120, facY + 85 + idx * 36);
+      ctx.fillText(fac.length > 68 ? fac.slice(0, 65) + '...' : fac, 120, facY + 80 + idx * 36);
     });
     ctx.restore();
 
     // Footer CTA
-    const footerY = 1160;
+    const footerY = 1165;
     ctx.save();
     ctx.fillStyle = '#f59e0b';
     ctx.beginPath();
-    ctx.roundRect(140, footerY, width - 280, 75, 38);
+    ctx.roundRect(140, footerY, width - 280, 72, 36);
     ctx.fill();
 
     ctx.fillStyle = '#064e3b';
     ctx.font = 'bold 26px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('DAFTAR SEKARANG • AMANKAN KUOTAMU!', width / 2, footerY + 47);
+    ctx.fillText('DAFTAR SEKARANG • AMANKAN KUOTAMU!', width / 2, footerY + 45);
     ctx.restore();
 
     // Website Link
@@ -309,11 +351,13 @@ export function AutoFlyerCanvas({ data, className = '' }: AutoFlyerCanvasProps) 
   };
 
   const handleCopyAIPrompt = () => {
+    const durationLine = data.duration_info?.trim() ? `\nDuration: "${data.duration_info.trim()}"` : '';
+    const prereqLine = data.student_prerequisites?.trim() ? `\nPrerequisites: "${data.student_prerequisites.trim()}"` : '';
     const promptText = data.flyer_prompt_ai || `Create a luxury Islamic course flyer poster for "Markaz Tikrar Indonesia (MTI)".
 Class: "${data.class_name}"
 Teacher: "Ustadzah ${data.muallimah_name}"
 Material: "${data.subject_material}"
-Schedule: "${data.schedule_day} | ${data.time_start} - ${data.time_end} WIB"
+Schedule: "${data.schedule_day} | ${data.time_start} - ${data.time_end} WIB"${durationLine}${prereqLine}
 Fee: "Rp ${Number(data.fee_amount || 0).toLocaleString('id-ID')}"
 Capacity: "${data.max_students} Thalibah"
 Facilities: "${data.facilities || 'Ruang Zoom MTI, E-Sertifikat, Rekaman Sesi'}"
@@ -327,6 +371,13 @@ Theme: Deep emerald green (#064e3b), elegant gold (#d97706), modern typography, 
 
   const handleCopyWABroadcast = () => {
     const feeFormatted = Number(data.fee_amount || 0).toLocaleString('id-ID');
+    const durationBlock = data.duration_info?.trim()
+      ? `\n⏳ *Durasi Program:* ${data.duration_info.trim()}`
+      : '';
+    const prereqBlock = data.student_prerequisites?.trim()
+      ? `\n\n🎯 *Pra-Syarat Thalibah:*\n${data.student_prerequisites.trim()}`
+      : '';
+
     const waText = `*BISMILLAHIRRAHMANIRRAHIM* 🌸✨
 *MARKAZ TIKRAR INDONESIA (MTI)*
 Menghadirkan Kelas Bimbingan Khusus:
@@ -336,16 +387,16 @@ Menghadirkan Kelas Bimbingan Khusus:
 🧕 *Pengampu:* Ustadzah ${data.muallimah_name}
 
 🗓️ *Jadwal Bimbingan:* ${data.schedule_day}
-⏰ *Waktu:* ${data.time_start} - ${data.time_end} WIB
+⏰ *Waktu:* ${data.time_start} - ${data.time_end} WIB${durationBlock}
 💻 *Media:* Live Zoom Meeting MTI
 👥 *Kuota Peserta:* Terbatas hanya ${data.max_students} Thalibah
-💰 *Infaq / SPP:* Rp ${feeFormatted} / Thalibah
+💰 *Infaq / SPP:* Rp ${feeFormatted} / Thalibah${prereqBlock}
 
 ✨ *Fasilitas Kelas:*
 ${data.facilities ? data.facilities.split(',').map(f => `• ${f.trim()}`).join('\n') : '• Live Zoom Interaktif\n• Rekaman Video Belajar\n• E-Sertifikat Kelulusan\n• Modul Pembelajaran PDF'}
 
 🔗 *Informasi & Pendaftaran:*
-https://markaztikrar.id
+https://markaztikrar.id/pendaftaran/kelas-berbayar
 
 _Mari bersama-sama memperindah bacaan Al-Qur'an dan menuntut ilmu yang berkah._
 Barakallahu fiikunna. 🌿`;

@@ -7,19 +7,11 @@ import {
   Clock3,
   XCircle,
   Search,
-  Filter,
   Check,
   X,
-  Eye,
   MessageCircle,
-  Calendar,
-  Clock,
-  DollarSign,
-  Users,
-  ShieldCheck,
   RefreshCw,
   Trash2,
-  AlertCircle
 } from 'lucide-react';
 import { AutoFlyerCanvas } from '@/components/muallimah/AutoFlyerCanvas';
 import { toast } from 'sonner';
@@ -45,9 +37,9 @@ export function MuallimahPaidClassesTab() {
       const res = await fetch('/api/muallimah/paid-classes?scope=all');
       const data = await res.json();
       if (res.ok) {
-        setClasses(data.classes || []);
+        setClasses(data?.data?.classes || data?.classes || []);
       } else {
-        toast.error(data.message || 'Gagal memuat data kelas');
+        toast.error(data?.error?.message || data?.message || 'Gagal memuat data kelas');
       }
     } catch (e: any) {
       toast.error('Gagal mengambil data kelas berbayar: ' + e.message);
@@ -76,7 +68,7 @@ export function MuallimahPaidClassesTab() {
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.message || 'Gagal menyimpan status verifikasi');
+        throw new Error(data?.error?.message || data?.message || 'Gagal menyimpan status verifikasi');
       }
 
       toast.success(
@@ -107,7 +99,7 @@ export function MuallimahPaidClassesTab() {
         toast.success('Kelas berhasil dihapus');
         fetchClasses();
       } else {
-        toast.error(data.message || 'Gagal menghapus');
+        toast.error(data?.error?.message || data?.message || 'Gagal menghapus');
       }
     } catch (err: any) {
       toast.error('Gagal menghapus kelas');
@@ -250,9 +242,9 @@ export function MuallimahPaidClassesTab() {
             <thead>
               <tr className="bg-gray-50/80 border-b border-gray-100 text-gray-500 font-bold uppercase tracking-wider">
                 <th className="py-3.5 px-4">Mu'allimah Pengampu</th>
-                <th className="py-3.5 px-4">Program & Materi</th>
+                <th className="py-3.5 px-4">Program, Materi & Pra-Syarat</th>
                 <th className="py-3.5 px-4">Skema & Tarif</th>
-                <th className="py-3.5 px-4">Jadwal & Kuota</th>
+                <th className="py-3.5 px-4">Jadwal, Durasi & Kuota</th>
                 <th className="py-3.5 px-4">Status Verifikasi</th>
                 <th className="py-3.5 px-4 text-center">Aksi Verifikasi</th>
               </tr>
@@ -303,12 +295,17 @@ export function MuallimahPaidClassesTab() {
                         </div>
                       </td>
 
-                      {/* Class & Material */}
-                      <td className="py-4 px-4">
+                      {/* Class, Material & Prerequisites */}
+                      <td className="py-4 px-4 max-w-xs">
                         <div className="font-bold text-emerald-950 text-sm">{item.class_name}</div>
                         <div className="text-gray-600 text-[11px] mt-0.5 line-clamp-1">
                           📖 {item.subject_material}
                         </div>
+                        {item.student_prerequisites && (
+                          <div className="text-[10px] text-indigo-700 mt-1 line-clamp-2 font-medium">
+                            Pra-Syarat: {item.student_prerequisites}
+                          </div>
+                        )}
                         {item.facilities && (
                           <div className="text-[10px] text-gray-400 mt-0.5 line-clamp-1">
                             Fasilitas: {item.facilities}
@@ -326,7 +323,7 @@ export function MuallimahPaidClassesTab() {
                         </div>
                       </td>
 
-                      {/* Schedule & Capacity */}
+                      {/* Schedule, Duration & Capacity */}
                       <td className="py-4 px-4 whitespace-nowrap">
                         <div className="font-semibold text-gray-800">
                           {item.schedule_day}
@@ -334,6 +331,11 @@ export function MuallimahPaidClassesTab() {
                         <div className="text-gray-500 text-[11px]">
                           {item.time_start} - {item.time_end} WIB
                         </div>
+                        {item.duration_info && (
+                          <div className="text-[10px] text-teal-700 font-bold mt-0.5">
+                            Durasi: {item.duration_info}
+                          </div>
+                        )}
                         <div className="text-[10px] text-indigo-700 font-bold mt-0.5">
                           Kuota: {item.max_students} Thalibah
                         </div>
@@ -367,7 +369,6 @@ export function MuallimahPaidClassesTab() {
                       {/* Actions */}
                       <td className="py-4 px-4 text-center whitespace-nowrap">
                         <div className="flex items-center justify-center gap-1.5">
-                          {/* View Flyer Button */}
                           <button
                             onClick={() => setViewingFlyerClass(item)}
                             className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg border border-emerald-200 transition-colors"
@@ -376,7 +377,6 @@ export function MuallimahPaidClassesTab() {
                             <Sparkles className="w-4 h-4 text-amber-600" />
                           </button>
 
-                          {/* Quick Approve Button */}
                           <button
                             onClick={() => {
                               setSelectedClass(item);
@@ -393,7 +393,6 @@ export function MuallimahPaidClassesTab() {
                             <Check className="w-4 h-4" />
                           </button>
 
-                          {/* Reject / Request Revision Button */}
                           <button
                             onClick={() => {
                               setSelectedClass(item);
@@ -406,7 +405,6 @@ export function MuallimahPaidClassesTab() {
                             <X className="w-4 h-4" />
                           </button>
 
-                          {/* Delete */}
                           <button
                             onClick={() => handleDeleteClass(item)}
                             className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg transition-colors"
@@ -463,6 +461,17 @@ export function MuallimahPaidClassesTab() {
                 <span className="font-bold text-gray-700">Jadwal:</span> {selectedClass.schedule_day} (
                 {selectedClass.time_start} - {selectedClass.time_end} WIB)
               </div>
+              {selectedClass.duration_info && (
+                <div>
+                  <span className="font-bold text-gray-700">Durasi:</span> {selectedClass.duration_info}
+                </div>
+              )}
+              {selectedClass.student_prerequisites && (
+                <div>
+                  <span className="font-bold text-gray-700">Pra-Syarat Thalibah:</span>{' '}
+                  {selectedClass.student_prerequisites}
+                </div>
+              )}
               <div>
                 <span className="font-bold text-gray-700">Tarif / Kuota:</span> Rp{' '}
                 {Number(selectedClass.fee_amount || 0).toLocaleString('id-ID')} / {selectedClass.max_students} Thalibah
@@ -541,6 +550,8 @@ export function MuallimahPaidClassesTab() {
                 schedule_day: viewingFlyerClass.schedule_day,
                 time_start: viewingFlyerClass.time_start,
                 time_end: viewingFlyerClass.time_end,
+                duration_info: viewingFlyerClass.duration_info,
+                student_prerequisites: viewingFlyerClass.student_prerequisites,
                 fee_amount: viewingFlyerClass.fee_amount,
                 max_students: viewingFlyerClass.max_students,
                 facilities: viewingFlyerClass.facilities,

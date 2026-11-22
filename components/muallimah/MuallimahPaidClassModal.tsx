@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Sparkles, Send, Calendar, Clock, DollarSign, Users, BookOpen, ShieldCheck, Video, MessageSquare } from 'lucide-react';
+import { X, Sparkles, Send, Calendar, DollarSign, BookOpen, ShieldCheck, UserCheck } from 'lucide-react';
 import { AutoFlyerCanvas, FlyerClassData } from './AutoFlyerCanvas';
 import { toast } from 'sonner';
 
@@ -22,6 +22,24 @@ const DAY_OPTIONS = [
   'Selasa & Kamis',
   'Setiap Hari (Senin - Jumat)',
   'Akhir Pekan (Sabtu - Ahad)',
+];
+
+const DURATION_PRESETS = [
+  '4 Pekan (1 Bulan)',
+  '8 Pekan (2 Bulan)',
+  '12 Pekan (3 Bulan)',
+  '13 Pekan (1 Batch MTI)',
+  '6 Bulan',
+  'Berkelanjutan (Bulanan)',
+];
+
+const PREREQUISITE_PRESETS = [
+  'Terbuka untuk Semua / Pemula',
+  'Sudah Lancar Membaca Al-Qur\'an',
+  'Lulus Pra-Tikrar',
+  'Thalibah Aktif / Alumni MTI',
+  'Minimal Hafalan Juz 30',
+  'Komitmen Hadir & Setoran Rutin',
 ];
 
 const STANDARD_TIME_SLOTS = [
@@ -51,6 +69,8 @@ export function MuallimahPaidClassModal({
     schedule_day: 'Senin & Kamis',
     time_start: '05:30',
     time_end: '06:30',
+    duration_info: '8 Pekan (2 Bulan)',
+    student_prerequisites: 'Sudah Lancar Membaca Al-Qur\'an, Komitmen Hadir & Setoran Rutin',
     max_students: 10,
     fee_amount: 150000,
     facilities: 'Ruang Zoom MTI, E-Sertifikat Kelulusan, Rekaman Kelas, Modul PDF',
@@ -71,6 +91,8 @@ export function MuallimahPaidClassModal({
         schedule_day: initialData.schedule_day || 'Senin & Kamis',
         time_start: initialData.time_start || '05:30',
         time_end: initialData.time_end || '06:30',
+        duration_info: initialData.duration_info || '8 Pekan (2 Bulan)',
+        student_prerequisites: initialData.student_prerequisites || '',
         max_students: initialData.max_students || 10,
         fee_amount: Number(initialData.fee_amount) || 150000,
         facilities: initialData.facilities || 'Ruang Zoom MTI, E-Sertifikat Kelulusan, Rekaman Kelas, Modul PDF',
@@ -86,6 +108,8 @@ export function MuallimahPaidClassModal({
         schedule_day: 'Senin & Kamis',
         time_start: '05:30',
         time_end: '06:30',
+        duration_info: '8 Pekan (2 Bulan)',
+        student_prerequisites: 'Sudah Lancar Membaca Al-Qur\'an, Komitmen Hadir & Setoran Rutin',
         max_students: 10,
         fee_amount: 150000,
         facilities: 'Ruang Zoom MTI, E-Sertifikat Kelulusan, Rekaman Kelas, Modul PDF',
@@ -105,6 +129,29 @@ export function MuallimahPaidClassModal({
     }));
   };
 
+  const togglePrerequisitePreset = (preset: string) => {
+    const parts = formData.student_prerequisites
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+
+    const exists = parts.some(p => p.toLowerCase() === preset.toLowerCase());
+    const nextParts = exists
+      ? parts.filter(p => p.toLowerCase() !== preset.toLowerCase())
+      : [...parts, preset];
+
+    setFormData(prev => ({
+      ...prev,
+      student_prerequisites: nextParts.join(', ')
+    }));
+  };
+
+  const isPresetSelected = (preset: string) =>
+    formData.student_prerequisites
+      .split(',')
+      .map(s => s.trim().toLowerCase())
+      .includes(preset.toLowerCase());
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.class_name.trim()) {
@@ -113,6 +160,14 @@ export function MuallimahPaidClassModal({
     }
     if (!formData.subject_material.trim()) {
       toast.error('Harap isi materi bimbingan');
+      return;
+    }
+    if (!formData.duration_info.trim()) {
+      toast.error('Harap isi durasi program kelas');
+      return;
+    }
+    if (!formData.student_prerequisites.trim()) {
+      toast.error('Harap isi pra-syarat thalibah yang bisa ikut');
       return;
     }
 
@@ -131,7 +186,7 @@ export function MuallimahPaidClassModal({
 
       const json = await res.json();
       if (!res.ok) {
-        throw new Error(json.message || 'Gagal menyimpan data kelas');
+        throw new Error(json?.error?.message || json?.message || 'Gagal menyimpan data kelas');
       }
 
       toast.success(
@@ -155,6 +210,8 @@ export function MuallimahPaidClassModal({
     schedule_day: formData.schedule_day,
     time_start: formData.time_start,
     time_end: formData.time_end,
+    duration_info: formData.duration_info,
+    student_prerequisites: formData.student_prerequisites,
     fee_amount: formData.fee_amount,
     max_students: formData.max_students,
     facilities: formData.facilities,
@@ -219,7 +276,7 @@ export function MuallimahPaidClassModal({
               activeTab === 'form' ? 'block' : 'hidden lg:block'
             }`}
           >
-            {/* Judul & Materi */}
+            {/* 1. Judul & Materi */}
             <div className="space-y-3 p-4 rounded-2xl bg-emerald-50/30 border border-emerald-100">
               <h3 className="text-xs font-bold text-emerald-900 uppercase tracking-wider flex items-center gap-1.5">
                 <BookOpen className="w-4 h-4 text-emerald-700" />
@@ -268,7 +325,7 @@ export function MuallimahPaidClassModal({
               </div>
             </div>
 
-            {/* Skema Bagi Hasil */}
+            {/* 2. Skema Bagi Hasil */}
             <div className="space-y-3 p-4 rounded-2xl bg-amber-50/40 border border-amber-100">
               <h3 className="text-xs font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
                 <ShieldCheck className="w-4 h-4 text-amber-700" />
@@ -347,12 +404,43 @@ export function MuallimahPaidClassModal({
               </div>
             </div>
 
-            {/* Jadwal Hari & Waktu */}
+            {/* 3. Jadwal, Durasi & Waktu */}
             <div className="space-y-3 p-4 rounded-2xl bg-teal-50/30 border border-teal-100">
               <h3 className="text-xs font-bold text-teal-900 uppercase tracking-wider flex items-center gap-1.5">
                 <Calendar className="w-4 h-4 text-teal-700" />
-                3. Jadwal & Waktu Bimbingan (WIB)
+                3. Jadwal, Durasi & Waktu Bimbingan (WIB)
               </h3>
+
+              {/* Durasi Program */}
+              <div>
+                <label className="text-xs font-bold text-gray-700 block mb-1">
+                  Durasi Program Kelas <span className="text-red-500">*</span>
+                </label>
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {DURATION_PRESETS.map(dur => (
+                    <button
+                      key={dur}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, duration_info: dur })}
+                      className={`px-2.5 py-1 text-xs rounded-lg border transition-all ${
+                        formData.duration_info === dur
+                          ? 'bg-teal-700 text-white border-teal-700 font-bold shadow-xs'
+                          : 'bg-white text-gray-600 border-gray-200 hover:border-teal-500'
+                      }`}
+                    >
+                      {dur}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  type="text"
+                  required
+                  value={formData.duration_info}
+                  onChange={e => setFormData({ ...formData, duration_info: e.target.value })}
+                  placeholder="Contoh: 8 Pekan (16 Pertemuan) atau 13 Pekan (1 Batch)"
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-medium bg-white"
+                />
+              </div>
 
               <div>
                 <label className="text-xs font-bold text-gray-700 block mb-1">Pilihan Hari</label>
@@ -425,11 +513,53 @@ export function MuallimahPaidClassModal({
               </div>
             </div>
 
-            {/* Kuota, Tarif, dan Fasilitas */}
+            {/* 4. Pra-Syarat Thalibah yang Bisa Ikut */}
+            <div className="space-y-3 p-4 rounded-2xl bg-indigo-50/40 border border-indigo-100">
+              <h3 className="text-xs font-bold text-indigo-900 uppercase tracking-wider flex items-center gap-1.5">
+                <UserCheck className="w-4 h-4 text-indigo-700" />
+                4. Pra-Syarat Thalibah yang Bisa Ikut <span className="text-red-500">*</span>
+              </h3>
+
+              <div>
+                <p className="text-[11px] text-indigo-800/80 mb-2">
+                  Klik kriteria cepat di bawah ini atau ketik langsung pra-syarat khusus untuk calon peserta:
+                </p>
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {PREREQUISITE_PRESETS.map(preset => {
+                    const selected = isPresetSelected(preset);
+                    return (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => togglePrerequisitePreset(preset)}
+                        className={`px-2.5 py-1 text-xs rounded-lg border transition-all ${
+                          selected
+                            ? 'bg-indigo-700 text-white border-indigo-700 font-bold shadow-xs'
+                            : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-400'
+                        }`}
+                      >
+                        {selected ? '✓ ' : '+ '}
+                        {preset}
+                      </button>
+                    );
+                  })}
+                </div>
+                <textarea
+                  rows={2}
+                  required
+                  value={formData.student_prerequisites}
+                  onChange={e => setFormData({ ...formData, student_prerequisites: e.target.value })}
+                  placeholder="Contoh: Minimal sudah lancar membaca Al-Qur'an, lulus Pra-Tikrar, komitmen hadir & setor tepat waktu."
+                  className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs font-medium bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                />
+              </div>
+            </div>
+
+            {/* 5. Kuota, Tarif, dan Fasilitas */}
             <div className="space-y-3 p-4 rounded-2xl bg-gray-50 border border-gray-200">
               <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider flex items-center gap-1.5">
                 <DollarSign className="w-4 h-4 text-emerald-700" />
-                4. Kuota, SPP & Fasilitas
+                5. Kuota, SPP & Fasilitas
               </h3>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

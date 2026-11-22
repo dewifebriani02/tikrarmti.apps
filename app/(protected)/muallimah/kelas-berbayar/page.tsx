@@ -12,19 +12,17 @@ import {
   Clock3,
   XCircle,
   FileText,
-  Eye,
   Edit2,
   Trash2,
-  Download,
-  Share2,
   ShieldAlert,
   ArrowLeft,
-  ExternalLink
+  Hourglass,
+  UserCheck
 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { MuallimahPaidClassModal } from '@/components/muallimah/MuallimahPaidClassModal';
-import { AutoFlyerCanvas, FlyerClassData } from '@/components/muallimah/AutoFlyerCanvas';
+import { AutoFlyerCanvas } from '@/components/muallimah/AutoFlyerCanvas';
 import { toast, Toaster } from 'sonner';
 
 export default function MuallimahPaidClassesPage() {
@@ -45,9 +43,9 @@ export default function MuallimahPaidClassesPage() {
       const res = await fetch('/api/muallimah/paid-classes?scope=my');
       const data = await res.json();
       if (res.ok) {
-        setClasses(data.classes || []);
+        setClasses(data?.data?.classes || data?.classes || []);
       } else {
-        toast.error(data.message || 'Gagal memuat daftar kelas');
+        toast.error(data?.error?.message || data?.message || 'Gagal memuat daftar kelas');
       }
     } catch (e: any) {
       toast.error('Gagal mengambil data kelas berbayar: ' + e.message);
@@ -72,7 +70,7 @@ export default function MuallimahPaidClassesPage() {
         toast.success('Pengajuan kelas berhasil dihapus');
         fetchMyClasses();
       } else {
-        toast.error(data.message || 'Gagal menghapus kelas');
+        toast.error(data?.error?.message || data?.message || 'Gagal menghapus kelas');
       }
     } catch (e: any) {
       toast.error('Terjadi kesalahan saat menghapus kelas');
@@ -245,10 +243,6 @@ export default function MuallimahPaidClassesPage() {
                 const isPending = classItem.status === 'pending';
                 const isRejected = classItem.status === 'rejected';
 
-                let schemeLabel = 'Skema 80:20 (Didampingi Musyrifah)';
-                if (classItem.scheme === '60_40') schemeLabel = 'Skema 60:40 (Insentif Khusus)';
-                if (classItem.scheme === '100') schemeLabel = 'Skema 100% (Tanpa Potongan MTI)';
-
                 return (
                   <div
                     key={classItem.id}
@@ -317,7 +311,24 @@ export default function MuallimahPaidClassesPage() {
                           <Users className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
                           <span>Maks. {classItem.max_students} Thalibah</span>
                         </div>
+                        {classItem.duration_info && (
+                          <div className="col-span-2 flex items-center gap-1.5 pt-1 border-t border-gray-200/60 text-teal-800 font-semibold">
+                            <Hourglass className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                            <span className="truncate">Durasi: {classItem.duration_info}</span>
+                          </div>
+                        )}
                       </div>
+
+                      {/* Student Prerequisites */}
+                      {classItem.student_prerequisites && (
+                        <div className="p-2.5 rounded-xl bg-indigo-50/70 border border-indigo-100 text-[11px] text-indigo-950 space-y-0.5">
+                          <div className="font-bold flex items-center gap-1 text-indigo-800">
+                            <UserCheck className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                            Pra-Syarat Thalibah:
+                          </div>
+                          <p className="text-indigo-900/90 leading-relaxed">{classItem.student_prerequisites}</p>
+                        </div>
+                      )}
 
                       {/* Admin Notes if any */}
                       {classItem.admin_notes && (
@@ -410,6 +421,8 @@ export default function MuallimahPaidClassesPage() {
                 schedule_day: viewingFlyerClass.schedule_day,
                 time_start: viewingFlyerClass.time_start,
                 time_end: viewingFlyerClass.time_end,
+                duration_info: viewingFlyerClass.duration_info,
+                student_prerequisites: viewingFlyerClass.student_prerequisites,
                 fee_amount: viewingFlyerClass.fee_amount,
                 max_students: viewingFlyerClass.max_students,
                 facilities: viewingFlyerClass.facilities,

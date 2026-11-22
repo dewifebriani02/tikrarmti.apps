@@ -176,6 +176,8 @@ export async function POST(request: NextRequest) {
       time_start,
       time_end,
       timezone = 'WIB',
+      duration_info,
+      student_prerequisites,
       max_students = 10,
       fee_amount = 0,
       facilities,
@@ -196,6 +198,8 @@ export async function POST(request: NextRequest) {
       .single();
 
     const muallimahName = userProfile?.full_name || 'Muallimah MTI';
+    const cleanDuration = duration_info?.trim() || null;
+    const cleanPrereq = student_prerequisites?.trim() || null;
 
     const flyerPrompt = generateFlyerAIPrompt({
       class_name,
@@ -204,6 +208,8 @@ export async function POST(request: NextRequest) {
       schedule_day,
       time_start,
       time_end,
+      duration_info: cleanDuration,
+      student_prerequisites: cleanPrereq,
       fee_amount: Number(fee_amount) || 0,
       max_students: Number(max_students) || 10,
       facilities,
@@ -220,6 +226,8 @@ export async function POST(request: NextRequest) {
       time_start: time_start.trim(),
       time_end: time_end.trim(),
       timezone,
+      duration_info: cleanDuration,
+      student_prerequisites: cleanPrereq,
       max_students: parseInt(max_students) || 10,
       fee_amount: parseFloat(fee_amount) || 0,
       facilities: facilities?.trim() || 'Ruang Zoom MTI, E-Sertifikat, Rekaman Pertemuan, Pendampingan Musyrifah',

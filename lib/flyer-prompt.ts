@@ -5,10 +5,19 @@ export function generateFlyerAIPrompt(data: {
   schedule_day: string;
   time_start: string;
   time_end: string;
+  duration_info?: string | null;
+  student_prerequisites?: string | null;
   fee_amount: number;
   max_students: number;
   facilities?: string;
 }): string {
+  const durationLine = data.duration_info
+    ? `\n- Durasi Program: "${data.duration_info}"`
+    : '';
+  const prereqLine = data.student_prerequisites
+    ? `\n- Pra-Syarat Peserta: "${data.student_prerequisites}"`
+    : '';
+
   return `Create an elegant, premium, modern Islamic course flyer poster for "Markaz Tikrar Indonesia (MTI)".
 Aspect ratio: 4:5 portrait (Instagram feed / WhatsApp story / Canva design).
 Theme & Aesthetic: Deep emerald green (#064e3b), warm gold accents (#d97706, #fef3c7), and pure white typography with subtle geometric Islamic arabesque background textures.
@@ -18,7 +27,7 @@ Key Typography & Hierarchy:
 - Headline: "${data.class_name}"
 - Focus Material: "${data.subject_material}"
 - Pengampu / Mu'allimah: "Bersama: Ustadzah ${data.muallimah_name}"
-- Jadwal Bimbingan: "${data.schedule_day} • ${data.time_start} - ${data.time_end} WIB"
+- Jadwal Bimbingan: "${data.schedule_day} • ${data.time_start} - ${data.time_end} WIB"${durationLine}${prereqLine}
 - Kuota Peserta: "Eksklusif & Terbatas (${data.max_students} Thalibah)"
 - Investasi Belajar: "Rp ${Number(data.fee_amount).toLocaleString('id-ID')}"
 - Fasilitas: "${data.facilities || 'Ruang Zoom MTI, E-Sertifikat, Rekaman Kelas, Pendampingan Musyrifah'}"
