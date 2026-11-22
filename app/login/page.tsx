@@ -8,7 +8,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff, AlertCircle, CheckCircle2, HelpCircle, Globe } from "lucide-react";
-import { loginAction } from '@/app/login/actions';
 import { safeRedirectPath } from '@/lib/utils/safe-redirect';
 
 function LoginPageContent() {
@@ -126,14 +125,21 @@ function LoginPageContent() {
     }
 
     try {
-      const result = await loginAction({
-        email: formData.email.toLowerCase().trim(),
-        password: formData.password,
-        rememberMe,
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email.toLowerCase().trim(),
+          password: formData.password,
+          rememberMe,
+        }),
       });
+      const result = await response.json().catch(() => null);
 
-      if (!result.success) {
-        throw new Error(result.error || 'Login gagal');
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || `Login gagal (HTTP ${response.status}). Silakan coba lagi.`);
       }
 
       // Show success notification
