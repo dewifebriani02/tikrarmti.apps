@@ -18,8 +18,6 @@ import { Progress } from '@/components/ui/progress'
 import { ChevronLeft, ChevronRight, Send, Info, CheckCircle, AlertCircle, ExternalLink, Sparkles, Calendar } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import { submitPraTikrarRegistration } from './actions'
-import { getRegistrationQuestions } from '../tikrar-tahfidz/actions'
 import { cn } from '@/lib/utils'
 import { useFormSettings } from '@/hooks/useFormSettings'
 
@@ -191,8 +189,11 @@ export default function ThalibahBatch2Page() {
   useEffect(() => {
     async function loadQuestions() {
       try {
-        const result = await getRegistrationQuestions()
-        if (result.success && result.data) {
+        const response = await fetch('/api/pendaftaran/questions?type=tikrar', {
+          cache: 'no-store',
+        })
+        const result = await response.json().catch(() => null)
+        if (response.ok && result?.success && result.data) {
           setQuestions(result.data as Question[])
         }
       } catch (error) {
@@ -690,18 +691,24 @@ export default function ThalibahBatch2Page() {
     setSubmitError('')
 
     try {
-      // Use Server Action for mutation (follows arsitektur.md)
-      const result = await submitPraTikrarRegistration(
-        formData,
-        userProfile,
-        user,
-        activeBatchData,
-        isEditMode,
-        existingRegistrationId || undefined
-      )
+      const response = await fetch('/api/pendaftaran/pra-tikrar', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          formData,
+          userProfile,
+          user,
+          batch: activeBatchData,
+          isEditMode,
+          existingRegistrationId: existingRegistrationId || undefined,
+        }),
+      })
+      const result = await response.json().catch(() => null)
 
-      if (result.success) {
-        toast.success(result.message)
+      if (response.ok && result?.success) {
+        toast.success(result.message || 'Pendaftaran berhasil dikirim!')
         setSubmitStatus((result.status || 'success') as 'idle' | 'success' | 'success_update' | 'error')
 
         // Clear draft after successful submission
@@ -719,8 +726,9 @@ export default function ThalibahBatch2Page() {
 
         router.push(targetUrl)
       } else {
-        toast.error(result.error || 'Gagal mengirim pendaftaran')
-        setSubmitError(result.error || 'Terjadi kesalahan saat mengirim formulir')
+        const errorMsg = result?.error || `Gagal mengirim pendaftaran (HTTP ${response.status}). Silakan muat ulang halaman dan coba lagi.`
+        toast.error(errorMsg)
+        setSubmitError(errorMsg)
         setSubmitStatus('error')
       }
     } catch (error: any) {

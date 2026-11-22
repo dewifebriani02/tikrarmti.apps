@@ -18,7 +18,6 @@ import { Calendar, BookOpen, GraduationCap, Loader2, Info, Clock, ShieldCheck } 
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
-import { submitMuallimahRegistration, getMuallimahRegistrationQuestions } from './actions';
 
 interface Question {
   id?: string;
@@ -288,8 +287,11 @@ function MuallimahRegistrationContent() {
   useEffect(() => {
     async function loadQuestions() {
       try {
-        const result = await getMuallimahRegistrationQuestions();
-        if (result.success && result.data) {
+        const response = await fetch('/api/pendaftaran/questions?type=muallimah', {
+          cache: 'no-store',
+        });
+        const result = await response.json().catch(() => null);
+        if (response.ok && result?.success && result.data) {
           setQuestions(result.data as Question[]);
         }
       } catch (error) {
@@ -797,17 +799,29 @@ function MuallimahRegistrationContent() {
 
     setIsLoading(true);
     try {
-      const result = await submitMuallimahRegistration(formData, userData, user, batchId);
-      if (result.success) {
+      const response = await fetch('/api/pendaftaran/muallimah', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          formData,
+          userData,
+          user,
+          batchId,
+        }),
+      });
+      const result = await response.json().catch(() => null);
+      if (response.ok && result?.success) {
         setIsFormSubmitted(true);
-        toast.success(result.message);
+        toast.success(result.message || "Pendaftaran Mu'allimah berhasil dikirim!");
         // Clear auto-save draft on success
         if (user?.id) {
           localStorage.removeItem(`muallimah_draft_${user.id}`);
         }
         router.push('/dashboard');
       } else {
-        toast.error(result.error || 'Gagal mengirim pendaftaran');
+        toast.error(result?.error || `Gagal mengirim pendaftaran (HTTP ${response.status}). Silakan muat ulang halaman dan coba lagi.`);
       }
     } catch (error: any) {
       toast.error(error?.message || 'Terjadi kesalahan');
