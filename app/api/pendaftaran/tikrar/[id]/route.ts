@@ -125,8 +125,9 @@ export async function PUT(
         assessmentStatus === 'needs_revision' ||
         existingRegistration.oral_assessment_notes === 'NEEDS_REVISION';
 
+      const isSelectionDecided = existingRegistration.selection_status && existingRegistration.selection_status !== 'pending';
       // If already graded and not marked for revision, protect the result
-      if ((assessmentStatus === 'pass' || assessmentStatus === 'fail') && !needsRevision) {
+      if ((assessmentStatus === 'pass' || assessmentStatus === 'fail' || isSelectionDecided) && !needsRevision) {
         logger.warn('Attempted to delete graded oral submission', {
           registrationId: id,
           userId: user.id,
@@ -167,18 +168,19 @@ export async function PUT(
 
     // Handle oral submission fields
     if (isDeletingOralSubmission) {
-      // Clean up physical file on disk
+      // Clean up physical file(s) on disk (handle both stored filename and URL basename)
       try {
-        const oldFile = existingRegistration.oral_submission_file_name;
-        const oldUrl = existingRegistration.oral_submission_url;
-        if (oldFile) {
-          await deleteUploadedFile('selection-audios', oldFile);
-        } else if (oldUrl) {
-          const parts = oldUrl.split('/');
-          const fname = parts[parts.length - 1];
-          if (fname) {
-            await deleteUploadedFile('selection-audios', fname);
-          }
+        const candidates = new Set<string>();
+        if (existingRegistration.oral_submission_file_name) {
+          candidates.add(existingRegistration.oral_submission_file_name);
+        }
+        if (existingRegistration.oral_submission_url) {
+          const parts = existingRegistration.oral_submission_url.split('/');
+          const fname = parts[parts.length - 1]?.split('?')[0];
+          if (fname) candidates.add(fname);
+        }
+        for (const fname of Array.from(candidates)) {
+          await deleteUploadedFile('selection-audios', fname);
         }
       } catch (fileErr) {
         logger.warn('Failed to delete existing audio file from storage', { error: fileErr });

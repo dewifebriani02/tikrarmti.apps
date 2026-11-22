@@ -8,10 +8,15 @@ const MAX_AUDIO_BYTES = 50 * 1024 * 1024;
 const AUDIO_CONTENT_TYPES: Record<string, string> = {
   mp3: 'audio/mpeg',
   ogg: 'audio/ogg',
+  opus: 'audio/opus',
   wav: 'audio/wav',
   webm: 'audio/webm',
   m4a: 'audio/mp4',
   mp4: 'audio/mp4',
+  aac: 'audio/aac',
+  '3gp': 'audio/3gpp',
+  amr: 'audio/amr',
+  flac: 'audio/flac',
 };
 
 const PRODUCTION_HOST = 'markaztikrar.id';

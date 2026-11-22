@@ -332,7 +332,15 @@ export default function PerjalananSaya() {
   // Current user registration specifically for current batchId
   const currentBatchReg = useMemo(() => {
     if (!registrations || !batchId) return null;
-    return registrations.find(reg => reg.batch_id === batchId) || null;
+    const batchRegs = registrations.filter(reg => reg.batch_id === batchId && reg.status !== 'withdrawn');
+    return (
+      batchRegs.find(reg => reg.selection_status === 'selected') ||
+      batchRegs.find(reg => (reg as any).needs_revision || (reg as any).oral_assessment_status === 'needs_revision' || (reg as any).oral_assessment_notes === 'NEEDS_REVISION') ||
+      batchRegs.find(reg => !!(reg as any).oral_submission_url) ||
+      batchRegs[0] ||
+      registrations.find(reg => reg.batch_id === batchId) ||
+      null
+    );
   }, [registrations, batchId]);
 
   // Fetch batch timeline data - scoped to current batchId and currentBatchReg
@@ -361,7 +369,13 @@ export default function PerjalananSaya() {
     const hasAnyRegistration = batchRegistrations.some(reg => reg.status !== 'withdrawn');
     const hasActiveRegistration = batchRegistrations.some(reg => ['approved', 'pending'].includes(reg.status));
     const approvedRegistration = batchRegistrations.find(reg => reg.selection_status === 'selected');
-    const registration = (approvedRegistration || batchRegistrations[0]) as TikrarRegistration;
+    const revisionRegistration = batchRegistrations.find(reg =>
+      (reg as any)?.needs_revision ||
+      (reg as any)?.oral_assessment_status === 'needs_revision' ||
+      (reg as any)?.oral_assessment_notes === 'NEEDS_REVISION'
+    );
+    const oralSubmittedRegistration = batchRegistrations.find(reg => !!(reg as any)?.oral_submission_url);
+    const registration = (approvedRegistration || revisionRegistration || oralSubmittedRegistration || batchRegistrations[0]) as TikrarRegistration;
 
     const showSelectionResult = (() => {
       if (!batch?.selection_result_date) return false;
@@ -386,10 +400,10 @@ export default function PerjalananSaya() {
       // Consider having oral assessment as having submitted (even without url if admin input score manually)
       hasOralSubmission: !!(
         (registration?.oral_submission_url ||
-        (registration?.oral_assessment_status && registration?.oral_assessment_status !== 'pending' && registration?.oral_assessment_status !== 'not_submitted') ||
+        (registration?.oral_assessment_status && registration?.oral_assessment_status !== 'pending' && registration?.oral_assessment_status !== 'not_submitted' && registration?.oral_assessment_status !== 'needs_revision') ||
         (registration?.oral_total_score != null && registration?.oral_total_score > 0) ||
         (registration?.oral_score != null && registration?.oral_score > 0)) &&
-        !((registration as any)?.needs_revision || (registration as any)?.oral_assessment_notes === 'NEEDS_REVISION')
+        !((registration as any)?.needs_revision || registration?.oral_assessment_status === 'needs_revision' || (registration as any)?.oral_assessment_notes === 'NEEDS_REVISION')
       ),
       oralSubmissionUrl: registration?.oral_submission_url,
       oralSubmittedAt: registration?.oral_submitted_at,
@@ -400,7 +414,7 @@ export default function PerjalananSaya() {
       examStatus: (registration as any)?.exam_status,
       examScore: registration?.exam_score,
       examSubmittedAt: (registration as any)?.exam_submitted_at,
-      needsRevision: (registration as any)?.needs_revision || (registration as any)?.oral_assessment_notes === 'NEEDS_REVISION',
+      needsRevision: (registration as any)?.needs_revision || registration?.oral_assessment_status === 'needs_revision' || (registration as any)?.oral_assessment_notes === 'NEEDS_REVISION',
       writtenQuizSubmittedAt: registration?.written_quiz_submitted_at || (registration as any)?.written_submitted_at,
       selectionStatus: displaySelectionStatus,
       showSelectionResult,
@@ -567,7 +581,7 @@ export default function PerjalananSaya() {
             // Show recording button if: has form AND (hasn't recorded yet, OR registration is still open allowing re-record, OR needs revision)
             isTestAction: hasFormPendaftaran && (!hasOral || (isRegistrationStarted && !isRegistrationDone) || registrationStatus.needsRevision),
             isTestDisabled: !isRegistrationStarted || (isRegistrationDone && !registrationStatus.needsRevision),
-            testUrl: `/seleksi/rekam-suara?batchId=${batchId}`
+            testUrl: `/seleksi/rekam-suara?batchId=${batchId}${registrationStatus?.registrationId ? `&registrationId=${registrationStatus.registrationId}` : ''}`
           },
         ]
       },

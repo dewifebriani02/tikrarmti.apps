@@ -327,7 +327,7 @@ function renderItemDescription(
 
             <div className="grid grid-cols-1 gap-3 max-w-sm">
               {isRegistrationStarted ? (
-                <Link href={`/seleksi/rekam-suara?batch_id=${batchId}`}>
+                <Link href={`/seleksi/rekam-suara?batch_id=${batchId}${registrationStatus?.registrationId ? `&registrationId=${registrationStatus.registrationId}` : ""}`}>
                   {oralCard}
                 </Link>
               ) : (

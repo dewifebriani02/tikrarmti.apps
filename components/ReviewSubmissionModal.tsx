@@ -3,6 +3,8 @@
 import { FormattedQuestionText } from "@/components/exam/FormattedQuestionText";
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useSWRConfig } from 'swr';
 import {
   Dialog,
   DialogContent,
@@ -57,7 +59,18 @@ export function ReviewSubmissionModal({
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<any>(null);
   const [questions, setQuestions] = useState<any[]>([]);
+  const router = useRouter();
+  const { mutate } = useSWRConfig();
   const [isRetracting, setIsRetracting] = useState(false);
+  const [confirmingRetract, setConfirmingRetract] = useState(false);
+  const [retractError, setRetractError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setConfirmingRetract(false);
+      setRetractError(null);
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen && type === 'written') {
@@ -176,11 +189,8 @@ export function ReviewSubmissionModal({
   };
 
   const handleRetract = async () => {
-    if (!window.confirm('Apakah Ukhti yakin ingin menarik rekaman ini dan merekam ulang? Rekaman saat ini akan dihapus.')) {
-      return;
-    }
-
     setIsRetracting(true);
+    setRetractError(null);
     try {
       const response = await fetch(`/api/pendaftaran/tikrar/${registrationStatus.registrationId}`, {
         method: 'PUT',
@@ -195,20 +205,35 @@ export function ReviewSubmissionModal({
       });
 
       if (!response.ok) {
-        const err = await response.json();
+        const err = await response.json().catch(() => ({}));
         throw new Error(err.error || 'Gagal menarik rekaman');
       }
 
-      window.location.reload();
+      await Promise.all([
+        mutate('/api/pendaftaran/all'),
+        mutate('/api/pendaftaran/my'),
+      ]).catch(() => {});
+
+      const batchId = registrationStatus?.registration?.batch_id;
+      const regId = registrationStatus?.registrationId;
+      const params = new URLSearchParams();
+      if (batchId) params.set('batchId', batchId);
+      if (regId) params.set('registrationId', regId);
+      const targetUrl = params.toString() ? `/seleksi/rekam-suara?${params.toString()}` : '/seleksi/rekam-suara';
+
+      setConfirmingRetract(false);
+      onClose();
+      router.push(targetUrl);
     } catch (err: any) {
-      alert(err.message || 'Gagal menarik rekaman');
+      setRetractError(err.message || 'Gagal menarik rekaman');
     } finally {
       setIsRetracting(false);
     }
   };
 
   const renderOralReview = () => {
-    const canRetract = !['pass', 'fail'].includes(registrationStatus.oralAssessmentStatus || '') || registrationStatus.needsRevision;
+    const isSelectionDecided = !!registrationStatus.registration?.selection_status && registrationStatus.registration.selection_status !== 'pending';
+    const canRetract = (!['pass', 'fail'].includes(registrationStatus.oralAssessmentStatus || '') && !isSelectionDecided) || registrationStatus.needsRevision;
     const isPendingAssessment = !['pass', 'fail'].includes(registrationStatus.oralAssessmentStatus || '') || registrationStatus.needsRevision;
 
     return (
@@ -240,20 +265,57 @@ export function ReviewSubmissionModal({
           {registrationStatus.oralSubmissionUrl ? (
             <div className="flex flex-col gap-4">
               <SafeAudioPlayer src={registrationStatus.oralSubmissionUrl} />
-              {canRetract && (
+              {retractError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-2xl text-xs font-semibold text-red-700 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                  <span>{retractError}</span>
+                </div>
+              )}
+              {canRetract && !confirmingRetract && (
                 <Button
-                  onClick={handleRetract}
+                  type="button"
+                  onClick={() => {
+                    setRetractError(null);
+                    setConfirmingRetract(true);
+                  }}
                   disabled={isRetracting}
                   variant="outline"
                   className="w-full rounded-2xl border-red-200 hover:border-red-300 hover:bg-red-50 text-red-600 hover:text-red-700 font-bold transition-all h-12 flex items-center justify-center gap-2 mt-2"
                 >
-                  {isRetracting ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <RotateCcw className="w-4 h-4" />
-                  )}
+                  <RotateCcw className="w-4 h-4" />
                   Tarik Rekaman & Rekam Ulang
                 </Button>
+              )}
+              {canRetract && confirmingRetract && (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-2xl space-y-3 mt-2">
+                  <p className="text-xs font-bold text-red-900 text-center">
+                    Yakin ingin menghapus rekaman ini dan langsung menuju halaman rekam ulang?
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Button
+                      type="button"
+                      onClick={handleRetract}
+                      disabled={isRetracting}
+                      variant="destructive"
+                      className="flex-1 rounded-xl font-bold h-11"
+                    >
+                      {isRetracting ? (
+                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Menghapus...</>
+                      ) : (
+                        <>Ya, Hapus & Rekam Ulang</>
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={() => setConfirmingRetract(false)}
+                      disabled={isRetracting}
+                      variant="outline"
+                      className="flex-1 rounded-xl bg-white font-bold h-11"
+                    >
+                      Batal
+                    </Button>
+                  </div>
+                </div>
               )}
             </div>
           ) : (

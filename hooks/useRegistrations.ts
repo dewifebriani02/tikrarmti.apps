@@ -52,7 +52,8 @@ export function useMyRegistrations(userId?: string) {
     getFetcher,
     {
       revalidateOnFocus: true, // Refresh on focus for better UX
-      dedupingInterval: 60000, // 1 minute cache
+      revalidateOnMount: true,
+      dedupingInterval: 5000,
       refreshInterval: 30000, // 30 seconds
       fallbackData: [], // Empty array as fallback
     }
@@ -76,7 +77,8 @@ export function useAllRegistrations() {
     getFetcher,
     {
       revalidateOnFocus: true,
-      dedupingInterval: 60000,
+      revalidateOnMount: true,
+      dedupingInterval: 5000,
       refreshInterval: 30000,
       fallbackData: [],
     }

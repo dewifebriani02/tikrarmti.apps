@@ -2,18 +2,21 @@
 
 import { useState, useRef, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useSWRConfig } from 'swr';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Mic, Upload, CheckCircle, AlertCircle, Loader2, Play, Pause, FileAudio, RefreshCw } from 'lucide-react';
+import { Mic, Upload, CheckCircle, AlertCircle, Loader2, Play, Pause, FileAudio, RefreshCw, Trash2 } from 'lucide-react';
 import { UserProfileCard } from '@/components/UserProfileCard';
+import { SafeAudioPlayer } from '@/components/SafeAudioPlayer';
 
 export const dynamic = 'force-dynamic';
 
 function RekamSuaraContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { mutate } = useSWRConfig();
   const queryBatchId = searchParams.get('batch_id') || searchParams.get('batchId');
   const queryRegistrationId = searchParams.get('registration_id') || searchParams.get('registrationId');
 
@@ -30,49 +33,19 @@ function RekamSuaraContent() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [activeRegistrationId, setActiveRegistrationId] = useState<string | null>(null);
   const [activeBatchId, setActiveBatchId] = useState<string | null>(null);
+  const [revisionBanner, setRevisionBanner] = useState<{ needsRevision: boolean; notes?: string } | null>(null);
   const [existingSubmission, setExistingSubmission] = useState<{
     url: string;
     fileName: string;
     submittedAt: string;
     assessmentStatus?: string;
+    selectionStatus?: string;
     needsRevision?: boolean;
     notes?: string;
     registrationId?: string;
   } | null>(null);
-  const [existingAudioUrl, setExistingAudioUrl] = useState<string | null>(null);
   const [hasRegistration, setHasRegistration] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    if (!existingSubmission?.url) {
-      setExistingAudioUrl(null);
-      return;
-    }
-    
-    let active = true;
-    let createdUrl: string | null = null;
-    
-    fetch(existingSubmission.url)
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        return res.blob();
-      })
-      .then((blob) => {
-        if (active) {
-          createdUrl = URL.createObjectURL(blob);
-          setExistingAudioUrl(createdUrl);
-        }
-      })
-      .catch((err) => {
-        console.error('Error pre-loading existing audio:', err);
-      });
-      
-    return () => {
-      active = false;
-      if (createdUrl) {
-        URL.revokeObjectURL(createdUrl);
-      }
-    };
-  }, [existingSubmission?.url]);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [permissionDenied, setPermissionDenied] = useState<boolean>(false);
@@ -86,6 +59,15 @@ function RekamSuaraContent() {
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const audioURLRef = useRef<string | null>(null);
+
+  const updateAudioURL = (nextUrl: string | null) => {
+    if (audioURLRef.current && audioURLRef.current.startsWith('blob:')) {
+      URL.revokeObjectURL(audioURLRef.current);
+    }
+    audioURLRef.current = nextUrl;
+    setAudioURL(nextUrl);
+  };
 
   // Client-side mount
   useEffect(() => {
@@ -109,8 +91,20 @@ function RekamSuaraContent() {
         clearInterval(recordingTimerRef.current);
         recordingTimerRef.current = null;
       }
+
+      if (audioURLRef.current && audioURLRef.current.startsWith('blob:')) {
+        URL.revokeObjectURL(audioURLRef.current);
+        audioURLRef.current = null;
+      }
     };
   }, []);
+
+  // Redirect unauthenticated users cleanly outside render
+  useEffect(() => {
+    if (isClient && !authLoading && !user) {
+      router.push('/login');
+    }
+  }, [isClient, authLoading, user, router]);
 
   // Check for existing registration & submission
   useEffect(() => {
@@ -121,6 +115,7 @@ function RekamSuaraContent() {
         const response = await fetch(`/api/pendaftaran/my`, {
           method: 'GET',
           credentials: 'include',
+          cache: 'no-store',
         });
 
         if (!response.ok) {
@@ -130,27 +125,47 @@ function RekamSuaraContent() {
 
         const result = await response.json();
         const dataArray: any[] = result.data || [];
-        const thalibahList = Array.isArray(dataArray) ? dataArray.filter(reg => reg.registration_type === 'thalibah') : [];
+        const thalibahList = Array.isArray(dataArray)
+          ? dataArray.filter(reg => reg.registration_type === 'thalibah' && reg.status !== 'withdrawn')
+          : [];
+
+        const isRegRevision = (reg: any) =>
+          reg?.needs_revision === true ||
+          reg?.oral_assessment_status === 'needs_revision' ||
+          reg?.oral_assessment_notes === 'NEEDS_REVISION';
 
         let currentReg = null;
         if (queryRegistrationId) {
           currentReg = thalibahList.find(reg => reg.id === queryRegistrationId);
         }
         if (!currentReg && queryBatchId) {
-          currentReg = thalibahList.find(reg => reg.batch_id === queryBatchId || reg.batch?.id === queryBatchId);
+          const batchRegs = thalibahList.filter(reg => reg.batch_id === queryBatchId || reg.batch?.id === queryBatchId);
+          currentReg =
+            batchRegs.find(reg => reg.selection_status === 'selected') ||
+            batchRegs.find(isRegRevision) ||
+            batchRegs.find(reg => !!reg.oral_submission_url) ||
+            batchRegs[0] ||
+            null;
         }
         if (!currentReg && thalibahList.length > 0) {
           // Prefer active/open batch or registration needing oral submission or revision
-          currentReg = thalibahList.find(reg => reg.batch?.status === 'open') ||
-                       thalibahList.find(reg => reg.needs_revision === true || reg.oral_assessment_status === 'needs_revision' || reg.oral_assessment_notes === 'NEEDS_REVISION') ||
-                       thalibahList.find(reg => reg.oral_assessment_status !== 'pass') ||
-                       thalibahList[0];
+          const openRegs = thalibahList.filter(reg => reg.batch?.status === 'open');
+          currentReg =
+            openRegs.find(reg => reg.selection_status === 'selected') ||
+            openRegs.find(isRegRevision) ||
+            openRegs.find(reg => !!reg.oral_submission_url) ||
+            openRegs[0] ||
+            thalibahList.find(isRegRevision) ||
+            thalibahList.find(reg => reg.oral_assessment_status !== 'pass') ||
+            thalibahList[0];
         }
 
         if (currentReg) {
           setHasRegistration(true);
           setActiveRegistrationId(currentReg.id);
           setActiveBatchId(currentReg.batch_id);
+          const needsRev = isRegRevision(currentReg);
+          setRevisionBanner(needsRev ? { needsRevision: true, notes: currentReg.oral_assessment_notes || '' } : null);
 
           if (currentReg.oral_submission_url) {
             setExistingSubmission({
@@ -158,7 +173,8 @@ function RekamSuaraContent() {
               fileName: currentReg.oral_submission_file_name || 'audio.webm',
               submittedAt: currentReg.oral_submitted_at || new Date().toISOString(),
               assessmentStatus: currentReg.oral_assessment_status || 'pending',
-              needsRevision: currentReg.needs_revision === true || currentReg.oral_assessment_status === 'needs_revision' || currentReg.oral_assessment_notes === 'NEEDS_REVISION',
+              selectionStatus: currentReg.selection_status || 'pending',
+              needsRevision: needsRev,
               notes: currentReg.oral_assessment_notes || '',
               registrationId: currentReg.id,
             });
@@ -226,8 +242,8 @@ function RekamSuaraContent() {
       setError(null);
       setPermissionDenied(false);
 
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        setError('Browser tidak mendukung perekaman langsung. Silakan rekam dengan perekam suara bawaan HP/laptop dan gunakan tombol "Unggah File Audio" di bawah.');
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder === 'undefined') {
+        setError('Browser tidak mendukung perekaman langsung. Silakan rekam dengan perekam suara bawaan HP/laptop dan gunakan tombol "Pilih File Rekaman" di bawah.');
         return;
       }
 
@@ -238,36 +254,61 @@ function RekamSuaraContent() {
 
       streamRef.current = stream;
 
-      // Determine mimeType
-      let mimeType = 'audio/webm';
-      if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
-        mimeType = 'audio/webm;codecs=opus';
-      } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
-        mimeType = 'audio/mp4';
-      } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
-        mimeType = 'audio/ogg';
+      // Determine supported mimeType safely (iOS Safari crashes if passed unsupported mimeType)
+      const candidates = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4;codecs=mp4a.40.2',
+        'audio/mp4',
+        'audio/ogg;codecs=opus',
+        'audio/ogg',
+        'audio/aac',
+      ];
+      let supportedMimeType = '';
+      if (typeof MediaRecorder.isTypeSupported === 'function') {
+        supportedMimeType = candidates.find(type => MediaRecorder.isTypeSupported(type)) || '';
       }
 
-      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      const mediaRecorder = supportedMimeType
+        ? new MediaRecorder(stream, { mimeType: supportedMimeType })
+        : new MediaRecorder(stream);
 
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
 
       mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
+        if (event.data && event.data.size > 0) {
           chunksRef.current.push(event.data);
         }
       };
 
+      mediaRecorder.onerror = () => {
+        setIsRecording(false);
+        setError('Terjadi gangguan saat merekam di browser ini. Silakan coba lagi atau gunakan opsi "Pilih File Rekaman".');
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(track => track.stop());
+          streamRef.current = null;
+        }
+      };
+
       mediaRecorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: mimeType });
-        setAudioBlob(blob);
-        setAudioURL(URL.createObjectURL(blob));
+        const resolvedMime = supportedMimeType || mediaRecorder.mimeType || 'audio/webm';
+        const blob = new Blob(chunksRef.current, { type: resolvedMime });
 
         if (streamRef.current) {
           streamRef.current.getTracks().forEach(track => track.stop());
           streamRef.current = null;
         }
+
+        if (blob.size === 0) {
+          setError('Rekaman suara kosong atau terlalu pendek. Pastikan mikrofon aktif dan rekam minimal 2 detik, atau unggah file audio dari HP.');
+          setAudioBlob(null);
+          updateAudioURL(null);
+          return;
+        }
+
+        setAudioBlob(blob);
+        updateAudioURL(URL.createObjectURL(blob));
       };
 
       mediaRecorder.start();
@@ -278,11 +319,11 @@ function RekamSuaraContent() {
 
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
         setPermissionDenied(true);
-        setError('Akses mikrofon ditolak oleh browser. Ukhti bisa memberikan izin mikrofon di pengaturan browser ATAU menggunakan opsi "Unggah File Audio" di bawah.');
+        setError('Akses mikrofon ditolak oleh browser. Ukhti bisa memberikan izin mikrofon di pengaturan browser ATAU menggunakan opsi "Pilih File Rekaman" di bawah.');
       } else if (err.name === 'NotFoundError') {
         setError('Mikrofon tidak ditemukan. Silakan unggah file rekaman dari perangkat Ukhti.');
       } else {
-        setError('Kendala akses mikrofon: ' + err.message + '. Silakan gunakan opsi "Unggah File Audio" di bawah.');
+        setError('Kendala akses mikrofon: ' + (err?.message || 'Tidak didukung') + '. Silakan gunakan opsi "Pilih File Rekaman" di bawah.');
       }
 
       if (streamRef.current) {
@@ -304,6 +345,11 @@ function RekamSuaraContent() {
     if (!file) return;
 
     setError(null);
+    if (file.size === 0) {
+      setError('File audio kosong (0 byte). Pilih file rekaman lain.');
+      return;
+    }
+
     const maxSize = 10 * 1024 * 1024; // 10MB
     if (file.size > maxSize) {
       setError('Ukuran file terlalu besar. Maksimal 10 MB.');
@@ -311,7 +357,7 @@ function RekamSuaraContent() {
     }
 
     setAudioBlob(file);
-    setAudioURL(URL.createObjectURL(file));
+    updateAudioURL(URL.createObjectURL(file));
   };
 
   const uploadAudio = async () => {
@@ -320,7 +366,9 @@ function RekamSuaraContent() {
 
     if (
       existingSubmission &&
-      (existingSubmission.assessmentStatus === 'pass' || existingSubmission.assessmentStatus === 'fail') &&
+      (existingSubmission.assessmentStatus === 'pass' ||
+        existingSubmission.assessmentStatus === 'fail' ||
+        (existingSubmission.selectionStatus && existingSubmission.selectionStatus !== 'pending')) &&
       !existingSubmission.needsRevision
     ) {
       setError('Rekaman suara sudah dinilai dan tidak dapat diubah.');
@@ -349,7 +397,7 @@ function RekamSuaraContent() {
         if (ext) fileExtension = ext;
       } else if (audioBlob.type) {
         const ext = audioBlob.type.split('/')[1]?.split(';')[0];
-        if (ext) fileExtension = ext;
+        if (ext) fileExtension = ext === 'mp4' ? 'm4a' : ext;
       }
 
       const fileName = `${user.id}_alfath29_${timestamp}.${fileExtension}`;
@@ -377,18 +425,29 @@ function RekamSuaraContent() {
       }
 
       const uploadResult = await uploadRes.json();
-      const publicUrl = uploadResult.data?.oral_submission_url || uploadResult.submission?.oral_submission_url || uploadResult.data?.audio_url;
+      const savedData = uploadResult.data || uploadResult.submission || {};
+      const publicUrl = savedData.oral_submission_url || savedData.audio_url;
+      const savedFileName = savedData.oral_submission_file_name || fileName;
 
       setUploadProgress(100);
       setUploadSuccess(true);
+      setConfirmingDelete(false);
+      setRevisionBanner(null);
       setExistingSubmission({
         url: publicUrl,
-        fileName,
-        submittedAt: new Date().toISOString(),
+        fileName: savedFileName,
+        submittedAt: savedData.oral_submitted_at || new Date().toISOString(),
         assessmentStatus: 'pending',
+        selectionStatus: savedData.selection_status || 'pending',
         needsRevision: false,
         registrationId: regId,
       });
+
+      // Keep /perjalanan-saya SWR cache fresh when user returns
+      await Promise.all([
+        mutate('/api/pendaftaran/all'),
+        mutate('/api/pendaftaran/my'),
+      ]).catch(() => {});
 
     } catch (err: any) {
       console.error('Upload error:', err);
@@ -401,9 +460,8 @@ function RekamSuaraContent() {
 
   const deleteRecording = async () => {
     const regId = existingSubmission?.registrationId || activeRegistrationId;
-    if (!regId) return;
-
-    if (!window.confirm('Apakah Ukhti yakin ingin menghapus rekaman ini?')) {
+    if (!regId) {
+      setError('Data pendaftaran tidak ditemukan. Silakan muat ulang halaman.');
       return;
     }
 
@@ -430,9 +488,22 @@ function RekamSuaraContent() {
 
       setExistingSubmission(null);
       setAudioBlob(null);
-      setAudioURL(null);
+      updateAudioURL(null);
       setError(null);
       setUploadSuccess(false);
+      setUploadProgress(0);
+      setConfirmingDelete(false);
+      setIsPlaying(false);
+      setRevisionBanner(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+
+      // Invalidate SWR caches so /perjalanan-saya reflects deletion immediately
+      await Promise.all([
+        mutate('/api/pendaftaran/all'),
+        mutate('/api/pendaftaran/my'),
+      ]).catch(() => {});
 
     } catch (err: any) {
       console.error('[DELETE] Error:', err);
@@ -449,8 +520,7 @@ function RekamSuaraContent() {
       audioPlayerRef.current.pause();
       setIsPlaying(false);
     } else {
-      audioPlayerRef.current.play();
-      setIsPlaying(true);
+      audioPlayerRef.current.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
     }
   };
 
@@ -460,7 +530,7 @@ function RekamSuaraContent() {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  if (!isClient || authLoading) {
+  if (!isClient || authLoading || !user) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <Loader2 className="w-8 h-8 animate-spin text-green-900" />
@@ -468,12 +538,67 @@ function RekamSuaraContent() {
     );
   }
 
-  if (!user) {
-    router.push('/login');
-    return null;
-  }
+  const isGraded =
+    (existingSubmission?.assessmentStatus === 'pass' ||
+      existingSubmission?.assessmentStatus === 'fail' ||
+      (existingSubmission?.selectionStatus && existingSubmission.selectionStatus !== 'pending')) &&
+    !existingSubmission?.needsRevision;
 
-  const isGraded = (existingSubmission?.assessmentStatus === 'pass' || existingSubmission?.assessmentStatus === 'fail') && !existingSubmission?.needsRevision;
+  const renderDeleteControl = () => {
+    if (confirmingDelete) {
+      return (
+        <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl space-y-3">
+          <p className="text-xs sm:text-sm font-semibold text-red-900">
+            Yakin ingin menghapus rekaman ini agar Ukhti bisa merekam atau mengunggah ulang?
+          </p>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button
+              type="button"
+              onClick={deleteRecording}
+              disabled={isDeleting}
+              variant="destructive"
+              className="flex-1"
+            >
+              {isDeleting ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Menghapus...</>
+              ) : (
+                <><Trash2 className="w-4 h-4 mr-2" />Ya, Hapus Rekaman</>
+              )}
+            </Button>
+            <Button
+              type="button"
+              onClick={() => setConfirmingDelete(false)}
+              disabled={isDeleting}
+              variant="outline"
+              className="flex-1 bg-white"
+            >
+              Batal
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex flex-col sm:flex-row gap-2">
+        <Button
+          type="button"
+          onClick={() => {
+            setError(null);
+            setConfirmingDelete(true);
+          }}
+          disabled={isDeleting}
+          variant="destructive"
+          className="flex-1"
+        >
+          <Trash2 className="w-4 h-4 mr-2" /> Hapus & Rekam Ulang
+        </Button>
+        <Button type="button" onClick={() => router.push('/perjalanan-saya')} variant="outline" className="flex-1">
+          Kembali ke Perjalanan Saya
+        </Button>
+      </div>
+    );
+  };
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl space-y-6">
@@ -491,7 +616,7 @@ function RekamSuaraContent() {
           {/* Arabic Text */}
           <div className="bg-green-50 p-6 rounded-lg text-center">
             <p className="text-2xl leading-loose text-right font-serif" dir="rtl">
-              مُّحَمَّدٌ رَّسُولُ ٱللَّهِ ۚ وَٱلَّذِينَ مَعَهُۥٓ أَشِدَّآءُ عَلَى ٱلْكُفَّارِ رُحَمَآءُ بَيْنَهُمْ ۖ تَرَىٰهُمْ رُكَّعًا سُجَّدًا يَبْتَغُونَ فَضْلًا مِّنَ ٱللَّهِ وَرِضْوَٰنًا ۖ سِيمَاهُمْ فِى وُجُوهِهِم مِّنْ أَثَرِ ٱلسُّجُودِ ۚ ذَٰلِكَ مَثَلُهُمْ فِى ٱلتَّوْرَىٰةِ ۚ وَمَثَلُهُمْ فِى ٱلْإِنجِيلِ كَزَرْعٍ أَخْرَجَ شَطْـَٔهُۥ فَـَٔازَرَهُۥ فَٱسْتَغْلَظَ فَٱسْتَوَىٰ عَلَىٰ سُوقِهِۦ يُعْجِبُ ٱلزُّرَّاعَ لِيَغِيظَ بِهِمُ ٱلْكُفَّارَ ۗ وَعَدَ ٱللَّهُ ٱلَّذِينَ ءَامَنُوا۟ وَعَمِلُوا۟ ٱلصَّٰلِحَٰتِ مِنْهُم مَّغْفِرَةً وَأَجْرًا عَظِيمًۭا
+              مُّحَمَّدٌ رَّسُولُ ٱللَّهِ ۚ وَٱلَّذِينَ مَعَهُۥٓ أَشِدَّآءُ عَلَى ٱلْكُفَّارِ رُحَمَآءُ بَيْنَهُمْ ۖ تَرَىٰهُمْ رُكَّعًا سُجَّدًا يَبْتَغُونَ فَضْلًا مِّنَ ٱللَّهِ وَرِضْوَٰنًا ۖ سِيمَاهُمْ فِى وُجُوهِهِم مِّنْ أَثَرِ ٱلسُّجُودِ ۚ ذَٰلِكَ مَثَلُهُمْ فِى ٱلتَّوْرَىٰةِ ۚ وَمَثَلُهُمْ فِى ٱلْإِنجِيلِ كَزَرْعٍ أَخْرَجَ شَطْـَٔهُۥ فَـَٔازَرَهُۥ فَٱسْتَغْلَظَ فَٱسْتَوَىٰ عَلَىٰ سُوقِهِۦ يُعْجِبُ ٱلزُّرَّاعَ لِيَغِيظَ بِهِمُ ٱلْكُفَّارَ ۗ وَعَدَ ٱللَّهُ ٱلَّذِينَ ءَامَنُوا۟ وَعَمِلُوا۟ ٱلصَّـٰلِحَـٰتِ مِنْهُم مَّغْفِرَةً وَأَجْرًا عَظِيمًۢا
             </p>
             <p className="text-sm text-gray-600 mt-4">QS. Al-Fath (48) : 29</p>
           </div>
@@ -508,6 +633,22 @@ function RekamSuaraContent() {
                     Isi Formulir Pendaftaran
                   </Button>
                 </div>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Revision Notice when previous recording was already deleted */}
+          {!existingSubmission && !uploadSuccess && revisionBanner?.needsRevision && (
+            <Alert className="bg-amber-50 border-amber-300">
+              <AlertCircle className="h-4 w-4 text-amber-600" />
+              <AlertDescription>
+                <p className="text-sm font-semibold text-amber-900">Perlu Rekam Ulang / Revisi</p>
+                <p className="text-xs text-amber-800 mt-1">
+                  Silakan rekam ulang bacaan QS. Al-Fath ayat 29 atau unggah file rekaman baru di bawah ini.
+                </p>
+                {revisionBanner.notes && revisionBanner.notes !== 'NEEDS_REVISION' && (
+                  <p className="text-xs text-amber-900 mt-1 font-medium">Catatan Penguji: {revisionBanner.notes}</p>
+                )}
               </AlertDescription>
             </Alert>
           )}
@@ -533,21 +674,10 @@ function RekamSuaraContent() {
                     </Alert>
                   )}
 
-                  {/* Audio Player */}
-                  <div className="bg-white p-3 rounded border border-green-200">
-                    <p className="text-sm font-medium text-gray-700 mb-2">Rekaman Ukhti:</p>
-                    <div className="flex justify-center mb-3">
-                      <Button onClick={() => {
-                        const audio = document.getElementById('existing-audio') as HTMLAudioElement;
-                        if (audio) {
-                          if (audio.paused) audio.play(); else audio.pause();
-                          setIsPlaying(!audio.paused);
-                        }
-                      }} size="lg" variant="outline" className="h-16 w-16 rounded-full p-0">
-                        {isPlaying ? <Pause className="w-8 h-8 text-green-900" /> : <Play className="w-8 h-8 text-green-900 ml-1" />}
-                      </Button>
-                    </div>
-                    <audio id="existing-audio" src={existingAudioUrl || undefined} className="w-full" onEnded={() => setIsPlaying(false)} />
+                  {/* Resilient Audio Player */}
+                  <div className="bg-white p-3 rounded border border-green-200 space-y-2">
+                    <p className="text-sm font-medium text-gray-700">Rekaman Ukhti:</p>
+                    <SafeAudioPlayer src={existingSubmission.url} />
                   </div>
 
                   {!isGraded ? (
@@ -558,12 +688,7 @@ function RekamSuaraContent() {
                           <p className="text-sm text-blue-800">Ukhti bisa menghapus rekaman ini dan merekam ulang / mengunggah file baru sebelum dinilai.</p>
                         </AlertDescription>
                       </Alert>
-                      <div className="flex gap-2">
-                        <Button onClick={deleteRecording} disabled={isDeleting} variant="destructive" className="flex-1">
-                          {isDeleting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Menghapus...</> : 'Hapus & Rekam Ulang'}
-                        </Button>
-                        <Button onClick={() => router.push('/perjalanan-saya')} variant="outline" className="flex-1">Kembali</Button>
-                      </div>
+                      {renderDeleteControl()}
                     </div>
                   ) : (
                     <div className="space-y-2">
@@ -586,7 +711,7 @@ function RekamSuaraContent() {
                   Jika Ukhti membuka website ini dari aplikasi WhatsApp/Instagram, silakan salin link dan buka di aplikasi <strong>Chrome</strong> atau <strong>Safari</strong>, lalu klik &quot;Izinkan&quot; saat meminta akses mikrofon.
                 </p>
                 <p className="text-xs font-semibold text-green-800">
-                  💡 Solusi Mudah: Rekam suara Ukhti menggunakan aplikasi Perekam Suara bawaan HP (Voice Recorder), lalu klik tombol <strong>&quot;Pilih File Audio&quot;</strong> di bawah ini untuk mengunggah.
+                  💡 Solusi Mudah: Rekam suara Ukhti menggunakan aplikasi Perekam Suara bawaan HP (Voice Recorder), lalu klik tombol <strong>&quot;Pilih File Rekaman&quot;</strong> di bawah ini untuk mengunggah.
                 </p>
               </AlertDescription>
             </Alert>
@@ -629,7 +754,7 @@ function RekamSuaraContent() {
                     </div>
                     <audio ref={audioPlayerRef} src={audioURL} controls className="w-full" onEnded={() => setIsPlaying(false)} />
                   </div>
-                  <Button onClick={() => router.push('/perjalanan-saya')} className="w-full bg-green-700">Kembali ke Perjalanan Saya</Button>
+                  {renderDeleteControl()}
                 </div>
               </AlertDescription>
             </Alert>
@@ -697,7 +822,7 @@ function RekamSuaraContent() {
                       ref={fileInputRef}
                       type="file"
                       id="audio-file-input"
-                      accept="audio/*,.mp3,.m4a,.wav,.ogg,.webm,.aac"
+                      accept="audio/*,.mp3,.m4a,.wav,.ogg,.webm,.aac,.3gp,.amr,.opus"
                       className="hidden"
                       onChange={handleFileUpload}
                     />
@@ -749,7 +874,7 @@ function RekamSuaraContent() {
                     <Button
                       onClick={() => {
                         setAudioBlob(null);
-                        setAudioURL(null);
+                        updateAudioURL(null);
                         if (fileInputRef.current) fileInputRef.current.value = '';
                       }}
                       variant="outline"

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { createServerClient } from '@/lib/supabase/server';
 import { getAuthorizationContext } from '@/lib/rbac';
-import { saveUploadedFile } from '@/lib/storage';
+import { saveUploadedFile, deleteUploadedFile } from '@/lib/storage';
 
 // PostgreSQL-backed admin client
 const supabaseAdmin = createSupabaseAdmin();
@@ -88,10 +88,18 @@ export async function POST(request: NextRequest) {
         fileExtension = 'm4a';
       } else if (origName.endsWith('.wav') || audioFile.type.includes('wav')) {
         fileExtension = 'wav';
+      } else if (origName.endsWith('.opus') || audioFile.type.includes('opus')) {
+        fileExtension = 'opus';
       } else if (origName.endsWith('.ogg') || audioFile.type.includes('ogg')) {
         fileExtension = 'ogg';
       } else if (origName.endsWith('.aac') || audioFile.type.includes('aac')) {
         fileExtension = 'aac';
+      } else if (origName.endsWith('.3gp') || audioFile.type.includes('3gp')) {
+        fileExtension = '3gp';
+      } else if (origName.endsWith('.amr') || audioFile.type.includes('amr')) {
+        fileExtension = 'amr';
+      } else if (origName.endsWith('.flac') || audioFile.type.includes('flac')) {
+        fileExtension = 'flac';
       }
 
       const fileName = `selection-${user.id}-${Date.now()}.${fileExtension}`;
@@ -223,6 +231,26 @@ export async function POST(request: NextRequest) {
         { error: 'Failed to save submission', details: updateError.message, code: updateError.code },
         { status: 500 }
       );
+    }
+
+    if (submissionData.type === 'oral') {
+      try {
+        const oldCandidates = new Set<string>();
+        if (existingRegistration.oral_submission_file_name) {
+          oldCandidates.add(existingRegistration.oral_submission_file_name);
+        }
+        if (existingRegistration.oral_submission_url) {
+          const fname = existingRegistration.oral_submission_url.split('/').pop()?.split('?')[0];
+          if (fname) oldCandidates.add(fname);
+        }
+        for (const oldName of Array.from(oldCandidates)) {
+          if (oldName !== submissionData.file_name) {
+            await deleteUploadedFile('selection-audios', oldName);
+          }
+        }
+      } catch (cleanupErr) {
+        console.warn('Warning: failed to clean up replaced oral audio:', cleanupErr);
+      }
     }
 
     return NextResponse.json({
