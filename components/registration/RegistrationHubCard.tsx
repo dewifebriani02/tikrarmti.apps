@@ -7,22 +7,18 @@ import {
   Sparkles,
   GraduationCap,
   ShieldCheck,
-  Calendar,
   Clock,
   ChevronRight,
   CheckCircle2,
   AlertCircle,
-  HelpCircle,
   Crown
 } from 'lucide-react';
 import { useRegistrationBatch } from '@/hooks/useBatches';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyRegistrations } from '@/hooks/useRegistrations';
 import { useFormSettings } from '@/hooks/useFormSettings';
-import { createClient } from '@/lib/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 
 interface RegistrationHubCardProps {
   className?: string;
@@ -259,187 +255,46 @@ export function RegistrationHubCard({
             </div>
           </div>
 
-          {/* Cards Section */}
-          <div className="p-5 sm:p-7 md:p-8 space-y-8 bg-gradient-to-b from-stone-50/50 to-white">
-            
-            {/* Kategori 1: Thalibah (Belajar) */}
-            <div>
-              <div className="flex items-center gap-2 mb-4 px-1">
-                <span className="text-xs font-black uppercase tracking-widest text-emerald-800 bg-emerald-100/80 px-2.5 py-1 rounded-md">
-                  Kategori Thalibah
-                </span>
-                <div className="flex-1 h-px bg-emerald-200/60"></div>
-              </div>
+          {/* Cards Section — Fixed 1 col on mobile, fixed 2 cols on tablet (sm+) and laptop */}
+          <div className="p-4 sm:p-6 md:p-8 bg-gradient-to-b from-stone-50/50 to-white">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
 
-              <div className={cn("grid gap-4 sm:gap-5", isPraTikrarActive ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 max-w-xl")}>
-                
-                {/* 1. Tikrar Tahfidz */}
-                <div className="bg-white border-2 border-amber-200/80 hover:border-amber-400 rounded-2xl p-5 sm:p-6 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between group">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="w-11 h-11 bg-amber-100 rounded-xl flex items-center justify-center text-amber-700 shadow-inner group-hover:scale-105 transition-transform">
-                        <BookOpen className="w-6 h-6" />
-                      </div>
-                      <span className="text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+              {/* 1. Tikrar Tahfidz */}
+              <div className="bg-white border-2 border-amber-200/80 hover:border-amber-400 rounded-2xl p-5 sm:p-6 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between group">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="w-11 h-11 bg-amber-100 rounded-xl flex items-center justify-center text-amber-700 shadow-inner group-hover:scale-105 transition-transform shrink-0">
+                      <BookOpen className="w-6 h-6" />
+                    </div>
+                    <div className="flex flex-wrap items-center justify-end gap-1.5">
+                      <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md bg-emerald-100/80 text-emerald-800">
+                        Thalibah
+                      </span>
+                      <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
                         Program Utama
                       </span>
                     </div>
-
-                    <div>
-                      <h3 className="text-base sm:text-lg font-bold text-gray-900 group-hover:text-amber-800 transition-colors">
-                        Thalibah Tikrar Tahfidz
-                      </h3>
-                      <p className="text-xs sm:text-sm text-gray-600 mt-1 leading-relaxed">
-                        Hafalan Al-Qur'an intensif metode 40x pengulangan (Juz 1, 2, 27, 28, 29, 30) dengan sistem pasangan setoran.
-                      </p>
-                    </div>
-
-                    <div className="text-[11px] font-medium text-gray-500 pt-2 border-t border-gray-100 flex flex-wrap gap-x-3 gap-y-1">
-                      <span>⏱ Durasi: <strong className="text-gray-700">13 Pekan</strong></span>
-                      <span>•</span>
-                      <span>💰 Biaya: <strong className="text-emerald-700 font-bold">GRATIS</strong></span>
-                    </div>
                   </div>
 
-                  <div className="pt-5">
-                    {hasRegisteredTikrar ? (
-                      <div className="space-y-2">
-                        <Button
-                          disabled
-                          className="w-full bg-emerald-50 text-emerald-700 border border-emerald-300 font-bold py-2.5 rounded-xl cursor-default flex items-center justify-center gap-1.5"
-                        >
-                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                          Sudah Terdaftar
-                        </Button>
-                        {pendingTikrarRegistration && isRegistrationOpen && (
-                          <Link href={`/pendaftaran/tikrar-tahfidz?batchId=${batchId}&edit=true`} className="block">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="w-full border-amber-300 text-amber-800 hover:bg-amber-50 font-bold rounded-xl text-xs"
-                            >
-                              Ubah Pilihan Juz / Jadwal
-                            </Button>
-                          </Link>
-                        )}
-                      </div>
-                    ) : canRegisterTikrar ? (
-                      <Link href={`/pendaftaran/tikrar-tahfidz?batchId=${batchId}`} className="block">
-                        <Button className="w-full bg-gradient-to-r from-amber-600 via-yellow-600 to-amber-700 hover:from-amber-700 hover:via-yellow-700 hover:to-amber-800 text-white font-bold py-2.5 rounded-xl shadow-md shadow-amber-900/10 hover:shadow-lg transition-all flex items-center justify-center gap-1.5">
-                          Daftar Tikrar Tahfidz
-                          <ChevronRight className="w-4 h-4" />
-                        </Button>
-                      </Link>
-                    ) : (
-                      <Button
-                        disabled
-                        className="w-full bg-gray-100 text-gray-500 font-bold py-2.5 rounded-xl cursor-not-allowed flex items-center justify-center gap-1.5"
-                      >
-                        {!isTikrarActive ? 'Pendaftaran Belum Dibuka' : 'Pendaftaran Ditutup'}
-                      </Button>
-                    )}
+                  <div>
+                    <h3 className="text-base sm:text-lg font-bold text-gray-900 group-hover:text-amber-800 transition-colors">
+                      Thalibah Tikrar Tahfidz
+                    </h3>
+                    <p className="text-xs sm:text-sm text-gray-600 mt-1 leading-relaxed">
+                      Hafalan Al-Qur'an intensif metode 40x pengulangan (Juz 1, 2, 27, 28, 29, 30) dengan sistem pasangan setoran.
+                    </p>
+                  </div>
+
+                  <div className="text-[11px] font-medium text-gray-500 pt-2 border-t border-gray-100 flex flex-wrap gap-x-3 gap-y-1">
+                    <span>⏱ Durasi: <strong className="text-gray-700">13 Pekan</strong></span>
+                    <span>•</span>
+                    <span>💰 Biaya: <strong className="text-emerald-700 font-bold">GRATIS</strong></span>
                   </div>
                 </div>
 
-                {/* 2. Pra-Tikrar */}
-                {isPraTikrarActive && (
-                  <div className="bg-white border-2 border-fuchsia-200/80 hover:border-fuchsia-400 rounded-2xl p-5 sm:p-6 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between group">
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="w-11 h-11 bg-fuchsia-100 rounded-xl flex items-center justify-center text-fuchsia-700 shadow-inner group-hover:scale-105 transition-transform">
-                          <Sparkles className="w-6 h-6" />
-                        </div>
-                        <span className="text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full bg-fuchsia-50 text-fuchsia-800 border border-fuchsia-200">
-                          Tahsin Dasar
-                        </span>
-                      </div>
-
-                      <div>
-                        <h3 className="text-base sm:text-lg font-bold text-gray-900 group-hover:text-fuchsia-800 transition-colors">
-                          Thalibah Pra-Tikrar
-                        </h3>
-                        <p className="text-xs sm:text-sm text-gray-600 mt-1 leading-relaxed">
-                          Perbaikan bacaan dasar Al-Qur'an (Tahsin) & pembekalan makhraj huruf sebelum melanjutkan ke program hafalan.
-                        </p>
-                      </div>
-
-                      <div className="text-[11px] font-medium text-gray-500 pt-2 border-t border-gray-100 flex flex-wrap gap-x-3 gap-y-1">
-                        <span>🎯 Target: <strong className="text-gray-700">Juz 30</strong></span>
-                        <span>•</span>
-                        <span>🎙 Seleksi: <strong className="text-gray-700">Tes Lisan</strong></span>
-                      </div>
-                    </div>
-
-                    <div className="pt-5">
-                      {hasRegisteredPraTikrar ? (
-                        <Button
-                          disabled
-                          className="w-full bg-emerald-50 text-emerald-700 border border-emerald-300 font-bold py-2.5 rounded-xl cursor-default flex items-center justify-center gap-1.5"
-                        >
-                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                          Sudah Terdaftar
-                        </Button>
-                      ) : canRegisterPraTikrar ? (
-                        <Link href={`/pendaftaran/pra-tikrar?batchId=${batchId}`} className="block">
-                          <Button className="w-full bg-gradient-to-r from-fuchsia-700 to-purple-800 hover:from-fuchsia-800 hover:to-purple-900 text-white font-bold py-2.5 rounded-xl shadow-md shadow-fuchsia-900/10 hover:shadow-lg transition-all flex items-center justify-center gap-1.5">
-                            Daftar Pra-Tikrar
-                            <ChevronRight className="w-4 h-4" />
-                          </Button>
-                        </Link>
-                      ) : (
-                        <Button
-                          disabled
-                          className="w-full bg-gray-100 text-gray-500 font-bold py-2.5 rounded-xl cursor-not-allowed flex items-center justify-center gap-1.5"
-                        >
-                          Pendaftaran Ditutup
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-              </div>
-            </div>
-
-            {/* Kategori 2: Tim Pengajar & Pendamping (Khadimat Qur'an) */}
-            <div>
-              <div className="flex items-center gap-2 mb-4 px-1">
-                <span className="text-xs font-black uppercase tracking-widest text-teal-800 bg-teal-100/80 px-2.5 py-1 rounded-md">
-                  Kategori Tim Pengajar {isMusyrifahActive ? "& Pendamping" : "(Mu'allimah)"}
-                </span>
-                <div className="flex-1 h-px bg-teal-200/60"></div>
-              </div>
-
-              <div className={cn("grid gap-4 sm:gap-5", isMusyrifahActive ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 max-w-xl")}>
-                
-                {/* 3. Mu'allimah */}
-                <div className="bg-white border-2 border-emerald-200/80 hover:border-emerald-400 rounded-2xl p-5 sm:p-6 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between group">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="w-11 h-11 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-800 shadow-inner group-hover:scale-105 transition-transform">
-                        <GraduationCap className="w-6 h-6" />
-                      </div>
-                      <span className="text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
-                        Khadimat Pengajar
-                      </span>
-                    </div>
-
-                    <div>
-                      <h3 className="text-base sm:text-lg font-bold text-gray-900 group-hover:text-emerald-800 transition-colors">
-                        Mu'allimah (Guru Penguji)
-                      </h3>
-                      <p className="text-xs sm:text-sm text-gray-600 mt-1 leading-relaxed">
-                        Khusus calon pengajar untuk menyimak setoran, menguji pekanan, dan mentashih bacaan thalibah.
-                      </p>
-                    </div>
-
-                    <div className="text-[11px] font-medium text-gray-500 pt-2 border-t border-gray-100">
-                      📝 Formulir: <strong className="text-gray-700">Profil & Akad Komitmen Mengajar</strong>
-                    </div>
-                  </div>
-
-                  <div className="pt-5">
-                    {isRegisteredMuallimah ? (
+                <div className="pt-5">
+                  {hasRegisteredTikrar ? (
+                    <div className="space-y-2">
                       <Button
                         disabled
                         className="w-full bg-emerald-50 text-emerald-700 border border-emerald-300 font-bold py-2.5 rounded-xl cursor-default flex items-center justify-center gap-1.5"
@@ -447,10 +302,83 @@ export function RegistrationHubCard({
                         <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                         Sudah Terdaftar
                       </Button>
-                    ) : canRegisterMuallimah ? (
-                      <Link href={`/pendaftaran/muallimah?batchId=${batchId}`} className="block">
-                        <Button className="w-full bg-gradient-to-r from-emerald-700 to-green-800 hover:from-emerald-800 hover:to-green-900 text-white font-bold py-2.5 rounded-xl shadow-md shadow-emerald-950/10 hover:shadow-lg transition-all flex items-center justify-center gap-1.5">
-                          Daftar Sebagai Mu'allimah
+                      {pendingTikrarRegistration && isRegistrationOpen && (
+                        <Link href={`/pendaftaran/tikrar-tahfidz?batchId=${batchId}&edit=true`} className="block">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full border-amber-300 text-amber-800 hover:bg-amber-50 font-bold rounded-xl text-xs"
+                          >
+                            Ubah Pilihan Juz / Jadwal
+                          </Button>
+                        </Link>
+                      )}
+                    </div>
+                  ) : canRegisterTikrar ? (
+                    <Link href={`/pendaftaran/tikrar-tahfidz?batchId=${batchId}`} className="block">
+                      <Button className="w-full bg-gradient-to-r from-amber-600 via-yellow-600 to-amber-700 hover:from-amber-700 hover:via-yellow-700 hover:to-amber-800 text-white font-bold py-2.5 rounded-xl shadow-md shadow-amber-900/10 hover:shadow-lg transition-all flex items-center justify-center gap-1.5">
+                        Daftar Tikrar Tahfidz
+                        <ChevronRight className="w-4 h-4" />
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Button
+                      disabled
+                      className="w-full bg-gray-100 text-gray-500 font-bold py-2.5 rounded-xl cursor-not-allowed flex items-center justify-center gap-1.5"
+                    >
+                      {!isTikrarActive ? 'Pendaftaran Belum Dibuka' : 'Pendaftaran Ditutup'}
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* 2. Pra-Tikrar */}
+              {isPraTikrarActive && (
+                <div className="bg-white border-2 border-fuchsia-200/80 hover:border-fuchsia-400 rounded-2xl p-5 sm:p-6 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between group">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="w-11 h-11 bg-fuchsia-100 rounded-xl flex items-center justify-center text-fuchsia-700 shadow-inner group-hover:scale-105 transition-transform shrink-0">
+                        <Sparkles className="w-6 h-6" />
+                      </div>
+                      <div className="flex flex-wrap items-center justify-end gap-1.5">
+                        <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md bg-emerald-100/80 text-emerald-800">
+                          Thalibah
+                        </span>
+                        <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-fuchsia-50 text-fuchsia-800 border border-fuchsia-200">
+                          Tahsin Dasar
+                        </span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h3 className="text-base sm:text-lg font-bold text-gray-900 group-hover:text-fuchsia-800 transition-colors">
+                        Thalibah Pra-Tikrar
+                      </h3>
+                      <p className="text-xs sm:text-sm text-gray-600 mt-1 leading-relaxed">
+                        Perbaikan bacaan dasar Al-Qur'an (Tahsin) & pembekalan makhraj huruf sebelum melanjutkan ke program hafalan.
+                      </p>
+                    </div>
+
+                    <div className="text-[11px] font-medium text-gray-500 pt-2 border-t border-gray-100 flex flex-wrap gap-x-3 gap-y-1">
+                      <span>🎯 Target: <strong className="text-gray-700">Juz 30</strong></span>
+                      <span>•</span>
+                      <span>🎙 Seleksi: <strong className="text-gray-700">Tes Lisan</strong></span>
+                    </div>
+                  </div>
+
+                  <div className="pt-5">
+                    {hasRegisteredPraTikrar ? (
+                      <Button
+                        disabled
+                        className="w-full bg-emerald-50 text-emerald-700 border border-emerald-300 font-bold py-2.5 rounded-xl cursor-default flex items-center justify-center gap-1.5"
+                      >
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                        Sudah Terdaftar
+                      </Button>
+                    ) : canRegisterPraTikrar ? (
+                      <Link href={`/pendaftaran/pra-tikrar?batchId=${batchId}`} className="block">
+                        <Button className="w-full bg-gradient-to-r from-fuchsia-700 to-purple-800 hover:from-fuchsia-800 hover:to-purple-900 text-white font-bold py-2.5 rounded-xl shadow-md shadow-fuchsia-900/10 hover:shadow-lg transition-all flex items-center justify-center gap-1.5">
+                          Daftar Pra-Tikrar
                           <ChevronRight className="w-4 h-4" />
                         </Button>
                       </Link>
@@ -459,121 +387,177 @@ export function RegistrationHubCard({
                         disabled
                         className="w-full bg-gray-100 text-gray-500 font-bold py-2.5 rounded-xl cursor-not-allowed flex items-center justify-center gap-1.5"
                       >
-                        {!isMuallimahActive ? 'Pendaftaran Belum Dibuka' : 'Pendaftaran Ditutup'}
+                        Pendaftaran Ditutup
                       </Button>
                     )}
                   </div>
                 </div>
+              )}
 
-                {/* 4. Musyrifah / Raisah */}
-                {isMusyrifahActive && (
-                  <div className="bg-white border-2 border-blue-200/80 hover:border-blue-400 rounded-2xl p-5 sm:p-6 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between group">
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="w-11 h-11 bg-blue-100 rounded-xl flex items-center justify-center text-blue-800 shadow-inner group-hover:scale-105 transition-transform">
-                          <ShieldCheck className="w-6 h-6" />
-                        </div>
-                        <span className="text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full bg-blue-50 text-blue-800 border border-blue-200">
+              {/* 3. Mu'allimah */}
+              <div className="bg-white border-2 border-emerald-200/80 hover:border-emerald-400 rounded-2xl p-5 sm:p-6 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between group">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="w-11 h-11 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-800 shadow-inner group-hover:scale-105 transition-transform shrink-0">
+                      <GraduationCap className="w-6 h-6" />
+                    </div>
+                    <div className="flex flex-wrap items-center justify-end gap-1.5">
+                      <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md bg-teal-100/80 text-teal-800">
+                        Tim Pengajar
+                      </span>
+                      <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                        Khadimat Pengajar
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="text-base sm:text-lg font-bold text-gray-900 group-hover:text-emerald-800 transition-colors">
+                      Mu'allimah (Guru Penguji)
+                    </h3>
+                    <p className="text-xs sm:text-sm text-gray-600 mt-1 leading-relaxed">
+                      Khusus calon pengajar untuk menyimak setoran, menguji pekanan, dan mentashih bacaan thalibah.
+                    </p>
+                  </div>
+
+                  <div className="text-[11px] font-medium text-gray-500 pt-2 border-t border-gray-100">
+                    📝 Formulir: <strong className="text-gray-700">Profil & Akad Komitmen Mengajar</strong>
+                  </div>
+                </div>
+
+                <div className="pt-5">
+                  {isRegisteredMuallimah ? (
+                    <Button
+                      disabled
+                      className="w-full bg-emerald-50 text-emerald-700 border border-emerald-300 font-bold py-2.5 rounded-xl cursor-default flex items-center justify-center gap-1.5"
+                    >
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      Sudah Terdaftar
+                    </Button>
+                  ) : canRegisterMuallimah ? (
+                    <Link href={`/pendaftaran/muallimah?batchId=${batchId}`} className="block">
+                      <Button className="w-full bg-gradient-to-r from-emerald-700 to-green-800 hover:from-emerald-800 hover:to-green-900 text-white font-bold py-2.5 rounded-xl shadow-md shadow-emerald-950/10 hover:shadow-lg transition-all flex items-center justify-center gap-1.5">
+                        Daftar Sebagai Mu'allimah
+                        <ChevronRight className="w-4 h-4" />
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Button
+                      disabled
+                      className="w-full bg-gray-100 text-gray-500 font-bold py-2.5 rounded-xl cursor-not-allowed flex items-center justify-center gap-1.5"
+                    >
+                      {!isMuallimahActive ? 'Pendaftaran Belum Dibuka' : 'Pendaftaran Ditutup'}
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* 4. Musyrifah / Raisah */}
+              {isMusyrifahActive && (
+                <div className="bg-white border-2 border-blue-200/80 hover:border-blue-400 rounded-2xl p-5 sm:p-6 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between group">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="w-11 h-11 bg-blue-100 rounded-xl flex items-center justify-center text-blue-800 shadow-inner group-hover:scale-105 transition-transform shrink-0">
+                        <ShieldCheck className="w-6 h-6" />
+                      </div>
+                      <div className="flex flex-wrap items-center justify-end gap-1.5">
+                        <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md bg-teal-100/80 text-teal-800">
+                          Tim Pengajar
+                        </span>
+                        <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-800 border border-blue-200">
                           Manajerial Halaqah
                         </span>
                       </div>
-
-                      <div>
-                        <h3 className="text-base sm:text-lg font-bold text-gray-900 group-hover:text-blue-800 transition-colors">
-                          Musyrifah / Raisah
-                        </h3>
-                        <p className="text-xs sm:text-sm text-gray-600 mt-1 leading-relaxed">
-                          Pendamping halaqah, pemantau kedisiplinan setoran pasangan, dan koordinator grup belajar thalibah.
-                        </p>
-                      </div>
-
-                      <div className="text-[11px] font-medium text-gray-500 pt-2 border-t border-gray-100">
-                        🎯 Fokus: <strong className="text-gray-700">Pelatihan Leadership & Manajemen MTI</strong>
-                      </div>
                     </div>
 
-                    <div className="pt-5">
-                      {isRegisteredMusyrifah ? (
-                        <Button
-                          disabled
-                          className="w-full bg-emerald-50 text-emerald-700 border border-emerald-300 font-bold py-2.5 rounded-xl cursor-default flex items-center justify-center gap-1.5"
-                        >
-                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                          Sudah Terdaftar
-                        </Button>
-                      ) : canRegisterMusyrifah ? (
-                        <Link href={`/pendaftaran/musyrifah?batchId=${batchId}`} className="block">
-                          <Button className="w-full bg-gradient-to-r from-blue-700 to-indigo-800 hover:from-blue-800 hover:to-indigo-900 text-white font-bold py-2.5 rounded-xl shadow-md shadow-blue-900/10 hover:shadow-lg transition-all flex items-center justify-center gap-1.5">
-                            Daftar Sebagai Musyrifah
-                            <ChevronRight className="w-4 h-4" />
-                          </Button>
-                        </Link>
-                      ) : (
-                        <Button
-                          disabled
-                          className="w-full bg-gray-100 text-gray-500 font-bold py-2.5 rounded-xl cursor-not-allowed flex items-center justify-center gap-1.5"
-                        >
-                          Pendaftaran Ditutup
-                        </Button>
-                      )}
+                    <div>
+                      <h3 className="text-base sm:text-lg font-bold text-gray-900 group-hover:text-blue-800 transition-colors">
+                        Musyrifah / Raisah
+                      </h3>
+                      <p className="text-xs sm:text-sm text-gray-600 mt-1 leading-relaxed">
+                        Pendamping halaqah, pemantau kedisiplinan setoran pasangan, dan koordinator grup belajar thalibah.
+                      </p>
+                    </div>
+
+                    <div className="text-[11px] font-medium text-gray-500 pt-2 border-t border-gray-100">
+                      🎯 Fokus: <strong className="text-gray-700">Pelatihan Leadership & Manajemen MTI</strong>
                     </div>
                   </div>
-                )}
 
-              </div>
-            </div>
-
-            {/* Kategori 3: Bimbingan Khusus & Kelas Berbayar Mu'allimah */}
-            {isKelasBerbayarActive && (
-              <div>
-                <div className="flex items-center gap-2 mb-4 px-1">
-                  <span className="text-xs font-black uppercase tracking-widest text-indigo-800 bg-indigo-100/80 px-2.5 py-1 rounded-md">
-                    Kategori Bimbingan Khusus (Kelas Berbayar Resmi)
-                  </span>
-                  <div className="flex-1 h-px bg-indigo-200/60"></div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
-                  <div className="bg-white border-2 border-indigo-200/80 hover:border-indigo-400 rounded-2xl p-5 sm:p-6 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between group">
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="w-11 h-11 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-700 shadow-inner group-hover:scale-105 transition-transform">
-                          <Crown className="w-6 h-6" />
-                        </div>
-                        <span className="text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-800 border border-indigo-200">
-                          Kelas Eksklusif Mu'allimah
-                        </span>
-                      </div>
-
-                      <div>
-                        <h3 className="text-base sm:text-lg font-bold text-gray-900 group-hover:text-indigo-800 transition-colors">
-                          Kelas Berbayar Resmi Mu'allimah MTI
-                        </h3>
-                        <p className="text-xs sm:text-sm text-gray-600 mt-1 leading-relaxed">
-                          Bimbingan intensif talaqqi tahsin & karantina hafalan kelompok kecil (5–15 thalibah) bersama Mu'allimah terverifikasi MTI.
-                        </p>
-                      </div>
-
-                      <div className="text-[11px] font-medium text-gray-500 pt-2 border-t border-gray-100 flex flex-wrap gap-x-3 gap-y-1">
-                        <span>💎 Kurikulum: <strong className="text-gray-700">Disetujui MTI</strong></span>
-                        <span>•</span>
-                        <span>👥 Ruang: <strong className="text-gray-700">Zoom Cloud MTI</strong></span>
-                      </div>
-                    </div>
-
-                    <div className="pt-5">
-                      <Link href="/pendaftaran/kelas-berbayar" className="block">
-                        <Button className="w-full bg-gradient-to-r from-indigo-700 to-purple-800 hover:from-indigo-800 hover:to-purple-900 text-white font-bold py-2.5 rounded-xl shadow-md shadow-indigo-900/10 hover:shadow-lg transition-all flex items-center justify-center gap-1.5">
-                          Lihat Daftar Kelas &amp; Mendaftar
+                  <div className="pt-5">
+                    {isRegisteredMusyrifah ? (
+                      <Button
+                        disabled
+                        className="w-full bg-emerald-50 text-emerald-700 border border-emerald-300 font-bold py-2.5 rounded-xl cursor-default flex items-center justify-center gap-1.5"
+                      >
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                        Sudah Terdaftar
+                      </Button>
+                    ) : canRegisterMusyrifah ? (
+                      <Link href={`/pendaftaran/musyrifah?batchId=${batchId}`} className="block">
+                        <Button className="w-full bg-gradient-to-r from-blue-700 to-indigo-800 hover:from-blue-800 hover:to-indigo-900 text-white font-bold py-2.5 rounded-xl shadow-md shadow-blue-900/10 hover:shadow-lg transition-all flex items-center justify-center gap-1.5">
+                          Daftar Sebagai Musyrifah
                           <ChevronRight className="w-4 h-4" />
                         </Button>
                       </Link>
-                    </div>
+                    ) : (
+                      <Button
+                        disabled
+                        className="w-full bg-gray-100 text-gray-500 font-bold py-2.5 rounded-xl cursor-not-allowed flex items-center justify-center gap-1.5"
+                      >
+                        Pendaftaran Ditutup
+                      </Button>
+                    )}
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
+              {/* 5. Bimbingan Khusus & Kelas Berbayar Mu'allimah */}
+              {isKelasBerbayarActive && (
+                <div className="bg-white border-2 border-indigo-200/80 hover:border-indigo-400 rounded-2xl p-5 sm:p-6 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between group">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="w-11 h-11 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-700 shadow-inner group-hover:scale-105 transition-transform shrink-0">
+                        <Crown className="w-6 h-6" />
+                      </div>
+                      <div className="flex flex-wrap items-center justify-end gap-1.5">
+                        <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md bg-indigo-100/80 text-indigo-800">
+                          Bimbingan Khusus
+                        </span>
+                        <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-800 border border-indigo-200">
+                          Kelas Eksklusif Mu'allimah
+                        </span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h3 className="text-base sm:text-lg font-bold text-gray-900 group-hover:text-indigo-800 transition-colors">
+                        Kelas Berbayar Resmi Mu'allimah MTI
+                      </h3>
+                      <p className="text-xs sm:text-sm text-gray-600 mt-1 leading-relaxed">
+                        Bimbingan intensif talaqqi tahsin & karantina hafalan kelompok kecil (5–15 thalibah) bersama Mu'allimah terverifikasi MTI.
+                      </p>
+                    </div>
+
+                    <div className="text-[11px] font-medium text-gray-500 pt-2 border-t border-gray-100 flex flex-wrap gap-x-3 gap-y-1">
+                      <span>💎 Kurikulum: <strong className="text-gray-700">Disetujui MTI</strong></span>
+                      <span>•</span>
+                      <span>👥 Ruang: <strong className="text-gray-700">Zoom Cloud MTI</strong></span>
+                    </div>
+                  </div>
+
+                  <div className="pt-5">
+                    <Link href="/pendaftaran/kelas-berbayar" className="block">
+                      <Button className="w-full bg-gradient-to-r from-indigo-700 to-purple-800 hover:from-indigo-800 hover:to-purple-900 text-white font-bold py-2.5 rounded-xl shadow-md shadow-indigo-900/10 hover:shadow-lg transition-all flex items-center justify-center gap-1.5">
+                        Lihat Daftar Kelas &amp; Mendaftar
+                        <ChevronRight className="w-4 h-4" />
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              )}
+
+            </div>
           </div>
         </CardContent>
       </Card>
