@@ -159,6 +159,11 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
         icon: <MessageSquare className="h-5 w-5" />,
       });
       baseItems.push({
+        href: '/alumni',
+        label: 'Ruang Alumni',
+        icon: <Users className="h-5 w-5" />,
+      });
+      baseItems.push({
         href: '/admin/donations',
         label: 'Infaq Bulanan',
         icon: <HeartHandshake className="h-5 w-5" />,

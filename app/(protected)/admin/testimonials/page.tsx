@@ -1,16 +1,18 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { MessageSquare, ArrowLeft, RefreshCw, Shield, CheckCircle, Clock, XCircle, Star, Trash2, Search, Filter } from 'lucide-react';
+import { MessageSquare, ArrowLeft, RefreshCw, Shield, CheckCircle, Clock, Star, Trash2, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { toast, Toaster } from 'sonner';
+import { formatBatchBadge } from '@/lib/utils/batch-label';
 
 interface Testimonial {
   id: string;
   user_id: string;
   content: string;
   rating: number;
+  batch_name?: string | null;
   is_approved: boolean;
   created_at: string;
   updated_at?: string;
@@ -114,6 +116,7 @@ export default function AdminTestimonialsPage() {
       const q = search.toLowerCase();
       return (
         t.content.toLowerCase().includes(q) ||
+        (t.batch_name || '').toLowerCase().includes(q) ||
         (t.user?.full_name || '').toLowerCase().includes(q) ||
         (t.user?.email || '').toLowerCase().includes(q)
       );
@@ -161,7 +164,14 @@ export default function AdminTestimonialsPage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
+              <Link
+                href="/alumni"
+                className="h-10 px-4 rounded-xl bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 flex items-center gap-2 text-sm font-semibold text-emerald-800 transition-all"
+              >
+                <MessageSquare className="h-4 w-4" />
+                Tulis Testimoni Saya
+              </Link>
               <button
                 onClick={handleRefresh}
                 disabled={refreshing}
@@ -299,7 +309,7 @@ export default function AdminTestimonialsPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Cari nama, email, atau isi testimoni..."
+                placeholder="Cari nama, batch, atau isi testimoni..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400 transition-all"
@@ -326,7 +336,9 @@ export default function AdminTestimonialsPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-            {filteredTestimonials.map((t) => (
+            {filteredTestimonials.map((t) => {
+              const batchBadge = formatBatchBadge(t.batch_name);
+              return (
               <div
                 key={t.id}
                 className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 group flex flex-col"
@@ -336,14 +348,21 @@ export default function AdminTestimonialsPage() {
 
                 <div className="p-6 flex-1 flex flex-col">
                   {/* Header: User info + Rating */}
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-700 font-bold text-sm">
+                  <div className="flex items-start justify-between gap-2 mb-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-700 font-bold text-sm shrink-0">
                         {t.user?.full_name ? t.user.full_name.substring(0, 2).toUpperCase() : 'HA'}
                       </div>
                       <div className="min-w-0">
-                        <h3 className="font-bold text-gray-900 text-sm truncate">{t.user?.full_name || 'Hamba Allah'}</h3>
-                        <p className="text-xs text-gray-400 truncate">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <h3 className="font-bold text-gray-900 text-sm truncate">{t.user?.full_name || 'Hamba Allah'}</h3>
+                          {batchBadge && (
+                            <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                              {batchBadge}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-400 truncate mt-0.5">
                           {t.user?.email || '-'}
                           {t.user?.kota && ` • Domisili: ${t.user.kota.toLowerCase().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}`}
                         </p>
@@ -367,7 +386,7 @@ export default function AdminTestimonialsPage() {
                     <div className="text-gray-700 text-sm italic leading-relaxed">
                       {t.content.length > 180 && !expandedIds[t.id] ? (
                         <>
-                          "{t.content.substring(0, 180)}..."
+                          &ldquo;{t.content.substring(0, 180)}...&rdquo;
                           <button
                             onClick={() => setExpandedIds(prev => ({ ...prev, [t.id]: true }))}
                             className="text-xs text-emerald-700 hover:text-emerald-800 font-bold ml-1.5 hover:underline block mt-1"
@@ -377,7 +396,7 @@ export default function AdminTestimonialsPage() {
                         </>
                       ) : (
                         <>
-                          "{t.content}"
+                          &ldquo;{t.content}&rdquo;
                           {t.content.length > 180 && (
                             <button
                               onClick={() => setExpandedIds(prev => ({ ...prev, [t.id]: false }))}
@@ -436,7 +455,8 @@ export default function AdminTestimonialsPage() {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

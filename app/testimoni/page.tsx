@@ -76,6 +76,7 @@ export default function TestimoniPage() {
       const q = searchQuery.toLowerCase().trim();
       const matchSearch = !q
         || (t.content && t.content.toLowerCase().includes(q))
+        || (t.batch_name && t.batch_name.toLowerCase().includes(q))
         || (t.user?.full_name && t.user.full_name.toLowerCase().includes(q))
         || (t.user?.kota && t.user.kota.toLowerCase().includes(q));
 
@@ -188,7 +189,7 @@ export default function TestimoniPage() {
               <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Cari nama thalibah, kota, atau kata kunci..."
+                placeholder="Cari nama thalibah, batch, kota, atau kata kunci..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50/50 text-xs sm:text-sm font-medium text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-700 focus:bg-white transition-all"
@@ -358,7 +359,7 @@ export default function TestimoniPage() {
               size="lg"
               className="bg-amber-400 hover:bg-amber-300 text-emerald-950 font-black rounded-2xl px-6 py-5 shadow-md"
             >
-              <Link href="/login" className="inline-flex items-center gap-2">
+              <Link href="/alumni" className="inline-flex items-center gap-2">
                 <Send className="w-4 h-4" />
                 <span>Kirim Testimoni Saya</span>
               </Link>

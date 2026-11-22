@@ -433,7 +433,10 @@ export default function ThalibahBatch2Page() {
           const data = await res.json()
           if (data.isAlumni && !data.isAdmin) {
             setIsAlumni(true)
-            if (!data.testimonial && submitStatus === 'idle') {
+            const shouldBlock = data.requiresTestimonialBeforeRegister !== undefined
+              ? data.requiresTestimonialBeforeRegister
+              : !data.testimonial
+            if (shouldBlock && submitStatus === 'idle') {
               toast.error('Afwan Ukhti, Ukhti harus mengisi testimoni alumni terlebih dahulu.')
               router.push('/alumni')
             }

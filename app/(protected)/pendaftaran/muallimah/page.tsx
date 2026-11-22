@@ -370,7 +370,10 @@ function MuallimahRegistrationContent() {
         const res = await fetch('/api/alumni/testimonial/my');
         if (res.ok) {
           const data = await res.json();
-          if (data.isAlumni && !data.isAdmin && !data.testimonial) {
+          const shouldBlock = data.requiresTestimonialBeforeRegister !== undefined
+            ? data.requiresTestimonialBeforeRegister
+            : (data.isAlumni && !data.isAdmin && !data.testimonial);
+          if (shouldBlock) {
             toast.error('Afwan Ukhti, Ukhti harus mengisi testimoni alumni terlebih dahulu.');
             router.push('/alumni');
           }
