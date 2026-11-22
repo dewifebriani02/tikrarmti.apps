@@ -11,7 +11,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
  * The one-off task it existed for is done, so the handler below is disabled
  * rather than deleted (keeps git history/context). Do not re-enable this
  * without wrapping it in the same verifyAdmin() check used elsewhere in
- * app/(protected)/admin/actions.ts, and preferably not as a GET route.
+ * lib/admin/admin-service.ts, and preferably not as a GET route.
  */
 export async function GET() {
   return NextResponse.json(
