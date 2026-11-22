@@ -177,6 +177,8 @@ export async function POST(request: NextRequest) {
       time_end,
       timezone = 'WIB',
       duration_info,
+      start_date,
+      estimated_end_date,
       student_prerequisites,
       max_students = 10,
       fee_amount = 0,
@@ -188,6 +190,21 @@ export async function POST(request: NextRequest) {
 
     if (!class_name || !subject_material || !schedule_day || !time_start || !time_end) {
       return ApiResponses.badRequest('Semua field utama wajib diisi (Judul kelas, materi, hari, dan jam bimbingan)');
+    }
+
+    const cleanStartDate = start_date ? String(start_date).slice(0, 10) : '';
+    const cleanEndDate = estimated_end_date ? String(estimated_end_date).slice(0, 10) : null;
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(cleanStartDate)) {
+      return ApiResponses.badRequest('Tanggal mulai kelas wajib diisi (format YYYY-MM-DD)');
+    }
+
+    if (cleanEndDate && !/^\d{4}-\d{2}-\d{2}$/.test(cleanEndDate)) {
+      return ApiResponses.badRequest('Format estimasi tanggal selesai tidak valid');
+    }
+
+    if (cleanEndDate && cleanEndDate < cleanStartDate) {
+      return ApiResponses.badRequest('Estimasi tanggal selesai tidak boleh sebelum tanggal mulai');
     }
 
     // Fetch user full name for flyer prompt
@@ -209,6 +226,8 @@ export async function POST(request: NextRequest) {
       time_start,
       time_end,
       duration_info: cleanDuration,
+      start_date: cleanStartDate,
+      estimated_end_date: cleanEndDate,
       student_prerequisites: cleanPrereq,
       fee_amount: Number(fee_amount) || 0,
       max_students: Number(max_students) || 10,
@@ -227,6 +246,8 @@ export async function POST(request: NextRequest) {
       time_end: time_end.trim(),
       timezone,
       duration_info: cleanDuration,
+      start_date: cleanStartDate,
+      estimated_end_date: cleanEndDate,
       student_prerequisites: cleanPrereq,
       max_students: parseInt(max_students) || 10,
       fee_amount: parseFloat(fee_amount) || 0,

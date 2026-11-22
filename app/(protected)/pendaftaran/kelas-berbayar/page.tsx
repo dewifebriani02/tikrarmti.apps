@@ -7,6 +7,7 @@ import {
   Search,
   Filter,
   Calendar,
+  CalendarRange,
   Clock,
   CheckCircle2,
   Crown,
@@ -22,6 +23,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { formatPaidClassDate } from '@/lib/flyer-prompt';
 import { toast, Toaster } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -41,6 +43,8 @@ interface PaidClass {
   time_end: string;
   timezone: string;
   duration_info?: string | null;
+  start_date?: string | null;
+  estimated_end_date?: string | null;
   student_prerequisites?: string | null;
   max_students: number;
   fee_amount: number;
@@ -308,7 +312,7 @@ export default function PendaftaranKelasBerbayarPage() {
               </div>
               <div className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                <span>E-Sertifikat Kelulusan Resmi</span>
+                <span>Pengingat WhatsApp Otomatis Sebelum Mulai</span>
               </div>
             </div>
           </div>
@@ -405,6 +409,8 @@ export default function PendaftaranKelasBerbayarPage() {
               const isFull = enrolled >= max;
               const isUserRegistered = Boolean(c.is_user_registered);
               const percentage = Math.min(100, Math.round((enrolled / max) * 100));
+              const startShort = formatPaidClassDate(c.start_date, 'short');
+              const endShort = formatPaidClassDate(c.estimated_end_date, 'short');
 
               return (
                 <Card
@@ -485,7 +491,7 @@ export default function PendaftaranKelasBerbayarPage() {
                         </div>
                       )}
 
-                      {/* Schedule, Time & Duration */}
+                      {/* Schedule, Time, Dates & Duration */}
                       <div className="space-y-1.5 pt-2 border-t border-gray-100 text-xs text-gray-700">
                         <div className="flex items-center gap-2">
                           <Calendar className="w-3.5 h-3.5 text-gray-400" />
@@ -499,6 +505,15 @@ export default function PendaftaranKelasBerbayarPage() {
                           <div className="flex items-center gap-2">
                             <Hourglass className="w-3.5 h-3.5 text-teal-600" />
                             <span>Durasi: <strong className="text-teal-800">{c.duration_info}</strong></span>
+                          </div>
+                        )}
+                        {startShort && (
+                          <div className="flex items-center gap-2">
+                            <CalendarRange className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>
+                              Periode: <strong className="text-emerald-800">Mulai {startShort}</strong>
+                              {endShort ? ` (Est. selesai ${endShort})` : ''}
+                            </span>
                           </div>
                         )}
                       </div>
@@ -620,6 +635,22 @@ export default function PendaftaranKelasBerbayarPage() {
                     <span className="font-bold">Durasi Program:</span>
                     <span className="font-semibold text-teal-800">
                       {registeringClass.duration_info}
+                    </span>
+                  </div>
+                )}
+                {registeringClass.start_date && (
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold">Tanggal Mulai:</span>
+                    <span className="font-semibold text-emerald-800">
+                      {formatPaidClassDate(registeringClass.start_date, 'long')}
+                    </span>
+                  </div>
+                )}
+                {registeringClass.estimated_end_date && (
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold">Estimasi Selesai:</span>
+                    <span className="font-semibold text-emerald-800">
+                      {formatPaidClassDate(registeringClass.estimated_end_date, 'long')}
                     </span>
                   </div>
                 )}
@@ -781,7 +812,7 @@ export default function PendaftaranKelasBerbayarPage() {
             <div className="p-4 rounded-2xl bg-indigo-50 border border-indigo-200 text-xs text-indigo-950 text-left space-y-1.5">
               <p className="font-bold">Langkah Selanjutnya:</p>
               <p className="leading-relaxed">
-                Silakan bergabung ke grup WhatsApp kelas bimbingan untuk mendapatkan tautan Zoom resmi dan jadwal temu perdana bersama Mu'allimah.
+                Silakan bergabung ke grup WhatsApp kelas bimbingan untuk mendapatkan tautan Zoom resmi dan jadwal temu perdana bersama Mu'allimah. Sistem juga akan mengirimkan pengingat WhatsApp H-1 sebelum kelas dimulai.
               </p>
             </div>
 

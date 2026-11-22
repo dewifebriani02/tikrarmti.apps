@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Sparkles, Send, Calendar, DollarSign, BookOpen, ShieldCheck, UserCheck } from 'lucide-react';
+import { X, Sparkles, Send, Calendar, DollarSign, BookOpen, ShieldCheck, UserCheck, BellRing } from 'lucide-react';
 import { AutoFlyerCanvas, FlyerClassData } from './AutoFlyerCanvas';
+import { calculateEstimatedEndDate } from '@/lib/flyer-prompt';
 import { toast } from 'sonner';
 
 interface MuallimahPaidClassModalProps {
@@ -70,6 +71,8 @@ export function MuallimahPaidClassModal({
     time_start: '05:30',
     time_end: '06:30',
     duration_info: '8 Pekan (2 Bulan)',
+    start_date: '',
+    estimated_end_date: '',
     student_prerequisites: 'Sudah Lancar Membaca Al-Qur\'an, Komitmen Hadir & Setoran Rutin',
     max_students: 10,
     fee_amount: 150000,
@@ -78,11 +81,15 @@ export function MuallimahPaidClassModal({
     zoom_link: '',
   });
 
+  const [isEndDateManuallyEdited, setIsEndDateManuallyEdited] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<'form' | 'preview'>('form');
 
   useEffect(() => {
     if (initialData) {
+      const startVal = initialData.start_date ? String(initialData.start_date).slice(0, 10) : '';
+      const endVal = initialData.estimated_end_date ? String(initialData.estimated_end_date).slice(0, 10) : '';
+      const durVal = initialData.duration_info || '8 Pekan (2 Bulan)';
       setFormData({
         class_name: initialData.class_name || '',
         scheme: initialData.scheme || '80_20',
@@ -91,7 +98,9 @@ export function MuallimahPaidClassModal({
         schedule_day: initialData.schedule_day || 'Senin & Kamis',
         time_start: initialData.time_start || '05:30',
         time_end: initialData.time_end || '06:30',
-        duration_info: initialData.duration_info || '8 Pekan (2 Bulan)',
+        duration_info: durVal,
+        start_date: startVal,
+        estimated_end_date: endVal || calculateEstimatedEndDate(startVal, durVal),
         student_prerequisites: initialData.student_prerequisites || '',
         max_students: initialData.max_students || 10,
         fee_amount: Number(initialData.fee_amount) || 150000,
@@ -99,6 +108,7 @@ export function MuallimahPaidClassModal({
         whatsapp_group_link: initialData.whatsapp_group_link || '',
         zoom_link: initialData.zoom_link || '',
       });
+      setIsEndDateManuallyEdited(Boolean(endVal));
     } else {
       setFormData({
         class_name: '',
@@ -109,6 +119,8 @@ export function MuallimahPaidClassModal({
         time_start: '05:30',
         time_end: '06:30',
         duration_info: '8 Pekan (2 Bulan)',
+        start_date: '',
+        estimated_end_date: '',
         student_prerequisites: 'Sudah Lancar Membaca Al-Qur\'an, Komitmen Hadir & Setoran Rutin',
         max_students: 10,
         fee_amount: 150000,
@@ -116,6 +128,7 @@ export function MuallimahPaidClassModal({
         whatsapp_group_link: '',
         zoom_link: '',
       });
+      setIsEndDateManuallyEdited(false);
     }
   }, [initialData, isOpen]);
 
@@ -126,6 +139,34 @@ export function MuallimahPaidClassModal({
       ...prev,
       time_start: slot.start,
       time_end: slot.end
+    }));
+  };
+
+  const handleDurationChange = (nextDuration: string) => {
+    setFormData(prev => ({
+      ...prev,
+      duration_info: nextDuration,
+      estimated_end_date: isEndDateManuallyEdited
+        ? prev.estimated_end_date
+        : calculateEstimatedEndDate(prev.start_date, nextDuration),
+    }));
+  };
+
+  const handleStartDateChange = (nextStart: string) => {
+    setFormData(prev => ({
+      ...prev,
+      start_date: nextStart,
+      estimated_end_date: isEndDateManuallyEdited
+        ? prev.estimated_end_date
+        : calculateEstimatedEndDate(nextStart, prev.duration_info),
+    }));
+  };
+
+  const handleAutoCalculateEndDate = () => {
+    setIsEndDateManuallyEdited(false);
+    setFormData(prev => ({
+      ...prev,
+      estimated_end_date: calculateEstimatedEndDate(prev.start_date, prev.duration_info),
     }));
   };
 
@@ -164,6 +205,14 @@ export function MuallimahPaidClassModal({
     }
     if (!formData.duration_info.trim()) {
       toast.error('Harap isi durasi program kelas');
+      return;
+    }
+    if (!formData.start_date) {
+      toast.error('Harap isi tanggal mulai kelas');
+      return;
+    }
+    if (formData.estimated_end_date && formData.estimated_end_date < formData.start_date) {
+      toast.error('Estimasi tanggal selesai tidak boleh sebelum tanggal mulai');
       return;
     }
     if (!formData.student_prerequisites.trim()) {
@@ -211,6 +260,8 @@ export function MuallimahPaidClassModal({
     time_start: formData.time_start,
     time_end: formData.time_end,
     duration_info: formData.duration_info,
+    start_date: formData.start_date || null,
+    estimated_end_date: formData.estimated_end_date || null,
     student_prerequisites: formData.student_prerequisites,
     fee_amount: formData.fee_amount,
     max_students: formData.max_students,
@@ -421,7 +472,7 @@ export function MuallimahPaidClassModal({
                     <button
                       key={dur}
                       type="button"
-                      onClick={() => setFormData({ ...formData, duration_info: dur })}
+                      onClick={() => handleDurationChange(dur)}
                       className={`px-2.5 py-1 text-xs rounded-lg border transition-all ${
                         formData.duration_info === dur
                           ? 'bg-teal-700 text-white border-teal-700 font-bold shadow-xs'
@@ -436,10 +487,66 @@ export function MuallimahPaidClassModal({
                   type="text"
                   required
                   value={formData.duration_info}
-                  onChange={e => setFormData({ ...formData, duration_info: e.target.value })}
+                  onChange={e => handleDurationChange(e.target.value)}
                   placeholder="Contoh: 8 Pekan (16 Pertemuan) atau 13 Pekan (1 Batch)"
                   className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-medium bg-white"
                 />
+              </div>
+
+              {/* Tanggal Mulai & Estimasi Selesai */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div>
+                  <label className="text-xs font-bold text-gray-700 block mb-1">
+                    Tanggal Mulai Kelas <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={formData.start_date}
+                    onChange={e => handleStartDateChange(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-semibold bg-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                  />
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-bold text-gray-700">
+                      Estimasi Tanggal Selesai
+                    </label>
+                    {isEndDateManuallyEdited && formData.start_date && (
+                      <button
+                        type="button"
+                        onClick={handleAutoCalculateEndDate}
+                        className="text-[10px] font-bold text-teal-700 hover:text-teal-900 underline"
+                      >
+                        Hitung otomatis
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    type="date"
+                    min={formData.start_date || undefined}
+                    value={formData.estimated_end_date}
+                    onChange={e => {
+                      setIsEndDateManuallyEdited(true);
+                      setFormData(prev => ({ ...prev, estimated_end_date: e.target.value }));
+                    }}
+                    className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-semibold bg-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                  />
+                  <p className="text-[10px] text-gray-500 mt-1">
+                    {formData.duration_info.toLowerCase().includes('berkelanjutan')
+                      ? 'Opsional untuk program berkelanjutan.'
+                      : 'Terhitung otomatis dari Tanggal Mulai & Durasi (dapat diubah).'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Info Reminder Otomatis */}
+              <div className="p-2.5 rounded-xl bg-emerald-50/90 border border-emerald-200 text-[11px] text-emerald-900 flex items-start gap-2">
+                <BellRing className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+                <span>
+                  <strong>Pengingat Otomatis H-1:</strong> Sistem akan mengirim pesan WhatsApp otomatis ke{' '}
+                  <strong>Ustadzah</strong> dan seluruh <strong>Thalibah terdaftar</strong> 1 hari sebelum Tanggal Mulai Kelas.
+                </span>
               </div>
 
               <div>

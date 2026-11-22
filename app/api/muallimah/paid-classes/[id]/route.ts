@@ -93,8 +93,27 @@ export async function PATCH(
       }
     }
 
-    // Owner updates (class details)
-    if (isOwner) {
+    // Class detail updates (owner when not approved, or admin anytime if detail fields provided)
+    const hasDetailFields = [
+      'class_name',
+      'scheme',
+      'subject_material',
+      'description',
+      'schedule_day',
+      'time_start',
+      'time_end',
+      'duration_info',
+      'start_date',
+      'estimated_end_date',
+      'student_prerequisites',
+      'max_students',
+      'fee_amount',
+      'facilities',
+      'whatsapp_group_link',
+      'zoom_link',
+    ].some((k) => body[k] !== undefined);
+
+    if ((isOwner || isAdmin) && hasDetailFields) {
       if (existingClass.status === 'approved' && !isAdmin) {
         return ApiResponses.badRequest('Kelas yang sudah disetujui tidak dapat diubah langsung. Hubungi admin untuk revisi.');
       }
@@ -107,6 +126,31 @@ export async function PATCH(
       if (body.time_start !== undefined) updates.time_start = body.time_start.trim();
       if (body.time_end !== undefined) updates.time_end = body.time_end.trim();
       if (body.duration_info !== undefined) updates.duration_info = body.duration_info?.trim() || null;
+
+      if (body.start_date !== undefined) {
+        const cleanStart = body.start_date ? String(body.start_date).slice(0, 10) : '';
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(cleanStart)) {
+          return ApiResponses.badRequest('Format tanggal mulai tidak valid');
+        }
+        updates.start_date = cleanStart;
+        const oldStart = existingClass.start_date ? String(existingClass.start_date).slice(0, 10) : '';
+        if (cleanStart !== oldStart) {
+          updates.reminder_h1_ustadzah_sent_at = null;
+        }
+      }
+
+      if (body.estimated_end_date !== undefined) {
+        const cleanEnd = body.estimated_end_date ? String(body.estimated_end_date).slice(0, 10) : null;
+        if (cleanEnd && !/^\d{4}-\d{2}-\d{2}$/.test(cleanEnd)) {
+          return ApiResponses.badRequest('Format estimasi tanggal selesai tidak valid');
+        }
+        const effectiveStart = updates.start_date || (existingClass.start_date ? String(existingClass.start_date).slice(0, 10) : '');
+        if (cleanEnd && effectiveStart && cleanEnd < effectiveStart) {
+          return ApiResponses.badRequest('Estimasi tanggal selesai tidak boleh sebelum tanggal mulai');
+        }
+        updates.estimated_end_date = cleanEnd;
+      }
+
       if (body.student_prerequisites !== undefined) updates.student_prerequisites = body.student_prerequisites?.trim() || null;
       if (body.max_students !== undefined) updates.max_students = parseInt(body.max_students) || 10;
       if (body.fee_amount !== undefined) updates.fee_amount = parseFloat(body.fee_amount) || 0;
@@ -130,6 +174,8 @@ export async function PATCH(
         time_start: updatedData.time_start,
         time_end: updatedData.time_end,
         duration_info: updatedData.duration_info,
+        start_date: updatedData.start_date,
+        estimated_end_date: updatedData.estimated_end_date,
         student_prerequisites: updatedData.student_prerequisites,
         fee_amount: Number(updatedData.fee_amount) || 0,
         max_students: Number(updatedData.max_students) || 10,

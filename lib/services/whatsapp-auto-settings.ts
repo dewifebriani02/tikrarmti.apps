@@ -6,6 +6,7 @@ export interface WhatsAppAutoMessagesConfig {
   reminder_sore_murojaah: boolean;
   reminder_ujian_lisan_thalibah: boolean;
   reminder_ujian_lisan_examiner: boolean;
+  reminder_kelas_berbayar_h1: boolean;
   auto_reply_stop_opt_out: boolean;
   ai_escalation_admin_alert: boolean;
 }
@@ -18,6 +19,7 @@ export const DEFAULT_WHATSAPP_AUTO_MESSAGES_CONFIG: WhatsAppAutoMessagesConfig =
   reminder_sore_murojaah: true,
   reminder_ujian_lisan_thalibah: true,
   reminder_ujian_lisan_examiner: true,
+  reminder_kelas_berbayar_h1: true,
   auto_reply_stop_opt_out: true,
   ai_escalation_admin_alert: true,
 };
@@ -48,6 +50,7 @@ export async function getWhatsAppAutoMessagesConfig(): Promise<{
         reminder_sore_murojaah: v.reminder_sore_murojaah !== false,
         reminder_ujian_lisan_thalibah: v.reminder_ujian_lisan_thalibah !== false,
         reminder_ujian_lisan_examiner: v.reminder_ujian_lisan_examiner !== false,
+        reminder_kelas_berbayar_h1: v.reminder_kelas_berbayar_h1 !== false,
         auto_reply_stop_opt_out: v.auto_reply_stop_opt_out !== false,
         ai_escalation_admin_alert: v.ai_escalation_admin_alert !== false,
       },
@@ -82,6 +85,10 @@ export async function updateWhatsAppAutoMessagesConfig(
       patch.reminder_ujian_lisan_examiner !== undefined
         ? Boolean(patch.reminder_ujian_lisan_examiner)
         : current.reminder_ujian_lisan_examiner,
+    reminder_kelas_berbayar_h1:
+      patch.reminder_kelas_berbayar_h1 !== undefined
+        ? Boolean(patch.reminder_kelas_berbayar_h1)
+        : current.reminder_kelas_berbayar_h1,
     auto_reply_stop_opt_out:
       patch.auto_reply_stop_opt_out !== undefined
         ? Boolean(patch.auto_reply_stop_opt_out)

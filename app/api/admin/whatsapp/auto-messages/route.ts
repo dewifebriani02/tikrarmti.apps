@@ -16,6 +16,10 @@ import {
   buildH1OralExamMessage,
   buildH1ExaminerOralExamMessage,
 } from '@/lib/services/exam-reminder';
+import {
+  buildH1PaidClassThalibahMessage,
+  buildH1PaidClassUstadzahMessage,
+} from '@/lib/services/paid-class-reminder';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,6 +40,7 @@ const AUTO_KEYS: Array<keyof WhatsAppAutoMessagesConfig> = [
   'reminder_sore_murojaah',
   'reminder_ujian_lisan_thalibah',
   'reminder_ujian_lisan_examiner',
+  'reminder_kelas_berbayar_h1',
   'auto_reply_stop_opt_out',
   'ai_escalation_admin_alert',
 ];
@@ -91,6 +96,40 @@ function buildAutoMessageItems(
       },
     ],
   });
+
+  const paidClassPreview =
+    `[UNTUK USTADZAH PENGAMPU]\n` +
+    buildH1PaidClassUstadzahMessage({
+      ustadzahName: 'Najah Sungkar',
+      className: 'Bimbingan Tahsin Intensif & Talaqqi',
+      subjectMaterial: 'Makharijul Huruf & Sifatul Huruf',
+      scheduleDay: 'Senin & Kamis',
+      timeStart: '05:30',
+      timeEnd: '06:30',
+      durationInfo: '8 Pekan (2 Bulan)',
+      startDateFormatted: 'Senin, 1 Desember 2026',
+      estimatedEndDateFormatted: 'Senin, 25 Januari 2027',
+      zoomLink: 'https://zoom.us/j/contoh-kelas',
+      whatsappGroupLink: 'https://chat.whatsapp.com/contoh-grup',
+      students: [
+        { registrationId: '1', fullName: 'Fulanah 1', whatsapp: '62812xxxxxxx', status: 'registered' },
+      ],
+    }) +
+    `\n\n━━━━━━━━━━━━━━━━━━━━\n[UNTUK THALIBAH TERDAFTAR]\n` +
+    buildH1PaidClassThalibahMessage({
+      fullName: 'Fulanah binti Fulan',
+      className: 'Bimbingan Tahsin Intensif & Talaqqi',
+      subjectMaterial: 'Makharijul Huruf & Sifatul Huruf',
+      ustadzahName: 'Najah Sungkar',
+      scheduleDay: 'Senin & Kamis',
+      timeStart: '05:30',
+      timeEnd: '06:30',
+      durationInfo: '8 Pekan (2 Bulan)',
+      startDateFormatted: 'Senin, 1 Desember 2026',
+      estimatedEndDateFormatted: 'Senin, 25 Januari 2027',
+      zoomLink: 'https://zoom.us/j/contoh-kelas',
+      whatsappGroupLink: 'https://chat.whatsapp.com/contoh-grup',
+    });
 
   const stopOptOutPreview =
     `Wa'alaikumussalam warahmatullah. Pengingat sore Murojaah 40x melalui WhatsApp telah dinonaktifkan untuk akun Ukhti. Jika suatu saat ingin menyalakannya kembali, silakan buka menu Muraja'ah 40x di https://markaztikrar.id/murojaah.`;
@@ -151,6 +190,20 @@ function buildAutoMessageItems(
       sourceLabel: 'lib/services/exam-reminder.ts → buildH1ExaminerOralExamMessage',
       enabled: autoConfig.reminder_ujian_lisan_examiner,
       templatePreview: examExaminerPreview,
+    },
+    {
+      key: 'reminder_kelas_berbayar_h1',
+      title: 'Pengingat H-1 Mulai Kelas Berbayar (Ustadzah & Thalibah)',
+      category: 'cron',
+      scheduleLabel: 'Cron Harian • 08:30 WIB',
+      recipientLabel: 'Ustadzah pengampu & seluruh Thalibah terdaftar untuk kelas berbayar yang mulai besok',
+      description:
+        'Mengirim pengingat otomatis H-1 sebelum tanggal mulai kelas berbayar berisi rincian jadwal, estimasi selesai, tautan Zoom & Grup WA, serta daftar peserta untuk Ustadzah.',
+      disabledBehavior:
+        'Jika dimatikan, cron pukul 08:30 WIB tidak mengirim pengingat H-1 kelas berbayar.',
+      sourceLabel: 'lib/services/paid-class-reminder.ts → /api/cron/reminder-kelas-berbayar',
+      enabled: autoConfig.reminder_kelas_berbayar_h1,
+      templatePreview: paidClassPreview,
     },
     {
       key: 'auto_reply_stop_opt_out',

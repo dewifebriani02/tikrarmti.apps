@@ -5,6 +5,7 @@ import {
   Sparkles,
   Plus,
   Calendar,
+  CalendarRange,
   Clock,
   DollarSign,
   Users,
@@ -23,6 +24,7 @@ import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { MuallimahPaidClassModal } from '@/components/muallimah/MuallimahPaidClassModal';
 import { AutoFlyerCanvas } from '@/components/muallimah/AutoFlyerCanvas';
+import { formatPaidClassDate } from '@/lib/flyer-prompt';
 import { toast, Toaster } from 'sonner';
 
 export default function MuallimahPaidClassesPage() {
@@ -142,7 +144,7 @@ export default function MuallimahPaidClassesPage() {
             <p className="text-xs sm:text-sm text-emerald-100 leading-relaxed">
               Mu'allimah MTI dapat membuka kelas bimbingan khusus berbayar resmi di bawah naungan MTI.
               Sistem secara otomatis men-generate flyer islami elegan dan prompt AI untuk Canva/ChatGPT,
-              serta broadcast WhatsApp yang siap dipublikasikan ke thalibah.
+              serta mengirim pengingat WhatsApp H-1 sebelum kelas dimulai ke Ustadzah & Thalibah.
             </p>
           </div>
         </div>
@@ -242,6 +244,8 @@ export default function MuallimahPaidClassesPage() {
                 const isApproved = classItem.status === 'approved';
                 const isPending = classItem.status === 'pending';
                 const isRejected = classItem.status === 'rejected';
+                const startFormatted = formatPaidClassDate(classItem.start_date, 'short');
+                const endFormatted = formatPaidClassDate(classItem.estimated_end_date, 'short');
 
                 return (
                   <div
@@ -315,6 +319,15 @@ export default function MuallimahPaidClassesPage() {
                           <div className="col-span-2 flex items-center gap-1.5 pt-1 border-t border-gray-200/60 text-teal-800 font-semibold">
                             <Hourglass className="w-3.5 h-3.5 text-teal-600 shrink-0" />
                             <span className="truncate">Durasi: {classItem.duration_info}</span>
+                          </div>
+                        )}
+                        {startFormatted && (
+                          <div className="col-span-2 flex items-center gap-1.5 text-emerald-800 font-semibold">
+                            <CalendarRange className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            <span className="truncate">
+                              Mulai {startFormatted}
+                              {endFormatted ? ` • Est. selesai ${endFormatted}` : ''}
+                            </span>
                           </div>
                         )}
                       </div>
@@ -422,6 +435,8 @@ export default function MuallimahPaidClassesPage() {
                 time_start: viewingFlyerClass.time_start,
                 time_end: viewingFlyerClass.time_end,
                 duration_info: viewingFlyerClass.duration_info,
+                start_date: viewingFlyerClass.start_date,
+                estimated_end_date: viewingFlyerClass.estimated_end_date,
                 student_prerequisites: viewingFlyerClass.student_prerequisites,
                 fee_amount: viewingFlyerClass.fee_amount,
                 max_students: viewingFlyerClass.max_students,

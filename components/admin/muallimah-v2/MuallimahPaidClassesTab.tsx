@@ -14,6 +14,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { AutoFlyerCanvas } from '@/components/muallimah/AutoFlyerCanvas';
+import { formatPaidClassDate } from '@/lib/flyer-prompt';
 import { toast } from 'sonner';
 
 export function MuallimahPaidClassesTab() {
@@ -244,7 +245,7 @@ export function MuallimahPaidClassesTab() {
                 <th className="py-3.5 px-4">Mu'allimah Pengampu</th>
                 <th className="py-3.5 px-4">Program, Materi & Pra-Syarat</th>
                 <th className="py-3.5 px-4">Skema & Tarif</th>
-                <th className="py-3.5 px-4">Jadwal, Durasi & Kuota</th>
+                <th className="py-3.5 px-4">Jadwal, Periode & Kuota</th>
                 <th className="py-3.5 px-4">Status Verifikasi</th>
                 <th className="py-3.5 px-4 text-center">Aksi Verifikasi</th>
               </tr>
@@ -268,6 +269,8 @@ export function MuallimahPaidClassesTab() {
                   const isApproved = item.status === 'approved';
                   const isPending = item.status === 'pending';
                   const isRejected = item.status === 'rejected';
+                  const startFormatted = formatPaidClassDate(item.start_date, 'short');
+                  const endFormatted = formatPaidClassDate(item.estimated_end_date, 'short');
 
                   let schemeBadge = '80:20 (Musyrifah)';
                   if (item.scheme === '60_40') schemeBadge = '60:40 (Insentif)';
@@ -323,7 +326,7 @@ export function MuallimahPaidClassesTab() {
                         </div>
                       </td>
 
-                      {/* Schedule, Duration & Capacity */}
+                      {/* Schedule, Dates, Duration & Capacity */}
                       <td className="py-4 px-4 whitespace-nowrap">
                         <div className="font-semibold text-gray-800">
                           {item.schedule_day}
@@ -334,6 +337,11 @@ export function MuallimahPaidClassesTab() {
                         {item.duration_info && (
                           <div className="text-[10px] text-teal-700 font-bold mt-0.5">
                             Durasi: {item.duration_info}
+                          </div>
+                        )}
+                        {startFormatted && (
+                          <div className="text-[10px] text-emerald-700 font-semibold mt-0.5">
+                            Mulai: {startFormatted}{endFormatted ? ` • Est: ${endFormatted}` : ''}
                           </div>
                         )}
                         <div className="text-[10px] text-indigo-700 font-bold mt-0.5">
@@ -466,6 +474,15 @@ export function MuallimahPaidClassesTab() {
                   <span className="font-bold text-gray-700">Durasi:</span> {selectedClass.duration_info}
                 </div>
               )}
+              {selectedClass.start_date && (
+                <div>
+                  <span className="font-bold text-gray-700">Periode:</span> Mulai{' '}
+                  {formatPaidClassDate(selectedClass.start_date, 'long')}
+                  {selectedClass.estimated_end_date
+                    ? ` (Est. selesai ${formatPaidClassDate(selectedClass.estimated_end_date, 'long')})`
+                    : ''}
+                </div>
+              )}
               {selectedClass.student_prerequisites && (
                 <div>
                   <span className="font-bold text-gray-700">Pra-Syarat Thalibah:</span>{' '}
@@ -551,6 +568,8 @@ export function MuallimahPaidClassesTab() {
                 time_start: viewingFlyerClass.time_start,
                 time_end: viewingFlyerClass.time_end,
                 duration_info: viewingFlyerClass.duration_info,
+                start_date: viewingFlyerClass.start_date,
+                estimated_end_date: viewingFlyerClass.estimated_end_date,
                 student_prerequisites: viewingFlyerClass.student_prerequisites,
                 fee_amount: viewingFlyerClass.fee_amount,
                 max_students: viewingFlyerClass.max_students,
