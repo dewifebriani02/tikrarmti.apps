@@ -19,19 +19,26 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { juz_number, source } = body;
+    const { juz_number, source, batchId } = body;
     const isFinalExam = source === 'final-exam';
+    const examType = isFinalExam ? 'final-exam' : 'selection';
 
     if (!juz_number || (isFinalExam ? (juz_number < 1 || juz_number > 30) : ![28, 29, 30].includes(juz_number))) {
       return NextResponse.json({ error: 'Invalid juz number' }, { status: 400 });
     }
 
     // Get user's tikrar registration
-    const { data: registrations, error: regError } = await supabaseAdmin
+    let regQuery = supabaseAdmin
       .from('pendaftaran_tikrar_tahfidz')
       .select('*')
       .eq('user_id', user.id)
-      .eq('status', 'approved')
+      .eq('status', 'approved');
+
+    if (batchId) {
+      regQuery = regQuery.eq('batch_id', batchId);
+    }
+
+    const { data: registrations, error: regError } = await regQuery
       .order('created_at', { ascending: false });
 
     if (regError || !registrations || registrations.length === 0) {
@@ -40,7 +47,56 @@ export async function POST(request: NextRequest) {
       }, { status: 404 });
     }
 
-    const registration = registrations[0];
+    const registration =
+      registrations.find((r) => r.selection_status === 'selected') ||
+      registrations[0];
+
+    // If final-exam, enforce schedule window for non-staff
+    let finalPassingScore = 80;
+    if (isFinalExam) {
+      const { data: batch } = await supabaseAdmin
+        .from('batches')
+        .select('name, final_exam_start_date, final_exam_end_date, min_final_exam_score')
+        .eq('id', registration.batch_id)
+        .single();
+
+      const { data: profile } = await supabaseAdmin
+        .from('users')
+        .select('roles')
+        .eq('id', user.id)
+        .single();
+
+      const activePersonaCookie = request.cookies.get('mti_active_persona')?.value;
+      const isSimulatingStudent = activePersonaCookie === 'thalibah' || activePersonaCookie === 'calon_thalibah';
+
+      const isStaff = !isSimulatingStudent && profile?.roles && (
+        profile.roles.includes('admin') ||
+        profile.roles.includes('superadmin') ||
+        profile.roles.includes('musyrifah')
+      );
+
+      const now = new Date();
+      if (!isStaff && (!batch?.final_exam_start_date || now < new Date(batch.final_exam_start_date))) {
+        return NextResponse.json({
+          error: 'Ujian akhir pilihan ganda belum dibuka.'
+        }, { status: 400 });
+      }
+
+      if (!isStaff && batch?.final_exam_end_date && now > new Date(batch.final_exam_end_date)) {
+        return NextResponse.json({
+          error: 'Waktu pelaksanaan ujian akhir telah berakhir.'
+        }, { status: 400 });
+      }
+
+      if (batch?.min_final_exam_score !== undefined && batch?.min_final_exam_score !== null) {
+        finalPassingScore = batch.min_final_exam_score;
+      } else if (batch?.name) {
+        const match = batch.name.match(/Batch\s*(\d+)/i);
+        if (match && parseInt(match[1], 10) < 3) {
+          finalPassingScore = 70;
+        }
+      }
+    }
 
     // Verify that this juz exam is required for their chosen juz
     const requiredJuz = isFinalExam
@@ -59,16 +115,17 @@ export async function POST(request: NextRequest) {
       .select('*')
       .eq('is_active', true)
       .single();
-      
-    const maxAttempts = config?.max_attempts || 1;
-    const passingScore = config?.passing_score || 80;
 
-    // Check if user already has completed attempts for this juz
+    const maxAttempts = isFinalExam ? 1 : (config?.max_attempts || 1);
+    const passingScore = isFinalExam ? finalPassingScore : (config?.passing_score || 80);
+
+    // Check if user already has completed attempts for this juz & exam_type
     const { data: existingAttempts, error: attemptError } = await supabaseAdmin
       .from('exam_attempts')
       .select('*')
       .eq('user_id', user.id)
       .eq('registration_id', registration.id)
+      .eq('exam_type', examType)
       .eq('juz_number', juz_number)
       .eq('status', 'submitted');
 
@@ -78,16 +135,23 @@ export async function POST(request: NextRequest) {
     }
 
     if (existingAttempts && existingAttempts.length > 0) {
+      if (isFinalExam) {
+        return NextResponse.json({
+          error: 'Ukhti telah menyelesaikan ujian akhir pilihan ganda ini',
+          attempt: existingAttempts[existingAttempts.length - 1]
+        }, { status: 400 });
+      }
+
       // Check if any attempt passed
       const hasPassed = existingAttempts.some(a => (a.score || 0) >= passingScore);
-      
+
       if (hasPassed) {
         return NextResponse.json({
           error: 'You have already passed this exam',
           attempt: existingAttempts.find(a => (a.score || 0) >= passingScore)
         }, { status: 400 });
       }
-      
+
       if (existingAttempts.length >= maxAttempts) {
         return NextResponse.json({
           error: 'You have reached the maximum number of attempts for this exam',
@@ -96,12 +160,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check for in-progress attempt
+    // Check for in-progress attempt of the same exam_type
     const { data: inProgressAttempts, error: inProgressError } = await supabaseAdmin
       .from('exam_attempts')
       .select('*')
       .eq('user_id', user.id)
       .eq('registration_id', registration.id)
+      .eq('exam_type', examType)
       .eq('juz_number', juz_number)
       .eq('status', 'in_progress');
 
@@ -115,7 +180,8 @@ export async function POST(request: NextRequest) {
       logger.info('Resuming existing exam attempt', {
         attemptId: inProgressAttempts[0].id,
         userId: user.id,
-        juzNumber: juz_number
+        juzNumber: juz_number,
+        examType
       });
 
       return NextResponse.json({
@@ -136,7 +202,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to load exam questions' }, { status: 500 });
     }
 
-    const totalQuestions = count || 0;
+    const totalQuestions = isFinalExam ? Math.min(count || 0, 100) : (count || 0);
 
     if (totalQuestions === 0) {
       return NextResponse.json({
@@ -154,6 +220,7 @@ export async function POST(request: NextRequest) {
         total_questions: totalQuestions,
         answers: [],
         status: 'in_progress',
+        exam_type: examType,
         started_at: new Date().toISOString()
       })
       .select()
@@ -164,21 +231,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to start exam' }, { status: 500 });
     }
 
-    // Update registration exam status
-    await supabaseAdmin
-      .from('pendaftaran_tikrar_tahfidz')
-      .update({
-        exam_juz_number: juz_number,
-        exam_status: 'in_progress',
-        exam_attempt_id: newAttempt.id
-      })
-      .eq('id', registration.id);
+    // Only update selection exam status columns on pendaftaran_tikrar_tahfidz for selection exams
+    if (!isFinalExam) {
+      await supabaseAdmin
+        .from('pendaftaran_tikrar_tahfidz')
+        .update({
+          exam_juz_number: juz_number,
+          exam_status: 'in_progress',
+          exam_attempt_id: newAttempt.id
+        })
+        .eq('id', registration.id);
+    }
 
     logger.info('Exam attempt started', {
       attemptId: newAttempt.id,
       userId: user.id,
       juzNumber: juz_number,
-      totalQuestions
+      totalQuestions,
+      examType
     });
 
     return NextResponse.json({

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { createServerClient } from '@/lib/supabase/server';
-import { saveUploadedFile } from '@/lib/storage';
+import { getAuthorizationContext } from '@/lib/rbac';
+import { saveUploadedFile, deleteUploadedFile } from '@/lib/storage';
 
 // PostgreSQL-backed admin client
 const supabaseAdmin = createSupabaseAdmin();
@@ -10,11 +11,13 @@ export async function POST(request: NextRequest) {
   try {
     console.log('🎵 API: Received audio submission request');
 
-    // Simple authentication using Supabase SSR client
+    // Authentication using native RBAC context or Supabase SSR client fallback
+    const context = await getAuthorizationContext();
     const supabase = createServerClient();
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const { data: { user: sbUser }, error: userError } = await supabase.auth.getUser();
+    const user = context ? { id: context.userId, email: context.email } : sbUser;
 
-    if (userError || !user) {
+    if (!user) {
       console.error('❌ API: Auth error:', userError);
       return NextResponse.json(
         { error: 'Unauthorized - Invalid session. Please login again.', needsLogin: true },
@@ -28,6 +31,8 @@ export async function POST(request: NextRequest) {
     console.log('📄 Content-Type:', contentType);
 
     let submissionData: any = {};
+    let targetRegistrationId: string | null = null;
+    let targetBatchId: string | null = null;
 
     if (contentType?.includes('multipart/form-data')) {
       console.log('📎 API: Processing multipart form data');
@@ -35,6 +40,9 @@ export async function POST(request: NextRequest) {
       // Handle audio file upload
       const formData = await request.formData();
       console.log('📋 API: FormData keys received:', Array.from(formData.keys()));
+
+      targetRegistrationId = (formData.get('registration_id') || formData.get('registrationId')) as string | null;
+      targetBatchId = (formData.get('batch_id') || formData.get('batchId')) as string | null;
 
       const audioFile = formData.get('audio') as File;
       console.log('🎵 API: Audio file details:', {
@@ -71,48 +79,31 @@ export async function POST(request: NextRequest) {
 
       console.log('🎵 API: Audio file validation passed');
 
-      // Determine file extension based on MIME type
+      // Determine file extension based on MIME type or file name
       let fileExtension = 'webm'; // default
-      if (audioFile.type.includes('mp4') || audioFile.type.includes('m4a')) {
-        fileExtension = 'mp4';
-      } else if (audioFile.type.includes('ogg')) {
-        fileExtension = 'ogg';
-      } else if (audioFile.type.includes('wav')) {
+      const origName = (audioFile.name || '').toLowerCase();
+      if (origName.endsWith('.mp3') || audioFile.type.includes('mpeg') || audioFile.type.includes('mp3')) {
+        fileExtension = 'mp3';
+      } else if (origName.endsWith('.m4a') || audioFile.type.includes('m4a') || audioFile.type.includes('mp4')) {
+        fileExtension = 'm4a';
+      } else if (origName.endsWith('.wav') || audioFile.type.includes('wav')) {
         fileExtension = 'wav';
+      } else if (origName.endsWith('.opus') || audioFile.type.includes('opus')) {
+        fileExtension = 'opus';
+      } else if (origName.endsWith('.ogg') || audioFile.type.includes('ogg')) {
+        fileExtension = 'ogg';
+      } else if (origName.endsWith('.aac') || audioFile.type.includes('aac')) {
+        fileExtension = 'aac';
+      } else if (origName.endsWith('.3gp') || audioFile.type.includes('3gp')) {
+        fileExtension = '3gp';
+      } else if (origName.endsWith('.amr') || audioFile.type.includes('amr')) {
+        fileExtension = 'amr';
+      } else if (origName.endsWith('.flac') || audioFile.type.includes('flac')) {
+        fileExtension = 'flac';
       }
 
       const fileName = `selection-${user.id}-${Date.now()}.${fileExtension}`;
       console.log('📤 API: Uploading audio file:', fileName, 'Size:', audioFile.size, 'Type:', audioFile.type);
-
-      // Additional validation for mobile/tablet uploads
-      const validAudioTypes = [
-        'audio/webm',
-        'audio/webm;codecs=opus',
-        'audio/mp4',
-        'audio/mpeg',
-        'audio/ogg',
-        'audio/ogg;codecs=opus',
-        'audio/wav',
-        'audio/m4a',
-        'audio/mp3',
-        'audio/x-m4a',
-        'audio/3gpp', // Some Android devices
-        'audio/x-wav' // Some iOS devices
-      ];
-
-      // Check if type is valid OR if it starts with audio/ OR if it's empty/mobile-specific
-      const isValidAudioType = validAudioTypes.some(type =>
-        audioFile.type === type ||
-        audioFile.type.includes(type.split(';')[0]) ||
-        audioFile.type.startsWith('audio/') ||
-        !audioFile.type || // Empty type is ok for mobile
-        audioFile.type === 'application/octet-stream' // Some mobile browsers use this
-      );
-
-      if (!isValidAudioType) {
-        console.warn('⚠️ API: Unusual audio MIME type:', audioFile.type);
-        // Still try to upload - be more permissive for mobile devices
-      }
 
       const audioBuffer = Buffer.from(await audioFile.arrayBuffer());
       const { publicUrl } = await saveUploadedFile('selection-audios', fileName, audioBuffer);
@@ -129,6 +120,8 @@ export async function POST(request: NextRequest) {
     } else {
       // Handle written quiz submission
       const body = await request.json();
+      targetRegistrationId = body.registration_id || body.registrationId || null;
+      targetBatchId = body.batch_id || body.batchId || null;
 
       submissionData = {
         user_id: user.id,
@@ -141,42 +134,64 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    // Check if user already exists in pendaftaran_tikrar_tahfidz
-    // console.log('🔍 Checking registration for user:', user.id);
-
-    const { data: existingRegistration, error: checkError } = await supabaseAdmin
+    // Find the matching registration record for this user
+    let registrationQuery = supabaseAdmin
       .from('pendaftaran_tikrar_tahfidz')
       .select('*')
-      .eq('user_id', user.id)
-      .single();
+      .eq('user_id', user.id);
 
-    if (checkError) {
-      // console.error('❌ Check registration error:', checkError);
+    if (targetRegistrationId) {
+      registrationQuery = registrationQuery.eq('id', targetRegistrationId);
+    } else if (targetBatchId) {
+      registrationQuery = registrationQuery.eq('batch_id', targetBatchId).order('created_at', { ascending: false }).limit(1);
+    } else {
+      registrationQuery = registrationQuery.order('created_at', { ascending: false }).limit(1);
     }
 
+    const { data: registrationRows, error: checkError } = await registrationQuery;
+
+    if (checkError) {
+      console.error('❌ Check registration error:', checkError);
+    }
+
+    const existingRegistration = registrationRows && registrationRows.length > 0 ? registrationRows[0] : null;
+
     if (!existingRegistration) {
-      // console.error('❌ Registration not found for user:', user.id);
+      console.error('❌ Registration not found for user:', user.id, { targetRegistrationId, targetBatchId });
       return NextResponse.json(
         { error: 'Pendaftaran tidak ditemukan' },
         { status: 404 }
       );
     }
 
-    // console.log('✅ Found registration:', existingRegistration.id);
+    console.log('✅ Found registration:', existingRegistration.id);
 
-    // Check if already submitted this type of selection
-    if (submissionData.type === 'oral' && existingRegistration.oral_submission_url) {
-      return NextResponse.json(
-        { error: 'Ukhti sudah menyerahkan rekaman suara' },
-        { status: 400 }
-      );
+    const needsRevision =
+      existingRegistration.needs_revision === true ||
+      existingRegistration.oral_assessment_status === 'needs_revision' ||
+      existingRegistration.oral_assessment_notes === 'NEEDS_REVISION';
+
+    // Allow re-recording / editing unless already graded ('pass' or 'fail') without a revision request
+    if (submissionData.type === 'oral' && existingRegistration.oral_submission_url && !needsRevision) {
+      const isGraded = existingRegistration.oral_assessment_status === 'pass' ||
+                       existingRegistration.oral_assessment_status === 'fail' ||
+                       (existingRegistration.selection_status && existingRegistration.selection_status !== 'pending');
+      if (isGraded) {
+        return NextResponse.json(
+          { error: 'Rekaman suara sudah dinilai dan tidak dapat diubah' },
+          { status: 400 }
+        );
+      }
     }
 
     if (submissionData.type === 'written' && existingRegistration.written_quiz_answers) {
-      return NextResponse.json(
-        { error: 'Ukhti sudah menyelesaikan ujian tulisan' },
-        { status: 400 }
-      );
+      const isGraded = existingRegistration.selection_status && existingRegistration.selection_status !== 'pending';
+      if (isGraded) {
+        return NextResponse.json(
+          { error: 'Ujian tulisan sudah dinilai dan tidak dapat diubah' },
+          { status: 400 }
+        );
+      }
     }
 
     // Update pendaftaran_tikrar_tahfidz with selection data
@@ -188,42 +203,60 @@ export async function POST(request: NextRequest) {
       updateData.oral_submission_url = submissionData.audio_url;
       updateData.oral_submission_file_name = submissionData.file_name;
       updateData.oral_submitted_at = new Date().toISOString();
-
+      updateData.oral_assessment_status = 'pending';
+      updateData.needs_revision = false;
+      if (existingRegistration.oral_assessment_notes === 'NEEDS_REVISION') {
+        updateData.oral_assessment_notes = null;
+      }
       // selection_status tetap 'pending' sampai admin review
-      // Valid values: 'pending', 'selected', 'not_selected', 'waitlist'
     } else {
       updateData.written_quiz_answers = submissionData.answers;
       updateData.written_quiz_score = submissionData.score;
       updateData.written_quiz_total_questions = submissionData.total_questions;
       updateData.written_quiz_correct_answers = submissionData.correct_answers;
       updateData.written_quiz_submitted_at = new Date().toISOString();
-
       // selection_status tetap 'pending' sampai admin review
     }
-
-    // console.log('💾 Updating registration with data:', updateData);
 
     const { data: submission, error: updateError } = await supabaseAdmin
       .from('pendaftaran_tikrar_tahfidz')
       .update(updateData)
       .eq('id', existingRegistration.id)
       .select()
-      .single();
+      .maybeSingle();
 
     if (updateError) {
-      // console.error('❌ Update error:', updateError);
-      // console.error('❌ Update error details:', JSON.stringify(updateError, null, 2));
+      console.error('❌ Update error:', updateError);
       return NextResponse.json(
         { error: 'Failed to save submission', details: updateError.message, code: updateError.code },
         { status: 500 }
       );
     }
 
-    // console.log('✅ Update successful:', submission);
+    if (submissionData.type === 'oral') {
+      try {
+        const oldCandidates = new Set<string>();
+        if (existingRegistration.oral_submission_file_name) {
+          oldCandidates.add(existingRegistration.oral_submission_file_name);
+        }
+        if (existingRegistration.oral_submission_url) {
+          const fname = existingRegistration.oral_submission_url.split('/').pop()?.split('?')[0];
+          if (fname) oldCandidates.add(fname);
+        }
+        for (const oldName of Array.from(oldCandidates)) {
+          if (oldName !== submissionData.file_name) {
+            await deleteUploadedFile('selection-audios', oldName);
+          }
+        }
+      } catch (cleanupErr) {
+        console.warn('Warning: failed to clean up replaced oral audio:', cleanupErr);
+      }
+    }
 
     return NextResponse.json({
       success: true,
       submission: submission,
+      data: submission,
       message: 'Seleksi berhasil dikirim'
     });
 
@@ -238,31 +271,46 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    // Simple authentication using Supabase SSR client
+    // Authentication using native RBAC context or Supabase SSR client fallback
+    const context = await getAuthorizationContext();
     const supabase = createServerClient();
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const { data: { user: sbUser } } = await supabase.auth.getUser();
+    const user = context ? { id: context.userId, email: context.email } : sbUser;
 
-    if (userError || !user) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized - Invalid session. Please login again.', needsLogin: true },
         { status: 401 }
       );
     }
 
-    // Get user's registration data using admin client
-    const { data: registration, error } = await supabaseAdmin
+    const targetRegistrationId = request.nextUrl.searchParams.get('registration_id') || request.nextUrl.searchParams.get('registrationId');
+    const targetBatchId = request.nextUrl.searchParams.get('batch_id') || request.nextUrl.searchParams.get('batchId');
+
+    let registrationQuery = supabaseAdmin
       .from('pendaftaran_tikrar_tahfidz')
       .select('*')
-      .eq('user_id', user.id)
-      .single();
+      .eq('user_id', user.id);
 
-    if (error && error.code !== 'PGRST116') {
+    if (targetRegistrationId) {
+      registrationQuery = registrationQuery.eq('id', targetRegistrationId);
+    } else if (targetBatchId) {
+      registrationQuery = registrationQuery.eq('batch_id', targetBatchId).order('created_at', { ascending: false }).limit(1);
+    } else {
+      registrationQuery = registrationQuery.order('created_at', { ascending: false }).limit(1);
+    }
+
+    const { data: registrationRows, error } = await registrationQuery;
+
+    if (error) {
       console.error('Fetch error:', error);
       return NextResponse.json(
         { error: 'Failed to fetch registration data' },
         { status: 500 }
       );
     }
+
+    const registration = registrationRows && registrationRows.length > 0 ? registrationRows[0] : null;
 
     if (!registration) {
       return NextResponse.json({

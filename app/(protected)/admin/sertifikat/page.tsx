@@ -200,7 +200,7 @@ export default function AdminSertifikatPage() {
 
     const unassigned = includedItems.find(it => !it.selectedUserId);
     if (unassigned) {
-      toast.error(`Lembar #${unassigned.pageNumber} (${unassigned.fileName}) belum dipasangkan ke santriwati.`);
+      toast.error(`Lembar #${unassigned.pageNumber} (${unassigned.fileName}) belum dipasangkan ke thalibah.`);
       return;
     }
 
@@ -278,7 +278,7 @@ export default function AdminSertifikatPage() {
             Manajemen Syahadah & Sertifikat Canva
           </h1>
           <p className="text-xs text-gray-700 font-semibold mt-1">
-            Impor dokumen PDF hasil desain Canva, tempel dynamic QR Code verifikasi resmi, dan terbitkan langsung ke akun wisudawati.
+            Impor dokumen PDF hasil desain Canva, tempel dynamic QR Code verifikasi resmi, dan terbitkan langsung ke akun thalibah lulusan.
           </p>
         </div>
 
@@ -322,7 +322,7 @@ export default function AdminSertifikatPage() {
                 Unggah Berkas PDF Canva
               </CardTitle>
               <CardDescription className="text-xs text-gray-700 font-medium">
-                Ekspor sertifikat dari Canva sebagai format "PDF Standar" atau "PDF Cetak". Dapat berupa satu multi-page PDF (seluruh santri) atau beberapa file terpisah.
+                Ekspor sertifikat dari Canva sebagai format "PDF Standar" atau "PDF Cetak". Dapat berupa satu multi-page PDF (seluruh thalibah) atau beberapa file terpisah.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -334,7 +334,7 @@ export default function AdminSertifikatPage() {
                     onChange={(e) => setSelectedBatchId(e.target.value)}
                     className="w-full mt-1.5 px-3 py-2 text-xs rounded-xl border border-gray-200 bg-white font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   >
-                    <option value="all">Semua Santri Aktif (Global)</option>
+                    <option value="all">Semua Thalibah Aktif (Global)</option>
                     {batches?.map((b) => (
                       <option key={b.id} value={b.id}>
                         {b.name}
@@ -376,7 +376,7 @@ export default function AdminSertifikatPage() {
                     ) : (
                       <>
                         <Sparkles className="w-3.5 h-3.5 mr-1.5 text-amber-300" />
-                        Analisis & Cocokkan Santri
+                        Analisis & Cocokkan Thalibah
                       </>
                     )}
                   </Button>
@@ -452,10 +452,10 @@ export default function AdminSertifikatPage() {
                     <span className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center text-xs font-black">
                       3
                     </span>
-                    Verifikasi Pasangan Lembar PDF & Santriwati ({parsedItems.length} Lembar)
+                    Verifikasi Pasangan Lembar PDF & Thalibah ({parsedItems.length} Lembar)
                   </CardTitle>
                   <CardDescription className="text-xs text-gray-700 font-medium">
-                    Sistem mendeteksi nama/NIT secara otomatis dari teks Canva. Anda dapat mengoreksi atau mengubah santriwati yang dipasangkan jika diperlukan.
+                    Sistem mendeteksi nama/NIT secara otomatis dari teks Canva. Anda dapat mengoreksi atau mengubah thalibah yang dipasangkan jika diperlukan.
                   </CardDescription>
                 </div>
 
@@ -480,7 +480,7 @@ export default function AdminSertifikatPage() {
                         <th className="py-2.5 px-3 w-10 text-center">Pilih</th>
                         <th className="py-2.5 px-3 w-28">Berkas & Halaman</th>
                         <th className="py-2.5 px-3">Teks Terdireksi</th>
-                        <th className="py-2.5 px-3">Santriwati Sasaran</th>
+                        <th className="py-2.5 px-3">Thalibah Sasaran</th>
                         <th className="py-2.5 px-3 w-24">Juz</th>
                         <th className="py-2.5 px-3 w-32">Predikat</th>
                         <th className="py-2.5 px-3 w-24 text-center">Status Cocok</th>
@@ -524,7 +524,7 @@ export default function AdminSertifikatPage() {
                               }}
                               className="w-full text-xs font-medium px-2 py-1.5 rounded-lg border border-gray-200 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
                             >
-                              <option value="">-- Pilih Santriwati --</option>
+                              <option value="">-- Pilih Thalibah --</option>
                               {availableStudents.map((s) => (
                                 <option key={s.id} value={s.id}>
                                   {s.full_name} {s.student_id_number ? `(${s.student_id_number})` : ''}
@@ -602,7 +602,7 @@ export default function AdminSertifikatPage() {
                     ) : (
                       <>
                         <QrCode className="w-4 h-4 text-amber-300" />
-                        Stempel QR Code & Terbitkan ke Akun Santri
+                        Stempel QR Code & Terbitkan ke Akun Thalibah
                       </>
                     )}
                   </Button>
@@ -621,7 +621,7 @@ export default function AdminSertifikatPage() {
                 </h3>
               </div>
               <p className="text-xs text-emerald-800">
-                Berhasil menerbitkan <strong>{processResult.totalProcessed}</strong> lembar syahadah resmi. Seluruh dokumen telah distempel dynamic QR Code dan tersimpan di database wisudawati.
+                Berhasil menerbitkan <strong>{processResult.totalProcessed}</strong> lembar syahadah resmi. Seluruh dokumen telah distempel dynamic QR Code dan tersimpan di database kelulusan thalibah.
               </p>
               <div className="pt-2">
                 <Button
@@ -648,7 +648,7 @@ export default function AdminSertifikatPage() {
                   <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <Input
                     type="text"
-                    placeholder="Cari nama santriwati, nomor syahadah, atau NIT..."
+                    placeholder="Cari nama thalibah, nomor syahadah, atau NIT..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-9 text-xs rounded-xl"
@@ -707,7 +707,7 @@ export default function AdminSertifikatPage() {
                   <Award className="w-8 h-8 text-gray-300 mx-auto" />
                   <p className="font-bold text-gray-700">Belum ada syahadah yang diterbitkan.</p>
                   <p className="text-[11px] text-gray-400">
-                    Gunakan tab "Import PDF Canva" untuk mengimpor dan menstempel sertifikat kelulusan santri.
+                    Gunakan tab "Import PDF Canva" untuk mengimpor dan menstempel sertifikat kelulusan thalibah.
                   </p>
                 </div>
               ) : (
@@ -716,7 +716,7 @@ export default function AdminSertifikatPage() {
                     <thead className="bg-gray-50 text-gray-600 font-bold border-b border-gray-200">
                       <tr>
                         <th className="py-3 px-4">No. Syahadah</th>
-                        <th className="py-3 px-4">Nama Santriwati & NIT</th>
+                        <th className="py-3 px-4">Nama Thalibah & NIT</th>
                         <th className="py-3 px-4">Program / Batch</th>
                         <th className="py-3 px-4">Juz & Predikat</th>
                         <th className="py-3 px-4">Tanggal Terbit</th>
@@ -739,7 +739,7 @@ export default function AdminSertifikatPage() {
                           </td>
                           <td className="py-3 px-4">
                             <span className="font-bold text-gray-900 block">
-                              {cert.student_name || 'Santriwati MTI'}
+                              {cert.student_name || 'Thalibah MTI'}
                             </span>
                             <span className="text-[10px] text-gray-500 font-mono">
                               NIT: {cert.student_nit || '-'}

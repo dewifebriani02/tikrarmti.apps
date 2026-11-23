@@ -33,5 +33,5 @@ COMMENT ON COLUMN public.batches.review_week_start_date IS 'Start date of review
 COMMENT ON COLUMN public.batches.review_week_end_date IS 'End date of review week';
 COMMENT ON COLUMN public.batches.final_exam_start_date IS 'Start date of final exam week (Pekan 13)';
 COMMENT ON COLUMN public.batches.final_exam_end_date IS 'End date of final exam week';
-COMMENT ON COLUMN public.batches.graduation_start_date IS 'Start date of graduation week (Wisuda & Kelulusan)';
+COMMENT ON COLUMN public.batches.graduation_start_date IS 'Start date of graduation week (Penerbitan Syahadah & Kelulusan)';
 COMMENT ON COLUMN public.batches.graduation_end_date IS 'End date of graduation week';

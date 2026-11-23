@@ -1,6 +1,8 @@
 import { requireAdmin } from '@/lib/rbac';
 import { ApiResponses } from '@/lib/api-responses';
 import { whatsappService } from '@/lib/services/whatsapp';
+import { recordOutboundMessage } from '@/lib/services/whatsapp-chat';
+import { getCurrentUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,11 +12,13 @@ export async function POST(request: Request) {
     if (authError) return authError;
 
     const body = await request.json();
-    const { to, message, templateName, components } = body;
+    const { to, message, recipientName, sourceTag, templateName, components, ccNumbers, ccGroupIds } = body;
 
     if (!to) {
       return ApiResponses.badRequest('Parameter "to" (nomor WhatsApp tujuan) wajib diisi');
     }
+
+    const effectiveTag = typeof sourceTag === 'string' && sourceTag.trim() ? sourceTag.trim() : 'individual';
 
     let result;
     if (templateName) {
@@ -22,20 +26,101 @@ export async function POST(request: Request) {
         to,
         templateName,
         'id',
-        components
+        components,
+        { sourceTag: effectiveTag, recipientName: recipientName || null }
       );
     } else {
       if (!message) {
         return ApiResponses.badRequest('Parameter "message" wajib diisi jika tidak menggunakan template');
       }
-      result = await whatsappService.sendTextMessage(to, message);
+      result = await whatsappService.sendTextMessage(to, message, {
+        sourceTag: effectiveTag,
+        recipientName: recipientName || null,
+      });
     }
 
     if (!result.success) {
       return ApiResponses.badRequest(result.error || 'Gagal mengirim pesan WhatsApp');
     }
 
-    return ApiResponses.success(result, 'Pesan WhatsApp berhasil diproses untuk dikirim');
+    // Rekam pesan keluar ke Live Chat Inbox agar riwayat percakapan langsung tersinkron
+    try {
+      const currentUser = await getCurrentUser();
+      await recordOutboundMessage({
+        phoneNumber: to,
+        messageText: message || templateName || 'Pesan WhatsApp',
+        adminName: currentUser?.full_name || 'Admin MTI',
+        adminId: currentUser?.id,
+        watzapMessageId: result.messageId,
+      });
+    } catch (recordErr) {
+      console.warn('[WhatsApp Send Route] Gagal mencatat pesan ke inbox:', recordErr);
+    }
+
+    // Tembusan (CC) ke admin atau grup WhatsApp jika ada
+    const ccResults: Array<{ to: string; type: 'admin' | 'group'; success: boolean; messageId?: string; error?: string }> = [];
+    if (Array.isArray(ccNumbers) && ccNumbers.length > 0) {
+      const ccNote = `\n\n_📌 [Tembusan Pengiriman Admin MTI ke ${to}]_`;
+      const fullCcMessage = `${message || ''}${ccNote}`;
+
+      for (const ccNum of ccNumbers) {
+        if (!ccNum || typeof ccNum !== 'string') continue;
+        try {
+          const ccRes = await whatsappService.sendTextMessage(ccNum, fullCcMessage, {
+            sourceTag: 'individual_cc',
+            metadata: { ccFor: to },
+          });
+          ccResults.push({
+            to: ccNum,
+            type: 'admin',
+            success: ccRes.success,
+            messageId: ccRes.messageId,
+            error: ccRes.error,
+          });
+        } catch (ccErr) {
+          ccResults.push({
+            to: ccNum,
+            type: 'admin',
+            success: false,
+            error: (ccErr as Error).message,
+          });
+        }
+      }
+    }
+
+    if (Array.isArray(ccGroupIds) && ccGroupIds.length > 0) {
+      const ccNote = `\n\n_📌 [Tembusan Pengiriman Admin MTI ke ${to}]_`;
+      const fullCcMessage = `${message || ''}${ccNote}`;
+
+      for (const gid of ccGroupIds) {
+        if (!gid || typeof gid !== 'string') continue;
+        try {
+          const grpRes = await whatsappService.sendGroupMessage(gid, fullCcMessage, {
+            sourceTag: 'individual_cc',
+            metadata: { ccFor: to },
+          });
+          ccResults.push({
+            to: gid,
+            type: 'group',
+            success: grpRes.success,
+            messageId: grpRes.messageId,
+            error: grpRes.error,
+          });
+        } catch (grpErr) {
+          ccResults.push({
+            to: gid,
+            type: 'group',
+            success: false,
+            error: (grpErr as Error).message,
+          });
+        }
+      }
+    }
+
+    return ApiResponses.success({
+      ...result,
+      ccResults: ccResults.length > 0 ? ccResults : undefined,
+    }, 'Pesan WhatsApp berhasil diproses untuk dikirim');
   } catch (error) {
     console.error('[WhatsApp Send Route] Error:', error);
     return ApiResponses.serverError(error instanceof Error ? error.message : 'Internal server error');

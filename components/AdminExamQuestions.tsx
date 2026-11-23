@@ -1,11 +1,13 @@
 'use client';
 
-import { FileUp, Plus, Sparkles, BarChart3 } from 'lucide-react';
+import React, { useState } from 'react';
+import { FileUp, Plus, Sparkles, BarChart3, CopyMinus } from 'lucide-react';
 import { useAdminExamQuestions } from '@/hooks/useAdminExamQuestions';
 import { QuestionStats } from './exam/QuestionStats';
 import { QuestionFilters } from './exam/QuestionFilters';
 import { QuestionTable } from './exam/QuestionTable';
 import { QuestionModals } from './exam/QuestionModals';
+import { ExamDeduplicateModal } from './admin/exam-deduplicate/ExamDeduplicateModal';
 
 interface AdminExamQuestionsProps {
   onImportClick: () => void;
@@ -26,6 +28,8 @@ const SECTION_OPTIONS = [
 const ITEMS_PER_PAGE = 20;
 
 export function AdminExamQuestions({ onImportClick, onAddManualClick, onSuccess }: AdminExamQuestionsProps) {
+  const [showDeduplicateModal, setShowDeduplicateModal] = useState(false);
+
   const {
     questions, loading, selectedJuz, setSelectedJuz, selectedSection, setSelectedSection,
     currentPage, setCurrentPage, showEditModal, setShowEditModal, editingQuestion, setEditingQuestion,
@@ -34,7 +38,7 @@ export function AdminExamQuestions({ onImportClick, onAddManualClick, onSuccess 
     filterActive, setFilterActive, filterPackage, setFilterPackage, showPreviewModal, setShowPreviewModal, previewQuestion,
     setPreviewQuestion, showAnalytics, setShowAnalytics, analytics, analyticsLoading,
     analyticsSummary, loadAnalytics, showAIModal, setShowAIModal, aiGenerating, aiForm,
-    setAiForm, handleDelete, handleUpdate, handleAIGenerate, statistics, handleToggleArchivePackage
+    setAiForm, handleDelete, handleUpdate, handleAIGenerate, statistics, handleToggleArchivePackage, loadQuestions
   } = useAdminExamQuestions(onSuccess);
 
   // Pagination calculations
@@ -54,6 +58,14 @@ export function AdminExamQuestions({ onImportClick, onAddManualClick, onSuccess 
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setShowDeduplicateModal(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-amber-600 text-white rounded-xl hover:bg-amber-700 transition-all font-bold text-sm shadow-md shadow-amber-600/10 active:scale-95 duration-200"
+            title="Deteksi dan bersihkan duplikasi soal antar paket A, B, atau semua paket"
+          >
+            <CopyMinus className="w-4 h-4" />
+            Deteksi Duplikasi
+          </button>
           <button
             onClick={loadAnalytics}
             className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all font-bold text-sm shadow-md shadow-indigo-600/10 active:scale-95 duration-200"
@@ -170,6 +182,16 @@ export function AdminExamQuestions({ onImportClick, onAddManualClick, onSuccess 
         analytics={analytics}
         analyticsLoading={analyticsLoading}
         analyticsSummary={analyticsSummary}
+      />
+
+      {/* Deduplication Modal */}
+      <ExamDeduplicateModal
+        isOpen={showDeduplicateModal}
+        onClose={() => setShowDeduplicateModal(false)}
+        onSuccess={() => {
+          loadQuestions();
+          if (onSuccess) onSuccess();
+        }}
       />
     </div>
   );

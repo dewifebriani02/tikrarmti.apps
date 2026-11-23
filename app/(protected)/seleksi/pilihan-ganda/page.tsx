@@ -52,6 +52,7 @@ function PilihanGandaContent() {
   const examSource = searchParams.get('source') || 'selection';
   const isFinalExam = examSource === 'final-exam';
   const batchId = searchParams.get('batchId') || '';
+  const attemptsQuery = `?source=${encodeURIComponent(examSource)}${batchId ? `&batchId=${encodeURIComponent(batchId)}` : ''}`;
   const { user, isLoading: authLoading } = useAuth();
   const [isClient, setIsClient] = useState(false);
   const [questions, setQuestions] = useState<ExamQuestion[]>([]);
@@ -123,7 +124,7 @@ function PilihanGandaContent() {
 
   const checkAndAutoStart = async () => {
     try {
-      const response = await fetch('/api/exam/attempts');
+      const response = await fetch(`/api/exam/attempts${attemptsQuery}`);
 
       if (response.ok) {
         const data = await response.json();
@@ -203,7 +204,7 @@ function PilihanGandaContent() {
 
   const loadDraftAnswers = async () => {
     try {
-      const response = await fetch('/api/exam/attempts');
+      const response = await fetch(`/api/exam/attempts${attemptsQuery}`);
 
       if (!response.ok) {
         console.log('No draft to load');
@@ -258,6 +259,8 @@ function PilihanGandaContent() {
         body: JSON.stringify({
           answers: answersArray,
           current_question_index: currentQuestion,
+          source: examSource,
+          batchId: batchId || undefined,
         }),
       });
 
@@ -400,6 +403,8 @@ function PilihanGandaContent() {
         },
         body: JSON.stringify({
           answers: answersArray,
+          source: examSource,
+          batchId: batchId || undefined,
         }),
       });
 

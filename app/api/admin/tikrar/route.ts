@@ -78,12 +78,13 @@ export async function GET(request: Request) {
       return ApiResponses.success([], 'No records found');
     }
 
-    // 4. Enrichment: Fetch exam attempts for written scores
+    // 4. Enrichment: Fetch selection exam attempts for written scores
     const registrationIds = rawData.map((r: any) => r.id);
     const { data: examAttempts } = await supabaseAdmin
       .from('exam_attempts')
       .select('id, registration_id, score, status, submitted_at, created_at')
       .in('registration_id', registrationIds)
+      .eq('exam_type', 'selection')
       .order('created_at', { ascending: false });
 
     const latestAttemptsMap = new Map();

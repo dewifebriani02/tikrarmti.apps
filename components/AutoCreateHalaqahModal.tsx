@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { X, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { autoCreateSimpleHalaqah } from '@/app/(protected)/admin/halaqah/actions';
+import { autoCreateSimpleHalaqah } from '@/lib/admin/halaqah-client';
 
 interface Batch {
   id: string;

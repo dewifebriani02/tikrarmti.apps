@@ -3,6 +3,8 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { getAuthorizationContext, hasAnyRole } from '@/lib/rbac';
 import { ApiResponses } from '@/lib/api-responses';
 
+export const dynamic = 'force-dynamic';
+
 const supabaseAdmin = createSupabaseAdmin();
 
 export async function GET(request: NextRequest) {
@@ -76,6 +78,10 @@ export async function GET(request: NextRequest) {
       data: questions || [],
       total: questions?.length || 0,
       summaryByJuz,
+    }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+      },
     });
   } catch (err: any) {
     console.error('[EXAM SIMULATION API] Unexpected error:', err);

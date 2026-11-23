@@ -47,24 +47,20 @@ export function PersonaProvider({ roles, primaryRole, children }: PersonaProvide
     return fallback;
   });
 
-  // 3. Hydrate from localStorage once mounted
+  // 3. Selalu gunakan role tertinggi user secara otomatis (User tidak perlu ganti-ganti role)
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     try {
-      const saved = localStorage.getItem(STORAGE_KEY) as UserRole | null;
-      if (saved && availablePersonas.includes(saved)) {
-        setActivePersonaState(saved);
-      } else {
-        // If saved persona is invalid or not in available personas, fallback to highest
-        const defaultRole = availablePersonas[0] || 'thalibah';
-        setActivePersonaState(defaultRole);
-        localStorage.setItem(STORAGE_KEY, defaultRole);
-      }
+      // Ambil role tertinggi: Admin (100) > Musyrifah (80) > Mu'allimah (60) > Raisah (45) > Thalibah (40) > Calon (20)
+      const highestRole = (availablePersonas[0] || (primaryRole as UserRole) || 'thalibah') as UserRole;
+      setActivePersonaState(highestRole);
+      localStorage.setItem(STORAGE_KEY, highestRole);
+      document.cookie = `mti_active_persona=${highestRole}; path=/; max-age=31536000; SameSite=Lax`;
     } catch {
       // Storage access failure safe fallback
     }
-  }, [availablePersonas]);
+  }, [availablePersonas, primaryRole]);
 
   // 4. Setter with persistence (localStorage + cookie for server sync)
   const setPersona = useCallback(

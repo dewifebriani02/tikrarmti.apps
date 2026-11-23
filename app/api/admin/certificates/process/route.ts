@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       if (!item.userId) {
-        errors.push({ index: i, error: 'Santriwati belum dipilih' });
+        errors.push({ index: i, error: 'Thalibah belum dipilih' });
         continue;
       }
 
@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
             [customCertNumber]
           );
           if (existing.length > 0 && existing[0].user_id !== item.userId) {
-            errors.push({ index: i, error: `Nomor sertifikat ${customCertNumber} sudah dipakai santriwati lain` });
+            errors.push({ index: i, error: `Nomor sertifikat ${customCertNumber} sudah dipakai thalibah lain` });
             continue;
           }
         }

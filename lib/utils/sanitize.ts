@@ -1,4 +1,5 @@
 import DOMPurify from 'dompurify';
+import { formatProperName } from '@/lib/utils/proper-name';
 
 // Configuration for DOMPurify
 const CONFIG = {
@@ -42,12 +43,14 @@ export function sanitizeName(input: string | null | undefined): string {
     throw new Error('Format nama tidak valid. Hanya perbolehkan huruf, spasi, tanda hubung (-), kutip (\'), titik (.), koma (,), dan kurung ().');
   }
 
+  const formatted = formatProperName(sanitized);
+
   // Limit length
-  if (sanitized.length > 100) {
+  if (formatted.length > 100) {
     throw new Error('Name too long');
   }
 
-  return sanitized;
+  return formatted;
 }
 
 // Validate and sanitize email

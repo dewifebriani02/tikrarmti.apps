@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from 'sonner';
@@ -14,27 +14,35 @@ import {
   AlertCircle, 
   Send,
   Users,
-  Search,
-  MapPin,
   GraduationCap,
   Sparkles,
   ArrowRight,
-  HelpCircle
+  HelpCircle,
+  PlusCircle
 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from "@/components/ui/button";
 import { cn } from '@/lib/utils';
+import { formatBatchBadge } from '@/lib/utils/batch-label';
 
 interface Testimonial {
   id: string;
   content: string;
   rating: number;
+  batch_name?: string | null;
   is_approved: boolean;
   created_at: string;
   user?: {
     full_name: string;
     kota: string | null;
   };
+}
+
+interface EligibleBatch {
+  batchId: string;
+  batchName: string;
+  batchStatus: string;
+  testimonial: Testimonial | null;
 }
 
 export default function AlumniPage() {
@@ -47,6 +55,9 @@ export default function AlumniPage() {
 
   // Testimonial States
   const [testimonial, setTestimonial] = useState<Testimonial | null>(null);
+  const [targetBatchName, setTargetBatchName] = useState<string | null>(null);
+  const [eligibleBatches, setEligibleBatches] = useState<EligibleBatch[]>([]);
+  const [pastTestimonials, setPastTestimonials] = useState<Testimonial[]>([]);
   const [testimonialContent, setTestimonialContent] = useState('');
   const [testimonialRating, setTestimonialRating] = useState(5);
   const [ratingHover, setRatingHover] = useState<number | null>(null);
@@ -81,18 +92,28 @@ export default function AlumniPage() {
     }
   };
 
-  const fetchAlumniData = async () => {
+  const fetchAlumniData = async (preferredBatchName?: string | null) => {
     try {
       setLoading(true);
-      const tRes = await fetch('/api/alumni/testimonial/my');
+      const queryUrl = preferredBatchName
+        ? `/api/alumni/testimonial/my?batch_name=${encodeURIComponent(preferredBatchName)}`
+        : '/api/alumni/testimonial/my';
+      const tRes = await fetch(queryUrl, { cache: 'no-store' });
       if (tRes.ok) {
         const tData = await tRes.json();
         setIsAlumni(tData.isAlumni);
         setIsAdmin(tData.isAdmin || false);
+        setTargetBatchName(tData.targetBatchName || null);
+        setEligibleBatches(Array.isArray(tData.eligibleBatches) ? tData.eligibleBatches : []);
+        setPastTestimonials(Array.isArray(tData.pastTestimonials) ? tData.pastTestimonials : []);
         if (tData.testimonial) {
           setTestimonial(tData.testimonial);
           setTestimonialContent(tData.testimonial.content);
           setTestimonialRating(tData.testimonial.rating);
+        } else {
+          setTestimonial(null);
+          setTestimonialContent('');
+          setTestimonialRating(5);
         }
       }
     } catch (err) {
@@ -102,6 +123,32 @@ export default function AlumniPage() {
       setLoading(false);
     }
   };
+
+  const handleSelectBatch = (batchName: string) => {
+    setTargetBatchName(batchName);
+    setIsEditingTestimonial(false);
+    const matchedBatch = eligibleBatches.find(
+      (b) => b.batchName.trim().toLowerCase() === batchName.trim().toLowerCase()
+    );
+    const matchedTestimonial =
+      matchedBatch?.testimonial ||
+      pastTestimonials.find(
+        (pt) => (pt.batch_name || '').trim().toLowerCase() === batchName.trim().toLowerCase()
+      ) ||
+      null;
+
+    if (matchedTestimonial) {
+      setTestimonial(matchedTestimonial);
+      setTestimonialContent(matchedTestimonial.content);
+      setTestimonialRating(matchedTestimonial.rating);
+    } else {
+      setTestimonial(null);
+      setTestimonialContent('');
+      setTestimonialRating(5);
+    }
+  };
+
+  const firstUnreviewedBatch = eligibleBatches.find((b) => !b.testimonial) || null;
 
   // Testimonial handlers
   const handleSaveTestimonial = async (e: React.FormEvent) => {
@@ -113,12 +160,14 @@ export default function AlumniPage() {
 
     try {
       setSavingTestimonial(true);
+      const activeBatch = targetBatchName || undefined;
       const res = await fetch('/api/alumni/testimonial/my', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           content: testimonialContent,
-          rating: testimonialRating
+          rating: testimonialRating,
+          batch_name: activeBatch
         })
       });
 
@@ -127,7 +176,7 @@ export default function AlumniPage() {
         toast.success(testimonial ? 'Testimoni berhasil diperbarui!' : 'Testimoni berhasil dikirim!');
         setTestimonial(data.data);
         setIsEditingTestimonial(false);
-        fetchAlumniData();
+        await fetchAlumniData(data.data?.batch_name || activeBatch || null);
         fetchAllTestimonials();
       } else {
         toast.error(data.error || 'Gagal menyimpan testimoni');
@@ -151,6 +200,8 @@ export default function AlumniPage() {
     );
   }
 
+  const activeBatchBadge = formatBatchBadge(testimonial?.batch_name || targetBatchName);
+
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 space-y-6 animate-fadeInUp pb-24 font-sans">
       {/* 1. Header Halaman (Standar Jurnal Harian) */}
@@ -162,7 +213,7 @@ export default function AlumniPage() {
               <Sparkles className="w-4 h-4 text-amber-500" />
             </h1>
             <p className="text-gray-700 text-[10px] font-black uppercase tracking-widest leading-none mt-1">
-              Silaturahmi & Jejaring Santri
+              Silaturahmi &amp; Jejaring Thalibah
             </p>
           </div>
 
@@ -184,7 +235,12 @@ export default function AlumniPage() {
                   Barakallahu Fiikum, Ukhti!
                 </h2>
                 <p className="text-green-100/70 text-[10px] font-black uppercase tracking-tighter">
-                  {testimonial?.is_approved ? 'Ulasan Testimoni Disetujui' : testimonial ? 'Ulasan Menunggu Verifikasi' : 'Ulasan Belum Diisi'}
+                  {activeBatchBadge ? `${activeBatchBadge} • ` : ''}
+                  {testimonial?.is_approved
+                    ? 'Ulasan Testimoni Disetujui'
+                    : testimonial
+                    ? 'Ulasan Menunggu Verifikasi'
+                    : 'Ulasan Belum Diisi'}
                 </p>
               </div>
             </div>
@@ -201,7 +257,7 @@ export default function AlumniPage() {
                 )
               ) : (
                 <span className="text-[10px] font-black uppercase tracking-wider bg-white/15 text-green-100 px-2.5 py-1 rounded-lg border border-white/10">
-                  Wajib Diisi
+                  {firstUnreviewedBatch ? 'Siap Diisi' : 'Wajib Diisi'}
                 </span>
               )}
             </div>
@@ -220,16 +276,16 @@ export default function AlumniPage() {
           </div>
           <div>
             <p className="text-xs font-black text-gray-900 leading-tight">
-              Program Muraja'ah 40x Pasca-Kelulusan
+              Program Muraja&apos;ah 40x Pasca-Kelulusan
             </p>
             <p className="text-[10px] text-gray-500 font-medium mt-0.5">
-              Muraja'ah kini mandiri di menunya sendiri untuk mempermudah pencatatan putaran.
+              Muraja&apos;ah kini mandiri di menunya sendiri untuk mempermudah pencatatan putaran.
             </p>
           </div>
         </div>
         <Link href="/murojaah" className="self-start sm:self-auto shrink-0">
           <Button size="sm" className="bg-green-900 hover:bg-green-800 text-white rounded-xl text-xs font-bold gap-1 px-3 py-1.5 h-auto shadow-sm">
-            Buka Muraja'ah 40x <ArrowRight className="w-3 h-3" />
+            Buka Muraja&apos;ah 40x <ArrowRight className="w-3 h-3" />
           </Button>
         </Link>
       </div>
@@ -274,14 +330,98 @@ export default function AlumniPage() {
           <Card className="rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-6 bg-white space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-gray-100">
               <div>
-                <h3 className="text-sm sm:text-base font-bold text-gray-900">
-                  {testimonial && !isEditingTestimonial ? 'Ulasan Testimoni Ukhti' : 'Tulis Testimoni'}
-                </h3>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-sm sm:text-base font-bold text-gray-900">
+                    {testimonial && !isEditingTestimonial ? 'Ulasan Testimoni Ukhti' : 'Tulis Testimoni'}
+                  </h3>
+                  {activeBatchBadge && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                      {activeBatchBadge}
+                    </span>
+                  )}
+                </div>
                 <p className="text-[11px] text-gray-500 mt-0.5">
                   Berikan kesan pesan pengalaman belajar Ukhti di MTI untuk memotivasi calon hafidzah lainnya.
                 </p>
               </div>
             </div>
+
+            {/* Batch Switcher untuk Alumni Multi-Batch (mis. sudah isi Batch 2, ingin isi Batch 3) */}
+            {eligibleBatches.length > 1 && (
+              <div className="space-y-2">
+                <p className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">
+                  Pilih Angkatan / Batch Testimoni
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {eligibleBatches.map((b) => {
+                    const badge = formatBatchBadge(b.batchName) || b.batchName;
+                    const isSelected =
+                      (targetBatchName || '').trim().toLowerCase() === b.batchName.trim().toLowerCase();
+                    const isFilled = Boolean(b.testimonial);
+                    return (
+                      <button
+                        key={b.batchId}
+                        type="button"
+                        onClick={() => handleSelectBatch(b.batchName)}
+                        className={cn(
+                          'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer',
+                          isSelected
+                            ? 'bg-green-900 text-white border-green-900 shadow-sm'
+                            : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                        )}
+                      >
+                        <span>{badge}</span>
+                        {isFilled ? (
+                          <span
+                            className={cn(
+                              'text-[10px] px-1.5 py-0.2 rounded-md font-semibold',
+                              isSelected ? 'bg-white/20 text-emerald-100' : 'bg-emerald-100 text-emerald-800'
+                            )}
+                          >
+                            Sudah diisi
+                          </span>
+                        ) : (
+                          <span
+                            className={cn(
+                              'text-[10px] px-1.5 py-0.2 rounded-md font-semibold',
+                              isSelected ? 'bg-amber-400 text-green-950' : 'bg-amber-100 text-amber-800'
+                            )}
+                          >
+                            Belum diisi
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Banner cepat jika user sedang melihat batch yang sudah diisi, namun ada batch baru yang belum diisi */}
+            {firstUnreviewedBatch &&
+              testimonial &&
+              (targetBatchName || '').trim().toLowerCase() !==
+                firstUnreviewedBatch.batchName.trim().toLowerCase() && (
+                <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                  <div className="text-xs text-amber-950">
+                    <p className="font-bold">
+                      Testimoni {formatBatchBadge(firstUnreviewedBatch.batchName) || firstUnreviewedBatch.batchName} belum diisi
+                    </p>
+                    <p className="text-[11px] text-amber-800 mt-0.5">
+                      Ukhti dapat menulis testimoni baru untuk angkatan terbaru tanpa menghapus testimoni sebelumnya.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => handleSelectBatch(firstUnreviewedBatch.batchName)}
+                    className="bg-green-900 hover:bg-green-800 text-white rounded-xl text-xs font-bold gap-1.5 shrink-0"
+                  >
+                    <PlusCircle className="w-3.5 h-3.5" />
+                    Tulis Testimoni {formatBatchBadge(firstUnreviewedBatch.batchName)}
+                  </Button>
+                </div>
+              )}
 
             {testimonial && !isEditingTestimonial ? (
               <div className="space-y-4">
@@ -300,7 +440,7 @@ export default function AlumniPage() {
                     ))}
                   </div>
                   <p className="text-gray-700 italic text-xs sm:text-sm leading-relaxed">
-                    "{testimonial.content}"
+                    &ldquo;{testimonial.content}&rdquo;
                   </p>
                   <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-[11px] text-gray-500">
                     <span>{new Date(testimonial.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Jakarta' })}</span>
@@ -315,7 +455,7 @@ export default function AlumniPage() {
                   variant="outline"
                   className="w-full border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl text-xs font-bold"
                 >
-                  Ubah Testimoni
+                  Ubah Testimoni {activeBatchBadge ? `(${activeBatchBadge})` : ''}
                 </Button>
               </div>
             ) : (
@@ -360,7 +500,9 @@ export default function AlumniPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="testimonial" className="text-xs font-bold text-gray-700">Isi Ulasan Testimoni</Label>
+                  <Label htmlFor="testimonial" className="text-xs font-bold text-gray-700">
+                    Isi Ulasan Testimoni {activeBatchBadge ? `(${activeBatchBadge})` : ''}
+                  </Label>
                   <Textarea
                     id="testimonial"
                     placeholder="Ceritakan pengalaman berkesan Ukhti selama menghafal di Markaz Tikrar Indonesia..."
@@ -388,7 +530,7 @@ export default function AlumniPage() {
                     ) : (
                       <>
                         <Send className="w-3.5 h-3.5" />
-                        <span>Kirim Testimoni</span>
+                        <span>Kirim Testimoni {activeBatchBadge ? activeBatchBadge : ''}</span>
                       </>
                     )}
                   </Button>
@@ -411,6 +553,43 @@ export default function AlumniPage() {
               </form>
             )}
           </Card>
+
+          {/* Riwayat Testimoni Batch Lainnya (jika ada) */}
+          {pastTestimonials.filter((pt) => pt.id !== testimonial?.id).length > 0 && (
+            <Card className="rounded-2xl border border-emerald-100 shadow-sm p-5 bg-emerald-50/30 space-y-3">
+              <h4 className="text-xs font-bold text-emerald-950 uppercase tracking-wider">
+                Riwayat Testimoni Batch Lainnya
+              </h4>
+              <div className="space-y-2.5">
+                {pastTestimonials
+                  .filter((pt) => pt.id !== testimonial?.id)
+                  .map((pt) => (
+                    <div key={pt.id} className="bg-white rounded-xl p-3.5 border border-emerald-100 space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                          {formatBatchBadge(pt.batch_name) || 'Batch Sebelumnya'}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-semibold text-gray-500">
+                            {pt.is_approved ? 'Disetujui' : 'Menunggu Verifikasi'}
+                          </span>
+                          {pt.batch_name && (
+                            <button
+                              type="button"
+                              onClick={() => handleSelectBatch(pt.batch_name!)}
+                              className="text-[10px] font-bold text-emerald-700 hover:underline cursor-pointer"
+                            >
+                              Lihat
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-700 italic leading-relaxed">&ldquo;{pt.content}&rdquo;</p>
+                    </div>
+                  ))}
+              </div>
+            </Card>
+          )}
 
           {/* Daftar Testimoni Alumni Lainnya */}
           <div className="space-y-3">
@@ -455,7 +634,14 @@ export default function AlumniPage() {
                             {initials}
                           </div>
                           <div>
-                            <h4 className="font-bold text-gray-900 text-xs">{t.user?.full_name || 'Hamba Allah'}</h4>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <h4 className="font-bold text-gray-900 text-xs">{t.user?.full_name || 'Hamba Allah'}</h4>
+                              {formatBatchBadge(t.batch_name) && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                  {formatBatchBadge(t.batch_name)}
+                                </span>
+                              )}
+                            </div>
                             <p className="text-[10px] text-gray-400">
                               {locationName ? `${locationName} • ` : ''}
                               {new Date(t.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Jakarta' })}
@@ -477,7 +663,7 @@ export default function AlumniPage() {
                       </div>
 
                       <p className="text-gray-700 text-xs italic leading-relaxed">
-                        "{t.content}"
+                        &ldquo;{t.content}&rdquo;
                       </p>
                     </Card>
                   );
@@ -493,7 +679,7 @@ export default function AlumniPage() {
               Mengapa Testimoni Penting?
             </p>
             <p className="text-[11px] text-gray-500 leading-relaxed">
-              Testimoni jujur Ukhti membantu calon santri baru termotivasi untuk istiqamah menghafal Al-Qur'an dan menjadi masukan berharga bagi perbaikan kurikulum Markaz Tikrar Indonesia.
+              Testimoni jujur Ukhti membantu calon thalibah baru termotivasi untuk istiqamah menghafal Al-Qur&apos;an dan menjadi masukan berharga bagi perbaikan kurikulum Markaz Tikrar Indonesia.
             </p>
           </div>
         </div>
@@ -506,13 +692,13 @@ export default function AlumniPage() {
                 <Users className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-bold text-gray-900 text-sm">Direktori & Jejaring Alumni</h3>
+                <h3 className="font-bold text-gray-900 text-sm">Direktori &amp; Jejaring Alumni</h3>
                 <p className="text-[11px] text-gray-500">Fitur sedang dalam proses pengembangan.</p>
               </div>
             </div>
 
             <p className="text-xs text-gray-600 leading-relaxed">
-              Modul database alumni akan segera hadir untuk menghubungkan seluruh wisudawati Tikrar MTI dari berbagai angkatan dan kota, memudahkan silaturahmi luring, daurah lokal, serta verifikasi keaslian syahadah kelulusan.
+              Modul database alumni akan segera hadir untuk menghubungkan seluruh lulusan Tikrar MTI dari berbagai angkatan dan kota, memudahkan silaturahmi luring, daurah lokal, serta verifikasi keaslian syahadah kelulusan.
             </p>
 
             <div className="pt-2">

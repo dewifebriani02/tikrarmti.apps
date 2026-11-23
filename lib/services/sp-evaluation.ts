@@ -38,6 +38,8 @@ export interface SPEvaluationResult {
   sp_to_issue_count: number;
   already_issued_sp_count: number;
   issued_sp_count?: number;
+  skipped?: boolean;
+  skip_reason?: string;
   thalibah_list: EvaluatedThalibahSP[];
 }
 
@@ -97,53 +99,171 @@ export function extractCleanBlok(blok: string | null): string | null {
 }
 
 /**
+ * Resolves the target batch for weekly SP evaluation:
+ * - Explicit batchId: fetch that exact batch.
+ * - Automatic resolution: prefer an actively running (`ongoing`/`active`) batch
+ *   whose KBM start date (`COALESCE(first_week_start_date, start_date)`) has
+ *   already begun, rather than future `open` registration batches (e.g. Batch 4).
+ */
+async function resolveTargetBatch(batchId: string | undefined, cronMode: boolean) {
+  if (batchId && batchId !== 'all') {
+    const { rows } = await query(`SELECT * FROM batches WHERE id = $1 LIMIT 1`, [batchId]);
+    return rows[0] || null;
+  }
+
+  // 1. Prefer an actively running batch that has already started KBM
+  const { rows: ongoingRows } = await query(
+    `SELECT *
+     FROM batches
+     WHERE status IN ('ongoing', 'active')
+       AND COALESCE(first_week_start_date, start_date) <= NOW()
+     ORDER BY COALESCE(first_week_start_date, start_date) DESC, created_at DESC
+     LIMIT 1`
+  );
+  if (ongoingRows[0]) return ongoingRows[0];
+
+  // 2. Fallback: an 'open' batch ONLY if its KBM start date has already started
+  const { rows: startedOpenRows } = await query(
+    `SELECT *
+     FROM batches
+     WHERE status = 'open'
+       AND COALESCE(first_week_start_date, start_date) <= NOW()
+     ORDER BY COALESCE(first_week_start_date, start_date) DESC, created_at DESC
+     LIMIT 1`
+  );
+  if (startedOpenRows[0]) return startedOpenRows[0];
+
+  // 3. In manual UI preview mode, allow falling back to the latest non-closed batch
+  //    so Musyrifah/Admin can still inspect it; in cronMode return null to skip safely.
+  if (!cronMode) {
+    const { rows: latestRows } = await query(
+      `SELECT *
+       FROM batches
+       WHERE status IN ('ongoing', 'active', 'open')
+       ORDER BY
+         CASE WHEN status IN ('ongoing', 'active') THEN 0 ELSE 1 END,
+         COALESCE(first_week_start_date, start_date) DESC NULLS LAST,
+         created_at DESC
+       LIMIT 1`
+    );
+    return latestRows[0] || null;
+  }
+
+  return null;
+}
+
+/**
  * Evaluates weekly journal compliance and optionally issues SP records
  */
 export async function evaluateWeeklyJurnalSP({
   batchId,
   weekNumber,
   execute = false,
+  cronMode = false,
   issuedByUserId,
   issuedAtDate,
 }: {
   batchId?: string;
   weekNumber?: number;
   execute?: boolean;
+  cronMode?: boolean;
   issuedByUserId?: string;
   issuedAtDate?: string;
 }): Promise<SPEvaluationResult> {
   // 1. Get Batch Info
-  let batchQuery = `SELECT * FROM batches WHERE status = 'open' ORDER BY created_at DESC LIMIT 1`;
-  let batchParams: any[] = [];
-
-  if (batchId && batchId !== 'all') {
-    batchQuery = `SELECT * FROM batches WHERE id = $1`;
-    batchParams = [batchId];
-  }
-
-  const { rows: batchRows } = await query(batchQuery, batchParams);
-  if (!batchRows || batchRows.length === 0) {
+  const activeBatch = await resolveTargetBatch(batchId, cronMode);
+  if (!activeBatch) {
+    if (cronMode) {
+      return {
+        success: true,
+        batch_id: '',
+        batch_name: 'Tidak ada batch berjalan',
+        target_week: 0,
+        current_week: 0,
+        total_active_thalibah: 0,
+        completed_thalibah_count: 0,
+        incomplete_thalibah_count: 0,
+        sp_to_issue_count: 0,
+        already_issued_sp_count: 0,
+        issued_sp_count: 0,
+        skipped: true,
+        skip_reason: 'Tidak ada batch KBM aktif (ongoing) yang sudah memulai pekan pertama.',
+        thalibah_list: [],
+      };
+    }
     throw new Error('Batch aktif tidak ditemukan.');
   }
 
-  const activeBatch = batchRows[0];
   const activeBatchId = activeBatch.id;
   const activeBatchName = activeBatch.name || 'Batch Aktif';
 
   // 2. Determine target week
   let targetWeek = weekNumber;
+  let rawDiffWeeks: number | null = null;
   let calculatedCurrentWeek = 1;
 
-  if (activeBatch.first_week_start_date) {
-    const startDate = new Date(activeBatch.first_week_start_date);
+  const effectiveStartDate = activeBatch.first_week_start_date || activeBatch.start_date;
+  if (effectiveStartDate) {
+    const startDate = new Date(effectiveStartDate);
     const now = new Date();
-    const diffWeeks = Math.floor((now.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
-    calculatedCurrentWeek = Math.max(1, Math.min(diffWeeks + 1, 10));
+    rawDiffWeeks = Math.floor((now.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
+    calculatedCurrentWeek = Math.max(1, Math.min(rawDiffWeeks + 1, 10));
   }
 
   if (!targetWeek) {
-    // If today is Monday or during the week, evaluate the immediately prior completed week if > 1, else current week
-    targetWeek = Math.max(1, calculatedCurrentWeek > 1 ? calculatedCurrentWeek - 1 : 1);
+    if (cronMode && rawDiffWeeks !== null) {
+      // Automatic Monday cron only evaluates completed KBM weeks 1..10:
+      // - rawDiffWeeks < 1: batch has not started or Week 1 is still in progress
+      // - rawDiffWeeks > 10: all 10 KBM weeks finished (Pekan Murojaah / Ujian / Pasca-KBM)
+      if (rawDiffWeeks < 1) {
+        return {
+          success: true,
+          batch_id: activeBatchId,
+          batch_name: activeBatchName,
+          target_week: 0,
+          current_week: calculatedCurrentWeek,
+          total_active_thalibah: 0,
+          completed_thalibah_count: 0,
+          incomplete_thalibah_count: 0,
+          sp_to_issue_count: 0,
+          already_issued_sp_count: 0,
+          issued_sp_count: 0,
+          skipped: true,
+          skip_reason:
+            rawDiffWeeks < 0
+              ? `KBM ${activeBatchName} belum dimulai (mulai ${new Date(effectiveStartDate).toISOString().slice(0, 10)}).`
+              : `Pekan 1 ${activeBatchName} masih berlangsung; evaluasi SP dimulai setelah Pekan 1 selesai.`,
+          thalibah_list: [],
+        };
+      }
+
+      if (rawDiffWeeks > 10) {
+        return {
+          success: true,
+          batch_id: activeBatchId,
+          batch_name: activeBatchName,
+          target_week: 10,
+          current_week: 10,
+          total_active_thalibah: 0,
+          completed_thalibah_count: 0,
+          incomplete_thalibah_count: 0,
+          sp_to_issue_count: 0,
+          already_issued_sp_count: 0,
+          issued_sp_count: 0,
+          skipped: true,
+          skip_reason: `Seluruh Pekan 1–10 KBM ${activeBatchName} sudah selesai (pekan ke-${rawDiffWeeks + 1}, masa Murojaah/Ujian).`,
+          thalibah_list: [],
+        };
+      }
+
+      // rawDiffWeeks is strictly 1..10 (e.g. Monday after Week 10 finishes => targetWeek = 10)
+      targetWeek = rawDiffWeeks;
+    } else if (rawDiffWeeks !== null) {
+      // Manual preview/execution without explicit weekNumber: default to latest completed week (1..10)
+      targetWeek = Math.max(1, Math.min(rawDiffWeeks, 10));
+    } else {
+      targetWeek = Math.max(1, calculatedCurrentWeek > 1 ? calculatedCurrentWeek - 1 : 1);
+    }
   }
 
   // 3. Get all active registered thalibah in this batch

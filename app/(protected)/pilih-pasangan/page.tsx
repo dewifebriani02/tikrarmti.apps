@@ -7,7 +7,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { Clock, Users, ChevronRight, ChevronLeft, Info, Calendar, Upload } from 'lucide-react'
-import { submitPilihPasangan } from './actions'
 import { isPartnerChoiceLocked } from '@/lib/partner-choice'
 
 interface HalaqahData {
@@ -185,13 +184,18 @@ export default function PilihPasanganPage() {
 
     setIsSubmitting(true)
     try {
-      const result = await submitPilihPasangan(registrationData.id, formData as any)
+      const res = await fetch('/api/pilih-pasangan/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ registrationId: registrationData.id, data: formData }),
+      })
+      const result = await res.json().catch(() => null)
       
-      if (result.success) {
-        toast.success(result.message)
+      if (res.ok && result?.success) {
+        toast.success(result.message || 'Halaqah dan pasangan berhasil disimpan.')
         router.push('/perjalanan-saya')
       } else {
-        toast.error(result.error)
+        toast.error(result?.error || `Gagal menyimpan pilihan pasangan (HTTP ${res.status})`)
       }
     } catch (error: any) {
       toast.error(error?.message || 'Terjadi kesalahan')

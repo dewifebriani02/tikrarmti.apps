@@ -172,9 +172,10 @@ export async function parseBsiPdfBuffer(buffer: Buffer): Promise<ParsedBsiStatem
         lowerDesc.includes('spp') ||
         lowerDesc.includes('beasiswa') ||
         lowerDesc.includes('santri') ||
+        lowerDesc.includes('thalibah') ||
         lowerDesc.includes('dhuafa')
       ) {
-        category = 'Beasiswa Santriwati & Dhuafa';
+        category = 'Beasiswa Thalibah & Dhuafa';
       } else if (
         lowerDesc.includes('ustadzah') ||
         lowerDesc.includes('muallimah') ||

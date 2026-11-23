@@ -62,7 +62,7 @@ export function AddToPairModal({ isOpen, onClose, data, pairings, onConfirm }: P
         </div>
 
         {/* Body */}
-        <div className="p-4 overflow-y-auto flex-1">
+        <div className="p-4 overflow-y-auto flex-1 min-h-0 overscroll-contain">
           {processedPairings.length === 0 ? (
             <p className="text-center text-gray-500 py-8">Tidak ada pasangan yang tersedia</p>
           ) : (

@@ -2,12 +2,50 @@
 // CRUD operations for exam questions (Admin only)
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { logger } from '@/lib/logger-secure';
-import { requireAdmin } from '@/lib/rbac';
+import { requireAdmin, getAuthorizationContext } from '@/lib/rbac';
+
+export const dynamic = 'force-dynamic';
 
 const supabaseAdmin = createSupabaseAdmin();
+
+const NO_STORE_HEADERS = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+  Pragma: 'no-cache',
+  Expires: '0',
+};
+
+function normalizeOptionsAndAnswer(rawOptions: any[], fallbackCorrectAnswer?: string) {
+  const texts = rawOptions.map((opt: any) => String(opt?.option_text ?? opt?.text ?? '').trim());
+  const flaggedIndices = rawOptions
+    .map((opt: any, idx: number) => (opt?.is_correct === true || opt?.isCorrect === true ? idx : -1))
+    .filter((idx: number) => idx >= 0);
+
+  let winningIdx = -1;
+  const trimmedFallback = fallbackCorrectAnswer ? String(fallbackCorrectAnswer).trim() : '';
+
+  if (flaggedIndices.length > 0) {
+    if (trimmedFallback) {
+      const flaggedMatch = flaggedIndices.find((idx) => texts[idx] === trimmedFallback);
+      winningIdx = flaggedMatch !== undefined ? flaggedMatch : flaggedIndices[0];
+    } else {
+      winningIdx = flaggedIndices[0];
+    }
+  } else if (trimmedFallback) {
+    winningIdx = texts.findIndex((t) => t === trimmedFallback);
+  }
+
+  const formattedOptions = texts.map((text, idx) => ({
+    text,
+    isCorrect: idx === winningIdx,
+  }));
+
+  const correctAnswer =
+    winningIdx >= 0 ? formattedOptions[winningIdx].text : trimmedFallback;
+
+  return { formattedOptions, correctAnswer };
+}
 
 // GET: Fetch exam questions (with optional filters)
 export async function GET(request: NextRequest) {
@@ -50,7 +88,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
           data: [],
           total: 0
-        });
+        }, { headers: NO_STORE_HEADERS });
       }
 
       return NextResponse.json({ error: 'Failed to fetch questions', details: fetchError.message }, { status: 500 });
@@ -59,7 +97,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       data: questions || [],
       total: questions?.length || 0
-    });
+    }, { headers: NO_STORE_HEADERS });
 
   } catch (error) {
     logger.error('Error in GET /api/exam/questions', { error: error as Error });
@@ -70,23 +108,9 @@ export async function GET(request: NextRequest) {
 // POST: Create new exam question (Admin only)
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Check if user is admin
-    const { data: userData, error: userError } = await supabaseAdmin
-      .from('users')
-      .select('roles')
-      .eq('id', user.id)
-      .single();
-
-    if (userError || !userData || !userData.roles?.includes('admin')) {
-      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
-    }
+    const authError = await requireAdmin();
+    if (authError) return authError;
+    const context = await getAuthorizationContext();
 
     const body = await request.json();
 
@@ -128,9 +152,9 @@ export async function POST(request: NextRequest) {
       ? (lastQuestion[0].question_number || 0) + 1
       : 1;
 
-    // Find correct answer from options
-    const correctOption = body.options?.find((opt: any) => opt.isCorrect === true);
-    const correctAnswer = correctOption?.text || '';
+    // Format options and enforce single correct answer
+    const rawOptions = Array.isArray(body.options) ? body.options : [];
+    const { formattedOptions, correctAnswer } = normalizeOptionsAndAnswer(rawOptions, body.correct_answer);
 
     // Prepare insert data - match exact schema from migration
     const insertData: Record<string, any> = {
@@ -141,12 +165,12 @@ export async function POST(request: NextRequest) {
       question_number: nextQuestionNumber,
       question_text: body.question_text,
       question_type: body.question_type || 'multiple_choice',
-      options: body.options || [],
+      options: formattedOptions,
       correct_answer: correctAnswer,
       points: body.points || 1,
       is_active: body.is_active !== false,
       question_package: body.question_package || 'A',
-      created_by: user.id
+      created_by: context?.userId || null
     };
 
     // Insert with admin client to bypass RLS
@@ -176,12 +200,12 @@ export async function POST(request: NextRequest) {
       }, { status: 500 });
     }
 
-    logger.info('Question created successfully', { id: newQuestion[0].id });
+    logger.info('Question created successfully', { id: newQuestion[0].id, adminId: context?.userId });
 
     return NextResponse.json({
       data: newQuestion[0],
       message: 'Question created successfully'
-    }, { status: 201 });
+    }, { status: 201, headers: NO_STORE_HEADERS });
 
   } catch (error) {
     logger.error('Error in POST /api/exam/questions', {
@@ -199,57 +223,70 @@ export async function POST(request: NextRequest) {
 // PUT: Update exam question (Admin only)
 export async function PUT(request: NextRequest) {
   try {
-    const supabase = createServerClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Check if user is admin
-    const { data: userData, error: userError } = await supabaseAdmin
-      .from('users')
-      .select('roles')
-      .eq('id', user.id)
-      .single();
-
-    if (userError || !userData || !userData.roles?.includes('admin')) {
-      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
-    }
+    const authError = await requireAdmin();
+    if (authError) return authError;
+    const context = await getAuthorizationContext();
 
     const body = await request.json();
-    const { id, ...updateData } = body;
+    const { id } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'Question ID required' }, { status: 400 });
     }
 
-    // Update correct_answer based on options
-    if (updateData.options) {
-      updateData.correct_answer = updateData.options.find((opt: any) => opt.isCorrect)?.text || '';
+    const ALLOWED_FIELDS = [
+      'juz_number',
+      'juz_code',
+      'section_number',
+      'section_title',
+      'question_number',
+      'question_text',
+      'question_type',
+      'points',
+      'is_active',
+      'question_package',
+    ] as const;
+
+    const updateData: Record<string, any> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    for (const field of ALLOWED_FIELDS) {
+      if (body[field] !== undefined) {
+        updateData[field] = body[field];
+      }
+    }
+
+    // Update options and correct_answer, enforcing strictly single isCorrect: true
+    if (Array.isArray(body.options)) {
+      const { formattedOptions, correctAnswer } = normalizeOptionsAndAnswer(
+        body.options,
+        body.correct_answer
+      );
+      updateData.options = formattedOptions;
+      updateData.correct_answer = correctAnswer;
+    } else if (body.correct_answer !== undefined) {
+      updateData.correct_answer = String(body.correct_answer).trim();
     }
 
     const { data: updatedQuestion, error: updateError } = await supabaseAdmin
       .from('exam_questions')
-      .update({
-        ...updateData,
-        updated_at: new Date().toISOString()
-      })
+      .update(updateData)
       .eq('id', id)
       .select()
       .single();
 
     if (updateError) {
       logger.error('Error updating exam question', { error: updateError });
-      return NextResponse.json({ error: 'Failed to update question' }, { status: 500 });
+      return NextResponse.json({ error: 'Failed to update question', details: updateError.message }, { status: 500 });
     }
 
-    logger.info('Exam question updated', { questionId: id, adminId: user.id });
+    logger.info('Exam question updated', { questionId: id, adminId: context?.userId });
 
     return NextResponse.json({
       data: updatedQuestion,
       message: 'Question updated successfully'
-    });
+    }, { headers: NO_STORE_HEADERS });
 
   } catch (error) {
     logger.error('Error in PUT /api/exam/questions', { error: error as Error });
@@ -260,23 +297,9 @@ export async function PUT(request: NextRequest) {
 // DELETE: Delete exam question (Admin only)
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = createServerClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Check if user is admin
-    const { data: userData, error: userError } = await supabaseAdmin
-      .from('users')
-      .select('roles')
-      .eq('id', user.id)
-      .single();
-
-    if (userError || !userData || !userData.roles?.includes('admin')) {
-      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
-    }
+    const authError = await requireAdmin();
+    if (authError) return authError;
+    const context = await getAuthorizationContext();
 
     const searchParams = request.nextUrl.searchParams;
     const id = searchParams.get('id');
@@ -292,14 +315,14 @@ export async function DELETE(request: NextRequest) {
 
     if (deleteError) {
       logger.error('Error deleting exam question', { error: deleteError });
-      return NextResponse.json({ error: 'Failed to delete question' }, { status: 500 });
+      return NextResponse.json({ error: 'Failed to delete question', details: deleteError.message }, { status: 500 });
     }
 
-    logger.info('Exam question deleted', { questionId: id, adminId: user.id });
+    logger.info('Exam question deleted', { questionId: id, adminId: context?.userId });
 
     return NextResponse.json({
       message: 'Question deleted successfully'
-    });
+    }, { headers: NO_STORE_HEADERS });
 
   } catch (error) {
     logger.error('Error in DELETE /api/exam/questions', { error: error as Error });

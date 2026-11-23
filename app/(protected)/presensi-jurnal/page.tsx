@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -650,7 +651,15 @@ function PresensiJurnalContent() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto justify-end">
+              <Link
+                href="/jurnal-harian"
+                className="w-full sm:w-auto flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-white hover:bg-emerald-50 text-emerald-800 hover:text-emerald-900 font-bold text-xs sm:text-sm border border-emerald-200/80 hover:border-emerald-300 shadow-sm transition-all active:scale-95"
+                title="Buka Pratinjau Tampilan Jurnal Harian Thalibah"
+              >
+                <BookOpen className="w-4 h-4 flex-shrink-0 text-emerald-600" />
+                <span>📖 Pratinjau Jurnal Harian</span>
+              </Link>
               <button
                 onClick={() => setRekapChatModalOpen(true)}
                 className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white font-bold text-xs sm:text-sm shadow-md shadow-green-900/10 hover:shadow-lg transition-all active:scale-95"
@@ -2296,7 +2305,7 @@ function TashihTabSimple({ selectedBatchId, entries, currentWeek, onRefresh, onS
                                     : "bg-red-500 border-red-600 text-white"
                             )}
                           >
-                            <div className="text-[10px] font-bold">{block.block_code.split('H')[1]}</div>
+                            <div className="text-[10px] font-bold">{block.block_code?.startsWith("H") ? block.block_code.slice(1) : block.block_code}</div>
                             <div className="text-[7px] uppercase">{block.is_completed ? 'Sudah' : (isLocked ? 'Lock' : 'Input')}</div>
                           </button>
                         );
@@ -2513,7 +2522,7 @@ function TashihTabSimple({ selectedBatchId, entries, currentWeek, onRefresh, onS
                                              : "bg-red-500 border-red-600 text-white hover:bg-red-600"
                                      )}
                                    >
-                                       <div className="text-xs">{block.block_code.split('H')[1]}</div>
+                                       <div className="text-xs font-bold">{block.block_code?.startsWith("H") ? block.block_code.slice(1) : block.block_code}</div>
                                        <div className="text-[8px] uppercase">{block.is_completed ? 'Sudah' : (isLocked ? 'Locked' : 'Input')}</div>
                                    </button>
                                    );
@@ -2743,7 +2752,7 @@ Barakallahufiikunna..
 ━━━━━━━━━━━━━━━━❁❁
 𝗠𝗔𝗥𝗞𝗔𝗭 𝗧𝗜𝗞𝗥𝗔𝗥 𝗜𝗡𝗗𝗢𝗡𝗘𝗦𝗜𝗔
 
-📱 *MTI OFFICIAL : 081330000784*
+📱 *MTI OFFICIAL : 08138884240*
 🔗 *Tap Lynk : https://lynk.id/markaztikrar.id*`;
 
       navigator.clipboard.writeText(template).then(() => {
@@ -2849,7 +2858,7 @@ Tetap semangat untuk pekan-pekan berikutnya!
 ━━━━━━━━━━━━━━━━❁❁
 𝗠𝗔𝗥𝗞𝗔𝗭 𝗧𝗜𝗞𝗥𝗔𝗥 𝗜𝗡𝗗𝗢𝗡𝗘𝗦𝗜𝗔
 
-📱 *MTI OFFICIAL : 081330000784*
+📱 *MTI OFFICIAL : 08138884240*
 🔗 *Tap Lynk : https://lynk.id/markaztikrar.id*`;
 
       navigator.clipboard.writeText(template).then(() => {
@@ -3113,7 +3122,7 @@ Tetap semangat untuk pekan-pekan berikutnya!
                                     : "bg-red-500 border-red-600 text-white"
                             )}
                           >
-                            <div className="text-[10px] font-bold">{block.block_code.split('H')[1]}</div>
+                            <div className="text-[10px] font-bold">{block.block_code?.startsWith("H") ? block.block_code.slice(1) : block.block_code}</div>
                             <div className="text-[7px] uppercase">{block.is_completed ? 'Sudah' : (isLocked ? 'Lock' : 'Input')}</div>
                           </button>
                         );
@@ -3347,7 +3356,7 @@ Tetap semangat untuk pekan-pekan berikutnya!
                                                      : "bg-red-500 border-red-600 text-white hover:bg-red-600"
                                             )}
                                          >
-                                           <div className="text-[10px] mb-1 opacity-80">{block.block_code.split('H')[1]}</div>
+                                           <div className="text-[10px] mb-1 font-bold opacity-90">{block.block_code?.startsWith("H") ? block.block_code.slice(1) : block.block_code}</div>
                                            <div className="text-[8px] font-bold uppercase">{block.is_completed ? 'Sudah' : (isLocked ? 'Locked' : 'Input')}</div>
                                          </button>
                                         );

@@ -25,6 +25,7 @@ import { toast } from 'react-hot-toast'
 import { Textarea } from '@/components/ui/textarea'
 import { hasRequiredRank, ROLE_RANKS } from '@/lib/roles'
 import { formatDynamicNit } from '@/lib/nit'
+import { useJuzOptions } from '@/hooks/useJuzOptions'
 
 type ProfileMode = 'view' | 'edit'
 
@@ -929,6 +930,7 @@ function MuallimahProfileFields({
   errors: Record<string, string>
   onInputChange: (field: string, value: any) => void
 }) {
+  const { juzOptions } = useJuzOptions();
   const handleChange = (field: keyof MuallimahProfile, value: any) => {
     onChange({ ...data, [field]: value })
   }
@@ -1006,11 +1008,21 @@ function MuallimahProfileFields({
               <SelectValue placeholder="Pilih juz" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="30A">Juz 30A</SelectItem>
-              <SelectItem value="30B">Juz 30B</SelectItem>
-              <SelectItem value="29A">Juz 29A</SelectItem>
-              <SelectItem value="29B">Juz 29B</SelectItem>
-              <SelectItem value="28">Juz 28</SelectItem>
+              {juzOptions && juzOptions.length > 0 ? (
+                juzOptions.map((juz) => (
+                  <SelectItem key={juz.id} value={juz.code}>
+                    {juz.name}
+                  </SelectItem>
+                ))
+              ) : (
+                <>
+                  <SelectItem value="30A">Juz 30A</SelectItem>
+                  <SelectItem value="30B">Juz 30B</SelectItem>
+                  <SelectItem value="29A">Juz 29A</SelectItem>
+                  <SelectItem value="29B">Juz 29B</SelectItem>
+                  <SelectItem value="28">Juz 28</SelectItem>
+                </>
+              )}
             </SelectContent>
           </Select>
         </div>

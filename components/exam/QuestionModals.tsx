@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { X, Sparkles, Loader2, Eye, BarChart3, AlertCircle, Trash2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Sparkles, Loader2, Eye, BarChart3, AlertCircle } from 'lucide-react';
 import { ExamQuestion, AdminQuestionEditForm, JuzNumber } from '@/types/exam';
 
 interface QuestionModalsProps {
@@ -41,6 +41,55 @@ interface QuestionModalsProps {
   analytics: any[];
   analyticsLoading: boolean;
   analyticsSummary: any;
+}
+
+function getNormalizedOptions(question: ExamQuestion): Array<{ text: string; isCorrect: boolean }> {
+  let rawOptions: any = question.options;
+  if (typeof rawOptions === 'string') {
+    try {
+      rawOptions = JSON.parse(rawOptions);
+    } catch {
+      rawOptions = [];
+    }
+  }
+  if (!Array.isArray(rawOptions)) rawOptions = [];
+
+  const texts = rawOptions.map((opt: any) => String(opt?.option_text ?? opt?.text ?? ''));
+  const flaggedIndices = rawOptions
+    .map((opt: any, idx: number) => (opt?.is_correct === true || opt?.isCorrect === true ? idx : -1))
+    .filter((idx: number) => idx >= 0);
+
+  let winningIdx = -1;
+  const trimmedCorrect = question.correct_answer ? question.correct_answer.trim() : '';
+
+  if (flaggedIndices.length > 0) {
+    if (trimmedCorrect) {
+      const flaggedMatch = flaggedIndices.find((idx) => texts[idx].trim() === trimmedCorrect);
+      winningIdx = flaggedMatch !== undefined ? flaggedMatch : flaggedIndices[0];
+    } else {
+      winningIdx = flaggedIndices[0];
+    }
+  } else if (trimmedCorrect) {
+    winningIdx = texts.findIndex((t) => t.trim() === trimmedCorrect);
+  }
+
+  return texts.map((text, idx) => ({
+    text,
+    isCorrect: idx === winningIdx,
+  }));
+}
+
+function findMatchingJuzOption(juzOptions: any[], juzNumber: number, pkg?: string, existingCode?: string) {
+  if (!Array.isArray(juzOptions) || juzOptions.length === 0) return undefined;
+  if (existingCode) {
+    const byCode = juzOptions.find((opt) => opt.code === existingCode);
+    if (byCode) return byCode;
+  }
+  const normalizedPkg = pkg === 'A' || pkg === 'B' ? pkg : 'B';
+  return (
+    juzOptions.find((opt) => opt.juz_number === juzNumber && opt.part === normalizedPkg) ||
+    juzOptions.find((opt) => opt.juz_number === juzNumber)
+  );
 }
 
 export function QuestionModals({
@@ -87,13 +136,16 @@ export function QuestionModals({
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-900">Edit Question</h3>
               <button
+                type="button"
+                disabled={isSaving}
                 onClick={() => { setShowEditModal(false); setEditingQuestion(null); }}
-                className="p-2 hover:bg-gray-100 rounded-lg"
+                className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-50"
               >
                 <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
             <EditQuestionForm
+              key={`${editingQuestion.id}-${editingQuestion.updated_at || ''}`}
               question={editingQuestion}
               juzOptions={juzOptions}
               onSave={onUpdate}
@@ -200,33 +252,28 @@ export function QuestionModals({
             </div>
             <div className="p-6 space-y-4">
               <div className="flex flex-wrap gap-2">
-                <span className="px-3 py-1 rounded-full text-sm font-medium bg-emerald-100 text-emerald-800">{previewQuestion.juz_code || `Juz ${previewQuestion.juz_number}`}</span>
+                <span className="px-3 py-1 rounded-full text-sm font-medium bg-emerald-100 text-emerald-800">{previewQuestion.juz_code || `Juz ${previewQuestion.juz_number}${previewQuestion.question_package || ''}`}</span>
                 <span className="px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">Sec {previewQuestion.section_number}</span>
                 <span className="px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800">Q#{previewQuestion.question_number}</span>
                 <span className="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">{previewQuestion.points} pts</span>
               </div>
               <div className="bg-gray-50 rounded-lg p-4 font-normal">
                 <h4 className="text-sm font-medium text-gray-700 mb-2">Question:</h4>
-                <p className="text-gray-900">{previewQuestion.question_text}</p>
+                <p className="text-gray-900 whitespace-pre-line">{previewQuestion.question_text}</p>
               </div>
               {previewQuestion.options && previewQuestion.options.length > 0 && (
                 <div className="space-y-3">
                   <h4 className="text-sm font-medium text-gray-700">Options:</h4>
                   <div className="space-y-2">
-                    {previewQuestion.options.map((option: any, idx: number) => {
-                      const text = option.option_text || option.text;
-                      const isCorrect = option.is_correct || option.isCorrect;
-                      
-                      return (
-                        <div key={idx} className={`flex items-center gap-3 p-3 rounded-lg border ${isCorrect ? 'bg-green-50 border-green-300' : 'bg-gray-50 border-gray-200'}`}>
-                          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${isCorrect ? 'bg-green-600 text-white' : 'bg-gray-300 text-gray-700'}`}>
-                            {String.fromCharCode(65 + idx)}
-                          </div>
-                          <span className={`flex-1 ${isCorrect ? 'text-green-900 font-medium' : 'text-gray-700'}`}>{text}</span>
-                          {isCorrect && <span className="text-xs font-semibold text-green-700 bg-green-200 px-2 py-1 rounded">Correct Answer</span>}
+                    {getNormalizedOptions(previewQuestion).map((option, idx: number) => (
+                      <div key={idx} className={`flex items-center gap-3 p-3 rounded-lg border ${option.isCorrect ? 'bg-green-50 border-green-300' : 'bg-gray-50 border-gray-200'}`}>
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${option.isCorrect ? 'bg-green-600 text-white' : 'bg-gray-300 text-gray-700'}`}>
+                          {String.fromCharCode(65 + idx)}
                         </div>
-                      );
-                    })}
+                        <span className={`flex-1 ${option.isCorrect ? 'text-green-900 font-medium' : 'text-gray-700'}`}>{option.text}</span>
+                        {option.isCorrect && <span className="text-xs font-semibold text-green-700 bg-green-200 px-2 py-1 rounded">Correct Answer</span>}
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
@@ -302,47 +349,118 @@ function EditQuestionForm({ question, juzOptions, onSave, onCancel, isSaving }: 
   onCancel: () => void;
   isSaving: boolean;
 }) {
-  const [formData, setFormData] = useState<AdminQuestionEditForm>({
+  const initialPkg = question.question_package || 'B';
+  const initialJuzMatch = findMatchingJuzOption(juzOptions, question.juz_number, initialPkg, question.juz_code);
+
+  const [formData, setFormData] = useState<AdminQuestionEditForm>(() => ({
     juz_number: question.juz_number,
+    juz_code: initialJuzMatch?.code || question.juz_code || undefined,
     section_number: question.section_number || 1,
     section_title: question.section_title || '',
     question_number: question.question_number,
     question_text: question.question_text,
     question_type: question.question_type || 'multiple_choice',
-    options: (question.options || []).map((opt: any) => ({
-      text: opt.option_text || opt.text || '',
-      isCorrect: opt.is_correct || opt.isCorrect || false
-    })),
+    options: getNormalizedOptions(question),
     points: question.points || 1,
     is_active: question.is_active !== false,
-  });
+    question_package: initialPkg,
+  }));
 
-  const [juzCode, setJuzCode] = useState(juzOptions.find(opt => opt.juz_number === question.juz_number)?.code || '');
+  const [juzCode, setJuzCode] = useState(initialJuzMatch?.code || question.juz_code || '');
+
+  useEffect(() => {
+    if (!juzCode && juzOptions.length > 0) {
+      const matched = findMatchingJuzOption(
+        juzOptions,
+        formData.juz_number,
+        formData.question_package,
+        question.juz_code
+      );
+      if (matched) {
+        setJuzCode(matched.code);
+        setFormData(prev => ({ ...prev, juz_code: matched.code }));
+      }
+    }
+  }, [juzOptions, juzCode, formData.juz_number, formData.question_package, question.juz_code]);
 
   const handleJuzChange = (code: string) => {
     setJuzCode(code);
     const sel = juzOptions.find(o => o.code === code);
-    if (sel) setFormData({ ...formData, juz_number: sel.juz_number as JuzNumber });
+    if (sel) {
+      setFormData(prev => ({
+        ...prev,
+        juz_number: sel.juz_number as JuzNumber,
+        juz_code: sel.code,
+        question_package:
+          prev.question_package === 'Both'
+            ? 'Both'
+            : (sel.part === 'A' || sel.part === 'B' ? sel.part : prev.question_package),
+      }));
+    }
   };
 
-  const handleOptionChange = (idx: number, field: string, val: any) => {
-    const next = [...formData.options];
-    next[idx] = { ...next[idx], [field]: val };
-    setFormData({ ...formData, options: next });
+  const handlePackageChange = (pkg: string) => {
+    const matched = findMatchingJuzOption(juzOptions, formData.juz_number, pkg);
+    if (matched) {
+      setJuzCode(matched.code);
+    }
+    setFormData(prev => ({
+      ...prev,
+      question_package: pkg,
+      juz_code: matched?.code || prev.juz_code,
+    }));
+  };
+
+  const handleSetCorrectOption = (idx: number) => {
+    setFormData(prev => ({
+      ...prev,
+      options: prev.options.map((opt, i) => ({
+        ...opt,
+        isCorrect: i === idx,
+      })),
+    }));
+  };
+
+  const handleOptionTextChange = (idx: number, text: string) => {
+    setFormData(prev => {
+      const next = [...prev.options];
+      next[idx] = { ...next[idx], text };
+      return { ...prev, options: next };
+    });
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (formData.options.length > 0 && !formData.options.some(o => o.isCorrect)) {
+      alert('Pilih salah satu opsi sebagai Kunci Jawaban yang benar.');
+      return;
+    }
+    onSave(formData);
   };
 
   return (
-    <form onSubmit={(e) => { e.preventDefault(); onSave(formData); }} className="p-6 space-y-4 font-sans">
-      <div className="grid grid-cols-2 gap-4">
+    <form onSubmit={handleSubmit} className="p-6 space-y-4 font-sans">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div>
           <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Pilihan Juz</label>
-          <select value={juzCode} onChange={(e) => handleJuzChange(e.target.value)} className="w-full px-3 py-2 border rounded-lg" required>
+          <select value={juzCode} onChange={(e) => handleJuzChange(e.target.value)} className="w-full px-3 py-2 border rounded-lg bg-white" required>
             {juzOptions.map(o => <option key={o.code} value={o.code}>{o.name}</option>)}
           </select>
         </div>
         <div>
+          <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Paket Soal</label>
+          <select
+            value={formData.question_package || 'A'}
+            onChange={(e) => handlePackageChange(e.target.value)}
+            className="w-full px-3 py-2 border rounded-lg bg-white font-medium"
+          >
+            <option value="A">Paket A</option>
+            <option value="B">Paket B</option>
+          </select>
+        </div>
+        <div>
           <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Section</label>
-          <select value={formData.section_number} onChange={(e) => setFormData({ ...formData, section_number: parseInt(e.target.value) })} className="w-full px-3 py-2 border rounded-lg">
+          <select value={formData.section_number} onChange={(e) => setFormData({ ...formData, section_number: parseInt(e.target.value) })} className="w-full px-3 py-2 border rounded-lg bg-white">
             {[1, 2, 3, 4, 5, 6, 7].map(n => <option key={n} value={n}>Section {n}</option>)}
           </select>
         </div>
@@ -356,18 +474,58 @@ function EditQuestionForm({ question, juzOptions, onSave, onCancel, isSaving }: 
         <textarea value={formData.question_text} onChange={(e) => setFormData({ ...formData, question_text: e.target.value })} className="w-full px-3 py-2 border rounded-lg" rows={3} required />
       </div>
       <div>
-        <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Options</label>
-        <div className="space-y-2 mt-2">
-          {formData.options.map((opt, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <input type="checkbox" checked={opt.isCorrect} onChange={(e) => handleOptionChange(i, 'isCorrect', e.target.checked)} className="w-4 h-4 accent-green-600" />
-              <input type="text" value={opt.text} onChange={(e) => handleOptionChange(i, 'text', e.target.value)} className="flex-1 px-3 py-2 border rounded-lg" required />
-            </div>
-          ))}
+        <div className="flex items-center justify-between mb-1">
+          <label className="block text-xs font-bold text-gray-700 uppercase">Pilihan Jawaban & Kunci Jawaban</label>
+          <span className="text-xs text-gray-500 italic">Klik radio button untuk memilih kunci jawaban</span>
+        </div>
+        <div className="space-y-2.5 mt-2">
+          {formData.options.map((opt, i) => {
+            const letter = String.fromCharCode(65 + i);
+            return (
+              <div
+                key={i}
+                className={`flex items-center gap-3 p-2.5 rounded-lg border transition-all ${
+                  opt.isCorrect
+                    ? 'border-green-400 bg-green-50/60 shadow-xs'
+                    : 'border-gray-200 bg-white hover:border-gray-300'
+                }`}
+              >
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="radio"
+                    name={`correct-answer-${question.id}`}
+                    checked={opt.isCorrect}
+                    onChange={() => handleSetCorrectOption(i)}
+                    className="w-4 h-4 text-green-600 focus:ring-green-500 cursor-pointer"
+                  />
+                  <span
+                    className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                      opt.isCorrect ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 border border-gray-300'
+                    }`}
+                  >
+                    {letter}
+                  </span>
+                </label>
+                <input
+                  type="text"
+                  value={opt.text}
+                  onChange={(e) => handleOptionTextChange(i, e.target.value)}
+                  className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                  placeholder={`Teks pilihan ${letter}`}
+                  required
+                />
+                {opt.isCorrect && (
+                  <span className="text-xs font-bold text-green-700 bg-green-200 px-2.5 py-1 rounded-full whitespace-nowrap">
+                    ✓ Kunci Jawaban
+                  </span>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
       <div className="flex gap-3 justify-end pt-4 border-t">
-        <button type="button" onClick={onCancel} className="px-4 py-2 border rounded-lg hover:bg-gray-50">Cancel</button>
+        <button type="button" onClick={onCancel} disabled={isSaving} className="px-4 py-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50">Cancel</button>
         <button type="submit" disabled={isSaving} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">{isSaving ? 'Saving...' : 'Save Changes'}</button>
       </div>
     </form>

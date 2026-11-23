@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { getAuthorizationContext, isUserAdmin } from '@/lib/rbac';
+import { getAuthorizationContext } from '@/lib/rbac';
+import { canManagePaidClasses, hasAnyRole } from '@/lib/roles';
 import { ApiResponses } from '@/lib/api-responses';
 import { generateFlyerAIPrompt } from '@/lib/flyer-prompt';
 
@@ -10,14 +11,100 @@ const supabaseAdmin = createSupabaseAdmin();
 export async function GET(request: NextRequest) {
   try {
     const authContext = await getAuthorizationContext();
+    const { searchParams } = new URL(request.url);
+    const scope = searchParams.get('scope'); // 'all' (admin only), 'my' (muallimah only), or 'public'/'approved'
+    const status = searchParams.get('status');
+    const batchId = searchParams.get('batch_id');
+
+    // Public / Approved Scope: Accessible to all users (thalibah / public)
+    if (scope === 'public' || scope === 'approved') {
+      let query = supabaseAdmin
+        .from('muallimah_paid_classes')
+        .select(`
+          *,
+          muallimah:users!muallimah_paid_classes_muallimah_id_fkey(
+            id,
+            full_name,
+            email,
+            whatsapp
+          ),
+          batch:batches(id, name, status)
+        `)
+        .in('status', ['approved', 'active'])
+        .order('created_at', { ascending: false });
+
+      if (batchId && batchId !== 'all') {
+        query = query.eq('batch_id', batchId);
+      }
+
+      const { data, error } = await query;
+      if (error) {
+        console.error('[Paid Classes Public API] Fetch error:', error);
+        return ApiResponses.databaseError(error);
+      }
+
+      const classIds = (data || []).map((c: any) => c.id);
+      const registrationCounts: Record<string, number> = {};
+      const userRegisteredClassIds = new Set<string>();
+      const userRegistrationMap: Record<string, any> = {};
+
+      if (classIds.length > 0) {
+        const { data: regData } = await supabaseAdmin
+          .from('paid_class_registrations')
+          .select('paid_class_id, status')
+          .in('paid_class_id', classIds)
+          .neq('status', 'cancelled');
+
+        (regData || []).forEach((r: any) => {
+          registrationCounts[r.paid_class_id] = (registrationCounts[r.paid_class_id] || 0) + 1;
+        });
+
+        if (authContext?.userId) {
+          const { data: userRegs } = await supabaseAdmin
+            .from('paid_class_registrations')
+            .select('*')
+            .eq('user_id', authContext.userId)
+            .neq('status', 'cancelled');
+
+          (userRegs || []).forEach((ur: any) => {
+            userRegisteredClassIds.add(ur.paid_class_id);
+            userRegistrationMap[ur.paid_class_id] = ur;
+          });
+        }
+      }
+
+      const enrichedClasses = (data || []).map((c: any) => {
+        const enrolled = registrationCounts[c.id] || 0;
+        const max = c.max_students || 10;
+        return {
+          ...c,
+          enrolled_count: enrolled,
+          remaining_slots: Math.max(0, max - enrolled),
+          is_full: enrolled >= max,
+          is_user_registered: userRegisteredClassIds.has(c.id),
+          user_registration: userRegistrationMap[c.id] || null,
+        };
+      });
+
+      return ApiResponses.success({ classes: enrichedClasses });
+    }
+
+    // Authenticated scope ('my' or 'all')
     if (!authContext) {
       return ApiResponses.unauthorized('Silakan login terlebih dahulu');
     }
 
-    const { searchParams } = new URL(request.url);
-    const scope = searchParams.get('scope'); // 'all' (admin only) or 'my'
-    const status = searchParams.get('status');
-    const isAdmin = isUserAdmin(authContext);
+    if (!canManagePaidClasses(authContext.roles)) {
+      return ApiResponses.forbidden(
+        "Akses khusus Mu'allimah terverifikasi atau Admin MTI."
+      );
+    }
+
+    const isAdmin = hasAnyRole(authContext.roles, ['admin', 'super_admin']);
+
+    if (scope === 'all' && !isAdmin) {
+      return ApiResponses.forbidden('Hanya Admin yang dapat melihat seluruh pengajuan kelas.');
+    }
 
     let query = supabaseAdmin
       .from('muallimah_paid_classes')
@@ -42,13 +129,43 @@ export async function GET(request: NextRequest) {
       query = query.eq('status', status);
     }
 
+    if (batchId && batchId !== 'all') {
+      query = query.eq('batch_id', batchId);
+    }
+
     const { data, error } = await query;
     if (error) {
       console.error('[Paid Classes API] Fetch error:', error);
       return ApiResponses.databaseError(error);
     }
 
-    return ApiResponses.success({ classes: data || [] });
+    // Fetch registration count for classes
+    const classIds = (data || []).map((c: any) => c.id);
+    const registrationCounts: Record<string, number> = {};
+    if (classIds.length > 0) {
+      const { data: regData } = await supabaseAdmin
+        .from('paid_class_registrations')
+        .select('paid_class_id, status')
+        .in('paid_class_id', classIds)
+        .neq('status', 'cancelled');
+
+      (regData || []).forEach((r: any) => {
+        registrationCounts[r.paid_class_id] = (registrationCounts[r.paid_class_id] || 0) + 1;
+      });
+    }
+
+    const enriched = (data || []).map((c: any) => {
+      const enrolled = registrationCounts[c.id] || 0;
+      const max = c.max_students || 10;
+      return {
+        ...c,
+        enrolled_count: enrolled,
+        remaining_slots: Math.max(0, max - enrolled),
+        is_full: enrolled >= max,
+      };
+    });
+
+    return ApiResponses.success({ classes: enriched });
   } catch (error) {
     console.error('[Paid Classes API] Unexpected error:', error);
     return ApiResponses.handleUnknown(error);
@@ -63,6 +180,12 @@ export async function POST(request: NextRequest) {
       return ApiResponses.unauthorized('Silakan login terlebih dahulu');
     }
 
+    if (!canManagePaidClasses(authContext.roles)) {
+      return ApiResponses.forbidden(
+        "Hanya Mu'allimah terverifikasi atau Admin yang dapat mengajukan pembukaan Kelas Berbayar."
+      );
+    }
+
     const body = await request.json();
     const {
       class_name,
@@ -73,6 +196,10 @@ export async function POST(request: NextRequest) {
       time_start,
       time_end,
       timezone = 'WIB',
+      duration_info,
+      start_date,
+      estimated_end_date,
+      student_prerequisites,
       max_students = 10,
       fee_amount = 0,
       facilities,
@@ -85,6 +212,21 @@ export async function POST(request: NextRequest) {
       return ApiResponses.badRequest('Semua field utama wajib diisi (Judul kelas, materi, hari, dan jam bimbingan)');
     }
 
+    const cleanStartDate = start_date ? String(start_date).slice(0, 10) : '';
+    const cleanEndDate = estimated_end_date ? String(estimated_end_date).slice(0, 10) : null;
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(cleanStartDate)) {
+      return ApiResponses.badRequest('Tanggal mulai kelas wajib diisi (format YYYY-MM-DD)');
+    }
+
+    if (cleanEndDate && !/^\d{4}-\d{2}-\d{2}$/.test(cleanEndDate)) {
+      return ApiResponses.badRequest('Format estimasi tanggal selesai tidak valid');
+    }
+
+    if (cleanEndDate && cleanEndDate < cleanStartDate) {
+      return ApiResponses.badRequest('Estimasi tanggal selesai tidak boleh sebelum tanggal mulai');
+    }
+
     // Fetch user full name for flyer prompt
     const { data: userProfile } = await supabaseAdmin
       .from('users')
@@ -93,6 +235,8 @@ export async function POST(request: NextRequest) {
       .single();
 
     const muallimahName = userProfile?.full_name || 'Muallimah MTI';
+    const cleanDuration = duration_info?.trim() || null;
+    const cleanPrereq = student_prerequisites?.trim() || null;
 
     const flyerPrompt = generateFlyerAIPrompt({
       class_name,
@@ -101,6 +245,10 @@ export async function POST(request: NextRequest) {
       schedule_day,
       time_start,
       time_end,
+      duration_info: cleanDuration,
+      start_date: cleanStartDate,
+      estimated_end_date: cleanEndDate,
+      student_prerequisites: cleanPrereq,
       fee_amount: Number(fee_amount) || 0,
       max_students: Number(max_students) || 10,
       facilities,
@@ -117,6 +265,10 @@ export async function POST(request: NextRequest) {
       time_start: time_start.trim(),
       time_end: time_end.trim(),
       timezone,
+      duration_info: cleanDuration,
+      start_date: cleanStartDate,
+      estimated_end_date: cleanEndDate,
+      student_prerequisites: cleanPrereq,
       max_students: parseInt(max_students) || 10,
       fee_amount: parseFloat(fee_amount) || 0,
       facilities: facilities?.trim() || 'Ruang Zoom MTI, E-Sertifikat, Rekaman Pertemuan, Pendampingan Musyrifah',

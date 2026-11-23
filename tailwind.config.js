@@ -58,6 +58,9 @@ module.exports = {
           foreground: "hsl(var(--card-foreground))",
         },
         "green-army": "#4a5f3a",
+        "emerald-750": "#047857",
+        "emerald-850": "#064e3b",
+        "emerald-950": "#022c22",
         "gold": "#fbbf24",
       },
       borderRadius: {

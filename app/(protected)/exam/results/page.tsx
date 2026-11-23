@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'react-hot-toast';
@@ -9,7 +9,6 @@ import {
   XCircle,
   Award,
   TrendingUp,
-  Clock,
   Home,
   FileText
 } from 'lucide-react';
@@ -39,38 +38,84 @@ interface ExamResult {
   };
   sections: SectionResult[];
   overall_percentage: number;
+  passing_score?: number;
   passed: boolean;
 }
 
 export default function ExamResultsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading results...</p>
+          </div>
+        </div>
+      }
+    >
+      <ExamResultsContent />
+    </Suspense>
+  );
+}
+
+function ExamResultsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<ExamResult | null>(null);
 
+  const source = searchParams.get('source') || '';
+  const batchId = searchParams.get('batchId') || '';
+  const backUrl = source === 'final-exam' ? '/ujian?tab=akhir' : '/perjalanan-saya';
+
   useEffect(() => {
     const attemptId = searchParams.get('attemptId');
-    if (!attemptId) {
-      toast.error('No exam attempt found');
-      router.push('/perjalanan-saya');
+    if (attemptId) {
+      loadExamResult(attemptId);
       return;
     }
 
-    loadExamResult(attemptId);
+    if (source === 'final-exam') {
+      resolveFinalExamAttemptAndLoad();
+      return;
+    }
+
+    toast.error('No exam attempt found');
+    router.push(backUrl);
   }, [searchParams]);
+
+  const resolveFinalExamAttemptAndLoad = async () => {
+    try {
+      setLoading(true);
+      const url = `/api/exam/attempts?source=final-exam${batchId ? `&batchId=${encodeURIComponent(batchId)}` : ''}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (res.ok && data.attempt?.id && data.attempt?.status === 'submitted') {
+        await loadExamResult(data.attempt.id);
+        return;
+      }
+      toast.error('Belum ada hasil ujian akhir yang tersimpan');
+      router.push(backUrl);
+    } catch (error) {
+      console.error('Error resolving final exam attempt:', error);
+      toast.error('Failed to load exam results');
+      router.push(backUrl);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const loadExamResult = async (attemptId: string) => {
     try {
       setLoading(true);
 
-      // For now, we need to fetch the attempt and calculate results
-      // In a real implementation, you might have a dedicated results endpoint
       const response = await fetch(`/api/exam/attempts/${attemptId}`);
 
       if (!response.ok) {
         toast.error('Failed to load exam results');
-        router.push('/perjalanan-saya');
+        router.push(backUrl);
         return;
       }
 
@@ -79,7 +124,7 @@ export default function ExamResultsPage() {
     } catch (error) {
       console.error('Error loading results:', error);
       toast.error('Failed to load exam results');
-      router.push('/perjalanan-saya');
+      router.push(backUrl);
     } finally {
       setLoading(false);
     }
@@ -103,10 +148,10 @@ export default function ExamResultsPage() {
           <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <p className="text-gray-600">Failed to load results</p>
           <button
-            onClick={() => router.push('/perjalanan-saya')}
+            onClick={() => router.push(backUrl)}
             className="mt-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
           >
-            Go to Dashboard
+            {source === 'final-exam' ? 'Kembali ke Halaman Ujian' : 'Go to Dashboard'}
           </button>
         </div>
       </div>
@@ -128,7 +173,8 @@ export default function ExamResultsPage() {
     return `${hours}h ${minutes}m ${secs}s`;
   };
 
-  const passed = result.overall_percentage >= 60;
+  const passingGrade = result.passing_score ?? 60;
+  const passed = result.passed ?? (result.overall_percentage >= passingGrade);
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -223,7 +269,7 @@ export default function ExamResultsPage() {
           </h2>
           <div className="space-y-4">
             {result.sections.map((section) => {
-              const sectionPassed = section.percentage >= 60;
+              const sectionPassed = section.percentage >= passingGrade;
               return (
                 <div key={section.section_number} className="border border-gray-200 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
@@ -275,7 +321,7 @@ export default function ExamResultsPage() {
               <p className={`text-sm ${passed ? 'text-green-700' : 'text-orange-700'}`}>
                 {passed
                   ? 'Alhamdulillah! You have successfully passed the exam. You may now proceed to the next step in your journey.'
-                  : 'The passing grade is 60%. Please review the material and try again when ready.'}
+                  : `The passing grade is ${passingGrade}%. Please review the material and consult your pembimbing if needed.`}
               </p>
             </div>
           </div>
@@ -284,11 +330,11 @@ export default function ExamResultsPage() {
         {/* Actions */}
         <div className="flex gap-4 justify-center">
           <button
-            onClick={() => router.push('/perjalanan-saya')}
+            onClick={() => router.push(backUrl)}
             className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
           >
             <Home className="w-5 h-5" />
-            Go to Dashboard
+            {source === 'final-exam' ? 'Kembali ke Portal Ujian' : 'Go to Dashboard'}
           </button>
         </div>
 

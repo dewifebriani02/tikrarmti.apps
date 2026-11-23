@@ -1,0 +1,1470 @@
+'use client';
+
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { toast } from 'sonner';
+import {
+  MessageSquare, Send, Search, RefreshCw, Check, CheckCheck, Clock,
+  User, Phone, ExternalLink, CheckCircle2, AlertCircle, Sparkles,
+  ArrowDownLeft, ArrowUpRight, Zap, Filter, Archive, CheckSquare,
+  Image as ImageIcon, FileText, Mic, Video, Paperclip, X, Loader2, Download, ZoomIn, Eye,
+  Bot, AlertTriangle, Settings2
+} from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
+
+export interface WhatsAppConversation {
+  id: string;
+  phone_number: string;
+  display_name: string;
+  user_id?: string | null;
+  batch_name?: string | null;
+  student_id_number?: string | null;
+  last_message?: string | null;
+  last_message_at: string;
+  last_message_direction: 'inbound' | 'outbound';
+  unread_count: number;
+  status: 'open' | 'resolved' | 'archived';
+  profile_pic_url?: string | null;
+  bot_enabled?: boolean;
+  needs_admin?: boolean;
+  escalation_reason?: string | null;
+  escalated_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WhatsAppMessage {
+  id: string;
+  conversation_id: string;
+  phone_number: string;
+  direction: 'inbound' | 'outbound';
+  message_body: string;
+  status: 'received' | 'sent' | 'delivered' | 'failed';
+  sender_name?: string | null;
+  sender_id?: string | null;
+  watzap_message_id?: string | null;
+  metadata?: Record<string, any>;
+  created_at: string;
+}
+
+const QUICK_REPLIES = [
+  {
+    label: 'Salam & Sapaan',
+    text: "Assalamu'alaikum Warahmatullahi Wabarakatuh Ukhti. Ada yang bisa kami bantu terkait program Markaz Tikrar Indonesia?",
+  },
+  {
+    label: 'Konfirmasi Terima',
+    text: "Wa'alaikumussalam Warahmatullahi Wabarakatuh. Baik Ukhti, pesan telah kami terima dan kami catat. Jazakillahu khairan.",
+  },
+  {
+    label: 'Mohon Ditunggu',
+    text: "Mohon ditunggu sebentar ya Ukhti, tim administrasi MTI sedang mengecek data akademik Ukhti pada sistem.",
+  },
+  {
+    label: 'Link Dashboard',
+    text: "Ukhti dapat mengakses seluruh informasi akademik, jadwal, dan muroja'ah langsung melalui dashboard resmi MTI:\nhttps://markaztikrar.id",
+  },
+  {
+    label: 'Panduan Jurnal Harian',
+    text: "Untuk pengisian Jurnal Harian MTI, silakan masuk ke menu Jurnal Harian di tautan berikut:\nhttps://markaztikrar.id/jurnal-harian\nPastikan untuk mengisi sebelum batas evaluasi harian.",
+  },
+  {
+    label: 'Selesai & Doa',
+    text: "Alhamdulillah, senang bisa membantu. Semoga Allah mudahkan seluruh ikhtiar muroja'ah dan hafalan Al-Qur'an Ukhti. Barakallahu feekum.",
+  },
+];
+
+export interface WhatsAppInboxTabProps {
+  senderNumber?: string;
+}
+
+export function WhatsAppInboxTab({ senderNumber = "0813-8884-240" }: WhatsAppInboxTabProps = {}) {
+  const [conversations, setConversations] = useState<WhatsAppConversation[]>([]);
+  const [totalUnread, setTotalUnread] = useState(0);
+  const [totalNeedsAdmin, setTotalNeedsAdmin] = useState(0);
+  const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<WhatsAppMessage[]>([]);
+  const [loadingList, setLoadingList] = useState(true);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [sendingReply, setSendingReply] = useState(false);
+  const [replyText, setReplyText] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'unread' | 'needs_admin' | 'open' | 'resolved'>('all');
+  const [botConfig, setBotConfig] = useState<{
+    enabled: boolean;
+    auto_reply_delay_ms: number;
+    escalation_admin_phones: string[];
+    system_prompt_extra: string;
+  }>({ enabled: true, auto_reply_delay_ms: 2000, escalation_admin_phones: [], system_prompt_extra: '' });
+  const [togglingBot, setTogglingBot] = useState(false);
+  const [showBotSettings, setShowBotSettings] = useState(false);
+  const [adminPhonesInput, setAdminPhonesInput] = useState('');
+  const [promptExtraInput, setPromptExtraInput] = useState('');
+  const [savingBotSettings, setSavingBotSettings] = useState(false);
+  const [webhookStatus, setWebhookStatus] = useState<{ configured: boolean; webhookUrl?: string | null; instanceOnline?: boolean; instanceError?: string | null } | null>(null);
+  const [isConfiguringWebhook, setIsConfiguringWebhook] = useState(false);
+
+  // Media Attachment State for Reply
+  const [attachedImage, setAttachedImage] = useState<{ url: string; name: string } | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [previewModalUrl, setPreviewModalUrl] = useState<string | null>(null);
+  const [previewModalTitle, setPreviewModalTitle] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setPreviewModalUrl(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const scrollToBottom = (smooth = true) => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior: smooth ? 'smooth' : 'auto',
+      });
+    }
+  };
+
+  // Fetch AI Bot Settings
+  const fetchBotConfig = async () => {
+    try {
+      const res = await fetch('/api/admin/whatsapp/bot-settings');
+      const data = await res.json();
+      if (data.success && data.data) {
+        setBotConfig(data.data);
+        setAdminPhonesInput((data.data.escalation_admin_phones || []).join(', '));
+        setPromptExtraInput(data.data.system_prompt_extra || '');
+      }
+    } catch (err) {
+      console.error('Error fetching bot settings:', err);
+    }
+  };
+
+  const handleToggleGlobalBot = async () => {
+    setTogglingBot(true);
+    try {
+      const nextEnabled = !botConfig.enabled;
+      const res = await fetch('/api/admin/whatsapp/bot-settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: nextEnabled }),
+      });
+      const data = await res.json();
+      if (data.success && data.data) {
+        setBotConfig(data.data);
+        toast.success(nextEnabled ? 'Asisten AI Chatbot diaktifkan' : 'Asisten AI Chatbot dinonaktifkan');
+      } else {
+        toast.error(data.error?.message || 'Gagal mengubah status AI Chatbot');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Terjadi kesalahan');
+    } finally {
+      setTogglingBot(false);
+    }
+  };
+
+  const handleSaveBotSettings = async () => {
+    setSavingBotSettings(true);
+    try {
+      const phones = adminPhonesInput
+        .split(/[,\n]/)
+        .map((p) => p.trim())
+        .filter(Boolean);
+      const res = await fetch('/api/admin/whatsapp/bot-settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          escalation_admin_phones: phones,
+          system_prompt_extra: promptExtraInput,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.data) {
+        setBotConfig(data.data);
+        toast.success('Pengaturan Asisten AI tersimpan');
+        setShowBotSettings(false);
+      } else {
+        toast.error(data.error?.message || 'Gagal menyimpan pengaturan');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Terjadi kesalahan');
+    } finally {
+      setSavingBotSettings(false);
+    }
+  };
+
+  const handleToggleConvBot = async (conv: WhatsAppConversation) => {
+    const nextBot = !(conv.bot_enabled !== false);
+    try {
+      const res = await fetch(`/api/admin/whatsapp/conversations/${conv.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bot_enabled: nextBot }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setConversations((prev) =>
+          prev.map((c) => (c.id === conv.id ? { ...c, bot_enabled: nextBot } : c))
+        );
+        toast.success(nextBot ? 'AI Bot diaktifkan untuk chat ini' : 'AI Bot dijeda untuk chat ini');
+      }
+    } catch {
+      toast.error('Gagal mengubah status bot percakapan');
+    }
+  };
+
+  const handleResolveEscalation = async (conv: WhatsAppConversation) => {
+    try {
+      const res = await fetch(`/api/admin/whatsapp/conversations/${conv.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ needs_admin: false }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setConversations((prev) =>
+          prev.map((c) => (c.id === conv.id ? { ...c, needs_admin: false, escalation_reason: null } : c))
+        );
+        setTotalNeedsAdmin((prev) => Math.max(0, prev - 1));
+        toast.success('Eskalasi admin ditandai selesai');
+      }
+    } catch {
+      toast.error('Gagal memperbarui status eskalasi');
+    }
+  };
+
+  // Fetch Webhook Status
+  const checkWebhookStatus = async () => {
+    try {
+      const res = await fetch('/api/admin/whatsapp/webhook-status');
+      const data = await res.json();
+      if (data.success) {
+        setWebhookStatus(data.data);
+      }
+    } catch (err) {
+      console.error('Error fetching webhook status:', err);
+    }
+  };
+
+  // Connect Webhook
+  const handleConnectWebhook = async () => {
+    setIsConfiguringWebhook(true);
+    try {
+      const res = await fetch('/api/admin/whatsapp/webhook-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: 'https://markaztikrar.id/api/webhooks/whatsapp' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Webhook WatZap berhasil dihubungkan ke https://markaztikrar.id/api/webhooks/whatsapp');
+        checkWebhookStatus();
+      } else {
+        toast.error(data.error?.message || 'Gagal menghubungkan webhook');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Terjadi kesalahan');
+    } finally {
+      setIsConfiguringWebhook(false);
+    }
+  };
+
+  // Fetch Conversations
+  const fetchConversations = useCallback(async (silent = false) => {
+    if (!silent) setLoadingList(true);
+    try {
+      const params = new URLSearchParams();
+      if (searchQuery.trim()) params.append('search', searchQuery.trim());
+      if (statusFilter !== 'all') params.append('status', statusFilter);
+
+      const res = await fetch(`/api/admin/whatsapp/conversations?${params.toString()}`);
+      const data = await res.json();
+
+      if (data.success) {
+        setConversations(data.data.conversations || []);
+        setTotalUnread(data.data.totalUnread || 0);
+        setTotalNeedsAdmin(data.data.totalNeedsAdmin || 0);
+
+        // If no conversation is selected and we have items, select the first one
+        if (!selectedConvId && data.data.conversations?.length > 0) {
+          setSelectedConvId(data.data.conversations[0].id);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching conversations:', err);
+      if (!silent) toast.error('Gagal memuat percakapan WhatsApp');
+    } finally {
+      if (!silent) setLoadingList(false);
+    }
+  }, [searchQuery, statusFilter, selectedConvId]);
+
+  // Fetch Messages for active conversation
+  const fetchMessages = useCallback(async (convId: string, silent = false) => {
+    if (!silent) setLoadingMessages(true);
+    try {
+      const res = await fetch(`/api/admin/whatsapp/conversations/${convId}`);
+      if (res.status === 404) {
+        setSelectedConvId(null);
+        setMessages([]);
+        return;
+      }
+      const data = await res.json();
+
+      if (data.success) {
+        setMessages(data.data.messages || []);
+        
+        // Auto mark as read if has unread
+        if (data.data.conversation?.unread_count > 0) {
+          await fetch(`/api/admin/whatsapp/conversations/${convId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ markAsRead: true }),
+          });
+
+          // Optimistically update conversation in list
+          setConversations((prev) =>
+            prev.map((c) => (c.id === convId ? { ...c, unread_count: 0 } : c))
+          );
+          setTotalUnread((prev) => Math.max(0, prev - 1));
+        }
+
+        if (!silent) setTimeout(() => scrollToBottom(false), 50);
+      }
+    } catch (err) {
+      console.error('Error fetching messages:', err);
+      if (!silent) toast.error('Gagal memuat isi pesan');
+    } finally {
+      if (!silent) setLoadingMessages(false);
+    }
+  }, []);
+
+  // Upload image to send in reply
+  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Mohon pilih file gambar (JPG, PNG, atau WEBP)');
+      return;
+    }
+
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error('Ukuran gambar maksimal 8MB');
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('folder', 'general');
+
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const json = await res.json();
+      if (json.success && json.url) {
+        const fullUrl = json.url.startsWith('http')
+          ? json.url
+          : `${window.location.origin}${json.url}`;
+        setAttachedImage({ url: fullUrl, name: file.name });
+        toast.success('Gambar siap dikirim');
+      } else {
+        toast.error(json.error || 'Gagal mengunggah gambar');
+      }
+    } catch (err: any) {
+      console.error('Image upload error:', err);
+      toast.error('Gagal mengunggah gambar');
+    } finally {
+      setUploadingImage(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  // Send Reply
+  const handleSendReply = async () => {
+    if (!selectedConvId) return;
+    const text = replyText.trim();
+    const mediaUrl = attachedImage?.url;
+
+    if (!text && !mediaUrl) {
+      toast.warning('Tulis pesan balasan atau lampirkan foto terlebih dahulu');
+      return;
+    }
+
+    setSendingReply(true);
+    try {
+      const res = await fetch(`/api/admin/whatsapp/conversations/${selectedConvId}/reply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: text,
+          mediaUrl: mediaUrl,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Balasan berhasil dikirim via WhatsApp');
+        setReplyText('');
+        setAttachedImage(null);
+
+        // Append to messages
+        if (data.data) {
+          setMessages((prev) => [...prev, data.data]);
+        }
+
+        // Update conversation list
+        const lastSnippet = mediaUrl ? `📷 [Foto] ${text}` : text;
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.id === selectedConvId
+              ? {
+                  ...c,
+                  last_message: lastSnippet,
+                  last_message_at: new Date().toISOString(),
+                  last_message_direction: 'outbound',
+                  unread_count: 0,
+                }
+              : c
+          )
+        );
+
+        setTimeout(() => scrollToBottom(true), 50);
+      } else {
+        toast.error(data.error?.message || 'Gagal mengirim balasan WhatsApp');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Terjadi kesalahan saat mengirim balasan');
+    } finally {
+      setSendingReply(false);
+    }
+  };
+
+  // Toggle Conversation Status (open / resolved)
+  const handleToggleStatus = async () => {
+    if (!selectedConvId) return;
+    const currentConv = conversations.find((c) => c.id === selectedConvId);
+    if (!currentConv) return;
+
+    const nextStatus = currentConv.status === 'resolved' ? 'open' : 'resolved';
+    try {
+      const res = await fetch(`/api/admin/whatsapp/conversations/${selectedConvId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(
+          nextStatus === 'resolved'
+            ? 'Percakapan ditandai telah selesai'
+            : 'Percakapan dibuka kembali'
+        );
+        setConversations((prev) =>
+          prev.map((c) => (c.id === selectedConvId ? { ...c, status: nextStatus } : c))
+        );
+      }
+    } catch (err: any) {
+      toast.error('Gagal memperbarui status');
+    }
+  };
+
+  // Keyboard shortcut: Enter to send (Shift+Enter for newline)
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendReply();
+    }
+  };
+
+  // Initial load
+  useEffect(() => {
+    checkWebhookStatus();
+    fetchBotConfig();
+    fetchConversations();
+  }, [fetchConversations]);
+
+  // Load messages when conversation selection changes
+  useEffect(() => {
+    if (selectedConvId) {
+      fetchMessages(selectedConvId);
+    }
+  }, [selectedConvId, fetchMessages]);
+
+  // Auto-poll messages and conversation list every 12 seconds
+  useEffect(() => {
+    pollIntervalRef.current = setInterval(() => {
+      fetchConversations(true);
+      if (selectedConvId) {
+        fetchMessages(selectedConvId, true);
+      }
+    }, 12000);
+
+    return () => {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    };
+  }, [selectedConvId, fetchConversations, fetchMessages]);
+
+  const activeConv = conversations.find((c) => c.id === selectedConvId);
+
+  // Format timestamp helper
+  const formatTime = (isoString?: string) => {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    const timeStr = `${hours}:${minutes}`;
+
+    if (isToday) return timeStr;
+
+    const yesterday = new Date();
+    yesterday.setDate(now.getDate() - 1);
+    if (date.toDateString() === yesterday.toDateString()) {
+      return `Kemarin ${timeStr}`;
+    }
+
+    return `${date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} ${timeStr}`;
+  };
+
+  // Render message bubble with rich media attachment support
+  const renderMessageContent = (msg: WhatsAppMessage, isOutbound: boolean, phone: string) => {
+    const metadataData = msg.metadata?.data || {};
+    const mediaUrl =
+      msg.metadata?.media_url ||
+      metadataData.media_url ||
+      (msg.metadata as any)?.url ||
+      null;
+
+    const hasMedia = Boolean(
+      mediaUrl ||
+      metadataData.has_media ||
+      msg.metadata?.has_media ||
+      msg.message_body?.startsWith("📷") ||
+      msg.message_body?.startsWith("🎙️") ||
+      msg.message_body?.startsWith("🎥") ||
+      msg.message_body?.startsWith("📄") ||
+      msg.message_body?.includes("[Media/File]") ||
+      msg.message_body?.includes("[Foto / Gambar]") ||
+      msg.message_body?.includes("[Foto]")
+    );
+
+    const mediaMime = msg.metadata?.media_mime || metadataData.media_mime || "";
+    const mediaName = msg.metadata?.media_name || metadataData.media_name || "";
+
+    let mediaType: "image" | "audio" | "video" | "document" = "image";
+    if (mediaMime.startsWith("audio/") || msg.message_body?.includes("🎙️") || msg.message_body?.includes("Pesan Suara")) {
+      mediaType = "audio";
+    } else if (mediaMime.startsWith("video/") || msg.message_body?.includes("🎥")) {
+      mediaType = "video";
+    } else if (mediaMime.startsWith("application/") || msg.message_body?.includes("📄") || mediaName) {
+      mediaType = "document";
+    }
+
+    let captionText = msg.message_body || "";
+    captionText = captionText
+      .replace(/^📷\s*\[Foto\s*\/\s*Gambar\]\s*/i, "")
+      .replace(/^📷\s*\[Foto\]:?\s*/i, "")
+      .replace(/^🎙️\s*\[Pesan Suara\s*\/\s*Voice Note\]\s*/i, "")
+      .replace(/^🎥\s*\[Video\]\s*/i, "")
+      .replace(/^📄\s*\[Dokumen:[^\]]+\]\s*/i, "")
+      .replace(/^\[Media\/File\]\s*/i, "")
+      .trim();
+
+    return (
+      <div className="space-y-2">
+        {hasMedia && (
+          <div
+            className={`rounded-xl p-2.5 border transition-all ${
+              isOutbound
+                ? "bg-emerald-700/60 border-emerald-500/40 text-white"
+                : "bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700"
+            }`}
+          >
+            {mediaUrl ? (
+              <div className="space-y-2">
+                {/* Clickable Image Thumbnail with Zoom Hover */}
+                <div
+                  className="relative group rounded-lg overflow-hidden bg-black/10 cursor-pointer"
+                  onClick={() => {
+                    setPreviewModalUrl(mediaUrl);
+                    setPreviewModalTitle(captionText || (isOutbound ? "Foto Balasan Admin" : "Foto WhatsApp"));
+                  }}
+                  title="Klik untuk melihat foto ukuran penuh di aplikasi"
+                >
+                  <img
+                    src={mediaUrl}
+                    alt="Lampiran Media"
+                    className="max-h-64 sm:max-h-72 rounded-lg object-contain w-full bg-slate-900/10 group-hover:scale-[1.01] transition-transform duration-200"
+                  />
+                  <div className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    <span className="px-3 py-1.5 rounded-full bg-black/75 text-white text-xs font-medium flex items-center gap-1.5 backdrop-blur-xs shadow-md">
+                      <ZoomIn className="h-3.5 w-3.5" />
+                      Pratinjau Foto
+                    </span>
+                  </div>
+                </div>
+
+                {/* Action Bar */}
+                <div className="flex items-center justify-between gap-2 pt-1 text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPreviewModalUrl(mediaUrl);
+                      setPreviewModalTitle(captionText || (isOutbound ? "Foto Balasan Admin" : "Foto WhatsApp"));
+                    }}
+                    className={`flex items-center gap-1 font-semibold hover:underline ${
+                      isOutbound ? "text-white" : "text-emerald-700 dark:text-emerald-400"
+                    }`}
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    Lihat di Aplikasi
+                  </button>
+
+                  <a
+                    href={mediaUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`flex items-center gap-1 opacity-80 hover:opacity-100 hover:underline ${
+                      isOutbound ? "text-white" : "text-slate-600 dark:text-slate-400"
+                    }`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    Tab Baru
+                  </a>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div
+                    className={`p-2 rounded-lg shrink-0 ${
+                      isOutbound
+                        ? "bg-emerald-800 text-emerald-200"
+                        : "bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300"
+                    }`}
+                  >
+                    {mediaType === "image" && <ImageIcon className="h-5 w-5" />}
+                    {mediaType === "audio" && <Mic className="h-5 w-5" />}
+                    {mediaType === "video" && <Video className="h-5 w-5" />}
+                    {mediaType === "document" && <FileText className="h-5 w-5" />}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-xs truncate">
+                      {mediaType === "image" && "Foto / Gambar WhatsApp"}
+                      {mediaType === "audio" && "Pesan Suara (Voice Note)"}
+                      {mediaType === "video" && "Video WhatsApp"}
+                      {mediaType === "document" && (mediaName || "Dokumen / Berkas")}
+                    </p>
+                    <p
+                      className={`text-[10px] truncate ${
+                        isOutbound ? "text-emerald-200" : "text-slate-500 dark:text-slate-400"
+                      }`}
+                    >
+                      {mediaMime || "Tersimpan di WhatsApp HP MTI"}
+                    </p>
+                  </div>
+                </div>
+
+                <a
+                  href={`https://wa.me/${phone}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium flex items-center gap-1 shrink-0 transition-colors ${
+                    isOutbound
+                      ? "bg-white/20 hover:bg-white/30 text-white"
+                      : "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 border border-emerald-200 dark:border-emerald-800"
+                  }`}
+                  title="Buka percakapan langsung di WhatsApp untuk melihat foto atau file aslinya"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  Lihat di WA
+                </a>
+              </div>
+            )}
+          </div>
+        )}
+
+        {captionText && (
+          <p className="whitespace-pre-wrap leading-relaxed select-text text-xs sm:text-sm">
+            {captionText}
+          </p>
+        )}
+      </div>
+    );
+  };
+
+    return (
+    <>
+      <div className="flex flex-col h-[750px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+      {/* Hidden File Input for Image Attachment */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept="image/*"
+        onChange={handleImageFileChange}
+        className="hidden"
+      />
+
+      {/* Webhook Status Banner */}
+      <div className="px-4 py-2.5 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="flex items-center gap-2">
+          <span className="flex h-2 w-2 relative">
+            <span
+              className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                webhookStatus?.configured && webhookStatus?.instanceOnline !== false
+                  ? 'bg-emerald-400'
+                  : webhookStatus?.instanceOnline === false
+                  ? 'bg-red-400'
+                  : 'bg-amber-400'
+              }`}
+            />
+            <span
+              className={`relative inline-flex rounded-full h-2 w-2 ${
+                webhookStatus?.configured && webhookStatus?.instanceOnline !== false
+                  ? 'bg-emerald-500'
+                  : webhookStatus?.instanceOnline === false
+                  ? 'bg-red-500'
+                  : 'bg-amber-500'
+              }`}
+            />
+          </span>
+          <span className="font-medium text-slate-700 dark:text-slate-300">
+            Status Webhook WatZap ({senderNumber}):
+          </span>
+          {webhookStatus?.configured ? (
+            webhookStatus.instanceOnline === false ? (
+              <span className="text-red-600 dark:text-red-400 font-semibold flex items-center gap-1">
+                <AlertTriangle className="h-3.5 w-3.5" /> Instance WhatsApp Offline ({webhookStatus.instanceError || 'Not Started'}) — Scan ulang QR di app.watzap.id
+              </span>
+            ) : (
+              <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                <Check className="h-3.5 w-3.5" /> Terhubung Aktif
+                <span className="text-slate-400 font-normal">
+                  ({webhookStatus.webhookUrl || 'https://markaztikrar.id/api/webhooks/whatsapp'})
+                </span>
+              </span>
+            )
+          ) : (
+            <span className="text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1">
+              <AlertCircle className="h-3.5 w-3.5" /> Belum Dihubungkan
+            </span>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            disabled={togglingBot}
+            onClick={handleToggleGlobalBot}
+            className={`h-7 px-2.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+              botConfig.enabled
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-300'
+                : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400'
+            }`}
+            title="Aktifkan/Matikan balasan otomatis Asisten AI WhatsApp untuk seluruh chat"
+          >
+            <Bot className="h-3.5 w-3.5" />
+            Asisten AI: {botConfig.enabled ? 'Aktif' : 'Nonaktif'}
+          </button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowBotSettings(true)}
+            className="h-7 text-xs border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"
+            title="Atur nomor admin penerima eskalasi & instruksi tambahan AI"
+          >
+            <Settings2 className="h-3 w-3 mr-1" />
+            Setelan Bot
+          </Button>
+
+          {!webhookStatus?.configured && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={isConfiguringWebhook}
+              onClick={handleConnectWebhook}
+              className="h-7 text-xs border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-50"
+            >
+              <Zap className="h-3 w-3 mr-1" />
+              {isConfiguringWebhook ? 'Menghubungkan...' : 'Hubungkan Webhook Sekarang'}
+            </Button>
+          )}
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              checkWebhookStatus();
+              fetchConversations();
+              if (selectedConvId) fetchMessages(selectedConvId);
+            }}
+            className="h-7 text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+          >
+            <RefreshCw className="h-3 w-3 mr-1" />
+            Refresh
+          </Button>
+        </div>
+      </div>
+
+      {/* Main 2-Column Chat Area */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Left Column: Conversation List */}
+        <div className="w-full md:w-80 lg:w-96 flex flex-col border-r border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+          {/* Search & Filter Header */}
+          <div className="p-3 border-b border-slate-200 dark:border-slate-800 space-y-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+              <Input
+                placeholder="Cari nama, nomor WA, NIT..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 pr-3 h-9 bg-white dark:bg-slate-800 text-xs rounded-xl"
+              />
+            </div>
+
+            {/* Filter Pills */}
+            <div className="flex items-center gap-1 overflow-x-auto pb-1 text-xs no-scrollbar">
+              <button
+                type="button"
+                onClick={() => setStatusFilter('all')}
+                className={`px-2.5 py-1 rounded-lg font-medium transition-colors ${
+                  statusFilter === 'all'
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100'
+                }`}
+              >
+                Semua
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatusFilter('unread')}
+                className={`px-2.5 py-1 rounded-lg font-medium transition-colors flex items-center gap-1.5 ${
+                  statusFilter === 'unread'
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100'
+                }`}
+              >
+                Belum Dibaca
+                {totalUnread > 0 && (
+                  <span className="bg-emerald-500 text-white text-[10px] px-1.5 py-0.2 rounded-full font-bold">
+                    {totalUnread}
+                  </span>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatusFilter('needs_admin')}
+                className={`px-2.5 py-1 rounded-lg font-medium transition-colors flex items-center gap-1.5 whitespace-nowrap ${
+                  statusFilter === 'needs_admin'
+                    ? 'bg-amber-600 text-white'
+                    : 'bg-white dark:bg-slate-800 text-amber-700 dark:text-amber-400 hover:bg-amber-50'
+                }`}
+              >
+                Butuh Admin
+                {totalNeedsAdmin > 0 && (
+                  <span className="bg-amber-500 text-white text-[10px] px-1.5 py-0.2 rounded-full font-bold">
+                    {totalNeedsAdmin}
+                  </span>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatusFilter('open')}
+                className={`px-2.5 py-1 rounded-lg font-medium transition-colors ${
+                  statusFilter === 'open'
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100'
+                }`}
+              >
+                Buka
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatusFilter('resolved')}
+                className={`px-2.5 py-1 rounded-lg font-medium transition-colors ${
+                  statusFilter === 'resolved'
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100'
+                }`}
+              >
+                Selesai
+              </button>
+            </div>
+          </div>
+
+          {/* Conversations List Scrollable */}
+          <div className="flex-1 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/60">
+            {loadingList ? (
+              <div className="p-8 text-center text-slate-400 text-xs flex flex-col items-center justify-center">
+                <RefreshCw className="h-5 w-5 animate-spin mb-2 text-emerald-600" />
+                Memuat daftar percakapan...
+              </div>
+            ) : conversations.length === 0 ? (
+              <div className="p-8 text-center text-slate-400 text-xs">
+                <MessageSquare className="h-8 w-8 mx-auto mb-2 text-slate-300 dark:text-slate-600" />
+                <p className="font-medium text-slate-600 dark:text-slate-400">Belum ada percakapan</p>
+                <p className="text-[11px] mt-1 text-slate-400">
+                  {searchQuery ? 'Tidak ada hasil yang cocok dengan pencarian.' : 'Pesan masuk dari thalibah akan otomatis tampil di sini saat webhook aktif.'}
+                </p>
+              </div>
+            ) : (
+              conversations.map((conv) => {
+                const isSelected = conv.id === selectedConvId;
+                const hasUnread = conv.unread_count > 0;
+
+                return (
+                  <div
+                    key={conv.id}
+                    onClick={() => setSelectedConvId(conv.id)}
+                    className={`p-3.5 cursor-pointer transition-colors flex items-start gap-3 relative ${
+                      isSelected
+                        ? 'bg-emerald-50/80 dark:bg-emerald-950/30 border-l-4 border-emerald-600'
+                        : 'hover:bg-slate-100/60 dark:hover:bg-slate-800/40'
+                    }`}
+                  >
+                    {/* Avatar */}
+                    <div className="relative shrink-0">
+                      <div className="h-10 w-10 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 flex items-center justify-center font-bold text-sm">
+                        {conv.display_name.charAt(0).toUpperCase()}
+                      </div>
+                      {hasUnread && (
+                        <span className="absolute -top-1 -right-1 h-3.5 w-3.5 bg-emerald-600 border-2 border-white dark:border-slate-900 rounded-full" />
+                      )}
+                    </div>
+
+                    {/* Content Details */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-1 mb-1">
+                        <span
+                          className={`text-sm truncate ${
+                            hasUnread
+                              ? 'font-bold text-slate-900 dark:text-white'
+                              : 'font-semibold text-slate-800 dark:text-slate-200'
+                          }`}
+                        >
+                          {conv.display_name}
+                        </span>
+                        <span className="text-[10px] text-slate-400 shrink-0">
+                          {formatTime(conv.last_message_at)}
+                        </span>
+                      </div>
+
+                      {/* Escalation / Bot Badges */}
+                      {(conv.needs_admin || conv.bot_enabled === false) && (
+                        <div className="flex flex-wrap items-center gap-1 mb-1">
+                          {conv.needs_admin && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300 font-semibold flex items-center gap-1">
+                              <AlertTriangle className="h-2.5 w-2.5" />
+                              Butuh Admin
+                            </span>
+                          )}
+                          {conv.bot_enabled === false && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium flex items-center gap-1">
+                              <Bot className="h-2.5 w-2.5" />
+                              Bot Dijeda
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Thalibah Batch & NIT */}
+                      {(conv.batch_name || conv.student_id_number) && (
+                        <div className="flex items-center gap-1 mb-1">
+                          {conv.batch_name && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium truncate max-w-[150px]">
+                              {conv.batch_name}
+                            </span>
+                          )}
+                          {conv.student_id_number && (
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              NIT: {conv.student_id_number}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Last Message Snippet */}
+                      <div className="flex items-center justify-between gap-2">
+                        <p
+                          className={`text-xs truncate ${
+                            hasUnread
+                              ? 'font-medium text-slate-800 dark:text-slate-200'
+                              : 'text-slate-500 dark:text-slate-400'
+                          }`}
+                        >
+                          {conv.last_message_direction === 'outbound' && (
+                            <span className="text-emerald-600 dark:text-emerald-400 mr-1 font-semibold">
+                              Anda:
+                            </span>
+                          )}
+                          {conv.last_message || 'Tidak ada pesan'}
+                        </p>
+
+                        {conv.unread_count > 0 && (
+                          <Badge className="bg-emerald-600 text-white hover:bg-emerald-700 h-4 min-w-4 px-1 text-[10px] font-bold rounded-full flex items-center justify-center shrink-0">
+                            {conv.unread_count}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        {/* Right Column: Chat History & Reply Bar */}
+        <div className="hidden md:flex flex-1 flex-col bg-slate-50/30 dark:bg-slate-900/30">
+          {activeConv ? (
+            <>
+              {/* Active Conversation Top Bar */}
+              <div className="p-3.5 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="h-10 w-10 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shrink-0">
+                    {activeConv.display_name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-slate-900 dark:text-white text-sm truncate">
+                        {activeConv.display_name}
+                      </h3>
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] px-1.5 py-0 ${
+                          activeConv.status === 'resolved'
+                            ? 'border-emerald-300 text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40'
+                            : 'border-blue-300 text-blue-700 bg-blue-50 dark:bg-blue-950/40'
+                        }`}
+                      >
+                        {activeConv.status === 'resolved' ? 'Selesai' : 'Buka'}
+                      </Badge>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      <span className="flex items-center gap-1 font-mono">
+                        <Phone className="h-3 w-3 text-slate-400" />
+                        +{activeConv.phone_number}
+                      </span>
+                      {activeConv.student_id_number && (
+                        <span>NIT: <strong className="text-slate-700 dark:text-slate-300">{activeConv.student_id_number}</strong></span>
+                      )}
+                      {activeConv.batch_name && (
+                        <span>Batch: <strong className="text-slate-700 dark:text-slate-300">{activeConv.batch_name}</strong></span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Top Action Buttons */}
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleToggleConvBot(activeConv)}
+                    className={`h-8 text-xs font-medium ${
+                      activeConv.bot_enabled !== false
+                        ? 'border-emerald-200 text-emerald-700 bg-emerald-50/60 hover:bg-emerald-100'
+                        : 'border-slate-200 text-slate-600 hover:bg-slate-100'
+                    }`}
+                    title="Aktifkan/Jeda balasan otomatis AI khusus untuk kontak ini"
+                  >
+                    <Bot className="h-3.5 w-3.5 mr-1" />
+                    {activeConv.bot_enabled !== false ? 'AI: Aktif' : 'AI: Dijeda'}
+                  </Button>
+
+                  {activeConv.needs_admin && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleResolveEscalation(activeConv)}
+                      className="h-8 text-xs font-medium border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100"
+                    >
+                      <Check className="h-3.5 w-3.5 mr-1" />
+                      Selesaikan Eskalasi
+                    </Button>
+                  )}
+
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleToggleStatus}
+                    className="h-8 text-xs font-medium"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5 mr-1 text-emerald-600" />
+                    {activeConv.status === 'resolved' ? 'Buka Kembali' : 'Tandai Selesai'}
+                  </Button>
+
+                  <a
+                    href={`https://wa.me/${activeConv.phone_number}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center h-8 px-2.5 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-medium"
+                    title="Buka percakapan langsung di WhatsApp Web"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5 mr-1" />
+                    WA Web
+                  </a>
+
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => fetchMessages(activeConv.id)}
+                    className="h-8 w-8 p-0 text-slate-500 hover:text-slate-700"
+                    title="Refresh percakapan"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Escalation Alert Banner if flagged by AI */}
+              {activeConv.needs_admin && (
+                <div className="px-4 py-2 bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200 dark:border-amber-800 flex items-center justify-between gap-2 text-xs text-amber-900 dark:text-amber-200">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                    <span className="truncate">
+                      <strong>Eskalasi AI:</strong> {activeConv.escalation_reason || 'Memerlukan penanganan admin manual.'}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Message Bubbles Area */}
+              <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+                {loadingMessages ? (
+                  <div className="flex flex-col items-center justify-center h-full text-slate-400 text-xs">
+                    <RefreshCw className="h-5 w-5 animate-spin mb-2 text-emerald-600" />
+                    Memuat riwayat obrolan...
+                  </div>
+                ) : messages.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-slate-400 text-xs">
+                    <MessageSquare className="h-8 w-8 text-slate-300 dark:text-slate-600 mb-2" />
+                    <p>Belum ada riwayat pesan dalam percakapan ini.</p>
+                  </div>
+                ) : (
+                  messages.map((msg) => {
+                    const isOutbound = msg.direction === 'outbound';
+
+                    return (
+                      <div
+                        key={msg.id}
+                        className={`flex flex-col ${isOutbound ? 'items-end' : 'items-start'}`}
+                      >
+                        <div
+                          className={`max-w-[80%] rounded-2xl px-4 py-2.5 shadow-xs text-xs sm:text-sm ${
+                            isOutbound
+                              ? 'bg-emerald-600 text-white rounded-br-xs'
+                              : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-700/80 rounded-bl-xs'
+                          }`}
+                        >
+                          {/* Sender name for admin or thalibah */}
+                          <div
+                            className={`text-[11px] font-semibold mb-1 flex items-center justify-between gap-3 ${
+                              isOutbound ? 'text-emerald-100' : 'text-emerald-700 dark:text-emerald-400'
+                            }`}
+                          >
+                            <span className="flex items-center gap-1.5">
+                              {(msg.sender_name === 'Asisten AI MTI' || msg.metadata?.is_ai_bot) && (
+                                <Bot className="h-3 w-3 inline" />
+                              )}
+                              {msg.sender_name || (isOutbound ? 'Admin MTI' : activeConv.display_name)}
+                            </span>
+                          </div>
+
+                          {/* Message Content (with rich media support) */}
+                          {renderMessageContent(msg, isOutbound, activeConv.phone_number)}
+
+                          {/* Timestamp & Status */}
+                          <div
+                            className={`flex items-center justify-end gap-1 text-[10px] mt-1.5 ${
+                              isOutbound ? 'text-emerald-100/80' : 'text-slate-400'
+                            }`}
+                          >
+                            <span>{formatTime(msg.created_at)}</span>
+                            {isOutbound && (
+                              <CheckCheck className="h-3 w-3 inline text-emerald-100" />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+
+              {/* Quick Reply Suggestions Bar */}
+              <div className="px-3.5 py-2 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-200 dark:border-slate-800 flex items-center gap-1.5 overflow-x-auto text-xs no-scrollbar">
+                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1 shrink-0 mr-1">
+                  <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                  Balasan Cepat:
+                </span>
+                {QUICK_REPLIES.map((qr, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setReplyText(qr.text)}
+                    className="shrink-0 px-2.5 py-1 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 text-[11px] transition-colors"
+                  >
+                    {qr.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Attached Image Preview Bar */}
+              {attachedImage && (
+                <div className="px-3.5 py-2 bg-emerald-50 dark:bg-emerald-950/40 border-t border-emerald-200 dark:border-emerald-900/60 flex items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <img
+                      src={attachedImage.url}
+                      alt="Preview"
+                      className="h-10 w-10 object-cover rounded-lg border border-emerald-300 shrink-0"
+                    />
+                    <div className="min-w-0">
+                      <p className="font-semibold text-emerald-800 dark:text-emerald-200 text-xs truncate">
+                        {attachedImage.name}
+                      </p>
+                      <p className="text-[10px] text-emerald-600 dark:text-emerald-400">
+                        Gambar siap dikirim ke WhatsApp thalibah
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setAttachedImage(null)}
+                    className="h-7 w-7 p-0 text-emerald-800 hover:text-red-600"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+
+              {/* Reply Input Bar */}
+              <div className="p-3 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-end gap-2">
+                {/* Media Attachment Button */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={sendingReply || uploadingImage}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="h-[50px] px-3 rounded-xl border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 shrink-0"
+                  title="Lampirkan foto / gambar untuk dikirim ke WhatsApp"
+                >
+                  {uploadingImage ? (
+                    <Loader2 className="h-5 w-5 animate-spin text-emerald-600" />
+                  ) : (
+                    <ImageIcon className="h-5 w-5" />
+                  )}
+                </Button>
+
+                <div className="flex-1 relative">
+                  <Textarea
+                    placeholder="Ketik balasan untuk thalibah ini... (Enter untuk kirim, Shift+Enter untuk baris baru)"
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    disabled={sendingReply}
+                    className="min-h-[50px] max-h-[140px] text-xs resize-none rounded-xl pr-3 pl-3 py-2.5 bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-1 block">
+                    Pesan akan dikirim langsung via WhatsApp resmi MTI ({senderNumber}).
+                  </span>
+                </div>
+
+                <Button
+                  onClick={handleSendReply}
+                  disabled={sendingReply || (!replyText.trim() && !attachedImage)}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white h-[50px] px-4 rounded-xl flex items-center gap-2 shrink-0 font-semibold text-xs shadow-xs"
+                >
+                  {sendingReply ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      Mengirim...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4" />
+                      Kirim
+                    </>
+                  )}
+                </Button>
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full text-slate-400 p-8 text-center">
+              <div className="h-16 w-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center mb-3">
+                <MessageSquare className="h-8 w-8" />
+              </div>
+              <h4 className="font-bold text-slate-800 dark:text-slate-200 text-base mb-1">
+                WhatsApp Inbox MTI
+              </h4>
+              <p className="text-xs text-slate-500 max-w-sm">
+                Pilih salah satu kontak thalibah di sebelah kiri untuk melihat riwayat percakapan dan membalas pesan secara langsung.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+
+    {/* AI Bot Settings Modal */}
+    {showBotSettings && (
+      <div
+        className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"
+        onClick={() => setShowBotSettings(false)}
+      >
+        <div
+          className="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full p-5 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-xl bg-emerald-50 text-emerald-700">
+                <Bot className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                  Pengaturan Asisten AI WhatsApp
+                </h3>
+                <p className="text-[11px] text-slate-500">
+                  Menjawab FAQ, diagnosa kendala login, kirim OTP, & eskalasi admin
+                </p>
+              </div>
+            </div>
+            <Button size="sm" variant="ghost" onClick={() => setShowBotSettings(false)} className="h-8 w-8 p-0">
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="space-y-3 text-xs">
+            <div className="space-y-1.5">
+              <label className="font-semibold text-slate-700 dark:text-slate-300 block">
+                Nomor WhatsApp Admin Penerima Notifikasi Eskalasi
+              </label>
+              <Input
+                placeholder="Contoh: 081234567890, 085612345678"
+                value={adminPhonesInput}
+                onChange={(e) => setAdminPhonesInput(e.target.value)}
+                className="text-xs rounded-xl"
+              />
+              <p className="text-[11px] text-slate-400">
+                Pisahkan dengan koma jika lebih dari satu. Saat AI menandai chat sebagai "Butuh Admin", notifikasi otomatis dikirim ke nomor ini.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="font-semibold text-slate-700 dark:text-slate-300 block">
+                Catatan / Instruksi Tambahan untuk AI (Opsional)
+              </label>
+              <Textarea
+                placeholder="Misal: Saat ini pendaftaran Batch 4 dibuka sampai 30 November 2026..."
+                value={promptExtraInput}
+                onChange={(e) => setPromptExtraInput(e.target.value)}
+                rows={4}
+                className="text-xs rounded-xl"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <Button variant="outline" size="sm" onClick={() => setShowBotSettings(false)} className="text-xs rounded-xl">
+              Batal
+            </Button>
+            <Button
+              size="sm"
+              disabled={savingBotSettings}
+              onClick={handleSaveBotSettings}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs rounded-xl"
+            >
+              {savingBotSettings ? 'Menyimpan...' : 'Simpan Pengaturan'}
+            </Button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Lightbox / Media Viewer Modal */}
+    {previewModalUrl && (
+      <div
+        className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6"
+        onClick={() => setPreviewModalUrl(null)}
+      >
+        <div
+          className="relative max-w-4xl w-full max-h-[92vh] bg-slate-900 rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-slate-700 animate-in fade-in zoom-in-95 duration-200"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3 bg-slate-950/80 border-b border-slate-800 text-white">
+            <div className="flex items-center gap-2 min-w-0">
+              <ImageIcon className="h-4 w-4 text-emerald-400 shrink-0" />
+              <span className="text-xs font-semibold truncate">
+                {previewModalTitle || "Pratinjau Foto WhatsApp"}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <a
+                href={previewModalUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-2.5 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 text-xs flex items-center gap-1 transition-colors"
+                title="Buka ukuran asli di tab baru"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                <span className="text-[11px] hidden sm:inline">Ukuran Asli</span>
+              </a>
+              <a
+                href={previewModalUrl}
+                download
+                className="px-2.5 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 text-xs flex items-center gap-1 transition-colors"
+                title="Unduh foto"
+              >
+                <Download className="h-3.5 w-3.5" />
+                <span className="text-[11px] hidden sm:inline">Unduh</span>
+              </a>
+              <button
+                type="button"
+                onClick={() => setPreviewModalUrl(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors ml-1"
+                title="Tutup (Esc)"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Image Display */}
+          <div className="p-3 sm:p-6 flex items-center justify-center overflow-auto max-h-[calc(92vh-60px)] bg-black/50">
+            <img
+              src={previewModalUrl}
+              alt="Pratinjau Foto"
+              className="max-h-[75vh] w-auto max-w-full rounded-lg object-contain shadow-2xl select-none"
+            />
+          </div>
+        </div>
+      </div>
+    )}
+    </>
+  );
+}

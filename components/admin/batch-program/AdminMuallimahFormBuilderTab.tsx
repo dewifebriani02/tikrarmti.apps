@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { RefreshCw, BookOpen, Save, X, Edit, AlertCircle, Info, ShieldCheck, Sparkles, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { getMuallimahRegistrationQuestionsAdmin, updateMuallimahRegistrationQuestion } from '@/app/(protected)/admin/actions';
+import { getMuallimahRegistrationQuestionsAdmin, updateMuallimahRegistrationQuestion, getJuzOptionsAdmin } from '@/lib/admin/admin-client';
 
 interface Question {
   id: string;
@@ -28,6 +28,7 @@ const SECTION_NAMES: Record<number, string> = {
 
 export function AdminMuallimahFormBuilderTab() {
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [juzList, setJuzList] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
   const [previewQuestion, setPreviewQuestion] = useState<Question | null>(null);
@@ -75,7 +76,7 @@ export function AdminMuallimahFormBuilderTab() {
         is_active: editFormData.is_active,
         is_required: editFormData.is_required,
         sort_order: editFormData.sort_order,
-        options: editFormData.options,
+        options: ["radio_options", "select", "multi_select"].includes(editFormData.input_type) ? editFormData.options : (editingQuestion.options ?? editFormData.options),
         input_type: editFormData.input_type,
       };
 
@@ -117,11 +118,17 @@ export function AdminMuallimahFormBuilderTab() {
   const fetchQuestions = async () => {
     setIsLoading(true);
     try {
-      const result = await getMuallimahRegistrationQuestionsAdmin();
+      const [result, juzResult] = await Promise.all([
+        getMuallimahRegistrationQuestionsAdmin(),
+        getJuzOptionsAdmin(),
+      ]);
       if (result.success && result.data) {
         setQuestions(result.data as Question[]);
       } else {
         toast.error(result.error || 'Gagal memuat pertanyaan pendaftaran Mu\'allimah');
+      }
+      if (juzResult?.success && juzResult.data) {
+        setJuzList(juzResult.data);
       }
     } catch (error) {
       console.error('Error fetching questions:', error);
@@ -136,7 +143,8 @@ export function AdminMuallimahFormBuilderTab() {
   }, []);
 
   const handleToggleActive = async (id: string, code: string, currentStatus: boolean) => {
-    const newStatus = !currentStatus;
+    const isCurrentlyActive = Boolean(currentStatus);
+    const newStatus = !isCurrentlyActive;
     
     // Optimistic UI update
     setQuestions(prev =>
@@ -151,9 +159,11 @@ export function AdminMuallimahFormBuilderTab() {
         label: targetQuestion.label,
         description: targetQuestion.description,
         warning_text: targetQuestion.warning_text,
-        is_required: targetQuestion.is_required,
-        sort_order: targetQuestion.sort_order,
+        is_required: Boolean(targetQuestion.is_required),
+        sort_order: Number(targetQuestion.sort_order) || 0,
         is_active: newStatus,
+        options: targetQuestion.options,
+        input_type: targetQuestion.input_type,
       });
 
       if (result.success) {
@@ -177,15 +187,19 @@ export function AdminMuallimahFormBuilderTab() {
 
   const handleOpenEditModal = (q: Question) => {
     setEditingQuestion(q);
+    let opts = q.options;
+    if (typeof opts === "string") {
+      try { opts = JSON.parse(opts); } catch { opts = []; }
+    }
     setEditFormData({
       label: q.label,
-      description: q.description || '',
-      warning_text: q.warning_text || '',
-      is_active: q.is_active,
-      is_required: q.is_required,
-      sort_order: q.sort_order,
-      options: Array.isArray(q.options) ? [...q.options] : [],
-      input_type: q.input_type || 'text',
+      description: q.description || "",
+      warning_text: q.warning_text || "",
+      is_active: Boolean(q.is_active),
+      is_required: Boolean(q.is_required),
+      sort_order: Number(q.sort_order) || 0,
+      options: Array.isArray(opts) ? [...opts] : [],
+      input_type: q.input_type || "text",
     });
   };
 
@@ -223,7 +237,7 @@ export function AdminMuallimahFormBuilderTab() {
         is_active: editFormData.is_active,
         is_required: editFormData.is_required,
         sort_order: editFormData.sort_order,
-        options: editFormData.options,
+        options: ["radio_options", "select", "multi_select"].includes(editFormData.input_type) ? editFormData.options : (editingQuestion.options ?? editFormData.options),
         input_type: editFormData.input_type,
       });
 
@@ -298,7 +312,7 @@ export function AdminMuallimahFormBuilderTab() {
       ) : (
         <div className="space-y-8">
           {[1, 2, 3].map((sectionNum) => {
-            const sectionQuestions = questions.filter(q => q.section === sectionNum);
+            const sectionQuestions = questions.filter(q => Number(q.section) === sectionNum);
             if (sectionQuestions.length === 0) return null;
 
             return (
@@ -570,7 +584,32 @@ export function AdminMuallimahFormBuilderTab() {
                   </>
                 )}
 
-                {['radio_options', 'select', 'multi_select'].includes(editFormData.input_type) && (
+                {editingQuestion.field_key === 'preferred_juz' ? (
+                  <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200 text-xs text-emerald-950 space-y-2.5">
+                    <div className="font-bold flex items-center gap-1.5 text-emerald-900">
+                      <Sparkles className="w-4 h-4 text-emerald-600" />
+                      Pilihan Dinamis Terhubung ke Pengaturan Pilihan Juz
+                    </div>
+                    <p className="text-emerald-800 leading-relaxed">
+                      Pilihan juz yang bersedia diampu mu'allimah terhubung langsung secara dinamis dengan database (tabel <code className="bg-emerald-100/60 px-1 py-0.5 rounded font-mono text-[10px]">juz_options</code>). Pertanyaan ini otomatis menyajikan daftar juz yang diaktifkan di tab <strong>Pengaturan Pilihan Juz</strong> dan dicocokkan dengan hafalan masing-masing mu'allimah.
+                    </p>
+                    <div className="pt-2 border-t border-emerald-200/60 space-y-1.5">
+                      <span className="font-semibold text-emerald-900 block">
+                        Juz Aktif ({juzList.filter(j => j.is_active).length} bagian terbuka):
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {juzList.filter(j => j.is_active).map(j => (
+                          <span key={j.id} className="px-2 py-0.5 rounded-md bg-white border border-emerald-300 font-mono text-[11px] font-bold text-emerald-700 shadow-xs">
+                            {j.code}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-emerald-700/80 italic">
+                      💡 Untuk mengaktifkan atau menonaktifkan juz yang dapat diampu, silakan beralih ke tab <strong>Pengaturan Pilihan Juz</strong>.
+                    </p>
+                  </div>
+                ) : ['radio_options', 'select', 'multi_select'].includes(editFormData.input_type) && (
                   <div className="space-y-3 pt-2">
                     <label className="block text-xs font-bold text-gray-500 uppercase">Pilihan Jawaban (Options)</label>
                     <div className="space-y-2 max-h-48 overflow-y-auto p-1 border border-gray-100 rounded-xl bg-gray-50/50">
@@ -747,8 +786,8 @@ export function AdminMuallimahFormBuilderTab() {
             <div className="flex-1 overflow-y-auto p-6 bg-gray-50/50 space-y-6">
               {[1, 2, 3].map((sectionNum) => {
                 const activeSecQuestions = questions
-                  .filter(q => q.section === sectionNum && q.is_active)
-                  .sort((a, b) => a.sort_order - b.sort_order);
+                  .filter(q => Number(q.section) === sectionNum && Boolean(q.is_active))
+                  .sort((a, b) => (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0));
 
                 if (activeSecQuestions.length === 0) return null;
 
@@ -780,7 +819,7 @@ export function AdminMuallimahFormBuilderTab() {
                             </div>
                           )}
 
-                          <MuallimahMockInputField q={q} />
+                          <MuallimahMockInputField q={q} juzList={juzList} />
                         </div>
                       ))}
                     </div>
@@ -864,7 +903,7 @@ export function AdminMuallimahFormBuilderTab() {
                   )}
 
                   {/* Render the mock field */}
-                  <MuallimahMockInputField q={previewQuestion} />
+                  <MuallimahMockInputField q={previewQuestion} juzList={juzList} />
                 </div>
 
                 {/* Info Metadata */}
@@ -878,6 +917,11 @@ export function AdminMuallimahFormBuilderTab() {
                   <div><span className="font-semibold">Status Wajib:</span> {previewQuestion.is_required ? 'Wajib diisi (Required)' : 'Opsional'}</div>
                   <div><span className="font-semibold">No. Urut (Sorting):</span> #{previewQuestion.sort_order}</div>
                   <div><span className="font-semibold">Format Jawaban:</span> <code className="bg-emerald-100/60 px-1 py-0.5 rounded font-mono text-[11px] text-emerald-800">{previewQuestion.input_type || 'text'}</code></div>
+                  {previewQuestion.field_key === 'preferred_juz' && (
+                    <div className="mt-2 pt-2 border-t border-emerald-200/60 text-emerald-900 font-medium">
+                      ℹ️ <strong>Sumber Opsi:</strong> Terhubung otomatis ke tabel <code>juz_options</code> (Pengaturan Pilihan Juz). Pilihan juz yang dapat diampu mu'allimah mengikuti juz yang statusnya aktif pada batch berjalan ({juzList.filter(j => j.is_active).length} bagian aktif).
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -899,7 +943,10 @@ export function AdminMuallimahFormBuilderTab() {
   );
 }
 
-function MuallimahMockInputField({ q }: { q: any }) {
+function MuallimahMockInputField({ q, juzList = [] }: { q: any; juzList?: any[] }) {
+  const isPreferredJuz = q.field_key === 'preferred_juz';
+  const activeJuzList = juzList.filter((j: any) => j.is_active);
+  const uniqueActiveJuzNumbers = Array.from(new Set(activeJuzList.map((j: any) => Number(j.juz_number)))).sort((a, b) => a - b);
   const inputType = q.input_type || 'text';
   const options = Array.isArray(q.options) ? q.options : [];
   const icon = q.options && typeof q.options === 'object' && !Array.isArray(q.options) ? q.options.icon : null;
@@ -987,7 +1034,34 @@ function MuallimahMockInputField({ q }: { q: any }) {
           ))}
         </select>
       )}
-      {inputType === 'multi_select' && (
+      {isPreferredJuz ? (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-bold border border-emerald-200 flex items-center gap-1">
+              <Sparkles className="w-3 h-3 text-emerald-600" />
+              Dinamis: Terhubung ke Pengaturan Pilihan Juz ({activeJuzList.length} bagian aktif)
+            </span>
+          </div>
+          <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 p-3 bg-gray-50 border border-gray-200 rounded-xl">
+            {uniqueActiveJuzNumbers.length > 0 ? (
+              uniqueActiveJuzNumbers.map((num) => {
+                const parts = activeJuzList.filter((j: any) => Number(j.juz_number) === num).map((j: any) => j.part).join(' & ');
+                return (
+                  <div key={num} className="flex flex-col items-center justify-center p-2.5 bg-white border border-emerald-200 rounded-lg shadow-xs text-center">
+                    <span className="text-xs font-bold text-emerald-800">Juz {num}</span>
+                    <span className="text-[10px] text-emerald-600 font-medium">Bagian {parts}</span>
+                  </div>
+                );
+              })
+            ) : (
+              <p className="text-xs text-gray-400 p-2 text-center col-span-full">Tidak ada juz aktif di Pengaturan Pilihan Juz.</p>
+            )}
+          </div>
+          <p className="text-[11px] text-gray-500">
+            * Pada formulir pendaftaran, mu'allimah dapat mencentang juz aktif di atas yang sesuai dengan riwayat hafalan yang telah disetorkan.
+          </p>
+        </div>
+      ) : inputType === 'multi_select' ? (
         <div className="grid grid-cols-5 gap-1.5">
           {[1,2,3,4,5,6].map(n => (
             <div key={n} className="flex items-center gap-1.5 p-1.5 bg-gray-50 border border-gray-100 rounded-lg">
@@ -996,7 +1070,7 @@ function MuallimahMockInputField({ q }: { q: any }) {
             </div>
           ))}
         </div>
-      )}
+      ) : null}
       {inputType === 'file' && (
         <div className="border-2 border-dashed border-gray-200 rounded-2xl p-6 text-center bg-gray-50">
           <div className="mx-auto w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center mb-2">

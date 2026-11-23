@@ -29,12 +29,15 @@ import {
   MessageCircle,
   AlertTriangle,
   RefreshCw,
-  Lock
+  Lock,
+  Bell,
+  BellOff,
+  Pencil
 } from 'lucide-react';
 import { MurojaahMethod, MurojaahSegment, Murojaah40xLog, Murojaah40xProgress } from '@/types/database';
 import { MurojaahCommunityDirectory } from './MurojaahCommunityDirectory';
 import { MurojaahEnrollModal } from './MurojaahEnrollModal';
-import { buildMurojaahSelfReminder } from '@/lib/murojaah';
+import { calculateMurojaahDebt, getWibDateString } from '@/lib/murojaah';
 
 interface Murojaah40xTabProps {
   isAlumni?: boolean;
@@ -82,6 +85,7 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
   
   // Modal states
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
+  const [editingLog, setEditingLog] = useState<Murojaah40xLog | null>(null);
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [selectedRoundDetails, setSelectedRoundDetails] = useState<Murojaah40xLog | null>(null);
@@ -90,7 +94,7 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
 
   // Form states
   const [selectedMethods, setSelectedMethods] = useState<MurojaahMethod[]>(['pasangan']);
-  const [logDate, setLogDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [logDate, setLogDate] = useState<string>(() => getWibDateString(new Date()));
   const [logNotes, setLogNotes] = useState('');
 
   const fetchData = useCallback(async (targetJuz?: string) => {
@@ -137,14 +141,23 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
       toast.error(wajib_murojaah.reason || 'Program Murojaah 40x terkunci sebelum Murojaah Wajib Pekan 11 tuntas.');
       return;
     }
-    if (data?.warrior?.is_expired) {
-      toast.error('Tantangan 20 hari telah berakhir. Silakan re-registrasi porsi untuk memulai siklus baru.');
+    if (isSlotRequired) {
+      toast.info("Silakan daftar / atur jam luang simak terlebih dahulu sebelum mengisi presensi Muroja'ah 40x.");
       setIsEnrollModalOpen(true);
       return;
     }
+    setEditingLog(null);
     setSelectedMethods(['pasangan']);
-    setLogDate(new Date().toISOString().split('T')[0]);
+    setLogDate(getWibDateString(new Date()));
     setLogNotes('');
+    setIsLogModalOpen(true);
+  };
+
+  const handleOpenEditModal = (log: Murojaah40xLog) => {
+    setEditingLog(log);
+    setSelectedMethods(log.methods?.length ? [...log.methods] : ['pasangan']);
+    setLogDate(getWibDateString(log.completed_at));
+    setLogNotes(log.notes || '');
     setIsLogModalOpen(true);
   };
 
@@ -154,9 +167,37 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
       toast.error('Pilih minimal satu metode murojaah');
       return;
     }
+    if (!logDate) {
+      toast.error('Tanggal murojaah wajib diisi');
+      return;
+    }
 
     try {
       setSubmitting(true);
+      if (editingLog) {
+        const res = await fetch('/api/alumni/murojaah-40x', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            log_id: editingLog.id,
+            methods: selectedMethods,
+            completed_at: logDate,
+            notes: logNotes
+          })
+        });
+
+        const json = await res.json();
+        if (res.ok && json.success) {
+          toast.success(json.message);
+          setIsLogModalOpen(false);
+          setEditingLog(null);
+          fetchData(juz_info?.code);
+        } else {
+          toast.error(json.error || 'Gagal memperbarui putaran murojaah');
+        }
+        return;
+      }
+
       const res = await fetch('/api/alumni/murojaah-40x', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -176,15 +217,46 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
         if (json.data?.warrior_awarded) {
           setIsWarriorModalOpen(true);
         }
-        fetchData();
+        fetchData(juz_info?.code);
       } else {
         toast.error(json.error || 'Gagal mencatat putaran murojaah');
       }
     } catch (err: any) {
       console.error('Error saving murojaah 40x log:', err);
-      toast.error('Terjadi kesalahan saat mencatat putaran');
+      toast.error(editingLog ? 'Terjadi kesalahan saat memperbarui putaran' : 'Terjadi kesalahan saat mencatat putaran');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const [isTogglingReminder, setIsTogglingReminder] = useState(false);
+
+  const handleToggleReminder = async () => {
+    if (!data?.progress?.id) return;
+    const currentVal = data.progress.is_reminder_active ?? true;
+    const nextVal = !currentVal;
+
+    try {
+      setIsTogglingReminder(true);
+      const res = await fetch('/api/alumni/murojaah-40x', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          progress_id: data.progress.id,
+          is_reminder_active: nextVal,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        toast.success(json.message);
+        fetchData();
+      } else {
+        toast.error(json.error || 'Gagal mengubah preferensi pengingat');
+      }
+    } catch (err: any) {
+      toast.error('Terjadi kesalahan jaringan');
+    } finally {
+      setIsTogglingReminder(false);
     }
   };
 
@@ -214,21 +286,9 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
     }
   };
 
-  const handleSendSelfReminder = () => {
-    const userName = data?.progress?.user?.full_name || 'Thalibah MTI';
-    const juzCode = data?.juz_info?.code || '30A';
-    const currentRound = activeSegment === 'primary' ? (data?.primary_logs?.length || 0) : (data?.part_a_logs?.length || 0);
-    const daysRemaining = data?.warrior?.days_remaining || 0;
 
-    const message = buildMurojaahSelfReminder({
-      userName,
-      juzCode,
-      currentRound,
-      daysRemaining
-    });
 
-    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
-  };
+
 
   if (loading && !data) {
     return (
@@ -239,9 +299,38 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
     );
   }
 
-  const { progress, primary_logs = [], part_a_logs = [], warrior, juz_info, all_enrolled_juz = [], wajib_murojaah } = data || {};
+  const { 
+    progress, 
+    primary_logs = [], 
+    part_a_logs = [], 
+    warrior, 
+    juz_info, 
+    all_enrolled_juz = [], 
+    wajib_murojaah,
+    is_active_batch_thalibah,
+    is_free_eligible,
+    needs_time_slot
+  } = data || {};
+
+  const isSlotRequired = Boolean(needs_time_slot ?? (!is_active_batch_thalibah && !progress?.time_slot_main));
   const currentLogs: Murojaah40xLog[] = activeSegment === 'primary' ? primary_logs : part_a_logs;
   const currentCompletedCount = currentLogs.length;
+
+  // Calculate today's logs & debt for current segment (WIB / Asia/Jakarta)
+  const todayDateStr = getWibDateString(new Date());
+  const currentSegmentTodayLogs = currentLogs.filter(l => {
+    const compDate = getWibDateString(l.completed_at);
+    return compDate === todayDateStr;
+  });
+
+  const firstLogDate = currentLogs.length > 0 ? currentLogs[0].completed_at : progress?.started_at;
+  const activeDebt = calculateMurojaahDebt({
+    startedAt: firstLogDate || new Date(),
+    totalCompleted: currentCompletedCount,
+    todayLogsCount: currentSegmentTodayLogs.length,
+  });
+
+
   const nextRoundNumber = currentCompletedCount + 1;
   const isSegmentCompleted = currentCompletedCount >= 40;
   const percentage = Math.round((currentCompletedCount / 40) * 100);
@@ -306,7 +395,7 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
                         <CheckCircle2 className="w-3.5 h-3.5 text-amber-300" /> Telah Diraih! Barakallahu fiik.
                       </span>
                     ) : warrior?.is_expired ? (
-                      <span className="text-rose-300 font-bold">20 Hari Telah Berakhir</span>
+                      <span className="text-amber-200 font-bold">20 Hari Warrior Terlampaui</span>
                     ) : (
                       <span>
                         Hari ke-{warrior?.days_elapsed || 1} • <span className="text-amber-300 font-bold">Sisa {warrior?.days_remaining || 0} hari lagi</span>
@@ -342,14 +431,7 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
 
               {/* Quick Actions in Hero */}
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleSendSelfReminder}
-                  className="px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 text-white font-bold text-[10px] flex items-center gap-1 transition-all"
-                >
-                  <MessageCircle className="w-3 h-3 text-emerald-300" />
-                  <span>Kirim Reminder WA</span>
-                </button>
+
                 <button
                   type="button"
                   onClick={() => setIsEnrollModalOpen(true)}
@@ -364,24 +446,165 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
         </CardContent>
       </Card>
 
-      {/* EXPIRED WARNING BANNER */}
+      {/* 2. REMINDER SORE & HUTANG PUTARAN CARD */}
+      {!isSegmentCompleted && (
+        <Card className={`rounded-2xl border shadow-xs overflow-hidden transition-all ${activeDebt.totalDebt > 0 ? "bg-gradient-to-r from-amber-500/10 via-amber-50/50 to-emerald-50/30 border-amber-200/90" : "bg-emerald-50/40 border-emerald-200/80"}`}>
+
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-start gap-3.5">
+                <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 shadow-xs ${activeDebt.totalDebt > 0 ? "bg-gradient-to-br from-amber-500 to-amber-600 text-white" : "bg-emerald-800 text-white"}`}>
+                  {activeDebt.totalDebt > 0 ? (
+                    <Clock className="w-5 h-5 animate-pulse" />
+                  ) : (
+                    <CheckCircle2 className="w-5 h-5 text-emerald-200" />
+                  )}
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider ${activeDebt.totalDebt > 0 ? "bg-amber-100 text-amber-900 border border-amber-200" : "bg-emerald-100 text-emerald-900 border border-emerald-200"}`}>
+                      {activeDebt.totalDebt > 0 ? 'Pengingat Sore: Target 2 Putaran/Hari' : 'Target Harian Tuntas'}
+                    </span>
+                    <span className="text-[11px] font-bold text-gray-600">
+                      Porsi Hari ke-{Math.min(20, Math.ceil(nextRoundNumber / 2))} &bull; Hari Kalender ke-{activeDebt.daysElapsed} dari 20 Hari
+                    </span>
+                  </div>
+
+                  <h3 className="text-sm sm:text-base font-extrabold text-gray-900 tracking-tight">
+                    {activeDebt.todayCount >= 2 ? (
+                      <span className="text-emerald-800">Alhamdulillah! Target 2 putaran hari ini telah lunas.</span>
+                    ) : (
+                      <span>
+                        Hari ini baru tuntas <strong className="text-amber-800 font-black">{activeDebt.todayCount} dari 2 putaran</strong>.
+                      </span>
+                    )}
+                  </h3>
+
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-600 pt-0.5">
+                    <span className="inline-flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                      Sisa target hari ini: <strong className="text-gray-900 font-bold">{activeDebt.todayRemaining} putaran</strong>
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                      Hutang hari-hari sebelumnya: <strong className="text-gray-900 font-bold">{activeDebt.previousDebt} putaran</strong>
+                    </span>
+                    <span className="inline-flex items-center gap-1 bg-white/80 px-2 py-0.5 rounded-md border border-gray-200/80">
+                      <strong>TOTAL HUTANG PUTARAN:</strong>{' '}
+                      <span className={`font-black font-mono text-sm ${activeDebt.totalDebt > 0 ? "text-rose-700" : "text-emerald-700"}`}>
+                        {activeDebt.totalDebt} Putaran
+                      </span>
+                    </span>
+
+                  </div>
+
+                  {/* Toggle Reminder Sore WA Button */}
+                  <div className="pt-2 flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={isTogglingReminder}
+                      onClick={handleToggleReminder}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] sm:text-[11px] font-bold transition-all border",
+                        (progress?.is_reminder_active ?? true)
+                          ? "bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100"
+                          : "bg-gray-100 text-gray-500 border-gray-300 hover:bg-gray-200"
+                      )}
+                      title="Klik untuk mengubah preferensi notifikasi reminder sore WhatsApp"
+                    >
+                      <Bell className={cn("w-3.5 h-3.5", (progress?.is_reminder_active ?? true) ? "text-emerald-600" : "text-gray-400")} />
+                      <span>Reminder Sore WA: <strong>{(progress?.is_reminder_active ?? true) ? "Aktif (16.30 WIB)" : "Nonaktif (Dimatikan)"}</strong></span>
+                      <span className="text-[9px] underline text-gray-500 ml-1">
+                        {(progress?.is_reminder_active ?? true) ? "Matikan" : "Nyalakan"}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Button */}
+              <div className="flex flex-col items-stretch sm:items-end justify-center gap-1.5 shrink-0 border-t md:border-t-0 pt-3 md:pt-0 border-gray-200/60">
+                <Button
+                  size="sm"
+                  onClick={() => handleOpenLogModal(nextRoundNumber)}
+                  disabled={isSegmentCompleted}
+                  className={cn(
+                    "rounded-xl text-xs font-bold px-5 py-2.5 shadow-xs gap-1.5 transition-all",
+                    isSlotRequired
+                      ? "bg-amber-600 hover:bg-amber-700 text-white"
+                      : "bg-emerald-800 hover:bg-emerald-900 text-white"
+                  )}
+                >
+                  {isSlotRequired ? (
+                    <>
+                      <Clock className="w-4 h-4" />
+                      <span>Atur Jam Luang Simak</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4" />
+                      <span>Setor Putaran ke-{nextRoundNumber}</span>
+                    </>
+                  )}
+                </Button>
+                <span className="text-[10px] text-gray-500 italic text-center sm:text-right">
+                  Pengingat sore dikirim otomatis via WhatsApp pukul 16.30 WIB
+                </span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* WARRIOR 20-DAY WINDOW PASSED NOTICE (NON-BLOCKING) */}
       {warrior?.is_expired && !isSegmentCompleted && (
-        <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-xs animate-shake">
-          <div className="flex items-start gap-2.5 text-rose-950">
-            <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-xs">
+          <div className="flex items-start gap-2.5 text-amber-950">
+            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
             <div>
-              <span className="font-extrabold text-rose-900 block">Tantangan 20 Hari Telah Berakhir</span>
-              <p className="text-[11px] text-rose-700 mt-0.5">
-                Target 40 putaran belum tuntas dalam 20 hari. Ukhti dapat melakukan re-registrasi porsi untuk memulai siklus 20 hari yang baru.
+              <span className="font-extrabold text-amber-900 block">Batas Tantangan Warrior (20 Hari) Terlampaui</span>
+              <p className="text-[11px] text-amber-800 mt-0.5">
+                Ukhti tetap dapat melanjutkan ceklist putaran hingga 40/40 tuntas untuk syarat naik juz, atau memulai ulang siklus baru dari 0 bila ingin mengulang tantangan Warrior 20 hari.
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setIsEnrollModalOpen(true)}
+            className="border-amber-300 text-amber-900 hover:bg-amber-100 rounded-xl text-xs font-bold shrink-0"
+          >
+            Mulai Siklus Baru
+          </Button>
+        </div>
+      )}
+
+      {/* TIME SLOT REQUIRED WARNING BANNER (NON-BATCH) */}
+      {isSlotRequired && !isSegmentCompleted && (
+        <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-sm animate-fadeIn">
+          <div className="flex items-start gap-3 text-amber-950">
+            <div className="w-10 h-10 rounded-xl bg-amber-200/70 border border-amber-300 flex items-center justify-center shrink-0 mt-0.5">
+              <Clock className="w-5 h-5 text-amber-900" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-black text-amber-950 text-sm">Daftar / Atur Jam Luang Simak</span>
+                <span className="bg-amber-200 text-amber-900 font-extrabold text-[10px] px-2 py-0.5 rounded-full">
+                  Non-Batch Tikrar
+                </span>
+              </div>
+              <p className="text-[11px] text-amber-800 mt-1 leading-relaxed">
+                Afwan Ukhti, untuk peserta non-batch / alumni yang belum mengatur jam luang simak, silakan tentukan jam luang setoran (7 slot WIB) terlebih dahulu sebelum mengisi presensi Muroja'ah 40x.
               </p>
             </div>
           </div>
           <Button
             size="sm"
             onClick={() => setIsEnrollModalOpen(true)}
-            className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shrink-0 shadow-xs"
+            className="bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shrink-0 shadow-xs"
           >
-            Re-Registrasi Siklus Baru
+            Atur Jam Luang Simak &rarr;
           </Button>
         </div>
       )}
@@ -563,13 +786,20 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
                     "rounded-xl shadow-md font-bold text-xs px-4 h-9 gap-1.5 transition-all",
                     wajib_murojaah?.is_locked
                       ? "bg-gray-200 text-gray-500 cursor-not-allowed shadow-none"
-                      : "bg-emerald-800 hover:bg-emerald-700 text-white shadow-emerald-800/10"
+                      : isSlotRequired
+                        ? "bg-amber-600 hover:bg-amber-700 text-white shadow-amber-600/10"
+                        : "bg-emerald-800 hover:bg-emerald-700 text-white shadow-emerald-800/10"
                   )}
                 >
                   {wajib_murojaah?.is_locked ? (
                     <>
                       <Lock className="w-3.5 h-3.5 text-gray-500" />
                       <span>Terkunci</span>
+                    </>
+                  ) : isSlotRequired ? (
+                    <>
+                      <Clock className="w-3.5 h-3.5 text-white" />
+                      <span>Atur Jam Luang Simak</span>
                     </>
                   ) : (
                     <>
@@ -619,9 +849,10 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
                         <div className="flex items-center gap-1 text-[11px] font-semibold text-emerald-800">
                           <Calendar className="w-3 h-3 text-emerald-600" />
                           <span>
-                            {new Date(log.completed_at).toLocaleDateString('id-ID', {
+                            {new Date(`${getWibDateString(log.completed_at)}T00:00:00+07:00`).toLocaleDateString('id-ID', {
                               day: 'numeric',
-                              month: 'short'
+                              month: 'short',
+                              timeZone: 'Asia/Jakarta'
                             })}
                           </span>
                         </div>
@@ -656,14 +887,24 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
 
                       {/* Box Footer Actions */}
                       <div className="flex items-center justify-between pt-1 text-[11px]">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedRoundDetails(log)}
-                          className="font-bold text-emerald-700 hover:text-emerald-900 hover:underline flex items-center gap-1"
-                        >
-                          <span>Rincian</span>
-                          <ChevronRight className="w-3 h-3" />
-                        </button>
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedRoundDetails(log)}
+                            className="font-bold text-emerald-700 hover:text-emerald-900 hover:underline flex items-center gap-1"
+                          >
+                            <span>Rincian</span>
+                            <ChevronRight className="w-3 h-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditModal(log)}
+                            className="font-bold text-amber-700 hover:text-amber-900 hover:underline flex items-center gap-1"
+                          >
+                            <Pencil className="w-3 h-3" />
+                            <span>Edit</span>
+                          </button>
+                        </div>
 
                         {isLatest && (
                           <button
@@ -704,6 +945,52 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
                             <span className="text-[10px] text-gray-400">Selesaikan Murojaah Wajib Pekan 11</span>
                           </div>
                         </div>
+                      </div>
+                    );
+                  }
+
+                  if (isSlotRequired) {
+                    return (
+                      <div
+                        key={roundNum}
+                        className="p-4 rounded-2xl border-2 border-amber-400 bg-amber-50/40 shadow-sm flex flex-col justify-between gap-3 animate-fadeIn"
+                      >
+                        <div className="flex items-center justify-between pb-2 border-b border-amber-200/70">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] font-black uppercase tracking-wider bg-amber-200 text-amber-900 px-2 py-0.5 rounded-md">
+                              Sesi {slotIndex}
+                            </span>
+                            <span className="text-xs font-black text-gray-900">
+                              Putaran ke-{roundNum}
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-black uppercase tracking-wider bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full">
+                            Perlu Atur Jam Luang
+                          </span>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleOpenLogModal(roundNum)}
+                          className="group w-full text-left flex items-start gap-3 p-3 rounded-xl border-2 border-amber-300 bg-white hover:bg-amber-50 hover:border-amber-400 transition-all cursor-pointer shadow-xs active:scale-[0.99]"
+                        >
+                          <div className="w-6 h-6 rounded-lg border-2 border-amber-500 bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 mt-0.5 transition-all shadow-inner">
+                            <Clock className="w-3.5 h-3.5 stroke-[2.5]" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <span className="font-black text-xs text-amber-950 group-hover:text-amber-900 block">
+                              Atur Jam Luang Simak
+                            </span>
+                            <span className="text-[10px] text-amber-800/80">
+                              Daftar &amp; tentukan jam luang simak untuk membuka presensi
+                            </span>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-amber-700 group-hover:translate-x-0.5 transition-transform mt-0.5" />
+                        </button>
+
+                        <p className="text-[10px] text-amber-700/80 text-center font-medium">
+                          Khusus non-batch Tikrar Tahfidz wajib atur jam luang simak terlebih dahulu
+                        </p>
                       </div>
                     );
                   }
@@ -826,15 +1113,15 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
                         </div>
                         <div>
                           <h4 className="text-xs sm:text-sm font-black text-gray-900 leading-tight">
-                            Hari ke-{dayIndex}
+                            Porsi Target Hari ke-{dayIndex}
                           </h4>
                           <p className="text-[10px] text-gray-400 font-medium">
-                            Target: 2 Putaran Muroja'ah
+                            Target Putaran {round1Num} &amp; {round2Num}
                           </p>
                         </div>
                         {isCurrentDay && (
                           <span className="text-[10px] bg-amber-100 text-amber-900 font-extrabold px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs">
-                            <Sparkles className="w-3 h-3 text-amber-600" /> Hari Berjalan
+                            <Sparkles className="w-3 h-3 text-amber-600" /> Porsi Berjalan
                           </span>
                         )}
                       </div>
@@ -954,22 +1241,43 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
         </div>
       )}
 
-      {/* MODAL INPUT PRESENSI / CEKLIST PUTARAN */}
-      <Dialog open={isLogModalOpen} onOpenChange={setIsLogModalOpen}>
-        <DialogContent className="max-w-md rounded-3xl p-6 space-y-4">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center">
-                <Check className="w-4 h-4 stroke-[3]" />
+      {/* MODAL INPUT PRESENSI / EDIT PUTARAN */}
+      <Dialog
+        open={isLogModalOpen}
+        onOpenChange={(open) => {
+          setIsLogModalOpen(open);
+          if (!open) setEditingLog(null);
+        }}
+      >
+        <DialogContent className="max-w-md w-[92vw] sm:w-full max-h-[82vh] max-h-[82dvh] flex flex-col gap-0 p-0 rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl bg-white border border-gray-100 z-[200]">
+          <DialogHeader className="p-4 sm:p-6 pb-3 border-b border-gray-100 shrink-0 bg-white">
+            <DialogTitle className="text-base sm:text-lg font-bold text-gray-900 flex items-center gap-2">
+              <div className={cn(
+                "w-8 h-8 rounded-xl flex items-center justify-center shrink-0",
+                editingLog ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"
+              )}>
+                {editingLog ? <Pencil className="w-4 h-4" /> : <Check className="w-4 h-4 stroke-[3]" />}
               </div>
-              <span>Presensi Muraja'ah — Putaran ke-{nextRoundNumber}</span>
+              <span className="truncate">
+                {editingLog
+                  ? `Edit Putaran ke-${editingLog.round_number}`
+                  : `Presensi Muraja'ah — Putaran ke-${nextRoundNumber}`}
+              </span>
             </DialogTitle>
             <DialogDescription className="text-xs text-gray-500">
-              Porsi {activeSegment === 'primary' ? `Juz Utama (${juz_info?.code})` : `Bagian A (${juz_info?.optional_part_a_code})`} • Tandai kehadiran dan metode yang digunakan
+              {editingLog ? (
+                <>
+                  Porsi {editingLog.juz_segment === 'primary' ? `Juz Utama (${juz_info?.code})` : `Bagian A (${juz_info?.optional_part_a_code})`} • Perbarui metode, tanggal, atau catatan putaran
+                </>
+              ) : (
+                <>
+                  Porsi {activeSegment === 'primary' ? `Juz Utama (${juz_info?.code})` : `Bagian A (${juz_info?.optional_part_a_code})`} • Tandai kehadiran dan metode yang digunakan
+                </>
+              )}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-2">
+          <div className="p-4 sm:p-6 overflow-y-auto flex-1 min-h-0 space-y-4 overscroll-contain touch-pan-y">
             <div className="space-y-1.5">
               <Label className="text-xs font-bold text-gray-700">Tanggal Muroja'ah</Label>
               <input
@@ -992,13 +1300,13 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
                       key={m.id}
                       type="button"
                       onClick={() => toggleMethod(m.id)}
-                      className={`w-full p-3 rounded-xl border text-left flex items-center justify-between transition-all ${
+                      className={`w-full p-2.5 sm:p-3 rounded-xl border text-left flex items-center justify-between transition-all ${
                         isChecked 
-                          ? 'border-emerald-600 bg-emerald-50/50 shadow-sm' 
-                          : 'border-gray-200 hover:border-gray-300'
+                          ? 'border-emerald-600 bg-emerald-50/60 shadow-xs' 
+                          : 'border-gray-200 hover:border-gray-300 bg-white'
                       }`}
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2.5 sm:gap-3">
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
                           isChecked ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-500'
                         }`}>
@@ -1013,7 +1321,7 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
                           </div>
                         </div>
                       </div>
-                      <div className={`w-5 h-5 rounded-md border flex items-center justify-center ${
+                      <div className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 ml-2 ${
                         isChecked ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-gray-300 bg-white'
                       }`}>
                         {isChecked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
@@ -1031,17 +1339,20 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
                 rows={2}
                 value={logNotes}
                 onChange={(e) => setLogNotes(e.target.value)}
-                className="text-xs rounded-xl border-gray-200"
+                className="text-xs rounded-xl border-gray-200 resize-none"
               />
             </div>
           </div>
 
-          <DialogFooter className="flex gap-2 sm:gap-2">
+          <DialogFooter className="p-3.5 sm:p-5 border-t border-gray-200 bg-white sm:bg-gray-50/95 shrink-0 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pb-5 sm:pb-5">
             <Button
               type="button"
-              variant="ghost"
-              onClick={() => setIsLogModalOpen(false)}
-              className="rounded-xl text-xs text-gray-500"
+              variant="outline"
+              onClick={() => {
+                setIsLogModalOpen(false);
+                setEditingLog(null);
+              }}
+              className="rounded-xl text-xs font-medium text-gray-600 px-4 h-11 sm:h-10 border-gray-200 hover:bg-gray-100"
             >
               Batal
             </Button>
@@ -1049,9 +1360,13 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
               type="button"
               disabled={submitting}
               onClick={handleSaveLog}
-              className="bg-emerald-800 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold px-5"
+              className="bg-emerald-800 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold px-6 h-12 sm:h-10 shadow-lg active:scale-95 transition-all w-full sm:w-auto"
             >
-              {submitting ? 'Menyimpan...' : `✓ Simpan & Ceklist Putaran ke-${nextRoundNumber}`}
+              {submitting
+                ? 'Menyimpan...'
+                : editingLog
+                  ? '✓ Simpan Perubahan'
+                  : `✓ Simpan Putaran ke-${nextRoundNumber}`}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1059,8 +1374,8 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
 
       {/* MODAL DETAIL PUTARAN */}
       <Dialog open={!!selectedRoundDetails} onOpenChange={(open) => !open && setSelectedRoundDetails(null)}>
-        <DialogContent className="max-w-sm rounded-2xl p-6">
-          <DialogHeader>
+        <DialogContent className="max-w-sm w-[92vw] sm:w-full max-h-[82vh] max-h-[82dvh] flex flex-col gap-0 p-0 rounded-2xl overflow-hidden shadow-2xl bg-white border border-gray-100 z-[200]">
+          <DialogHeader className="p-4 sm:p-5 border-b border-gray-100 shrink-0 bg-white">
             <DialogTitle className="text-base font-bold text-gray-900 flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5 text-emerald-600" />
               Putaran ke-{selectedRoundDetails?.round_number}
@@ -1071,14 +1386,15 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
           </DialogHeader>
 
           {selectedRoundDetails && (
-            <div className="space-y-4 my-2 text-xs">
+            <div className="p-4 sm:p-5 space-y-4 flex-1 min-h-0 overflow-y-auto text-xs overscroll-contain touch-pan-y">
               <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 flex items-center justify-between">
                 <span className="text-gray-500">Tanggal Selesai:</span>
                 <span className="font-bold text-gray-800">
-                  {new Date(selectedRoundDetails.completed_at).toLocaleDateString('id-ID', {
+                  {new Date(`${getWibDateString(selectedRoundDetails.completed_at)}T00:00:00+07:00`).toLocaleDateString('id-ID', {
                     day: 'numeric',
                     month: 'long',
-                    year: 'numeric'
+                    year: 'numeric',
+                    timeZone: 'Asia/Jakarta'
                   })}
                 </span>
               </div>
@@ -1108,21 +1424,36 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
             </div>
           )}
 
-          <DialogFooter>
+          <DialogFooter className="p-3.5 sm:p-4 border-t border-gray-100 bg-gray-50/95 shrink-0 flex flex-col-reverse sm:flex-row gap-2">
             <Button
               type="button"
+              variant="outline"
               onClick={() => setSelectedRoundDetails(null)}
-              className="w-full bg-gray-900 text-white rounded-xl text-xs"
+              className="w-full sm:flex-1 rounded-xl text-xs h-10 border-gray-200"
             >
               Tutup
             </Button>
+            {selectedRoundDetails && (
+              <Button
+                type="button"
+                onClick={() => {
+                  const target = selectedRoundDetails;
+                  setSelectedRoundDetails(null);
+                  handleOpenEditModal(target);
+                }}
+                className="w-full sm:flex-1 bg-emerald-800 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold h-10 gap-1.5"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                <span>Edit Putaran</span>
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* MODAL SELEBRASI WARRIOR */}
       <Dialog open={isWarriorModalOpen} onOpenChange={setIsWarriorModalOpen}>
-        <DialogContent className="max-w-md rounded-3xl p-6 text-center space-y-4">
+        <DialogContent className="max-w-md w-[92vw] sm:w-full max-h-[85dvh] overflow-y-auto rounded-3xl p-6 text-center space-y-4 z-[200]">
           <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-amber-400 to-yellow-500 text-amber-950 flex items-center justify-center text-4xl mx-auto shadow-xl shadow-amber-500/20 animate-bounce">
             🏆
           </div>
@@ -1154,7 +1485,9 @@ export function Murojaah40xTab({ isAlumni = true }: Murojaah40xTabProps) {
         onClose={() => setIsEnrollModalOpen(false)}
         onSuccess={() => fetchData()}
         currentJuzCode={juz_info?.code || '30A'}
-        isFreeEligible={true}
+        currentTimeSlotMain={progress?.time_slot_main}
+        currentTimeSlotBackup={progress?.time_slot_backup}
+        isFreeEligible={data?.is_free_eligible ?? true}
         isFreeExtension={warrior?.free_extension_unlocked || false}
       />
     </div>

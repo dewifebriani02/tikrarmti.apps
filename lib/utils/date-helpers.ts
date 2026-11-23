@@ -140,7 +140,7 @@ export function toHijri(dateString: string): string {
 
   const hijriMonthNames = [
     'Muharram', 'Safar', 'Rabiul Awwal', 'Rabiul Akhir',
-    'Jumadil Awwal', 'Jumadil Akhir', 'Rajab', 'Sya\'ban',
+    'Jumadil Awwal', 'Jumadil Akhir', 'Rajab', "Sya'ban",
     'Ramadhan', 'Syawal', 'Dzulqaidah', 'Dzulhijjah'
   ];
 
@@ -168,4 +168,71 @@ export function formatFullDateIndo(dateString: string): { day: string; date: str
     date: formatDateIndo(dateString),
     hijriDate: toHijri(dateString)
   };
+}
+
+/**
+ * Check if an exam schedule date and time has passed in WIB (UTC+7 / Asia/Jakarta)
+ * @param examDate - Date string (YYYY-MM-DD or ISO string)
+ * @param startTime - Start time string (HH:mm or HH:mm:ss)
+ * @param endTime - End time string (optional, HH:mm or HH:mm:ss)
+ * @param nowDate - Optional Date object for testing/mocking (defaults to new Date())
+ * @returns boolean - true if the schedule is in the past
+ */
+export function isSchedulePast(
+  examDate: string | Date,
+  startTime?: string | null,
+  endTime?: string | null,
+  nowDate: Date = new Date()
+): boolean {
+  if (!examDate) return false;
+
+  let scheduleDateStr = '';
+  if (typeof examDate === 'string') {
+    const match = examDate.match(/^\d{4}-\d{2}-\d{2}/);
+    if (match) {
+      scheduleDateStr = match[0];
+    } else {
+      const d = new Date(examDate);
+      if (!isNaN(d.getTime())) {
+        const y = d.getUTCFullYear();
+        const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(d.getUTCDate()).padStart(2, '0');
+        scheduleDateStr = `${y}-${m}-${day}`;
+      }
+    }
+  } else if (examDate instanceof Date && !isNaN(examDate.getTime())) {
+    const y = examDate.getUTCFullYear();
+    const m = String(examDate.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(examDate.getUTCDate()).padStart(2, '0');
+    scheduleDateStr = `${y}-${m}-${day}`;
+  }
+
+  if (!scheduleDateStr) return false;
+
+  const wibDateStr = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jakarta',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(nowDate);
+
+  if (scheduleDateStr < wibDateStr) return true;
+  if (scheduleDateStr > wibDateStr) return false;
+
+  // On the same day: check time against startTime (or endTime if startTime not provided)
+  const targetTime = startTime || endTime;
+  if (!targetTime) return false;
+
+  const wibTimeStr = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Jakarta',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).format(nowDate);
+
+  const cleanTargetTime = targetTime.trim();
+  const normalizedTargetTime = cleanTargetTime.length === 5 ? `${cleanTargetTime}:00` : cleanTargetTime;
+
+  return wibTimeStr >= normalizedTargetTime;
 }

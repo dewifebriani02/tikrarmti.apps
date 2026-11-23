@@ -227,7 +227,7 @@ export function PosterHero() {
       <div className="absolute bottom-[40px] left-0 right-0 px-12">
         <div className="flex items-center justify-between gap-6">
           <FooterItem icon={<Globe className="w-5 h-5" strokeWidth={2.2} />} label="Website" value="markaztikrar.id" />
-          <FooterItem icon={<MessageCircle className="w-5 h-5" strokeWidth={2.2} />} label="WhatsApp" value="081330000784" />
+          <FooterItem icon={<MessageCircle className="w-5 h-5" strokeWidth={2.2} />} label="WhatsApp" value="08138884240" />
           <FooterItem icon={<LinkIcon className="w-5 h-5" strokeWidth={2.2} />} label="Link" value="lynk.id/markaztikrar.id" />
         </div>
       </div>

@@ -1,7 +1,9 @@
 'use client';
 
+import { parseHolidayDates } from '@/lib/utils/holiday-helpers';
+
 import { useState, useMemo } from 'react';
-import { X, Calendar, Clock, Save, Sparkles, Wand2, Info, Layers, MessageCircle } from 'lucide-react';
+import { X, Calendar, Clock, Save, Sparkles, Wand2, Info, Layers, MessageCircle, Sliders, RotateCcw, ChevronDown, ChevronUp, Settings2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Batch, BATCH_STATUSES } from './types';
@@ -36,6 +38,112 @@ const calculateEndDate = (startDate: string, weeks: number): string => {
   return `${endStr}T23:59`;
 };
 
+
+export interface TimelineFormulaConfig {
+  regStartDaysBefore: number;
+  regEndDaysBefore: number;
+  selectionStartDaysBefore: number;
+  selectionEndDaysBefore: number;
+  selectionResultDaysBefore: number;
+  selectionResultTime: string;
+  reEnrollDaysBefore: number;
+  openingClassDaysBefore: number;
+  openingClassTime: string;
+  kbmRegularWeeks: number;
+  transferScheduleDaysAfter: number;
+}
+
+export const DEFAULT_TIMELINE_FORMULA: TimelineFormulaConfig = {
+  regStartDaysBefore: 35,
+  regEndDaysBefore: 16,
+  selectionStartDaysBefore: 15,
+  selectionEndDaysBefore: 12,
+  selectionResultDaysBefore: 11,
+  selectionResultTime: '09:00',
+  reEnrollDaysBefore: 10,
+  openingClassDaysBefore: 1,
+  openingClassTime: '09:00',
+  kbmRegularWeeks: 11,
+  transferScheduleDaysAfter: 13,
+};
+
+const calculateTimelineDates = (
+  kbmStartDateStr: string,
+  holidays: string[],
+  formula: TimelineFormulaConfig = DEFAULT_TIMELINE_FORMULA
+) => {
+  const datePart = kbmStartDateStr.split('T')[0];
+  if (!datePart) return null;
+
+  const base = new Date(datePart + 'T00:00:00Z');
+  if (isNaN(base.getTime())) return null;
+
+  const formatOffset = (days: number, timeStr: string = '00:01') => {
+    const d = new Date(base);
+    d.setUTCDate(d.getUTCDate() + days);
+    const iso = d.toISOString().split('T')[0];
+    return iso + 'T' + timeStr;
+  };
+
+  // Dinamis sesuai rumus yang diatur / diedit mimin
+  const regStart = formatOffset(-Math.abs(formula.regStartDaysBefore), '00:01');
+  const regEnd = formatOffset(-Math.abs(formula.regEndDaysBefore), '23:59');
+  const selStart = formatOffset(-Math.abs(formula.selectionStartDaysBefore), '00:01');
+  const selEnd = formatOffset(-Math.abs(formula.selectionEndDaysBefore), '23:59');
+  const selResult = formatOffset(-Math.abs(formula.selectionResultDaysBefore), formula.selectionResultTime || '09:00');
+  const reEnroll = formatOffset(-Math.abs(formula.reEnrollDaysBefore), '00:01');
+  const openingClass = formatOffset(-Math.abs(formula.openingClassDaysBefore), formula.openingClassTime || '09:00');
+
+  // KBM Pekan 1
+  const week1Start = formatOffset(0, '00:01');
+  const week1End = formatOffset(6, '23:59');
+  const transferEnd = formatOffset(formula.transferScheduleDaysAfter, '23:59');
+
+  // Hitung jumlah hari libur yang jatuh pada atau setelah Pekan 1 KBM
+  const sortedHolidays = parseHolidayDates(holidays);
+  const kbmStartIso = datePart;
+  const holidaysInKBM = sortedHolidays.filter(h => h >= kbmStartIso);
+  const holidayShiftDays = holidaysInKBM.length;
+
+  // KBM reguler = formula.kbmRegularWeeks * 7 hari
+  const regKbmDays = Math.max(1, formula.kbmRegularWeeks) * 7;
+  const revStartDay = regKbmDays + holidayShiftDays;
+  const revEndDay = revStartDay + 6;
+  const examStartDay = revEndDay + 1;
+  const examEndDay = examStartDay + 6;
+
+  const revWeekStart = formatOffset(revStartDay, '00:01');
+  const revWeekEnd = formatOffset(revEndDay, '23:59');
+  const examStart = formatOffset(examStartDay, '00:01');
+  const examEnd = formatOffset(examEndDay, '23:59');
+
+  const extraWeeks = Math.ceil(holidayShiftDays / 7);
+  const durationWeeks = formula.kbmRegularWeeks + 2 + extraWeeks; // kbmRegularWeeks + Review(1) + Ujian Akhir(1) + extraWeeks
+
+  return {
+    start_date: week1Start,
+    end_date: examEnd,
+    duration_weeks: durationWeeks,
+    registration_start_date: regStart,
+    registration_end_date: regEnd,
+    selection_start_date: selStart,
+    selection_end_date: selEnd,
+    selection_result_date: selResult,
+    re_enrollment_date: reEnroll,
+    opening_class_date: openingClass,
+    first_week_start_date: week1Start,
+    first_week_end_date: week1End,
+    review_week_start_date: revWeekStart,
+    review_week_end_date: revWeekEnd,
+    final_exam_start_date: examStart,
+    final_exam_end_date: examEnd,
+    graduation_start_date: '',
+    graduation_end_date: '',
+    transfer_schedule_end_date: transferEnd,
+    holidayShiftDays,
+  };
+};
+
 export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSuccess }: BatchFormModalProps) {
   const [formData, setFormData] = useState({
     id: batch?.id,
@@ -45,7 +153,7 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
     end_date: extractDateTime(batch?.end_date, '23:59'),
     registration_start_date: extractDateTime(batch?.registration_start_date, '00:01'),
     registration_end_date: extractDateTime(batch?.registration_end_date, '23:59'),
-    duration_weeks: batch?.duration_weeks || 14,
+    duration_weeks: batch?.duration_weeks || 13,
     status: batch?.status || 'draft',
     program_type: batch?.program_type || '',
     total_quota: batch?.total_quota || 0,
@@ -67,10 +175,10 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
     review_week_end_date: extractDateTime(batch?.review_week_end_date, '23:59'),
     final_exam_start_date: extractDateTime(batch?.final_exam_start_date, '00:01'),
     final_exam_end_date: extractDateTime(batch?.final_exam_end_date, '23:59'),
-    graduation_start_date: extractDateTime(batch?.graduation_start_date, '00:01'),
-    graduation_end_date: extractDateTime(batch?.graduation_end_date, '23:59'),
+    graduation_start_date: '',
+    graduation_end_date: '',
     transfer_schedule_end_date: extractDateTime(batch?.transfer_schedule_end_date, '23:59'),
-    holiday_dates: Array.isArray(batch?.holiday_dates) ? batch!.holiday_dates!.map(d => extractDateTime(d, '00:01').split('T')[0]) : [],
+    holiday_dates: parseHolidayDates(batch?.holiday_dates),
   });
 
   const [activeTab, setActiveTab] = useState<'batch' | 'tikrar' | 'pratikrar' | 'muallimah'>('batch');
@@ -91,7 +199,12 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
   const [muallimahData, setMuallimahData] = useState(() => getProgramData('muallimah'));
 
   const [saving, setSaving] = useState(false);
+  const [formulaConfig, setFormulaConfig] = useState<TimelineFormulaConfig>(DEFAULT_TIMELINE_FORMULA);
+  const [showFormulaEditor, setShowFormulaEditor] = useState(false);
+  const [holidayMode, setHolidayMode] = useState<'range' | 'single'>('range');
   const [holidayInput, setHolidayInput] = useState('');
+  const [holidayRangeStart, setHolidayRangeStart] = useState('');
+  const [holidayRangeEnd, setHolidayRangeEnd] = useState('');
   
   // Anchor date defaults to first_week_start_date, or start_date, or next Monday
   const [autoGenerateAnchorDate, setAutoGenerateAnchorDate] = useState(() => {
@@ -142,102 +255,148 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
     setFormData(newData);
   };
 
-  const handleAddHoliday = () => {
-    if (!holidayInput) return;
-    if (formData.holiday_dates.includes(holidayInput)) return;
-    setFormData({
-      ...formData,
-      holiday_dates: [...formData.holiday_dates, holidayInput].sort(),
-    });
-    setHolidayInput('');
-  };
-
-  // Auto-Generate complete, standardized MTI timeline based on Pekan 1 Mulai (Senin)
-  const handleAutoGenerateTimeline = (customStartDate?: string) => {
-    const rawDate = customStartDate || autoGenerateAnchorDate || formData.first_week_start_date || formData.start_date || '';
-    const datePart = rawDate.split('T')[0];
-
-    if (!datePart) {
-      toast.error('Silakan tentukan Tanggal Mulai Pekan 1 (Senin KBM) terlebih dahulu.');
-      return;
+  
+  // Auto-shift KBM review, final exam, and end_date whenever holidays are modified
+  const updateHolidaysWithAutoShift = (newHolidays: string[], successMsg?: string) => {
+    const sorted = parseHolidayDates(newHolidays);
+    const kbmStart = formData.first_week_start_date || formData.start_date;
+    if (kbmStart) {
+      const calc = calculateTimelineDates(kbmStart, sorted, formulaConfig);
+      if (calc) {
+        setFormData(prev => ({
+          ...prev,
+          holiday_dates: sorted,
+          review_week_start_date: calc.review_week_start_date,
+          review_week_end_date: calc.review_week_end_date,
+          final_exam_start_date: calc.final_exam_start_date,
+          final_exam_end_date: calc.final_exam_end_date,
+          end_date: calc.end_date,
+          duration_weeks: calc.duration_weeks,
+          graduation_start_date: '',
+          graduation_end_date: '',
+        }));
+        if (successMsg) toast.success(successMsg);
+        return;
+      }
     }
-
-    const base = new Date(datePart + 'T00:00:00Z');
-    if (isNaN(base.getTime())) {
-      toast.error('Format tanggal tidak valid');
-      return;
-    }
-
-    const formatOffset = (days: number, timeStr: string = '00:01') => {
-      const d = new Date(base);
-      d.setDate(d.getDate() + days);
-      const iso = d.toISOString().split('T')[0];
-      return iso + 'T' + timeStr;
-    };
-
-    // Standardized MTI 14-week timeline based on Pekan 1 (Day 0, Senin KBM):
-    // Pre-KBM Phase (5 weeks prior)
-    const regStart = formatOffset(-35, '00:01');      // 5 pekan sebelum Pekan 1 (Senin 00:01)
-    const regEnd = formatOffset(-16, '23:59');        // 16 hari sebelum Pekan 1 (Sabtu 23:59)
-    const selStart = formatOffset(-15, '00:01');      // 15 hari sebelum Pekan 1 (Ahad 00:01)
-    const selEnd = formatOffset(-12, '23:59');        // 12 hari sebelum Pekan 1 (Rabu 23:59)
-    const selResult = formatOffset(-11, '09:00');     // 11 hari sebelum Pekan 1 (Kamis 09:00)
-    const reEnroll = formatOffset(-10, '00:01');      // 10 hari sebelum Pekan 1 (Jumat 00:01)
-    const openingClass = formatOffset(-1, '09:00');    // H-1 sebelum Pekan 1 (Ahad 09:00)
-
-    // KBM 12 Weeks + Final Exam + Graduation (14 Weeks total)
-    const week1Start = formatOffset(0, '00:01');      // Pekan 1 Mulai (Senin 00:01)
-    const week1End = formatOffset(6, '23:59');        // Pekan 1 Selesai (Ahad 23:59)
-    const transferEnd = formatOffset(13, '23:59');    // Batas Mutasi Halaqah (Ahad Pekan 2 23:59)
-    const revWeekStart = formatOffset(77, '00:01');   // Pekan 12 Review Mulai (Senin 00:01)
-    const revWeekEnd = formatOffset(83, '23:59');     // Pekan 12 Review Selesai (Ahad 23:59)
-
-    const examStart = formatOffset(84, '00:01');      // Pekan 13 Ujian Akhir Mulai (Senin 00:01)
-    const examEnd = formatOffset(90, '23:59');        // Pekan 13 Ujian Akhir Selesai (Ahad 23:59)
-    const gradStart = formatOffset(91, '00:01');      // Pekan 14 Wisuda Mulai (Senin 00:01)
-    const gradEnd = formatOffset(97, '23:59');        // Pekan 14 Wisuda Selesai (Ahad 23:59)
 
     setFormData(prev => ({
       ...prev,
-      start_date: week1Start,
-      end_date: gradEnd,
-      duration_weeks: 14,
-      registration_start_date: regStart,
-      registration_end_date: regEnd,
-      selection_start_date: selStart,
-      selection_end_date: selEnd,
-      selection_result_date: selResult,
-      re_enrollment_date: reEnroll,
-      opening_class_date: openingClass,
-      first_week_start_date: week1Start,
-      first_week_end_date: week1End,
-      review_week_start_date: revWeekStart,
-      review_week_end_date: revWeekEnd,
-      final_exam_start_date: examStart,
-      final_exam_end_date: examEnd,
-      graduation_start_date: gradStart,
-      graduation_end_date: gradEnd,
-      transfer_schedule_end_date: transferEnd,
+      holiday_dates: sorted,
+    }));
+    if (successMsg) toast.success(successMsg);
+  };
+
+  const handleAddHoliday = () => {
+    if (!holidayInput) return;
+    if (formData.holiday_dates.includes(holidayInput)) {
+      toast.info('Tanggal libur tersebut sudah terdaftar.');
+      return;
+    }
+    const merged = [...formData.holiday_dates, holidayInput];
+    updateHolidaysWithAutoShift(merged, '1 tanggal libur ditambahkan. Jadwal Pekan 12 Review, Ujian Akhir, dan Selesai Batch otomatis disesuaikan.');
+    setHolidayInput('');
+  };
+
+  const handleAddHolidayRange = () => {
+    if (!holidayRangeStart || !holidayRangeEnd) {
+      toast.error('Silakan isi tanggal mulai dan tanggal selesai rentang libur.');
+      return;
+    }
+
+    const [startY, startM, startD] = holidayRangeStart.split('-').map(Number);
+    const [endY, endM, endD] = holidayRangeEnd.split('-').map(Number);
+    const current = new Date(Date.UTC(startY, startM - 1, startD, 12, 0, 0));
+    const end = new Date(Date.UTC(endY, endM - 1, endD, 12, 0, 0));
+
+    if (current > end) {
+      toast.error('Tanggal mulai tidak boleh lebih lambat dari tanggal selesai.');
+      return;
+    }
+
+    const newDates: string[] = [];
+    while (current <= end) {
+      const y = current.getUTCFullYear();
+      const m = String(current.getUTCMonth() + 1).padStart(2, '0');
+      const d = String(current.getUTCDate()).padStart(2, '0');
+      newDates.push(`${y}-${m}-${d}`);
+      current.setUTCDate(current.getUTCDate() + 1);
+    }
+
+    const merged = Array.from(new Set([...formData.holiday_dates, ...newDates])).sort();
+    const addedCount = merged.length - formData.holiday_dates.length;
+
+    const startFormatted = new Date(holidayRangeStart + 'T12:00:00Z').toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+    const endFormatted = new Date(holidayRangeEnd + 'T12:00:00Z').toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+    updateHolidaysWithAutoShift(
+      merged,
+      `Berhasil menambahkan rentang libur ${startFormatted} - ${endFormatted} (${newDates.length} hari, ${addedCount} tanggal baru). Jadwal Pekan 12 Review, Ujian Akhir, dan Selesai Batch otomatis digeser!`
+    );
+    setHolidayRangeStart('');
+    setHolidayRangeEnd('');
+  };
+
+  const handleClearAllHolidays = () => {
+    if (window.confirm(`Hapus semua ${formData.holiday_dates.length} tanggal libur?`)) {
+      updateHolidaysWithAutoShift([], 'Semua tanggal libur telah dikosongkan. Jadwal otomatis kembali ke standar 13 pekan.');
+    }
+  };
+
+  // Auto-Generate complete, standardized MTI timeline (13 Pekan tanpa tasyakkur)
+  const handleAutoGenerateTimeline = (customStartDate?: string) => {
+    const rawDate = customStartDate || autoGenerateAnchorDate || formData.first_week_start_date || formData.start_date || '';
+    const calc = calculateTimelineDates(rawDate, formData.holiday_dates, formulaConfig);
+
+    if (!calc) {
+      toast.error('Silakan tentukan Tanggal Mulai Pekan 1 (Senin KBM) yang valid.');
+      return;
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      start_date: calc.start_date,
+      end_date: calc.end_date,
+      duration_weeks: calc.duration_weeks,
+      registration_start_date: calc.registration_start_date,
+      registration_end_date: calc.registration_end_date,
+      selection_start_date: calc.selection_start_date,
+      selection_end_date: calc.selection_end_date,
+      selection_result_date: calc.selection_result_date,
+      re_enrollment_date: calc.re_enrollment_date,
+      opening_class_date: calc.opening_class_date,
+      first_week_start_date: calc.first_week_start_date,
+      first_week_end_date: calc.first_week_end_date,
+      review_week_start_date: calc.review_week_start_date,
+      review_week_end_date: calc.review_week_end_date,
+      final_exam_start_date: calc.final_exam_start_date,
+      final_exam_end_date: calc.final_exam_end_date,
+      graduation_start_date: '',
+      graduation_end_date: '',
+      transfer_schedule_end_date: calc.transfer_schedule_end_date,
     }));
 
     // Auto sync program registration dates
     setTikrarData(prev => ({
       ...prev,
-      registration_start_date: regStart,
-      registration_end_date: regEnd,
+      registration_start_date: calc.registration_start_date,
+      registration_end_date: calc.registration_end_date,
     }));
     setPratikrarData(prev => ({
       ...prev,
-      registration_start_date: regStart,
-      registration_end_date: regEnd,
+      registration_start_date: calc.registration_start_date,
+      registration_end_date: calc.registration_end_date,
     }));
     setMuallimahData(prev => ({
       ...prev,
-      registration_start_date: regStart,
-      registration_end_date: regEnd,
+      registration_start_date: calc.registration_start_date,
+      registration_end_date: calc.registration_end_date,
     }));
 
-    toast.success('⚡ Seluruh alur jadwal batch berhasil di-generate secara runtut dan otomatis!');
+    if (calc.holidayShiftDays > 0) {
+      toast.success(`⚡ Jadwal 13 pekan berhasil dihitung otomatis (+${calc.holidayShiftDays} hari penyesuaian libur)!`);
+    } else {
+      toast.success('⚡ Seluruh alur jadwal standar 13 pekan (KBM 1-12 & Ujian Akhir) berhasil dihitung otomatis!');
+    }
   };
 
   const dateWarnings = useMemo(() => {
@@ -256,8 +415,6 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
       { name: 'Pekan 12 Review Selesai', value: formData.review_week_end_date },
       { name: 'Ujian Akhir Mulai', value: formData.final_exam_start_date },
       { name: 'Ujian Akhir Selesai', value: formData.final_exam_end_date },
-      { name: 'Wisuda Mulai', value: formData.graduation_start_date },
-      { name: 'Wisuda Selesai', value: formData.graduation_end_date },
     ];
 
     for (let i = 0; i < sequence.length - 1; i++) {
@@ -422,7 +579,7 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
             onClick={() => setActiveTab('tikrar')}
             className={cn("px-4 py-3 text-sm font-medium border-b-2 transition-colors", activeTab === 'tikrar' ? "border-green-600 text-green-600 font-bold" : "border-transparent text-gray-500 hover:text-gray-700")}
           >
-            Tahfidz Tikrar
+            Tikrar Tahfidz
           </button>
           <button
             type="button"
@@ -445,33 +602,38 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
           <div className="p-6 sm:p-8 space-y-8">
             <div className={cn(activeTab === 'batch' ? 'block space-y-8' : 'hidden')}>
               
-              {/* TOP BANNER: Auto-Generate Timeline Praktis (1-Klik) */}
-              <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-green-50 p-5 rounded-2xl border-2 border-emerald-300 shadow-sm relative overflow-hidden">
+              {/* TOP BANNER: Auto-Generate Timeline Praktis (1-Klik) + Editor Rumus Fleksibel Mimin */}
+              <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-green-50 p-5 rounded-2xl border-2 border-emerald-300 shadow-sm relative overflow-hidden space-y-4">
                 <div className="absolute -right-10 -bottom-10 w-36 h-36 bg-emerald-200/40 rounded-full blur-2xl pointer-events-none" />
-                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 relative z-10">
+                <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 relative z-10">
                   <div className="flex items-start gap-3.5">
-                    <div className="w-11 h-11 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-emerald-600/30 mt-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setShowFormulaEditor(prev => !prev)}
+                      title="Klik untuk membuka/menutup pengaturan rumus fleksibel"
+                      className="w-11 h-11 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-emerald-600/30 mt-0.5 cursor-pointer transition-all active:scale-95"
+                    >
                       <Wand2 className="w-5 h-5" />
-                    </div>
+                    </button>
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-600 text-white uppercase tracking-wider">
                           Fitur Otomatis
                         </span>
                         <span className="text-xs font-semibold text-emerald-800">
-                          Standar MTI (14 Pekan)
+                          Standar MTI (13 Pekan Fleksibel)
                         </span>
                       </div>
                       <h4 className="text-base font-black text-gray-900 mt-1">
                         Hitung Jadwal &amp; Timeline Otomatis (1-Klik)
                       </h4>
                       <p className="text-xs text-gray-600 mt-1 max-w-xl leading-relaxed">
-                        Tentukan tanggal <strong>Senin Pekan 1 (Mulai KBM)</strong>. Sistem otomatis menyusun seluruh alur tanggal secara runtut: <em>Pendaftaran &rarr; Seleksi &rarr; Daftar Ulang &rarr; Opening &rarr; KBM 1-12 &rarr; Ujian &rarr; Wisuda</em>.
+                        Tentukan tanggal <strong>Senin Pekan 1 (Mulai KBM)</strong>. Mimin dapat langsung menghitung jadwal otomatis atau menyesuaikan parameter rumus fleksibel di bawah.
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full md:w-auto shrink-0">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full lg:w-auto shrink-0">
                     <div className="flex flex-col">
                       <label className="text-[10px] font-bold text-emerald-800 uppercase mb-1">
                         Senin Pekan 1 KBM
@@ -483,7 +645,15 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
                         className="px-3.5 py-2 rounded-xl border border-emerald-300 bg-white text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 shadow-sm"
                       />
                     </div>
-                    <div className="sm:self-end">
+                    <div className="flex items-center gap-2 sm:self-end">
+                      <button
+                        type="button"
+                        onClick={() => setShowFormulaEditor(prev => !prev)}
+                        className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-emerald-300 bg-white hover:bg-emerald-100/50 text-emerald-900 font-bold text-xs shadow-xs transition-all whitespace-nowrap"
+                      >
+                        <Sliders className="w-3.5 h-3.5 text-emerald-700" />
+                        <span>{showFormulaEditor ? 'Tutup Rumus' : '⚙️ Rumus Fleksibel'}</span>
+                      </button>
                       <button
                         type="button"
                         onClick={() => handleAutoGenerateTimeline(autoGenerateAnchorDate)}
@@ -495,6 +665,194 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
                     </div>
                   </div>
                 </div>
+
+                {/* PANEL PENGATURAN RUMUS FLEKSIBEL (BISA DIEDIT MIMIN) */}
+                {showFormulaEditor && (
+                  <div className="relative z-10 pt-4 mt-2 border-t border-emerald-200/90 bg-white/80 backdrop-blur-sm p-4 rounded-xl space-y-4 animate-in fade-in slide-in-from-top-2">
+                    <div className="flex items-center justify-between border-b border-emerald-100 pb-2.5">
+                      <div className="flex items-center gap-2">
+                        <Settings2 className="w-4 h-4 text-emerald-700" />
+                        <h5 className="text-xs font-black uppercase tracking-wider text-emerald-950">
+                          Pengaturan Parameter Rumus Fleksibel Jadwal
+                        </h5>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormulaConfig(DEFAULT_TIMELINE_FORMULA);
+                          toast.info('Parameter rumus dikembalikan ke Standar MTI (13 Pekan).');
+                        }}
+                        className="text-[11px] font-bold text-emerald-700 hover:text-emerald-900 flex items-center gap-1 transition-colors"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        Reset ke Standar MTI
+                      </button>
+                    </div>
+
+                    <p className="text-[11px] text-gray-600 leading-normal">
+                      Mimin dapat mengubah jumlah hari mundur (H-...) sebelum KBM dimulai atau durasi KBM. Tanggal seluruh alur akan otomatis dihitung ulang sesuai rumus yang mimin tentukan di sini.
+                    </p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                      <div className="bg-white p-2.5 rounded-lg border border-emerald-100 shadow-2xs">
+                        <label className="block text-[10px] font-extrabold text-gray-700 uppercase mb-1">
+                          Pendaftaran Buka (H-...)
+                        </label>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-emerald-800">H-</span>
+                          <input
+                            type="number"
+                            min="1"
+                            max="120"
+                            value={formulaConfig.regStartDaysBefore}
+                            onChange={(e) => setFormulaConfig(prev => ({ ...prev, regStartDaysBefore: parseInt(e.target.value) || 0 }))}
+                            className="w-full px-2 py-1 text-xs font-bold rounded border border-gray-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                          <span className="text-[10px] text-gray-500">hari</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-2.5 rounded-lg border border-emerald-100 shadow-2xs">
+                        <label className="block text-[10px] font-extrabold text-gray-700 uppercase mb-1">
+                          Pendaftaran Tutup (H-...)
+                        </label>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-emerald-800">H-</span>
+                          <input
+                            type="number"
+                            min="1"
+                            max="100"
+                            value={formulaConfig.regEndDaysBefore}
+                            onChange={(e) => setFormulaConfig(prev => ({ ...prev, regEndDaysBefore: parseInt(e.target.value) || 0 }))}
+                            className="w-full px-2 py-1 text-xs font-bold rounded border border-gray-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                          <span className="text-[10px] text-gray-500">hari</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-2.5 rounded-lg border border-emerald-100 shadow-2xs">
+                        <label className="block text-[10px] font-extrabold text-gray-700 uppercase mb-1">
+                          Mulai Seleksi (H-...)
+                        </label>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-emerald-800">H-</span>
+                          <input
+                            type="number"
+                            min="1"
+                            max="100"
+                            value={formulaConfig.selectionStartDaysBefore}
+                            onChange={(e) => setFormulaConfig(prev => ({ ...prev, selectionStartDaysBefore: parseInt(e.target.value) || 0 }))}
+                            className="w-full px-2 py-1 text-xs font-bold rounded border border-gray-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                          <span className="text-[10px] text-gray-500">hari</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-2.5 rounded-lg border border-emerald-100 shadow-2xs">
+                        <label className="block text-[10px] font-extrabold text-gray-700 uppercase mb-1">
+                          Selesai Seleksi (H-...)
+                        </label>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-emerald-800">H-</span>
+                          <input
+                            type="number"
+                            min="1"
+                            max="100"
+                            value={formulaConfig.selectionEndDaysBefore}
+                            onChange={(e) => setFormulaConfig(prev => ({ ...prev, selectionEndDaysBefore: parseInt(e.target.value) || 0 }))}
+                            className="w-full px-2 py-1 text-xs font-bold rounded border border-gray-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                          <span className="text-[10px] text-gray-500">hari</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-2.5 rounded-lg border border-emerald-100 shadow-2xs">
+                        <label className="block text-[10px] font-extrabold text-gray-700 uppercase mb-1">
+                          Pengumuman Seleksi (H-...)
+                        </label>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-emerald-800">H-</span>
+                          <input
+                            type="number"
+                            min="1"
+                            max="100"
+                            value={formulaConfig.selectionResultDaysBefore}
+                            onChange={(e) => setFormulaConfig(prev => ({ ...prev, selectionResultDaysBefore: parseInt(e.target.value) || 0 }))}
+                            className="w-full px-2 py-1 text-xs font-bold rounded border border-gray-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                          <span className="text-[10px] text-gray-500">hari</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-2.5 rounded-lg border border-emerald-100 shadow-2xs">
+                        <label className="block text-[10px] font-extrabold text-gray-700 uppercase mb-1">
+                          Mulai Daftar Ulang (H-...)
+                        </label>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-emerald-800">H-</span>
+                          <input
+                            type="number"
+                            min="1"
+                            max="100"
+                            value={formulaConfig.reEnrollDaysBefore}
+                            onChange={(e) => setFormulaConfig(prev => ({ ...prev, reEnrollDaysBefore: parseInt(e.target.value) || 0 }))}
+                            className="w-full px-2 py-1 text-xs font-bold rounded border border-gray-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                          <span className="text-[10px] text-gray-500">hari</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-2.5 rounded-lg border border-emerald-100 shadow-2xs">
+                        <label className="block text-[10px] font-extrabold text-gray-700 uppercase mb-1">
+                          Opening Class (H-...)
+                        </label>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-emerald-800">H-</span>
+                          <input
+                            type="number"
+                            min="0"
+                            max="60"
+                            value={formulaConfig.openingClassDaysBefore}
+                            onChange={(e) => setFormulaConfig(prev => ({ ...prev, openingClassDaysBefore: parseInt(e.target.value) || 0 }))}
+                            className="w-full px-2 py-1 text-xs font-bold rounded border border-gray-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                          <span className="text-[10px] text-gray-500">hari</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-2.5 rounded-lg border border-emerald-100 shadow-2xs">
+                        <label className="block text-[10px] font-extrabold text-gray-700 uppercase mb-1">
+                          KBM Reguler (Pekan)
+                        </label>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="number"
+                            min="1"
+                            max="52"
+                            value={formulaConfig.kbmRegularWeeks}
+                            onChange={(e) => setFormulaConfig(prev => ({ ...prev, kbmRegularWeeks: parseInt(e.target.value) || 11 }))}
+                            className="w-full px-2 py-1 text-xs font-bold rounded border border-gray-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                          <span className="text-[10px] text-gray-500">+2 Pekan</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleAutoGenerateTimeline(autoGenerateAnchorDate);
+                          setShowFormulaEditor(false);
+                        }}
+                        className="px-4 py-2 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs shadow-sm flex items-center gap-1.5 active:scale-95 transition-all"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        Terapkan Rumus &amp; Hitung Ulang Jadwal
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* 1. Informasi Dasar & Ketentuan Kelas */}
@@ -527,10 +885,15 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
                       onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                       className="w-full px-4 py-2.5 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600 text-sm font-medium"
                     >
-                      {BATCH_STATUSES.map(s => (
-                        <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
-                      ))}
+                      <option value="open">Open (Otomatis: Masa Registrasi)</option>
+                      <option value="ongoing">Ongoing (Otomatis: Kelas Berjalan)</option>
+                      <option value="closed">Closed (Otomatis: Siklus Selesai)</option>
+                      <option value="archived">Archived (Manual: Diarsipkan Admin)</option>
+                      <option value="draft">Draft (Persiapan)</option>
                     </select>
+                    <p className="text-[11px] text-gray-500 mt-1 leading-snug">
+                      ℹ️ Status otomatis bergerak sesuai tanggal: <b>Open</b> (Registrasi) ➔ <b>Ongoing</b> (KBM/Ujian) ➔ <b>Closed</b> (Siklus Selesai). Pilih <b>Archived</b> jika ingin mengarsipkan batch ini secara manual.
+                    </p>
                   </div>
                 </div>
 
@@ -621,7 +984,7 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
                 <div className="flex items-center gap-2 text-gray-800 font-bold text-sm border-b border-gray-200/60 pb-2.5">
                   <Calendar className="w-4 h-4 text-green-700" />
                   <h3>2. Periode Utama Batch</h3>
-                  <span className="text-[11px] text-gray-500 font-normal ml-auto">(Rentang Waktu KBM sampai Wisuda)</span>
+                  <span className="text-[11px] text-gray-500 font-normal ml-auto">(Rentang Waktu KBM sampai Ujian Akhir)</span>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -648,14 +1011,14 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
                       max="52"
                       value={formData.duration_weeks || ''}
                       onChange={(e) => handleDurationChange(parseInt(e.target.value) || 0)}
-                      placeholder="14"
+                      placeholder="13"
                       className="w-full px-4 py-2.5 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600 text-sm font-bold text-center"
                     />
-                    <p className="text-[10px] text-gray-500 mt-1">Standar MTI: 14 Pekan (12 KBM + 1 Ujian + 1 Wisuda)</p>
+                    <p className="text-[10px] text-gray-500 mt-1">Standar MTI: 13 Pekan (12 KBM & Muraja'ah + 1 Ujian Akhir)</p>
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1.5">
-                      Selesai Batch (Wisuda) <span className="text-red-500">*</span>
+                      Selesai Batch (Akhir Pekan 13) <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="datetime-local"
@@ -860,7 +1223,7 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
                   <p className="text-[10px] text-purple-700 italic">* Pekan 2 s/d 11 dihitung otomatis berkelanjutan setiap pekan.</p>
                 </div>
 
-                {/* Fase 3: Evaluasi Akhir & Wisuda */}
+                {/* Fase 3: Evaluasi Akhir (Pekan 13) */}
                 <div className="bg-amber-50/60 p-4 sm:p-5 rounded-2xl border border-amber-200 space-y-3.5">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -868,10 +1231,10 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
                         3
                       </span>
                       <h4 className="text-xs font-bold text-amber-900 uppercase tracking-wider">
-                        Fase Evaluasi Akhir &amp; Wisuda (Pekan 13 - 14)
+                        Fase Evaluasi Akhir (Pekan 13)
                       </h4>
                     </div>
-                    <span className="text-[10px] text-amber-700 font-semibold">Ujian &amp; Kelulusan</span>
+                    <span className="text-[10px] text-amber-700 font-semibold">Ujian Akhir Tahfidz</span>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
@@ -898,36 +1261,11 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
                       />
                     </div>
                   </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-1 border-t border-amber-100">
-                    <div>
-                      <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">
-                        Pekan 14 (Wisuda / Tasyakkur) Mulai
-                      </label>
-                      <input
-                        type="datetime-local"
-                        value={formData.graduation_start_date}
-                        onChange={(e) => setFormData({ ...formData, graduation_start_date: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs font-medium focus:ring-2 focus:ring-amber-500/20"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">
-                        Pekan 14 (Wisuda / Tasyakkur) Selesai
-                      </label>
-                      <input
-                        type="datetime-local"
-                        value={formData.graduation_end_date}
-                        onChange={(e) => setFormData({ ...formData, graduation_end_date: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs font-medium focus:ring-2 focus:ring-amber-500/20"
-                      />
-                    </div>
-                  </div>
                 </div>
 
                 {/* Fase 4: Tanggal Libur & Break */}
                 <div className="bg-red-50/50 p-4 sm:p-5 rounded-2xl border border-red-200 space-y-3">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                     <h4 className="text-xs font-bold text-red-900 uppercase tracking-wider flex items-center gap-2">
                       <Clock className="w-3.5 h-3.5 text-red-600" />
                       Tanggal Libur &amp; Break (Opsional)
@@ -935,35 +1273,121 @@ export function BatchFormModal({ batch, programs = [], isOpen, onClose, onSucces
                     <span className="text-[10px] text-red-600 italic">Pekan KBM akan bergeser otomatis</span>
                   </div>
 
-                  <div className="flex gap-2">
-                    <input
-                      type="date"
-                      value={holidayInput}
-                      onChange={(e) => setHolidayInput(e.target.value)}
-                      className="flex-1 px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-red-500/20"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleAddHoliday}
-                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
-                    >
-                      Tambah
-                    </button>
+                  {/* Mode Selector */}
+                  <div className="flex items-center gap-2 pt-0.5">
+                    <span className="text-[11px] font-bold text-gray-600">Metode Input:</span>
+                    <div className="flex items-center bg-white p-0.5 rounded-lg border border-red-200 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setHolidayMode('range')}
+                        className={cn(
+                          'px-3 py-1 rounded-md font-semibold transition-all',
+                          holidayMode === 'range'
+                            ? 'bg-red-600 text-white shadow-xs'
+                            : 'text-gray-600 hover:text-gray-900'
+                        )}
+                      >
+                        Rentang Tanggal (cth. 1 - 21 Maret)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setHolidayMode('single')}
+                        className={cn(
+                          'px-3 py-1 rounded-md font-semibold transition-all',
+                          holidayMode === 'single'
+                            ? 'bg-red-600 text-white shadow-xs'
+                            : 'text-gray-600 hover:text-gray-900'
+                        )}
+                      >
+                        Satu Tanggal
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="flex flex-wrap gap-2 pt-1">
+                  {/* Input by Range */}
+                  {holidayMode === 'range' ? (
+                    <div className="bg-white p-3 rounded-xl border border-red-200 space-y-2.5 shadow-xs">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">
+                            Mulai Libur (Dari Tanggal)
+                          </label>
+                          <input
+                            type="date"
+                            value={holidayRangeStart}
+                            onChange={(e) => setHolidayRangeStart(e.target.value)}
+                            className="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-red-500/20"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">
+                            Selesai Libur (Sampai Tanggal)
+                          </label>
+                          <input
+                            type="date"
+                            value={holidayRangeEnd}
+                            onChange={(e) => setHolidayRangeEnd(e.target.value)}
+                            className="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-red-500/20"
+                          />
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleAddHolidayRange}
+                        className="w-full py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5"
+                      >
+                        <Calendar className="w-3.5 h-3.5" />
+                        <span>Tambahkan Seluruh Hari Libur dalam Rentang Tanggal</span>
+                      </button>
+                    </div>
+                  ) : (
+                    /* Input Single Date */
+                    <div className="flex gap-2">
+                      <input
+                        type="date"
+                        value={holidayInput}
+                        onChange={(e) => setHolidayInput(e.target.value)}
+                        className="flex-1 px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-red-500/20"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddHoliday}
+                        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
+                      >
+                        Tambah
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Header list & Clear all */}
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-[11px] font-bold text-red-950">
+                      Daftar Tanggal Libur ({formData.holiday_dates.length} Hari) {formData.holiday_dates.length > 0 && <span className="text-emerald-700 font-normal">· Jadwal otomatis digeser +{formData.holiday_dates.length} hari</span>}
+                    </span>
+                    {formData.holiday_dates.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleClearAllHolidays}
+                        className="text-[10px] font-bold text-red-600 hover:text-red-800 underline cursor-pointer"
+                      >
+                        Hapus Semua
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5 pt-0.5 max-h-40 overflow-y-auto p-1">
                     {formData.holiday_dates.length === 0 ? (
                       <p className="text-[11px] text-gray-400 italic">Belum ada tanggal libur yang ditambahkan.</p>
                     ) : (
                       formData.holiday_dates.map((date) => (
-                        <div key={date} className="flex items-center gap-1.5 bg-white border border-red-200 px-3 py-1 rounded-full text-xs font-semibold text-red-800 shadow-sm">
-                          <span>{new Date(date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Jakarta' })}</span>
+                        <div key={date} className="flex items-center gap-1.5 bg-white border border-red-200 px-2.5 py-1 rounded-full text-[11px] font-semibold text-red-800 shadow-xs">
+                          <span>{new Date(date + 'T12:00:00Z').toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Jakarta' })}</span>
                           <button
                             type="button"
-                            onClick={() => setFormData({ ...formData, holiday_dates: formData.holiday_dates.filter(d => d !== date) })}
-                            className="text-red-400 hover:text-red-700 ml-1"
+                            onClick={() => updateHolidaysWithAutoShift(formData.holiday_dates.filter(d => d !== date), 'Tanggal libur dihapus. Jadwal otomatis disesuaikan.')}
+                            className="text-red-400 hover:text-red-700 ml-0.5"
                           >
-                            <X className="w-3.5 h-3.5" />
+                            <X className="w-3 h-3" />
                           </button>
                         </div>
                       ))

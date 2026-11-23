@@ -144,7 +144,7 @@ export function PosterCTA() {
       {/* FOOTER */}
       <div className="absolute bottom-[36px] left-0 right-0 text-center">
         <p className="text-amber-300 text-[15px] font-extrabold tracking-[0.18em]">
-          markaztikrar.id <span className="text-amber-500 mx-2">•</span> WA 081330000784{' '}
+          markaztikrar.id <span className="text-amber-500 mx-2">•</span> WA 08138884240{' '}
           <span className="text-amber-500 mx-2">•</span> lynk.id/markaztikrar.id
         </p>
       </div>

@@ -8,6 +8,37 @@ import { logger } from '@/lib/logger-secure';
 
 const supabaseAdmin = createSupabaseAdmin();
 
+function normalizeImportedOptions(rawOptions: any[], fallbackCorrectAnswer?: string) {
+  const texts = (Array.isArray(rawOptions) ? rawOptions : []).map((opt: any) =>
+    String(opt?.option_text ?? opt?.text ?? '').trim()
+  );
+  const flaggedIndices = (Array.isArray(rawOptions) ? rawOptions : [])
+    .map((opt: any, idx: number) => (opt?.is_correct === true || opt?.isCorrect === true ? idx : -1))
+    .filter((idx: number) => idx >= 0);
+
+  let winningIdx = -1;
+  const trimmedFallback = fallbackCorrectAnswer ? String(fallbackCorrectAnswer).trim() : '';
+
+  if (flaggedIndices.length > 0) {
+    if (trimmedFallback) {
+      const flaggedMatch = flaggedIndices.find((idx) => texts[idx] === trimmedFallback);
+      winningIdx = flaggedMatch !== undefined ? flaggedMatch : flaggedIndices[0];
+    } else {
+      winningIdx = flaggedIndices[0];
+    }
+  } else if (trimmedFallback) {
+    winningIdx = texts.findIndex((t) => t === trimmedFallback);
+  }
+
+  const formattedOptions = texts.map((text, idx) => ({
+    text,
+    isCorrect: idx === winningIdx,
+  }));
+
+  const correctAnswer = winningIdx >= 0 ? formattedOptions[winningIdx].text : trimmedFallback;
+  return { formattedOptions, correctAnswer };
+}
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = createServerClient();
@@ -62,20 +93,23 @@ export async function POST(request: NextRequest) {
     }
 
     // Prepare questions for insert
-    const questionsToInsert = questions.map((q: any) => ({
-      juz_number,
-      section_number: q.section_number,
-      section_title: q.section_title,
-      question_number: q.question_number,
-      question_text: q.question_text,
-      question_type: q.question_type || 'multiple_choice',
-      options: q.options || [],
-      correct_answer: q.correct_answer || q.options?.find((opt: any) => opt.isCorrect)?.text || '',
-      points: q.points || 1,
-      is_active: q.is_active !== false,
-      question_package: q.question_package || 'B',
-      created_by: user.id
-    }));
+    const questionsToInsert = questions.map((q: any) => {
+      const { formattedOptions, correctAnswer } = normalizeImportedOptions(q.options || [], q.correct_answer);
+      return {
+        juz_number,
+        section_number: q.section_number,
+        section_title: q.section_title,
+        question_number: q.question_number,
+        question_text: q.question_text,
+        question_type: q.question_type || 'multiple_choice',
+        options: formattedOptions,
+        correct_answer: correctAnswer,
+        points: q.points || 1,
+        is_active: q.is_active !== false,
+        question_package: q.question_package || 'B',
+        created_by: user.id
+      };
+    });
 
     // Insert in batches to avoid timeout (Supabase limit ~1000 rows)
     const batchSize = 100;

@@ -5,7 +5,6 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { CheckCircle, Calendar, BookOpen, MessageSquare, Sparkles, Star, User, Phone, Mic, Headphones, ArrowRight, X, Upload } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { uploadJurnalScreenshot } from '../actions'
 import { toast } from 'sonner'
 import { Loader2 as Spinner } from 'lucide-react'
 
@@ -99,12 +98,16 @@ export function JurnalEntryForm({
     try {
       const uploadData = new FormData()
       uploadData.append('file', file)
-      const result = await uploadJurnalScreenshot(uploadData)
-      if (result.success && result.data) {
+      const res = await fetch('/api/jurnal/upload-screenshot', {
+        method: 'POST',
+        body: uploadData,
+      })
+      const result = await res.json().catch(() => null)
+      if (res.ok && result?.success && result.data) {
         setFormData((prev: any) => ({ ...prev, tarteel_screenshot_url: result.data.url }))
         toast.success('Screenshot berhasil diunggah')
       } else {
-        toast.error(result.error || 'Gagal mengunggah screenshot')
+        toast.error(result?.error || `Gagal mengunggah screenshot (HTTP ${res.status})`)
       }
     } catch (error: any) {
       const errMsg = error?.message || "";

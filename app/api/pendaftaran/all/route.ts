@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     if (!context) return ApiResponses.unauthorized();
 
     // 1. Get tikrar registrations with batch & program joined
-    const { rows: tikrarRegistrations } = await query(
+    let { rows: tikrarRegistrations } = await query(
       `SELECT 
          p.*,
          row_to_json(b.*) as batch,
@@ -28,7 +28,35 @@ export async function GET(request: Request) {
       [context.userId]
     );
 
-    // 2. Fetch daftar ulang submissions with halaqah info
+    // 2. Fallback matching by email if no registrations found by user_id (consistent with /api/pendaftaran/my)
+    if (tikrarRegistrations.length === 0 && context.email) {
+      const { rows: fallbackRows } = await query(
+        `SELECT 
+           p.*,
+           row_to_json(b.*) as batch,
+           row_to_json(pr.*) as program
+         FROM pendaftaran_tikrar_tahfidz p
+         LEFT JOIN batches b ON p.batch_id = b.id
+         LEFT JOIN programs pr ON p.program_id = pr.id
+         WHERE LOWER(p.email) = LOWER($1)
+         ORDER BY p.created_at DESC`,
+        [context.email]
+      );
+
+      if (fallbackRows.length > 0) {
+        tikrarRegistrations = fallbackRows;
+        for (const reg of fallbackRows) {
+          if (!reg.user_id || reg.user_id !== context.userId) {
+            await query(
+              `UPDATE pendaftaran_tikrar_tahfidz SET user_id = $1 WHERE id = $2`,
+              [context.userId, reg.id]
+            );
+          }
+        }
+      }
+    }
+
+    // 3. Fetch daftar ulang submissions with halaqah info
     const { rows: daftarUlangSubmissions } = await query(
       `SELECT 
          du.*,
@@ -44,7 +72,7 @@ export async function GET(request: Request) {
       [context.userId]
     );
 
-    // 3. Process registrations and embed daftar ulang data
+    // 4. Process registrations and embed daftar ulang data
     const allRegistrations = (tikrarRegistrations || []).map((reg: any) => {
       const daftarUlang = (daftarUlangSubmissions || []).find(
         (du: any) => du.registration_id === reg.id || du.batch_id === reg.batch_id

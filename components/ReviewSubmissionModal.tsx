@@ -1,6 +1,10 @@
 'use client';
 
+import { FormattedQuestionText } from "@/components/exam/FormattedQuestionText";
+
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useSWRConfig } from 'swr';
 import {
   Dialog,
   DialogContent,
@@ -55,7 +59,18 @@ export function ReviewSubmissionModal({
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<any>(null);
   const [questions, setQuestions] = useState<any[]>([]);
+  const router = useRouter();
+  const { mutate } = useSWRConfig();
   const [isRetracting, setIsRetracting] = useState(false);
+  const [confirmingRetract, setConfirmingRetract] = useState(false);
+  const [retractError, setRetractError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setConfirmingRetract(false);
+      setRetractError(null);
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen && type === 'written') {
@@ -66,12 +81,14 @@ export function ReviewSubmissionModal({
   const fetchWrittenData = async () => {
     setLoading(true);
     try {
-      // 1. Fetch attempt answers
-      const attemptRes = await fetch('/api/exam/attempts');
+      const batchId = registrationStatus?.registration?.batch_id;
+      const batchQuery = batchId ? `&batchId=${encodeURIComponent(batchId)}` : '';
+      // 1. Fetch attempt answers (selection exam)
+      const attemptRes = await fetch(`/api/exam/attempts?source=selection${batchQuery}`);
       const attemptData = await attemptRes.json();
       
       // 2. Fetch questions to match with answers
-      const questionsRes = await fetch('/api/exam/questions/for-user');
+      const questionsRes = await fetch(`/api/exam/questions/for-user?source=selection${batchQuery}`);
       const questionsData = await questionsRes.json();
       
       setQuestions(questionsData.data || []);
@@ -127,9 +144,7 @@ export function ReviewSubmissionModal({
                   {idx + 1}
                 </div>
                 <div className="space-y-4 flex-1">
-                  <p className="text-sm font-bold text-gray-900 leading-relaxed font-arabic">
-                    {q.question_text}
-                  </p>
+                  <FormattedQuestionText text={q.question_text} />
                   
                   <div className="space-y-2">
                     {q.options?.map((opt: any, oIdx: number) => {
@@ -174,11 +189,8 @@ export function ReviewSubmissionModal({
   };
 
   const handleRetract = async () => {
-    if (!window.confirm('Apakah Ukhti yakin ingin menarik rekaman ini dan merekam ulang? Rekaman saat ini akan dihapus.')) {
-      return;
-    }
-
     setIsRetracting(true);
+    setRetractError(null);
     try {
       const response = await fetch(`/api/pendaftaran/tikrar/${registrationStatus.registrationId}`, {
         method: 'PUT',
@@ -193,19 +205,37 @@ export function ReviewSubmissionModal({
       });
 
       if (!response.ok) {
-        const err = await response.json();
+        const err = await response.json().catch(() => ({}));
         throw new Error(err.error || 'Gagal menarik rekaman');
       }
 
-      window.location.reload();
+      await Promise.all([
+        mutate('/api/pendaftaran/all'),
+        mutate('/api/pendaftaran/my'),
+      ]).catch(() => {});
+
+      const batchId = registrationStatus?.registration?.batch_id;
+      const regId = registrationStatus?.registrationId;
+      const params = new URLSearchParams();
+      if (batchId) params.set('batchId', batchId);
+      if (regId) params.set('registrationId', regId);
+      const targetUrl = params.toString() ? `/seleksi/rekam-suara?${params.toString()}` : '/seleksi/rekam-suara';
+
+      setConfirmingRetract(false);
+      onClose();
+      router.push(targetUrl);
     } catch (err: any) {
-      alert(err.message || 'Gagal menarik rekaman');
+      setRetractError(err.message || 'Gagal menarik rekaman');
     } finally {
       setIsRetracting(false);
     }
   };
 
   const renderOralReview = () => {
+    const isSelectionDecided = !!registrationStatus.registration?.selection_status && registrationStatus.registration.selection_status !== 'pending';
+    const canRetract = (!['pass', 'fail'].includes(registrationStatus.oralAssessmentStatus || '') && !isSelectionDecided) || registrationStatus.needsRevision;
+    const isPendingAssessment = !['pass', 'fail'].includes(registrationStatus.oralAssessmentStatus || '') || registrationStatus.needsRevision;
+
     return (
       <div className="space-y-8 py-2">
         <div className="text-center space-y-4">
@@ -216,12 +246,14 @@ export function ReviewSubmissionModal({
             <h3 className="text-xl font-black text-gray-900">Rekaman Ujian Lisan</h3>
             <p className="text-sm text-gray-500 mt-1">
               Status: <span className="text-emerald-600 font-bold uppercase tracking-wider">
-                {registrationStatus.oralAssessmentStatus === 'pending' 
-                  ? 'Belum Dinilai' 
-                  : (registrationStatus.showSelectionResult 
-                      ? (registrationStatus.oralAssessmentStatus === 'pass' ? 'Lulus ✓' : 'Tidak Lulus') 
-                      : 'Selesai'
-                    )
+                {registrationStatus.needsRevision
+                  ? 'Perlu Rekam Ulang'
+                  : isPendingAssessment
+                    ? 'Belum Dinilai'
+                    : (registrationStatus.showSelectionResult
+                        ? (registrationStatus.oralAssessmentStatus === 'pass' ? 'Lulus ✓' : 'Tidak Lulus')
+                        : 'Selesai'
+                      )
                 }
               </span>
             </p>
@@ -233,20 +265,57 @@ export function ReviewSubmissionModal({
           {registrationStatus.oralSubmissionUrl ? (
             <div className="flex flex-col gap-4">
               <SafeAudioPlayer src={registrationStatus.oralSubmissionUrl} />
-              {registrationStatus.oralAssessmentStatus === 'pending' && (
+              {retractError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-2xl text-xs font-semibold text-red-700 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                  <span>{retractError}</span>
+                </div>
+              )}
+              {canRetract && !confirmingRetract && (
                 <Button
-                  onClick={handleRetract}
+                  type="button"
+                  onClick={() => {
+                    setRetractError(null);
+                    setConfirmingRetract(true);
+                  }}
                   disabled={isRetracting}
                   variant="outline"
                   className="w-full rounded-2xl border-red-200 hover:border-red-300 hover:bg-red-50 text-red-600 hover:text-red-700 font-bold transition-all h-12 flex items-center justify-center gap-2 mt-2"
                 >
-                  {isRetracting ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <RotateCcw className="w-4 h-4" />
-                  )}
+                  <RotateCcw className="w-4 h-4" />
                   Tarik Rekaman & Rekam Ulang
                 </Button>
+              )}
+              {canRetract && confirmingRetract && (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-2xl space-y-3 mt-2">
+                  <p className="text-xs font-bold text-red-900 text-center">
+                    Yakin ingin menghapus rekaman ini dan langsung menuju halaman rekam ulang?
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Button
+                      type="button"
+                      onClick={handleRetract}
+                      disabled={isRetracting}
+                      variant="destructive"
+                      className="flex-1 rounded-xl font-bold h-11"
+                    >
+                      {isRetracting ? (
+                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Menghapus...</>
+                      ) : (
+                        <>Ya, Hapus & Rekam Ulang</>
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={() => setConfirmingRetract(false)}
+                      disabled={isRetracting}
+                      variant="outline"
+                      className="flex-1 rounded-xl bg-white font-bold h-11"
+                    >
+                      Batal
+                    </Button>
+                  </div>
+                </div>
               )}
             </div>
           ) : (
@@ -276,7 +345,7 @@ export function ReviewSubmissionModal({
           <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm text-center">
             <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Status Penilaian</p>
             <p className="text-sm font-black text-emerald-600">
-              {registrationStatus.oralAssessmentStatus === 'pending' ? 'Belum Dinilai' : 'Selesai ✓'}
+              {isPendingAssessment ? 'Belum Dinilai' : 'Selesai ✓'}
             </p>
           </div>
           <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm text-center">
@@ -511,7 +580,7 @@ export function ReviewSubmissionModal({
             <AlertCircle className="w-5 h-5 text-amber-600" />
           </div>
           <p className="text-[11px] text-amber-900 leading-relaxed font-semibold">
-            Pastikan data di atas sudah benar. Data ini akan digunakan sebagai basis pencetakan <span className="text-amber-700 italic">Sertifikat Wisuda</span> dan pengiriman hadiah (jika ada).
+            Pastikan data di atas sudah benar. Data ini akan digunakan sebagai basis pencetakan <span className="text-amber-700 italic">Sertifikat Kelulusan (Syahadah)</span> dan pengiriman hadiah (jika ada).
           </p>
         </div>
       </div>
@@ -546,9 +615,6 @@ export function ReviewSubmissionModal({
     const isBackupSlotMatch = currentUser?.backup_time_slot === partner?.backup_time_slot;
     const isJuzMatch = currentUser?.chosen_juz === partner?.chosen_juz;
     const isTimezoneMatch = (currentUser?.zona_waktu || 'WIB').toUpperCase() === (partner?.zona_waktu || 'WIB').toUpperCase();
-
-    // Add Lisan match
-
 
     return (
       <div className="space-y-8">

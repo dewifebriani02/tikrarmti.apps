@@ -106,7 +106,7 @@ export const JadwalPoster = forwardRef<HTMLDivElement, JadwalPosterProps>(
         <footer style={{ position: 'absolute', zIndex: 3, left: 0, right: 0, bottom: 0, height: 78, display: 'grid', gridTemplateColumns: '1.28fr 1fr 1fr', alignItems: 'center', padding: '0 27px', color: '#fff', background: 'linear-gradient(90deg, #57bd75 0%, #128956 58%, #006c47 100%)', boxShadow: '0 -5px 20px rgba(18,88,52,.12)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 11, fontSize: 21, fontFamily: 'Georgia, serif', fontWeight: 700 }}><FooterIcon type="link" />lynk.id/markaztikrar.id</div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 11, fontSize: 20, fontFamily: 'Georgia, serif', fontWeight: 700 }}><FooterIcon type="web" />markaztikrar.id</div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 11, fontSize: 21, fontFamily: 'Georgia, serif', fontWeight: 700 }}><FooterIcon type="phone" />0813-3000-0784</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 11, fontSize: 21, fontFamily: 'Georgia, serif', fontWeight: 700 }}><FooterIcon type="phone" />0813-8884-240</div>
         </footer>
       </div>
     );

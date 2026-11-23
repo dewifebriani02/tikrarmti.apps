@@ -352,7 +352,7 @@ export function AdminStatistik() {
     labels: data.targetJuzDistribution.map((j) => `Juz ${j.juz}`),
     datasets: [
       {
-        label: 'Jumlah Santri',
+        label: 'Jumlah Thalibah',
         data: data.targetJuzDistribution.map((j) => j.count),
         backgroundColor: [
           '#10b981',
@@ -494,7 +494,7 @@ export function AdminStatistik() {
                   </span>
                 </div>
                 <p className="text-[11px] sm:text-xs text-gray-600 mt-0.5 leading-snug">
-                  Terdapat pengajuan santri & calon pengajar yang membutuhkan persetujuan tim administrator.
+                  Terdapat pengajuan thalibah & calon pengajar yang membutuhkan persetujuan tim administrator.
                 </p>
               </div>
             </div>
@@ -637,7 +637,7 @@ export function AdminStatistik() {
             </div>
             <div className="text-xl sm:text-2xl font-black text-gray-900 leading-none">{data.counts.totalHalaqah}</div>
             <div className="text-[9px] sm:text-[10px] text-gray-400 mt-1.5 font-medium flex items-center gap-1 truncate">
-              <span className="text-purple-600 font-bold">{data.counts.totalHalaqahStudents}</span> Santri Aktif
+              <span className="text-purple-600 font-bold">{data.counts.totalHalaqahStudents}</span> Thalibah Aktif
             </div>
           </CardContent>
         </Card>
@@ -658,7 +658,7 @@ export function AdminStatistik() {
           </CardContent>
         </Card>
 
-        {/* KPI 6: Kepuasan Santri */}
+        {/* KPI 6: Kepuasan Thalibah */}
         <Card className="bg-white border-gray-100 shadow-xs hover:shadow-md hover:border-rose-200 transition-all group">
           <CardContent className="p-3 sm:p-4">
             <div className="flex items-center justify-between mb-1.5">
@@ -819,7 +819,7 @@ export function AdminStatistik() {
             <Card className="bg-white border border-gray-100 shadow-xs">
               <CardHeader className="p-3.5 sm:p-6 pb-2 sm:pb-3">
                 <CardTitle className="text-sm sm:text-base font-bold text-gray-900">
-                  Sebaran Zona Waktu Santri
+                  Sebaran Zona Waktu Thalibah
                 </CardTitle>
                 <CardDescription className="text-[11px] sm:text-xs">
                   Domisili waktu pendaftar program
@@ -835,7 +835,7 @@ export function AdminStatistik() {
                       <div className="flex justify-between text-xs font-semibold">
                         <span className="text-gray-700">{tz.timezone}</span>
                         <span className="text-gray-500">
-                          {tz.count} santri ({pct}%)
+                          {tz.count} thalibah ({pct}%)
                         </span>
                       </div>
                       <div className="w-full h-2 rounded-full bg-gray-100 overflow-hidden">
@@ -914,7 +914,7 @@ export function AdminStatistik() {
           <Card className="bg-white border border-gray-100 shadow-xs">
             <CardHeader className="p-3.5 sm:p-6 pb-2 sm:pb-3">
               <CardTitle className="text-sm sm:text-base font-bold text-gray-900">
-                Alur Konversi Seleksi Santri
+                Alur Konversi Seleksi Thalibah
               </CardTitle>
               <CardDescription className="text-[11px] sm:text-xs">
                 Tahapan funneling mulai dari formulir awal hingga konfirmasi daftar ulang
@@ -984,7 +984,7 @@ export function AdminStatistik() {
                         (data.funnelSeleksi.selectedCount || 1)) *
                         100
                     )}
-                    % kesiapan santri
+                    % kesiapan thalibah
                   </p>
                 </div>
               </div>
@@ -999,7 +999,7 @@ export function AdminStatistik() {
                   Pilihan Target Juz Terbanyak
                 </CardTitle>
                 <CardDescription className="text-[11px] sm:text-xs">
-                  Distribusi juz yang diminati para santri
+                  Distribusi juz yang diminati para thalibah
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-3.5 sm:p-6 pt-0 sm:pt-0">
@@ -1022,10 +1022,10 @@ export function AdminStatistik() {
                 <div className="flex items-center justify-between p-2.5 sm:p-3 rounded-xl bg-emerald-50/70 border border-emerald-100">
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span className="text-xs font-bold text-gray-800">Santri Diterima (Selected)</span>
+                    <span className="text-xs font-bold text-gray-800">Thalibah Diterima (Selected)</span>
                   </div>
                   <span className="text-xs sm:text-sm font-black text-emerald-700">
-                    {data.funnelSeleksi.selectedCount} santri
+                    {data.funnelSeleksi.selectedCount} thalibah
                   </span>
                 </div>
 
@@ -1035,7 +1035,7 @@ export function AdminStatistik() {
                     <span className="text-xs font-bold text-gray-800">Daftar Tunggu (Waitlist)</span>
                   </div>
                   <span className="text-xs sm:text-sm font-black text-amber-700">
-                    {data.funnelSeleksi.waitlistCount} santri
+                    {data.funnelSeleksi.waitlistCount} thalibah
                   </span>
                 </div>
 
@@ -1045,7 +1045,7 @@ export function AdminStatistik() {
                     <span className="text-xs font-bold text-gray-800">Belum Lolos (Not Selected)</span>
                   </div>
                   <span className="text-xs sm:text-sm font-black text-rose-700">
-                    {data.funnelSeleksi.notSelectedCount} santri
+                    {data.funnelSeleksi.notSelectedCount} thalibah
                   </span>
                 </div>
 
@@ -1055,7 +1055,7 @@ export function AdminStatistik() {
                     <span className="text-xs font-bold text-gray-800">Menunggu Penilaian Lisan</span>
                   </div>
                   <span className="text-xs sm:text-sm font-black text-gray-700">
-                    {data.funnelSeleksi.oralPending} santri
+                    {data.funnelSeleksi.oralPending} thalibah
                   </span>
                 </div>
               </CardContent>
@@ -1075,7 +1075,7 @@ export function AdminStatistik() {
                   Kapasitas & Alokasi Halaqah
                 </CardTitle>
                 <CardDescription className="text-[11px] sm:text-xs">
-                  Tingkat keterisian kursi santri dalam kelompok halaqah
+                  Tingkat keterisian kursi thalibah dalam kelompok halaqah
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-3.5 sm:p-6 pt-0 sm:pt-0 space-y-4 sm:space-y-6">
@@ -1093,7 +1093,7 @@ export function AdminStatistik() {
                     <div className="text-lg sm:text-2xl font-black text-emerald-900 mt-0.5 sm:mt-1">
                       {data.halaqahMetrics.totalCapacity}
                     </div>
-                    <span className="text-[9px] sm:text-[10px] text-emerald-600 block truncate">Kuota Santri</span>
+                    <span className="text-[9px] sm:text-[10px] text-emerald-600 block truncate">Kuota Thalibah</span>
                   </div>
 
                   <div className="p-2.5 sm:p-4 rounded-xl bg-blue-50 border border-blue-100">
@@ -1101,7 +1101,7 @@ export function AdminStatistik() {
                     <div className="text-lg sm:text-2xl font-black text-blue-900 mt-0.5 sm:mt-1">
                       {data.halaqahMetrics.totalAssigned}
                     </div>
-                    <span className="text-[9px] sm:text-[10px] text-blue-600 block truncate">Santri Aktif</span>
+                    <span className="text-[9px] sm:text-[10px] text-blue-600 block truncate">Thalibah Aktif</span>
                   </div>
                 </div>
 
@@ -1202,7 +1202,7 @@ export function AdminStatistik() {
                 </div>
                 <div className="text-2xl sm:text-3xl font-black">{data.jurnalCompliance.totalRecords.toLocaleString('id-ID')}</div>
                 <p className="text-[10px] sm:text-xs text-emerald-100 mt-1.5 sm:mt-2 font-medium">
-                  Catatan disiplin harian santri
+                  Catatan disiplin harian thalibah
                 </p>
               </CardContent>
             </Card>
@@ -1430,7 +1430,7 @@ export function AdminStatistik() {
                   Kepuasan & Suara Thalibah
                 </CardTitle>
                 <CardDescription className="text-[11px] sm:text-xs">
-                  Feedback dari {data.satisfactionStats.totalTestimonials} testimoni santri
+                  Feedback dari {data.satisfactionStats.totalTestimonials} testimoni thalibah
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-3.5 sm:p-6 pt-0 sm:pt-0 flex-1 flex flex-col justify-between space-y-3 sm:space-y-4">

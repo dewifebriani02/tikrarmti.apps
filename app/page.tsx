@@ -1,13 +1,16 @@
 import Link from 'next/link';
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 // Import FAQ component as default export
 import FAQComponent from '@/components/FAQ';
 import { LandingTestimonialsCarousel } from '@/components/LandingTestimonialsCarousel';
+import { AnNabaSimulationSection } from '@/components/AnNabaSimulationSection';
+import { BatchRetentionCarousel, BatchProgramData } from '@/components/BatchRetentionCarousel';
 import {
   Star,
+  HelpCircle,
   Users,
   Trophy,
   Crown,
@@ -35,11 +38,16 @@ import { redirect } from 'next/navigation';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default async function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams?: { view?: string };
+}) {
   const supabaseAuth = createClient();
   const { data: { user } } = await supabaseAuth.auth.getUser();
+  const forceLandingView = searchParams?.view === 'landing';
 
-  if (user) {
+  if (user && !forceLandingView) {
     redirect('/dashboard');
   }
 
@@ -57,6 +65,48 @@ export default async function Home() {
     totalMuallimah: 48,
     totalHalaqah: 82,
     totalKota: 223
+  };
+
+  let batchesData: BatchProgramData[] = [];
+
+  const parseBatchNumber = (name: string): number => {
+    const match = name.match(/Batch\s*(\d+)/i);
+    return match ? parseInt(match[1], 10) : 0;
+  };
+
+  const mapBatchRows = (rows: any[]): BatchProgramData[] => {
+    return rows.map((r) => {
+      const batchNum = parseBatchNumber(r.batch_name || "");
+      const totalDaftar = Number(r.total_daftar || 0);
+      const lulusSeleksi = Number(r.lulus_seleksi || 0);
+      const lulusDaftarUlang = Number(r.lulus_daftar_ulang || 0);
+      const lulusProgram = Number(r.lulus_program || 0);
+      const isOpening =
+        r.batch_status === "draft" ||
+        batchNum === 4 ||
+        (r.batch_name || "").toLowerCase().includes("batch 4");
+
+      const persenLolosSeleksi = totalDaftar > 0 ? Math.round((lulusSeleksi / totalDaftar) * 100) : 0;
+      const persenDaftarUlang = lulusSeleksi > 0 ? Math.round((lulusDaftarUlang / lulusSeleksi) * 100) : 0;
+      const persenLulusProgram = lulusDaftarUlang > 0 
+        ? Math.round((lulusProgram / lulusDaftarUlang) * 100) 
+        : (lulusSeleksi > 0 ? Math.round((lulusProgram / lulusSeleksi) * 100) : 0);
+
+      return {
+        batchId: r.batch_id,
+        batchName: r.batch_name,
+        batchNumber: batchNum,
+        batchStatus: r.batch_status || "closed",
+        isOpening,
+        totalDaftar,
+        lulusSeleksi,
+        lulusDaftarUlang,
+        lulusProgram,
+        persenLolosSeleksi,
+        persenDaftarUlang,
+        persenLulusProgram,
+      };
+    }).sort((a, b) => a.batchNumber - b.batchNumber);
   };
 
   try {
@@ -77,6 +127,30 @@ export default async function Home() {
         totalHalaqah: Number(row.total_halaqah) || 82,
         totalKota: Number(row.total_kota) || 223
       };
+    }
+
+    // Query Retensi & Kelulusan per Batch (4 Tahap Corong)
+    const batchRes = await db.query(`
+      SELECT 
+        b.id as batch_id,
+        b.name as batch_name,
+        b.status as batch_status,
+        COUNT(DISTINCT p.id) as total_daftar,
+        COUNT(DISTINCT CASE WHEN p.selection_status IN ('selected', 'passed') OR p.status = 'approved' THEN p.id END) as lulus_seleksi,
+        COUNT(DISTINCT CASE 
+          WHEN dus.id IS NOT NULL AND (dus.status = 'approved' OR dus.akad_status = 'approved' OR p.re_enrollment_completed = 'true') THEN p.id
+          WHEN b.name ILIKE '%Batch 1%' AND p.status = 'approved' THEN p.id
+          WHEN b.name ILIKE '%Batch 2%' AND (p.status = 'approved' AND (dus.status = 'approved' OR p.re_enrollment_completed = 'true')) THEN p.id
+        END) as lulus_daftar_ulang,
+        COUNT(DISTINCT CASE WHEN p.exam_status = 'completed' OR (b.name ILIKE '%Batch 1%' AND p.status = 'approved') THEN p.id END) as lulus_program
+      FROM batches b
+      LEFT JOIN pendaftaran_tikrar_tahfidz p ON p.batch_id = b.id
+      LEFT JOIN daftar_ulang_submissions dus ON dus.batch_id = b.id AND dus.user_id = p.user_id
+      GROUP BY b.id, b.name, b.status, b.created_at
+      ORDER BY b.created_at ASC;
+    `);
+    if (batchRes.rows) {
+      batchesData = mapBatchRows(batchRes.rows);
     }
   } catch (err) {
     console.error('Error fetching KPI metrics:', err);
@@ -152,18 +226,44 @@ export default async function Home() {
                 <span>Pilihan Program</span>
               </a>
             </Button>
+            <Button
+              asChild
+              variant="outline"
+              size="lg"
+              className="border-2 border-emerald-300 bg-emerald-50/90 text-emerald-900 hover:bg-emerald-100 px-6 sm:px-8 py-5 sm:py-6 text-base font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-sm group"
+            >
+              <Link href="/faq" className="flex items-center gap-2.5">
+                <HelpCircle className="w-5 h-5 text-emerald-700 group-hover:rotate-12 transition-transform" />
+                <span>Tanya Jawab (FAQ)</span>
+              </Link>
+            </Button>
           </div>
 
           {/* Quick Login Bar */}
           <div className="inline-flex items-center gap-3 bg-white/90 backdrop-blur border border-emerald-100 shadow-sm rounded-full px-5 py-2.5 text-sm text-gray-700">
-            <span>Sudah memiliki akun santriwati/mu&apos;allimah?</span>
-            <Link
-              href="/login"
-              className="font-bold text-emerald-900 hover:text-emerald-700 inline-flex items-center gap-1 hover:underline underline-offset-2"
-            >
-              <span>Masuk di sini</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
+            {user ? (
+              <>
+                <span>Mode pratinjau Landing Page (sedang login).</span>
+                <Link
+                  href="/dashboard"
+                  className="font-bold text-emerald-900 hover:text-emerald-700 inline-flex items-center gap-1 hover:underline underline-offset-2"
+                >
+                  <span>Kembali ke Dasbor</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </>
+            ) : (
+              <>
+                <span>Sudah memiliki akun thalibah/mu&apos;allimah?</span>
+                <Link
+                  href="/login"
+                  className="font-bold text-emerald-900 hover:text-emerald-700 inline-flex items-center gap-1 hover:underline underline-offset-2"
+                >
+                  <span>Masuk di sini</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </>
+            )}
           </div>
 
         </div>
@@ -177,7 +277,7 @@ export default async function Home() {
               Pencapaian Akademik Nyata
             </span>
             <h2 className="text-2xl sm:text-3xl font-black text-gray-900 mt-2.5 tracking-tight">
-              Statistik Belajar Santriwati & Mu&apos;allimah MTI
+              Statistik Belajar Thalibah & Mu&apos;allimah MTI
             </h2>
             <p className="text-xs sm:text-sm text-gray-600 mt-1">
               Data terintegrasi dari sistem akademik dan pelaksanaan halaqah belajar
@@ -301,7 +401,7 @@ export default async function Home() {
               4 Pilar Layanan Markaz Tikrar
             </h2>
             <p className="text-base sm:text-lg text-gray-600 mt-2.5 leading-relaxed">
-              Pilihan program pembelajaran Al-Qur&apos;an yang disesuaikan dengan kesiapan, target capaian hafalan, dan kebutuhan santriwati.
+              Pilihan program pembelajaran Al-Qur&apos;an yang disesuaikan dengan kesiapan, target capaian hafalan, dan kebutuhan thalibah.
             </p>
           </div>
 
@@ -322,7 +422,7 @@ export default async function Home() {
                   1. Program Pra-Tikrar MTI
                 </h3>
                 <p className="text-sm text-gray-600 mb-4 leading-relaxed">
-                  Bimbingan dasar makharijul huruf, sifatul huruf, dan perbaikan bacaan (tahsin asasi) sebelum santriwati memasuki ziyadah hafalan intensif.
+                  Bimbingan dasar makharijul huruf, sifatul huruf, dan perbaikan bacaan (tahsin asasi) sebelum thalibah memasuki ziyadah hafalan intensif.
                 </p>
                 <ul className="space-y-2 text-xs sm:text-sm text-gray-700 mb-6">
                   <li className="flex items-start gap-2">
@@ -470,10 +570,10 @@ export default async function Home() {
                 </ul>
               </div>
               <div className="pt-4 border-t border-gray-100 flex items-center justify-between">
-                <span className="text-xs font-semibold text-teal-800">Kuota Terbatas 5–15 Santriwati</span>
+                <span className="text-xs font-semibold text-teal-800">Kuota Terbatas 5–15 Thalibah</span>
                 <Button asChild size="sm" className="bg-teal-800 hover:bg-teal-900 text-white rounded-xl font-bold">
-                  <Link href="/register" className="inline-flex items-center gap-1.5">
-                    <span>Informasi Kelas</span>
+                  <Link href="/pendaftaran/kelas-berbayar" className="inline-flex items-center gap-1.5">
+                    <span>Daftar Kelas Berbayar</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </Link>
                 </Button>
@@ -481,6 +581,27 @@ export default async function Home() {
             </Card>
 
           </div>
+        </div>
+      </section>
+
+      {/* Program Retention & Completion Analytics (Tikrar Tahfidz) */}
+      <section className="py-16 sm:py-20 bg-white border-b border-gray-150/70" id="analisis-program">
+        <div className="container mx-auto px-4 sm:px-6">
+          <div className="text-center max-w-3xl mx-auto mb-8">
+            <Badge className="bg-amber-100 text-amber-900 border border-amber-300 font-extrabold text-[11px] px-3.5 py-1 rounded-full uppercase tracking-widest mb-3">
+              Analisis Akademik &amp; Kelulusan
+            </Badge>
+            <h2 className="text-2xl sm:text-4xl font-black text-gray-900 tracking-tight">
+              Retensi &amp; Kelulusan Thalibah per Batch
+            </h2>
+            <p className="text-xs sm:text-base text-gray-600 mt-2 leading-relaxed">
+              Transparansi perjalanan thalibah Program Tikrar Tahfidz MTI: mulai dari pendaftar masuk, lolos tes seleksi komitmen, daftar ulang, hingga tuntas kelulusan program di setiap angkatan.
+            </p>
+          </div>
+
+          <BatchRetentionCarousel
+            batches={batchesData}
+          />
         </div>
       </section>
 
@@ -530,11 +651,23 @@ export default async function Home() {
                 <item.icon className="w-8 h-8 mx-auto mb-3 text-amber-600" />
                 <h3 className="text-lg font-bold mb-2 text-emerald-950">{item.title}</h3>
                 <p className="text-gray-600 text-xs sm:text-sm leading-relaxed">{item.description}</p>
+                {item.step === "01" && (
+                  <a
+                    href="#simulasi"
+                    className="inline-flex items-center gap-1 mt-3 text-xs font-bold text-emerald-700 hover:text-emerald-900 hover:underline"
+                  >
+                    <span>Coba Simulasi An-Naba&apos; 40x</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </a>
+                )}
               </div>
             ))}
           </div>
         </div>
       </section>
+
+      {/* Interactive An-Naba 1-11 x 40x Simulation Section */}
+      <AnNabaSimulationSection />
 
       {/* Testimonials Section - Retained */}
       {testimonials && testimonials.length > 0 && (
@@ -542,13 +675,13 @@ export default async function Home() {
           <div className="container mx-auto px-4 sm:px-6">
             <div className="text-center max-w-3xl mx-auto mb-16">
               <span className="bg-emerald-100 text-emerald-900 border border-emerald-200 text-xs font-bold px-3.5 py-1.5 rounded-full uppercase tracking-wider">
-                Kisah Inspiratif Santriwati MTI
+                Kisah Inspiratif Thalibah MTI
               </span>
               <h2 className="text-3xl sm:text-4xl font-extrabold text-emerald-950 mt-4 tracking-tight">
                 Apa Kata Alumni Markaz Tikrar?
               </h2>
               <p className="text-gray-600 mt-2.5 leading-relaxed text-sm sm:text-base">
-                Simak pengalaman luar biasa dari para santriwati yang telah menyelesaikan program hafalan di MTI menggunakan Metode Tikrar 40x.
+                Simak pengalaman luar biasa dari para thalibah yang telah menyelesaikan program hafalan di MTI menggunakan Metode Tikrar 40x.
               </p>
             </div>
 

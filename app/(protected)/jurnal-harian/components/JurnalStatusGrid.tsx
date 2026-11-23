@@ -20,9 +20,20 @@ interface JurnalStatusGridProps {
   currentWeekNumber: number
   onBlockClick: (blockCode: string, weekNumber: number) => void
   isAdminPreview?: boolean
+  isBatchLocked?: boolean
+  lockReason?: string
+  batchLockStatus?: 'upcoming' | 'active' | 'review' | 'final_exam' | 'closed'
 }
 
-export function JurnalStatusGrid({ blocks, currentWeekNumber, onBlockClick, isAdminPreview }: JurnalStatusGridProps) {
+export function JurnalStatusGrid({
+  blocks,
+  currentWeekNumber,
+  onBlockClick,
+  isAdminPreview,
+  isBatchLocked = false,
+  lockReason,
+  batchLockStatus = 'active'
+}: JurnalStatusGridProps) {
   // Group blocks by week_number
   const blocksByWeek = useMemo(() => {
     const map = new Map<number, JurnalBlock[]>()
@@ -47,7 +58,7 @@ export function JurnalStatusGrid({ blocks, currentWeekNumber, onBlockClick, isAd
   // Smart default week: find the first accessible week that is not fully completed
   const firstIncompleteWeek = useMemo(() => {
     for (const weekNum of sortedWeeks) {
-      if (!isAdminPreview && weekNum > calendarWeek) continue;
+      if (!isAdminPreview && !isBatchLocked && weekNum > calendarWeek) continue;
       const weekBlocks = blocksByWeek.get(weekNum) || []
       const isDone = weekBlocks.length > 0 && weekBlocks.every(b => b.is_completed)
       if (!isDone) {
@@ -55,7 +66,7 @@ export function JurnalStatusGrid({ blocks, currentWeekNumber, onBlockClick, isAd
       }
     }
     return Math.min(calendarWeek, sortedWeeks[sortedWeeks.length - 1] || 1)
-  }, [sortedWeeks, blocksByWeek, calendarWeek, isAdminPreview])
+  }, [sortedWeeks, blocksByWeek, calendarWeek, isAdminPreview, isBatchLocked])
 
   const [expandedWeek, setExpandedWeek] = useState<number | null>(firstIncompleteWeek)
 
@@ -66,11 +77,19 @@ export function JurnalStatusGrid({ blocks, currentWeekNumber, onBlockClick, isAd
   const isBehindSchedule = firstIncompleteWeek < calendarWeek
 
   const handleWeekClick = (weekNum: number, isFutureWeek: boolean) => {
-    if (isFutureWeek) {
+    if (isFutureWeek && !isBatchLocked) {
       toast.info(`Jurnal Pekan ${weekNum} belum dibuka. Jadwal Ziyadah angkatan saat ini masih Pekan ke-${calendarWeek}.`)
       return
     }
     setExpandedWeek(expandedWeek === weekNum ? null : weekNum)
+  }
+
+  const handleBlockSelection = (blockCode: string, weekNum: number) => {
+    if (isBatchLocked) {
+      toast.info(lockReason || 'Pengisian Jurnal Harian telah ditutup sesuai jadwal angkatan.')
+      return
+    }
+    onBlockClick(blockCode, weekNum)
   }
 
   return (
@@ -85,36 +104,61 @@ export function JurnalStatusGrid({ blocks, currentWeekNumber, onBlockClick, isAd
       )}
 
       {/* Helper Banner: Clarifies Active Ziyadah vs Tashih Schedule */}
-      <div className="p-3.5 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-100/80 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-sm">
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
-            <Calendar className="w-3.5 h-3.5" />
+      {isBatchLocked ? (
+        <div className="p-3.5 bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 border border-amber-200/80 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-sm">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-amber-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+              <Lock className="w-3.5 h-3.5" />
+            </div>
+            <div>
+              <p className="text-xs font-black text-amber-950 leading-tight">
+                Jadwal Angkatan: <span className="text-amber-800 font-extrabold">{batchLockStatus === 'final_exam' ? 'Periode Ujian Akhir' : batchLockStatus === 'upcoming' ? 'KBM Belum Dimulai' : 'Masa KBM Berakhir'}</span>
+              </p>
+              <p className="text-[10px] text-amber-800/80 font-medium mt-0.5">
+                {lockReason || 'Pengisian jurnal harian telah ditutup sesuai kalender akademik angkatan.'}
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="text-xs font-black text-gray-900 leading-tight">
-              Jadwal Angkatan: <span className="text-emerald-700 font-extrabold">Pekan {calendarWeek} Ziyadah</span>
-              <span className="text-gray-300 mx-1.5">&bull;</span>
-              <span className="text-blue-700 font-extrabold">Pekan {tashihWeek} Tashih</span>
-            </p>
-            <p className="text-[10px] text-gray-500 font-medium mt-0.5">
-              Tashih berjalan 1 pekan lebih awal untuk persiapan bacaan pekan depan
-            </p>
-          </div>
-        </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-auto">
-          {isBehindSchedule ? (
-            <span className="text-[10px] font-extrabold text-amber-800 bg-amber-100/90 px-2.5 py-1 rounded-lg border border-amber-200 flex items-center gap-1">
-              <span>Lengkapi Pekan {firstIncompleteWeek}</span>
-              <ArrowRight className="w-3 h-3" />
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <span className="text-[10px] font-extrabold text-amber-900 bg-amber-200/70 px-2.5 py-1 rounded-lg border border-amber-300 flex items-center gap-1">
+              <Lock className="w-3 h-3" />
+              <span>Mode Riwayat</span>
             </span>
-          ) : (
-            <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100/90 px-2.5 py-1 rounded-lg border border-emerald-200">
-              Pekan Berjalan Aktif
-            </span>
-          )}
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="p-3.5 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-100/80 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-sm">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+              <Calendar className="w-3.5 h-3.5" />
+            </div>
+            <div>
+              <p className="text-xs font-black text-gray-900 leading-tight">
+                Jadwal Angkatan: <span className="text-emerald-700 font-extrabold">Pekan {calendarWeek} Ziyadah</span>
+                <span className="text-gray-300 mx-1.5">&bull;</span>
+                <span className="text-blue-700 font-extrabold">Pekan {tashihWeek} Tashih</span>
+              </p>
+              <p className="text-[10px] text-gray-500 font-medium mt-0.5">
+                Tashih berjalan 1 pekan lebih awal untuk persiapan bacaan pekan depan
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            {isBehindSchedule ? (
+              <span className="text-[10px] font-extrabold text-amber-800 bg-amber-100/90 px-2.5 py-1 rounded-lg border border-amber-200 flex items-center gap-1">
+                <span>Lengkapi Pekan {firstIncompleteWeek}</span>
+                <ArrowRight className="w-3 h-3" />
+              </span>
+            ) : (
+              <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100/90 px-2.5 py-1 rounded-lg border border-emerald-200">
+                Pekan Berjalan Aktif
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* COMPACT: One Card Per Week with Inner Blocks */}
       <div className="flex flex-col gap-2">
@@ -123,7 +167,7 @@ export function JurnalStatusGrid({ blocks, currentWeekNumber, onBlockClick, isAd
           const completedInWeek = weekBlocks.filter(b => b.is_completed).length
           const isFullyCompleted = completedInWeek === weekBlocks.length && weekBlocks.length > 0
           const isExpanded = expandedWeek === weekNum
-          const isFutureWeek = !isAdminPreview && weekNum > calendarWeek
+          const isFutureWeek = !isAdminPreview && !isBatchLocked && weekNum > calendarWeek
           
           // Determine progress percentage
           const progressPercent = (completedInWeek / weekBlocks.length) * 100
@@ -195,7 +239,7 @@ export function JurnalStatusGrid({ blocks, currentWeekNumber, onBlockClick, isAd
                           Hal. {Math.min(...weekBlocks.map(b => b.start_page))}
                           {weekNum > 10 && ` - ${Math.max(...weekBlocks.map(b => b.end_page))}`}
                         </span>
-                        {weekNum === calendarWeek && !isFutureWeek && (
+                        {!isBatchLocked && weekNum === calendarWeek && !isFutureWeek && (
                           <span className={cn("text-[9px] font-bold px-1.5 py-0.2 rounded-md", 
                             isFullyCompleted ? "bg-white/25 text-white" : "bg-emerald-100 text-emerald-800")}>
                             Jadwal Pekan Ini
@@ -237,12 +281,14 @@ export function JurnalStatusGrid({ blocks, currentWeekNumber, onBlockClick, isAd
                       <button
                         key={block.block_code}
                         type="button"
-                        onClick={() => onBlockClick(block.block_code, weekNum)}
+                        onClick={() => handleBlockSelection(block.block_code, weekNum)}
                         className={cn(
                           "flex flex-col items-center justify-center p-2 rounded-xl border-2 transition-all duration-200 min-h-[58px] relative active:scale-95 cursor-pointer",
                           block.is_completed
                             ? "bg-green-50 border-green-200 text-green-700 hover:bg-green-100/70"
-                            : "bg-white border-green-100 text-gray-700 hover:border-green-500 hover:bg-green-50 shadow-sm"
+                            : isBatchLocked
+                              ? "bg-gray-50 border-gray-200 text-gray-400 hover:bg-gray-100"
+                              : "bg-white border-green-100 text-gray-700 hover:border-green-500 hover:bg-green-50 shadow-sm"
                         )}
                       >
                         <span className="text-[10px] font-black tracking-tight leading-tight">{weekNum > 10 ? (block as any).part : block.block_code}</span>
@@ -255,6 +301,8 @@ export function JurnalStatusGrid({ blocks, currentWeekNumber, onBlockClick, isAd
                         
                         {block.is_completed ? (
                           <CheckCircle className="w-3 h-3 mt-1 text-green-600" />
+                        ) : isBatchLocked ? (
+                          <Lock className="w-3 h-3 mt-1 text-gray-400" />
                         ) : (
                           <div className="w-3 h-3 mt-1 border-2 border-green-200 rounded-full" />
                         )}
@@ -268,11 +316,20 @@ export function JurnalStatusGrid({ blocks, currentWeekNumber, onBlockClick, isAd
         })}
       </div>
 
-      {/* Simple Legend */}
-      <div className="flex justify-center gap-4 pt-4 text-[8px] font-black text-gray-600 uppercase tracking-tighter">
-         <div className="flex items-center gap-1"><div className="w-2 h-2 rounded bg-green-500" /><span>Selesai</span></div>
-         <div className="flex items-center gap-1"><div className="w-2 h-2 rounded bg-white border-2 border-green-200" /><span>Sedang Berjalan</span></div>
-         <div className="flex items-center gap-1"><div className="w-2 h-2 rounded bg-gray-300" /><span>Terkunci</span></div>
+      {/* Info Legend */}
+      <div className="flex items-center justify-center gap-4 pt-2 text-[10px] text-gray-400">
+        <div className="flex items-center gap-1.5">
+          <div className="w-2.5 h-2.5 rounded bg-green-500" />
+          <span>Selesai</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-2.5 h-2.5 rounded bg-white border border-green-300" />
+          <span>{isBatchLocked ? 'Tidak Terisi' : 'Tersedia'}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-2.5 h-2.5 rounded bg-gray-200" />
+          <span>Terkunci</span>
+        </div>
       </div>
     </div>
   )

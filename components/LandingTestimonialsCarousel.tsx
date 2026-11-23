@@ -3,12 +3,14 @@
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { Star, ChevronLeft, ChevronRight, MapPin, X, Sparkles, ArrowRight, MessageSquareQuote } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
+import { formatBatchBadge } from '@/lib/utils/batch-label';
 
 export interface Testimonial {
   id: string;
   content: string;
   rating: number;
+  batch_name?: string | null;
   created_at: string;
   user?: {
     full_name: string;
@@ -68,7 +70,7 @@ export function LandingTestimonialsCarousel({ testimonials }: { testimonials: Te
 
   const scroll = (direction: 'left' | 'right') => {
     if (scrollRef.current) {
-      const { scrollLeft, clientWidth } = scrollRef.current;
+      const { scrollLeft } = scrollRef.current;
       const cardWidth = 360;
       const scrollAmount = direction === 'left' ? -cardWidth : cardWidth;
       scrollRef.current.scrollTo({
@@ -103,13 +105,15 @@ export function LandingTestimonialsCarousel({ testimonials }: { testimonials: Te
     return text.substring(0, limit) + '...';
   };
 
+  const selectedBatchBadge = selectedTestimonial ? formatBatchBadge(selectedTestimonial.batch_name) : null;
+
   return (
     <div className="relative max-w-6xl mx-auto px-4 space-y-8">
       {/* 1. TOP STATS & STAR BREAKDOWN BAR */}
       <div className="bg-white rounded-3xl p-5 sm:p-7 border border-emerald-100 shadow-md flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         {/* Left: Rating score & Stars */}
         <div className="flex items-center gap-4 sm:gap-5">
-          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-emerald-850 to-green-900 text-white flex flex-col items-center justify-center shrink-0 shadow-md">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-emerald-900 to-green-950 text-white flex flex-col items-center justify-center shrink-0 shadow-md">
             <span className="text-2xl sm:text-3xl font-black font-mono leading-none tracking-tight">
               {averageRating}
             </span>
@@ -124,7 +128,7 @@ export function LandingTestimonialsCarousel({ testimonials }: { testimonials: Te
                 <Star key={idx} className="w-4 h-4 text-amber-400 fill-amber-400" />
               ))}
               <span className="text-xs font-bold text-gray-800 ml-1.5">
-                (Kepuasan Santriwati)
+                (Kepuasan Thalibah)
               </span>
             </div>
             <h3 className="text-sm sm:text-base font-extrabold text-gray-900">
@@ -143,7 +147,7 @@ export function LandingTestimonialsCarousel({ testimonials }: { testimonials: Te
             onClick={() => setSelectedStarFilter('all')}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
               selectedStarFilter === 'all'
-                ? 'bg-emerald-850 text-white shadow-xs'
+                ? 'bg-emerald-900 text-white shadow-xs'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
@@ -160,7 +164,7 @@ export function LandingTestimonialsCarousel({ testimonials }: { testimonials: Te
                 onClick={() => setSelectedStarFilter(stars)}
                 className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 ${
                   isSelected
-                    ? 'bg-emerald-850 text-white shadow-xs'
+                    ? 'bg-emerald-900 text-white shadow-xs'
                     : count > 0
                     ? 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
                     : 'bg-gray-50 text-gray-400 border border-gray-100 opacity-60'
@@ -178,7 +182,7 @@ export function LandingTestimonialsCarousel({ testimonials }: { testimonials: Te
         <div className="flex items-center justify-start lg:justify-end">
           <Link
             href="/testimoni"
-            className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-gradient-to-r from-emerald-850 to-green-800 hover:from-emerald-900 hover:to-green-900 text-white text-xs sm:text-sm font-bold shadow-md hover:shadow-lg transition-all hover:scale-102"
+            className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-gradient-to-r from-emerald-900 to-green-900 hover:from-emerald-950 hover:to-green-950 text-white text-xs sm:text-sm font-bold shadow-md hover:shadow-lg transition-all hover:scale-102"
           >
             <span>Lihat Semua Testimoni</span>
             <ArrowRight className="w-4 h-4 text-emerald-200" />
@@ -207,6 +211,7 @@ export function LandingTestimonialsCarousel({ testimonials }: { testimonials: Te
             const locationAndAge = locationName
               ? `${locationName}${age ? `, ${age} thn` : ''}`
               : (age ? `${age} thn` : null);
+            const batchBadge = formatBatchBadge(t.batch_name);
 
             return (
               <div
@@ -250,13 +255,20 @@ export function LandingTestimonialsCarousel({ testimonials }: { testimonials: Te
 
                   {/* Profile info & Domicile */}
                   <div className="pt-4 border-t border-gray-150/70 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-100 to-emerald-50 border border-emerald-100/50 text-emerald-700 flex items-center justify-center font-black text-sm">
+                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-100 to-emerald-50 border border-emerald-100/50 text-emerald-700 flex items-center justify-center font-black text-sm shrink-0">
                       {initials}
                     </div>
-                    <div className="min-w-0">
-                      <h4 className="font-extrabold text-gray-900 text-xs sm:text-sm truncate">
-                        {t.user?.full_name || 'Hamba Allah'}
-                      </h4>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h4 className="font-extrabold text-gray-900 text-xs sm:text-sm truncate">
+                          {t.user?.full_name || 'Hamba Allah'}
+                        </h4>
+                        {batchBadge && (
+                          <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            {batchBadge}
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center gap-1 text-[10px] sm:text-xs text-emerald-700/80 font-semibold mt-0.5">
                         {locationAndAge ? (
                           <>
@@ -297,8 +309,8 @@ export function LandingTestimonialsCarousel({ testimonials }: { testimonials: Te
       <div className="text-center pt-2">
         <p className="text-xs text-gray-500 inline-flex items-center gap-1.5 bg-gray-50 px-4 py-2 rounded-full border border-gray-200">
           <MessageSquareQuote className="w-4 h-4 text-emerald-700" />
-          <span>Ingin membaca seluruh kisah santriwati atau membagikan pengalaman Ukhti?</span>
-          <Link href="/testimoni" className="font-bold text-emerald-850 hover:underline">
+          <span>Ingin membaca seluruh kisah thalibah atau membagikan pengalaman Ukhti?</span>
+          <Link href="/testimoni" className="font-bold text-emerald-900 hover:underline">
             Kunjungi Halaman Testimoni &rarr;
           </Link>
         </p>
@@ -314,7 +326,7 @@ export function LandingTestimonialsCarousel({ testimonials }: { testimonials: Te
 
           <div className="relative bg-white rounded-3xl w-full max-w-xl max-h-[85vh] flex flex-col shadow-2xl border border-gray-100 overflow-hidden animate-fade-in-up z-10">
             {/* Header banner decoration */}
-            <div className="bg-gradient-to-r from-emerald-850 to-emerald-700 bg-emerald-900 p-5 pr-14 text-white flex items-center gap-2">
+            <div className="bg-gradient-to-r from-emerald-900 to-emerald-800 p-5 pr-14 text-white flex items-center gap-2">
               <Sparkles className="w-4.5 h-4.5 text-amber-300 animate-pulse flex-shrink-0" />
               <div>
                 <h3 className="font-extrabold text-sm sm:text-base tracking-tight">Kisah Inspiratif Alumni</h3>
@@ -334,15 +346,22 @@ export function LandingTestimonialsCarousel({ testimonials }: { testimonials: Te
             {/* Scrollable Testimony Content */}
             <div className="p-6 overflow-y-auto space-y-6 flex-1">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-100 to-emerald-50 border border-emerald-100/50 text-emerald-700 flex items-center justify-center font-black text-base shadow-sm">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-100 to-emerald-50 border border-emerald-100/50 text-emerald-700 flex items-center justify-center font-black text-base shadow-sm shrink-0">
                   {selectedTestimonial.user?.full_name
                     ? selectedTestimonial.user.full_name.substring(0, 2).toUpperCase()
                     : 'HA'}
                 </div>
                 <div className="flex flex-col">
-                  <h4 className="font-bold text-gray-900 text-lg">
-                    {selectedTestimonial.user?.full_name || 'Hamba Allah'}
-                  </h4>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h4 className="font-bold text-gray-900 text-lg">
+                      {selectedTestimonial.user?.full_name || 'Hamba Allah'}
+                    </h4>
+                    {selectedBatchBadge && (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                        {selectedBatchBadge}
+                      </span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-1.5 text-sm text-emerald-700 font-medium">
                     {(selectedTestimonial.user?.kota || selectedTestimonial.user?.tanggal_lahir) ? (
                       <>
@@ -360,33 +379,33 @@ export function LandingTestimonialsCarousel({ testimonials }: { testimonials: Te
                 </div>
               </div>
 
-              {/* Rating stars inside modal */}
-              <div className="flex items-center gap-0.5">
+              {/* Stars */}
+              <div className="flex items-center gap-1">
                 {Array.from({ length: 5 }).map((_, idx) => (
                   <Star
                     key={idx}
                     className={`w-4 h-4 ${
-                      idx < selectedTestimonial.rating ? 'text-amber-400 fill-amber-400' : 'text-gray-200'
+                      idx < selectedTestimonial.rating
+                        ? 'text-amber-400 fill-amber-400'
+                        : 'text-gray-200'
                     }`}
                   />
                 ))}
               </div>
 
-              {/* Testimony content text */}
-              <p className="text-gray-750 italic leading-relaxed text-sm sm:text-base bg-gray-50/50 p-5 rounded-2xl border border-gray-150/70">
-                &ldquo;{selectedTestimonial.content}&rdquo;
-              </p>
-
-              <div className="text-[10px] sm:text-xs text-gray-400">
-                Dikirim pada: {new Date(selectedTestimonial.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' })}
+              {/* Full Text */}
+              <div className="bg-gray-50/70 p-5 rounded-2xl border border-gray-150/70">
+                <p className="text-gray-800 text-sm leading-relaxed whitespace-pre-line">
+                  {selectedTestimonial.content}
+                </p>
               </div>
             </div>
 
-            {/* Footer */}
+            {/* Modal Footer */}
             <div className="p-4 border-t border-gray-100 bg-gray-50/50 flex justify-end">
               <button
                 onClick={() => setSelectedTestimonial(null)}
-                className="px-5 py-2.5 rounded-xl bg-emerald-800 hover:bg-emerald-950 text-xs font-bold text-white transition-all shadow-sm active:scale-95"
+                className="px-5 py-2.5 rounded-xl bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold text-xs transition-colors"
               >
                 Tutup
               </button>

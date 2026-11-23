@@ -1,14 +1,30 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from "@/components/ui/button";
+import { HelpCircle, LayoutGrid } from "lucide-react";
 
 export default function Header() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/user/profile', { cache: 'no-store' })
+      .then(res => {
+        if (res.ok) {
+          setIsLoggedIn(true);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const homeHref = isLoggedIn ? '/?view=landing' : '/';
+
   return (
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-xl shadow-md border-b border-green-900/20 w-full">
       <div className="container mx-auto px-3 sm:px-4 md:px-6 py-3 sm:py-3 md:py-4 flex justify-between items-center">
-        <Link href="/" className="flex items-center space-x-2 sm:space-x-2 md:space-x-3 group flex-shrink-0">
+        <Link href={homeHref} className="flex items-center space-x-2 sm:space-x-2 md:space-x-3 group flex-shrink-0">
           <Image
             src="/mti-logo.jpg"
             alt="Markaz Tikrar Indonesia Logo"
@@ -23,43 +39,90 @@ export default function Header() {
         </Link>
 
         <nav className="hidden lg:flex items-center space-x-6 xl:space-x-8">
-          <Link href="/#program" className="text-black hover:text-green-900 transition-colors font-medium text-sm xl:text-base">
+          <Link href={`${homeHref}#program`} className="text-black hover:text-green-900 transition-colors font-medium text-sm xl:text-base">
             Program
           </Link>
-          <Link href="/#alur" className="text-black hover:text-green-900 transition-colors font-medium text-sm xl:text-base">
+          <Link href={`${homeHref}#alur`} className="text-black hover:text-green-900 transition-colors font-medium text-sm xl:text-base">
             Alur
           </Link>
-          <Link href="/#testimoni" className="text-black hover:text-green-900 transition-colors font-medium text-sm xl:text-base">
+          <Link href={`${homeHref}#testimoni`} className="text-black hover:text-green-900 transition-colors font-medium text-sm xl:text-base">
             Testimoni
+          </Link>
+          <Link
+            href="/faq"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 text-sm font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300/80 rounded-full transition-colors shadow-2xs"
+          >
+            <HelpCircle className="w-4 h-4 text-emerald-700" />
+            <span>FAQ &amp; Bantuan</span>
           </Link>
         </nav>
 
         <div className="flex items-center space-x-2 sm:space-x-3 md:space-x-4">
+          {/* Mobile FAQ Quick Button */}
           <Button
             variant="outline"
             asChild
-            className="hidden md:flex bg-green-900 hover:bg-green-800 text-white text-sm md:text-base font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 group border-green-900 hover:border-green-900"
+            className="flex lg:hidden border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-bold rounded-xl"
           >
-            <Link href="/login" className="flex items-center gap-2">
-              <span className="hidden lg:inline">Masuk</span>
-              <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
+            <Link href="/faq" className="flex items-center gap-1">
+              <HelpCircle className="w-3.5 h-3.5 text-emerald-700" />
+              <span>FAQ</span>
             </Link>
           </Button>
 
-          {/* Mobile/Tablet Masuk Button - with text and larger */}
-          <Button
-            asChild
-            className="md:hidden bg-gradient-to-r from-green-900 to-green-800 hover:from-green-800 hover:to-green-700 text-white px-4 sm:px-6 py-2 sm:py-2.5 text-sm sm:text-base font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 group"
-          >
-            <Link href="/login" className="flex items-center gap-2">
+          {isLoggedIn ? (
+            <Button
+              variant="outline"
+              asChild
+              className="hidden md:flex bg-emerald-850 hover:bg-emerald-750 text-white text-sm md:text-base font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 group border-emerald-800 hover:border-emerald-700"
+            >
+              <Link href="/dashboard" className="flex items-center gap-2">
+                <LayoutGrid className="w-4 h-4 text-amber-300" />
+                <span className="hidden lg:inline">Ke Dasbor</span>
+                <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              asChild
+              className="hidden md:flex bg-green-900 hover:bg-green-800 text-white text-sm md:text-base font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 group border-green-900 hover:border-green-900"
+            >
+              <Link href="/login" className="flex items-center gap-2">
+                <span className="hidden lg:inline">Masuk</span>
+                <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+            </Button>
+          )}
+
+          {/* Mobile/Tablet Masuk / Dasbor Button */}
+          {isLoggedIn ? (
+            <Button
+              asChild
+              className="md:hidden bg-gradient-to-r from-emerald-800 to-teal-800 hover:from-emerald-750 hover:to-teal-750 text-white px-3.5 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-base font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 group"
+            >
+              <Link href="/dashboard" className="flex items-center gap-1.5">
+                <LayoutGrid className="w-3.5 h-3.5 text-amber-300" />
+                <span>Dasbor</span>
+              </Link>
+            </Button>
+          ) : (
+            <Button
+              asChild
+              className="md:hidden bg-gradient-to-r from-green-900 to-green-800 hover:from-green-800 hover:to-green-700 text-white px-3.5 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-base font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 group"
+            >
+              <Link href="/login" className="flex items-center gap-1.5">
                 <span>Masuk</span>
-              <svg className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </Link>
-          </Button>
+                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
     </header>

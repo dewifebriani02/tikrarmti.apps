@@ -26,7 +26,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const code = decodeURIComponent(params.code || '');
   return {
     title: `Verifikasi Syahadah Resmi ${code} | Markaz Tikrar Indonesia`,
-    description: `Pemeriksaan keabsahan dokumen syahadah resmi kelulusan santriwati Markaz Tikrar Indonesia (MTI).`,
+    description: `Pemeriksaan keabsahan dokumen syahadah resmi kelulusan thalibah Markaz Tikrar Indonesia (MTI).`,
   };
 }
 
@@ -151,7 +151,7 @@ export default async function VerifyCertificatePage({ params }: Props) {
                   Diberikan Kepada
                 </span>
                 <h2 className="text-2xl sm:text-3xl font-black text-gray-900 mt-1">
-                  {cert.student_name || 'Santriwati MTI'}
+                  {cert.student_name || 'Thalibah MTI'}
                 </h2>
                 {cert.student_nit && (
                   <p className="text-xs font-semibold text-gray-700 font-mono mt-1">

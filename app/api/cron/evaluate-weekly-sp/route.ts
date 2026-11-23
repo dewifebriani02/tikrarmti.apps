@@ -37,19 +37,32 @@ export async function GET(request: Request) {
     const weekParam = searchParams.get('week_number');
     const targetWeek = weekParam ? parseInt(weekParam, 10) : undefined;
     const batchIdParam = searchParams.get('batch_id') || undefined;
+    const dryRun = searchParams.get('dry_run') === 'true' || searchParams.get('dry_run') === '1';
 
-    console.log(`[CRON] Starting Monday SP Auto-Evaluation for batch=${batchIdParam || 'active'}, week=${targetWeek || 'auto'}`);
+    console.log(
+      `[CRON] Starting Monday SP Auto-Evaluation for batch=${batchIdParam || 'ongoing'}, week=${targetWeek || 'auto'}, dryRun=${dryRun}`
+    );
 
     const result = await evaluateWeeklyJurnalSP({
       batchId: batchIdParam,
       weekNumber: targetWeek,
-      execute: true,
+      execute: !dryRun,
+      cronMode: true,
     });
 
-    console.log(`[CRON] SP Auto-Evaluation complete. Newly issued: ${result.issued_sp_count}, Total pending: ${result.sp_to_issue_count}`);
+    if (result.skipped) {
+      console.log(`[CRON] SP Auto-Evaluation skipped: ${result.skip_reason}`);
+    } else {
+      console.log(
+        `[CRON] SP Auto-Evaluation complete. Batch=${result.batch_name}, Week=${result.target_week}, Newly issued: ${result.issued_sp_count}, Total pending: ${result.sp_to_issue_count}`
+      );
+    }
 
     return NextResponse.json({
       success: true,
+      dry_run: dryRun,
+      skipped: Boolean(result.skipped),
+      skip_reason: result.skip_reason || null,
       timestamp: new Date().toISOString(),
       summary: {
         batch_name: result.batch_name,

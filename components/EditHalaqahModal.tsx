@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { X, Loader2, Save, Search, UserMinus, UserPlus, Shield } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { updateHalaqah, searchUsersForAsisten, assignAsisten, removeAsisten } from '@/app/(protected)/admin/halaqah/actions';
+import { updateHalaqah, searchUsersForAsisten, assignAsisten, removeAsisten } from '@/lib/admin/halaqah-client';
 
 interface Halaqah {
   id: string;
@@ -261,7 +261,7 @@ export function EditHalaqahModal({ halaqah, onClose, onSuccess }: EditHalaqahMod
               <label className="block text-sm font-medium text-red-900 mb-1 flex items-center gap-2">
                 Tandai Libur (Pilih Tanggal)
               </label>
-              <p className="text-xs text-red-700 mb-2">Jika diisi, jadwal halaqah pada tanggal ini akan tampil dengan warna merah (LIBUR) di layar santri. Kosongkan untuk mengaktifkan kembali.</p>
+              <p className="text-xs text-red-700 mb-2">Jika diisi, jadwal halaqah pada tanggal ini akan tampil dengan warna merah (LIBUR) di layar thalibah. Kosongkan untuk mengaktifkan kembali.</p>
               <input
                 type="date"
                 value={formData.libur_date}

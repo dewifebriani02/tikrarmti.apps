@@ -2,7 +2,7 @@
 // Generated from database schema
 
 export type UserRole = 'super_admin' | 'admin' | 'musyrifah' | 'muallimah' | 'roisah' | 'raisah' | 'thalibah' | 'calon_thalibah';
-export type BatchStatus = 'draft' | 'open' | 'closed' | 'archived';
+export type BatchStatus = 'draft' | 'open' | 'ongoing' | 'closed' | 'archived';
 export type ProgramStatus = 'draft' | 'open' | 'ongoing' | 'completed' | 'cancelled';
 export type HalaqahStatus = 'active' | 'inactive' | 'suspended';
 export type PendaftaranStatus = 'pending' | 'approved' | 'rejected' | 'withdrawn' | 'completed' | 'dropout';
@@ -92,6 +92,7 @@ export interface Batch {
   graduation_start_date?: string;
   graduation_end_date?: string;
   transfer_schedule_end_date?: string;
+  holiday_dates?: string[] | string | null;
   whatsapp_group_link?: string;
   group_reminder_link?: string;
   group_diskusi_link?: string;
@@ -101,6 +102,7 @@ export interface Program {
   id: string;
   batch_id: string;
   name: string;
+  class_type?: string | null;
   description?: string;
   target_level?: string;
   duration_weeks?: number;
@@ -583,6 +585,7 @@ export interface Murojaah40xProgress {
   completed_at?: string | null;
   total_completed: number;
   is_warrior_eligible: boolean;
+  is_reminder_active?: boolean;
   created_at: string;
   updated_at: string;
   user?: User;

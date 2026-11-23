@@ -43,7 +43,7 @@ BEGIN
             gen_random_uuid(),
             batch_id,
             'Program Musyrifah Profesional',
-            'Program pelatihan musyrifah profesional yang akan mendampingi muallimah dalam melaksanakan tugas pendidikan. Fokus pada pengembangan leadership, manajemen, dan kemampuan pembinaan santri.',
+            'Program pelatihan musyrifah profesional yang akan mendampingi muallimah dalam melaksanakan tugas pendidikan. Fokus pada pengembangan leadership, manajemen, dan kemampuan pembinaan thalibah.',
             'S1/Sederajat',
             12,
             50,

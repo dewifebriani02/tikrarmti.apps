@@ -24,6 +24,7 @@ import { usePersona } from '@/hooks/usePersona';
 import { useActiveBatch } from '@/hooks/useBatches';
 import { FinalExamSelectionModal } from '@/components/dashboard/FinalExamSelectionModal';
 import { cn } from '@/lib/utils';
+import { formatMuallimahName } from '@/lib/roles';
 import { formatDateIndo } from '@/lib/utils/date-helpers';
 import { toast } from 'sonner';
 
@@ -32,6 +33,34 @@ export default function UjianPage() {
   const { activePersona, isAdminPersona, isMusyrifahPersona } = usePersona();
   const { activeBatch } = useActiveBatch();
   const [activeTab, setActiveTab] = useState<'pekanan' | 'akhir'>('akhir');
+  const [userRegistration, setUserRegistration] = useState<any>(null);
+
+  useEffect(() => {
+    async function loadUserReg() {
+      try {
+        const res = await fetch("/api/pendaftaran/my");
+        const data = await res.json();
+        const list = data.registrations || data.data || [];
+        if (list.length > 0) {
+          const approved =
+            list.find((r: any) => r.status === "approved" && r.selection_status === "selected") ||
+            list.find((r: any) => r.status === "approved" || r.selection_status === "selected" || r.selection_status === "passed") ||
+            list[0];
+          setUserRegistration(approved);
+        }
+      } catch (e) {
+        console.error("Error fetching user registration:", e);
+      }
+    }
+    if (user && !isAdminPersona && !isMusyrifahPersona) {
+      loadUserReg();
+    }
+  }, [user, isAdminPersona, isMusyrifahPersona]);
+
+  // Bagi thalibah, prioritaskan batch tempat thalibah tersebut terdaftar
+  const effectiveBatch = (!isAdminPersona && !isMusyrifahPersona && userRegistration?.batch)
+    ? userRegistration.batch
+    : activeBatch;
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -52,22 +81,22 @@ export default function UjianPage() {
   const fetchRegistrations = async () => {
     setLoadingRegistrations(true);
     try {
-      const url = `/api/exams/final-exams/registrations${activeBatch?.id ? `?batch_id=${activeBatch.id}` : ''}`;
+      const url = `/api/exams/final-exams/registrations${effectiveBatch?.id ? `?batch_id=${effectiveBatch.id}` : ''}`;
       const response = await fetch(url);
       const result = await response.json();
       if (result.success) {
         setRegistrations(Array.isArray(result.data) ? result.data : result.data ? [result.data] : []);
       }
 
-      // Also fetch exam attempts to check if written exam has been completed
+      // Fetch final-exam written attempt strictly scoped to source=final-exam and effectiveBatch
       try {
-        const attemptRes = await fetch('/api/exam/attempts');
+        const attemptUrl = `/api/exam/attempts?source=final-exam${effectiveBatch?.id ? `&batchId=${effectiveBatch.id}` : ''}`;
+        const attemptRes = await fetch(attemptUrl);
         const attemptData = await attemptRes.json();
-        if (attemptData.attempt) {
-          setWrittenAttempt(attemptData.attempt);
-        }
+        setWrittenAttempt(attemptRes.ok ? (attemptData.attempt || null) : null);
       } catch (err) {
         console.error('Fetch written attempt error:', err);
+        setWrittenAttempt(null);
       }
     } catch (error) {
       console.error('Fetch registrations error:', error);
@@ -78,7 +107,7 @@ export default function UjianPage() {
 
   useEffect(() => {
     fetchRegistrations();
-  }, [activeBatch?.id]);
+  }, [effectiveBatch?.id]);
 
   const oralRegistration = registrations.find(r => r.schedule?.exam_type === 'oral');
   const writtenRegistration = registrations.find(r => r.schedule?.exam_type === 'written');
@@ -88,8 +117,8 @@ export default function UjianPage() {
   const isAdmin = isStaffView;
 
   const now = new Date();
-  const examStartDate = activeBatch?.final_exam_start_date ? new Date(activeBatch?.final_exam_start_date || '') : null;
-  const examEndDate = activeBatch?.final_exam_end_date ? new Date(activeBatch.final_exam_end_date) : null;
+  const examStartDate = effectiveBatch?.final_exam_start_date ? new Date(effectiveBatch?.final_exam_start_date || '') : null;
+  const examEndDate = effectiveBatch?.final_exam_end_date ? new Date(effectiveBatch.final_exam_end_date) : null;
 
   // Status jadwal ujian
   const isBeforeExam = !isAdmin && (examStartDate ? now < examStartDate : true);
@@ -98,6 +127,9 @@ export default function UjianPage() {
 
   const isWrittenCompleted = writtenRegistration?.status === 'graded' || writtenAttempt?.status === 'submitted';
   const writtenScore = writtenRegistration?.score ?? writtenRegistration?.score_tulisan ?? writtenAttempt?.score;
+
+  const resultsHref = `/exam/results?source=final-exam${writtenAttempt?.id ? `&attemptId=${writtenAttempt.id}` : ''}${effectiveBatch?.id ? `&batchId=${effectiveBatch.id}` : ''}`;
+  const startExamHref = `/exam?source=final-exam${effectiveBatch?.id ? `&batchId=${effectiveBatch.id}` : ''}`;
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 space-y-6 animate-fadeInUp pb-24 font-sans">
@@ -110,7 +142,7 @@ export default function UjianPage() {
               <Sparkles className="w-4 h-4 text-amber-500" />
             </h1>
             <p className="text-gray-700 text-[10px] font-black uppercase tracking-widest leading-none mt-1">
-              {activeBatch?.name || 'Tikrar Tahfidz MTI'}
+              {effectiveBatch?.name || 'Tikrar Tahfidz MTI'}
             </p>
           </div>
 
@@ -169,7 +201,7 @@ export default function UjianPage() {
                   {activeTab === 'pekanan' ? 'EVALUASI MINGGUAN' : 'UJIAN KELULUSAN SYAHADAH'}
                 </span>
                 <h2 className="text-base sm:text-lg font-black text-white tracking-wide">
-                  {activeTab === 'pekanan' ? 'Jadwal Evaluasi Pekanan' : 'Portal Ujian Akhir Santri'}
+                  {activeTab === 'pekanan' ? 'Jadwal Evaluasi Pekanan' : 'Portal Ujian Akhir Thalibah'}
                 </h2>
                 <p className="text-green-100/80 text-xs mt-0.5">
                   {activeTab === 'pekanan' 
@@ -204,7 +236,7 @@ export default function UjianPage() {
               </div>
               <div>
                 <p className="text-xs font-black text-gray-900 leading-tight">
-                  Alur Evaluasi Pekanan Santri
+                  Alur Evaluasi Pekanan Thalibah
                 </p>
                 <p className="text-[10px] text-gray-500 font-medium mt-0.5">
                   Tashih Bacaan → Pengisian Jurnal 4 Blok → Ujian Mandiri Akhir Pekan.
@@ -338,7 +370,7 @@ export default function UjianPage() {
               )}
             </div>
 
-            {/* Jika Santri Sudah Terdaftar Jadwal */}
+            {/* Jika Thalibah Sudah Terdaftar Jadwal */}
             {oralRegistration ? (
               <div className="bg-emerald-50/70 border border-emerald-100 rounded-xl p-4 space-y-2">
                 <div className="flex items-center justify-between text-xs font-bold text-emerald-950">
@@ -353,7 +385,7 @@ export default function UjianPage() {
                 </div>
                 {oralRegistration.schedule?.examiner?.full_name && (
                   <p className="text-xs text-emerald-800">
-                    Penguji: <span className="font-bold">{oralRegistration.schedule.examiner.full_name}</span>
+                    Penguji: <span className="font-bold">{formatMuallimahName(oralRegistration.schedule.examiner.full_name)}</span>
                   </p>
                 )}
                 {oralRegistration.status === 'graded' && (
@@ -447,14 +479,14 @@ export default function UjianPage() {
                   : isExamOpen && !isExamEnded
                   ? "Ujian tulisan dikerjakan langsung melalui sistem Computer Based Test (CBT) pilihan ganda MTI. Pastikan koneksi internet stabil sebelum memulai pengerjaan."
                   : isExamEnded
-                  ? `Waktu pelaksanaan ujian pilihan ganda telah berakhir pada ${activeBatch?.final_exam_end_date ? formatDateIndo(activeBatch.final_exam_end_date) : 'jadwal yang telah ditentukan'}. Jika memiliki kendala, silakan hubungi Musyrifah atau Mu'allimah pembimbing.`
-                  : `Ujian pilihan ganda akan dibuka pada ${activeBatch?.final_exam_start_date ? formatDateIndo(activeBatch.final_exam_start_date) : 'jadwal pekan ujian akhir yang ditentukan panitia'}. Silakan persiapkan diri dan muraja'ah materi hafalan Ukhti.`}
+                  ? `Waktu pelaksanaan ujian pilihan ganda telah berakhir pada ${effectiveBatch?.final_exam_end_date ? formatDateIndo(effectiveBatch.final_exam_end_date) : 'jadwal yang telah ditentukan'}. Jika memiliki kendala, silakan hubungi Musyrifah atau Mu'allimah pembimbing.`
+                  : `Ujian pilihan ganda akan dibuka pada ${effectiveBatch?.final_exam_start_date ? formatDateIndo(effectiveBatch.final_exam_start_date) : 'jadwal pekan ujian akhir yang ditentukan panitia'}. Silakan persiapkan diri dan muraja'ah materi hafalan Ukhti.`}
               </p>
             </div>
 
             {/* Tombol Aksi Ujian Tulisan */}
             {isWrittenCompleted ? (
-              <Link href="/exam/results?source=final-exam" className="block w-full">
+              <Link href={resultsHref} className="block w-full">
                 <Button
                   variant="outline"
                   className="w-full border-emerald-200 text-emerald-800 hover:bg-emerald-50 font-bold py-3 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition-all"
@@ -465,7 +497,7 @@ export default function UjianPage() {
                 </Button>
               </Link>
             ) : isExamOpen && !isExamEnded ? (
-              <Link href="/exam?source=final-exam" className="block w-full">
+              <Link href={startExamHref} className="block w-full">
                 <Button
                   className="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 rounded-xl shadow-sm text-xs sm:text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.99]"
                 >
@@ -480,14 +512,14 @@ export default function UjianPage() {
                 onClick={() => {
                   if (isExamEnded) {
                     toast.error(
-                      activeBatch?.final_exam_end_date
-                        ? `Waktu pelaksanaan ujian telah berakhir pada ${formatDateIndo(activeBatch.final_exam_end_date)}.`
+                      effectiveBatch?.final_exam_end_date
+                        ? `Waktu pelaksanaan ujian telah berakhir pada ${formatDateIndo(effectiveBatch.final_exam_end_date)}.`
                         : 'Waktu pelaksanaan ujian pilihan ganda telah berakhir.'
                     );
                   } else {
                     toast.error(
-                      activeBatch?.final_exam_start_date
-                        ? `Jadwal ujian belum dibuka. Ujian akan dibuka pada ${formatDateIndo(activeBatch.final_exam_start_date)}.`
+                      effectiveBatch?.final_exam_start_date
+                        ? `Jadwal ujian belum dibuka. Ujian akan dibuka pada ${formatDateIndo(effectiveBatch.final_exam_start_date)}.`
                         : 'Jadwal pelaksanaan ujian akhir pilihan ganda belum dibuka oleh panitia.'
                     );
                   }
@@ -510,7 +542,7 @@ export default function UjianPage() {
           fetchRegistrations();
         }}
         examType="oral"
-        batchId={activeBatch?.id}
+        batchId={effectiveBatch?.id}
       />
     </div>
   );

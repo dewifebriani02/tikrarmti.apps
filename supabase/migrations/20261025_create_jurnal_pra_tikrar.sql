@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS public.jurnal_pra_tikrar (
   simak_3 BOOLEAN DEFAULT false,
   metode_simak TEXT DEFAULT 'murni', -- 'murni', 'gerak_bibir', 'selaras_ketukan'
   
-  -- Setoran / Latihan Bacaan Santri
+  -- Setoran / Latihan Bacaan Thalibah
   surat_nama TEXT, -- e.g. "An-Naba'"
   ayat_range TEXT, -- e.g. "1-10"
   durasi_menit INTEGER DEFAULT 0,

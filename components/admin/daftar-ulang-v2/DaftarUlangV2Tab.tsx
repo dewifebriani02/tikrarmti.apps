@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { apiRequest } from '@/lib/fetch-wrapper';
 import { toast } from 'sonner';
 import { cn, parseAkadFiles } from '@/lib/utils';
+import { formatMuallimahName } from '@/lib/roles';
 import {
   FileText,
   Download,
@@ -28,7 +29,7 @@ import {
   Database,
   ArrowLeft
 } from 'lucide-react';
-import { getJuzOptionsAdmin } from '@/app/(protected)/admin/actions';
+import { getJuzOptionsAdmin } from '@/lib/admin/admin-client';
 import { DaftarUlangHalaqahTab } from '@/components/DaftarUlangHalaqahTab';
 import { EditDaftarUlangModal } from './EditDaftarUlangModal';
 import { getWhatsAppUrl } from '@/lib/utils/whatsapp';
@@ -407,7 +408,7 @@ export function DaftarUlangV2Tab({ batchId: initialBatchId }: DaftarUlangTabProp
           'Jadwal Halaqah': formatHalaqahSchedule(ujianHalaqah),
           'Lokasi Halaqah': ujianHalaqah.location || '-',
           'Tipe Kelas': ujianHalaqah.class_type || '-',
-          'Muallimah': ujianHalaqah.muallimah_name || '-',
+          'Muallimah': ujianHalaqah.muallimah_name ? formatMuallimahName(ujianHalaqah.muallimah_name) : '-',
 
           // Partner
           'Tipe Partner': item.partner_type || '-',

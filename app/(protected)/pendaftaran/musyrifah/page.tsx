@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useRegistrationBatch } from '@/hooks/useBatches';
+import { useFormSettings } from '@/hooks/useFormSettings';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,7 +15,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
-import { Calendar, Clock, Users, UserCheck, ShieldCheck, Heart, Target, Loader2 } from 'lucide-react';
+import { Calendar, Clock, Users, UserCheck, ShieldCheck, Heart, Target, Loader2, CheckCircle2 } from 'lucide-react';
+import {
+  RegistrationEditPhaseBanner,
+  EditHistoryTimeline,
+  type EditHistoryItem,
+  type EditPhaseClientInfo,
+} from '@/components/registration/EditHistoryTimeline';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
@@ -80,6 +87,7 @@ function MusyrifahRegistrationContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
+  const { settings: formSettings, isLoading: settingsLoading } = useFormSettings();
   const supabase = createClient();
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
@@ -87,6 +95,12 @@ function MusyrifahRegistrationContent() {
   const [batchId, setBatchId] = useState<string>('');
   const { registrationBatch, isLoading: activeBatchLoading } = useRegistrationBatch();
   const [batchInfo, setBatchInfo] = useState<any>(null);
+  const [existingRegistrationId, setExistingRegistrationId] = useState<string | null>(null);
+  const [registrationStatus, setRegistrationStatus] = useState<string | null>(null);
+  const [checkingExisting, setCheckingExisting] = useState(true);
+  const [editPhase, setEditPhase] = useState<EditPhaseClientInfo | null>(null);
+  const [editHistory, setEditHistory] = useState<EditHistoryItem[]>([]);
+  const [editReason, setEditReason] = useState('');
 
   // Check if user is an alumnus and has not filled in their testimonial
   useEffect(() => {
@@ -95,7 +109,10 @@ function MusyrifahRegistrationContent() {
         const res = await fetch('/api/alumni/testimonial/my');
         if (res.ok) {
           const data = await res.json();
-          if (data.isAlumni && !data.testimonial) {
+          const shouldBlock = data.requiresTestimonialBeforeRegister !== undefined
+            ? data.requiresTestimonialBeforeRegister
+            : (data.isAlumni && !data.isAdmin && !data.testimonial);
+          if (shouldBlock) {
             toast.error('Afwan Ukhti, Ukhti harus mengisi testimoni alumni terlebih dahulu.');
             router.push('/alumni');
           }
@@ -162,6 +179,67 @@ function MusyrifahRegistrationContent() {
       setBatchInfo(registrationBatch);
     }
   }, [searchParams, registrationBatch]);
+
+  const fetchExistingRegistration = async (targetBatchId: string) => {
+    try {
+      setCheckingExisting(true);
+      const res = await fetch(`/api/pendaftaran/musyrifah?batch_id=${encodeURIComponent(targetBatchId)}`, {
+        cache: 'no-store',
+      });
+      const json = await res.json().catch(() => null);
+      if (res.ok && json?.success && json?.data) {
+        const reg = json.data.registration;
+        setEditPhase(json.data.editPhase || null);
+        setEditHistory(Array.isArray(json.data.history) ? json.data.history : []);
+        if (reg) {
+          setExistingRegistrationId(reg.id);
+          setRegistrationStatus(reg.status || null);
+          setFormData({
+            full_name: reg.full_name || '',
+            birth_date: reg.birth_date ? String(reg.birth_date).slice(0, 10) : '',
+            birth_place: reg.birth_place || '',
+            address: reg.address || '',
+            whatsapp: reg.whatsapp || '',
+            email: reg.email || '',
+            education: reg.education || '',
+            occupation: reg.occupation || '',
+            leadership_experience: reg.leadership_experience || '',
+            leadership_years: reg.leadership_years || '',
+            leadership_roles: reg.leadership_roles || '',
+            management_skills: Array.isArray(reg.management_skills) ? reg.management_skills : [],
+            team_management_experience: reg.team_management_experience || '',
+            preferred_schedule: reg.preferred_schedule || '',
+            backup_schedule: reg.backup_schedule || '',
+            timezone: reg.timezone || 'WIB',
+            time_commitment: true,
+            understands_program: true,
+            agreement: true,
+            motivation: reg.motivation || '',
+            leadership_philosophy: reg.leadership_philosophy || '',
+            special_achievements: reg.special_achievements || '',
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Error loading existing musyrifah registration:', err);
+    } finally {
+      setCheckingExisting(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      setCheckingExisting(false);
+    }
+  }, [authLoading, user]);
+
+  useEffect(() => {
+    if (!authLoading && !activeBatchLoading && user && batchId) {
+      fetchExistingRegistration(batchId);
+    } else if (!authLoading && !activeBatchLoading && user && !batchId && !registrationBatch?.id) {
+      setCheckingExisting(false);
+    }
+  }, [authLoading, activeBatchLoading, user, batchId, registrationBatch?.id]);
 
   const fetchBatchInfo = async (id: string) => {
     try {
@@ -295,19 +373,40 @@ function MusyrifahRegistrationContent() {
         return;
       }
 
-      // Submit through the API — the browser client cannot write to the database
+      // Submit through the API — use PATCH when updating an existing registration
+      const isUpdating = Boolean(existingRegistrationId);
       const response = await fetch('/api/pendaftaran/musyrifah', {
-        method: 'POST',
+        method: isUpdating ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, batch_id: batchId }),
+        body: JSON.stringify(
+          isUpdating
+            ? {
+                ...formData,
+                registration_id: existingRegistrationId,
+                batch_id: batchId,
+                editReason: editReason.trim() || undefined,
+              }
+            : { ...formData, batch_id: batchId }
+        ),
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok || !result.success) {
         throw new Error(result.error || 'Gagal mengirim pendaftaran');
       }
 
-      toast.success('Pendaftaran sebagai Musyrifah berhasil dikirim!');
-      router.push('/dashboard');
+      toast.success(
+        result.message ||
+          (isUpdating
+            ? 'Perubahan data Musyrifah berhasil disimpan!'
+            : 'Pendaftaran sebagai Musyrifah berhasil dikirim!')
+      );
+
+      if (isUpdating && (result.data?.editPhase === 'after_daftar_ulang' || editPhase?.phase === 'after_daftar_ulang' || result.data?.historyRecorded)) {
+        setEditReason('');
+        await fetchExistingRegistration(batchId);
+      } else {
+        router.push('/dashboard');
+      }
 
     } catch (error: any) {
       console.error('Submit error:', error);
@@ -690,11 +789,28 @@ function MusyrifahRegistrationContent() {
   return (
     <>
       {/* Auth check - show loading or redirect */}
-      {authLoading ? (
+      {(authLoading || checkingExisting) ? (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
           <div className="text-center">
             <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
             <p className="text-gray-600">Memeriksa autentikasi...</p>
+          </div>
+        </div>
+      ) : (!settingsLoading && !formSettings.musyrifah && !(user?.roles?.includes('admin') || user?.role === 'admin') && !existingRegistrationId) ? (
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+          <div className="max-w-md w-full bg-white rounded-3xl p-8 shadow-sm border border-gray-100 text-center space-y-4">
+            <div className="h-16 w-16 mx-auto rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
+              <ShieldCheck className="h-8 w-8" />
+            </div>
+            <h2 className="text-xl font-black text-gray-900">Pendaftaran Musyrifah Ditutup</h2>
+            <p className="text-sm text-gray-600">
+              Formulir pendaftaran program Musyrifah / Raisah saat ini sedang ditutup atau belum dipublikasikan oleh administrator.
+            </p>
+            <div className="pt-2">
+              <Button onClick={() => router.push('/pendaftaran')} className="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold rounded-xl">
+                Lihat Program Lainnya
+              </Button>
+            </div>
           </div>
         </div>
       ) : !isAuthenticated ? (
@@ -729,6 +845,30 @@ function MusyrifahRegistrationContent() {
                 {new Date(batchInfo.start_date).toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta' })} - {new Date(batchInfo.end_date).toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta' })}
               </AlertDescription>
             </Alert>
+          )}
+
+          {existingRegistrationId && (
+            <div className="mb-6 space-y-4">
+              <Alert className={registrationStatus === 'approved' ? 'bg-emerald-50 border-emerald-200' : 'bg-blue-50 border-blue-200'}>
+                <CheckCircle2 className={registrationStatus === 'approved' ? 'h-4 w-4 text-emerald-600' : 'h-4 w-4 text-blue-600'} />
+                <AlertDescription className={registrationStatus === 'approved' ? 'text-emerald-900 text-sm' : 'text-blue-900 text-sm'}>
+                  {registrationStatus === 'approved'
+                    ? 'Pendaftaran Musyrifah Ukhti sudah disetujui. Ukhti tetap dapat memperbarui data maupun preferensi jadwal kapan saja.'
+                    : 'Mode Edit Pendaftaran Musyrifah — Data pendaftaran Ukhti sebelumnya sudah dimuat dan dapat diperbarui.'}
+                </AlertDescription>
+              </Alert>
+
+              <RegistrationEditPhaseBanner
+                editPhase={editPhase}
+                editReason={editReason}
+                onEditReasonChange={setEditReason}
+              />
+
+              <EditHistoryTimeline
+                history={editHistory}
+                title="Riwayat Perubahan Data Musyrifah"
+              />
+            </div>
           )}
 
           {/* Progress */}
@@ -802,7 +942,7 @@ function MusyrifahRegistrationContent() {
                       disabled={isLoading}
                       className="bg-blue-600 hover:bg-blue-700"
                     >
-                      {isLoading ? 'Mengirim...' : 'Kirim Pendaftaran'}
+                      {isLoading ? 'Menyimpan...' : (existingRegistrationId ? 'Simpan Perubahan' : 'Kirim Pendaftaran')}
                     </Button>
                   )}
                 </div>

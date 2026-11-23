@@ -15,12 +15,17 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Progress } from '@/components/ui/progress'
-import { ChevronLeft, ChevronRight, Send, Info, CheckCircle, AlertCircle, ExternalLink, Sparkles } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Send, Info, CheckCircle, AlertCircle, ExternalLink, Sparkles, Calendar } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import { submitPraTikrarRegistration } from './actions'
-import { getRegistrationQuestions } from '../tikrar-tahfidz/actions'
 import { cn } from '@/lib/utils'
+import { useFormSettings } from '@/hooks/useFormSettings'
+import {
+  EditHistoryTimeline,
+  RegistrationEditPhaseBanner,
+  type EditHistoryItem,
+  type EditPhaseClientInfo,
+} from '@/components/registration/EditHistoryTimeline'
 
 interface FormData {
   // Section 1 - Komitmen & Pemahaman
@@ -97,8 +102,8 @@ const FALLBACK_QUESTIONS: Record<string, { label: string; description: string | 
   has_telegram: {
     label: "Apakah Ukhti sudah faham jika program ini juga mewajibkan tholibah untuk mempunyai aplikasi telegram untuk proses seleksi?",
     description: "Bismillah.. Alhamdulillah saya sudah download telegram di hp saya",
-    warning_text: "Mohon maaf kami tidak akan mengecek VN seleksi yang dikirim lewat whatsapp jika ada kendala pada aplikasi, karena keterbatasan memori hp admin.",
-    is_required: true
+    warning_text: "",
+    is_required: false
   },
   saved_contact: {
     label: "Apakah Ukhti sudah simpan nomor Whatsapp Admin Kak Mara 0813-1365-0842, Uni Dewi 0856-771-2914, Kak Dewi Nurhayati 0895-1898-4279, Kak Donna 0812-1224-0079, Kak Ucy 0822-2937-0282, Kak Lina 0853-4011-4111, Kak Vivi 0857-0623-2865, Kak Wara 0822-2010-0262?",
@@ -190,8 +195,11 @@ export default function ThalibahBatch2Page() {
   useEffect(() => {
     async function loadQuestions() {
       try {
-        const result = await getRegistrationQuestions()
-        if (result.success && result.data) {
+        const response = await fetch('/api/pendaftaran/questions?type=tikrar', {
+          cache: 'no-store',
+        })
+        const result = await response.json().catch(() => null)
+        if (response.ok && result?.success && result.data) {
           setQuestions(result.data as Question[])
         }
       } catch (error) {
@@ -221,6 +229,7 @@ export default function ThalibahBatch2Page() {
     }
   }
   const { user, isLoading, isAuthenticated, isUnauthenticated } = useAuth()
+  const { settings: formSettings, isLoading: settingsLoading } = useFormSettings()
   const { registrationBatch, isLoading: regBatchLoading } = useRegistrationBatch()
   const searchParams = useSearchParams()
   const urlBatchId = searchParams.get('batchId')
@@ -239,29 +248,7 @@ export default function ThalibahBatch2Page() {
   const [isCreating, setIsCreating] = useState(false)
   const [isAlumni, setIsAlumni] = useState(false)
 
-  // Check if user is an alumnus and has not filled in their testimonial
-  useEffect(() => {
-    async function checkAlumniStatus() {
-      try {
-        const res = await fetch('/api/alumni/testimonial/my')
-        if (res.ok) {
-          const data = await res.json()
-          if (data.isAlumni) {
-            setIsAlumni(true)
-            if (!data.testimonial) {
-              toast.error('Afwan Ukhti, Ukhti harus mengisi testimoni alumni terlebih dahulu.')
-              router.push('/alumni')
-            }
-          }
-        }
-      } catch (err) {
-        console.error('Error checking alumni status:', err)
-      }
-    }
-    if (user) {
-      checkAlumniStatus()
-    }
-  }, [user, router])
+
 
   const [isMounted, setIsMounted] = useState(false)
   const [userProfile, setUserProfile] = useState<any>(null)
@@ -272,13 +259,38 @@ export default function ThalibahBatch2Page() {
   // reference changes later (e.g. SWR revalidation after mutateRegistrations()).
   const hasPrefilledRef = React.useRef(false)
 
-  // Check if user is already registered for Tikrah Tahfidz program
+  const [editPhase, setEditPhase] = useState<EditPhaseClientInfo | null>(null)
+  const [editHistory, setEditHistory] = useState<EditHistoryItem[]>([])
+  const [editReason, setEditReason] = useState('')
+
+  // Check if user is already registered for this program
   const tikrarRegistration = useMemo(() => {
     return registrations.find(reg =>
       reg.batch_id === activeBatchData?.id &&
+      (reg.program?.class_type === 'pra_tahfidz' ||
+        reg.program?.name?.toLowerCase().includes('pra')) &&
       (reg.status === 'approved' || reg.status === 'pending')
     )
   }, [registrations, activeBatchData])
+
+  const loadEditHistory = React.useCallback(async (entityId: string) => {
+    try {
+      const res = await fetch(`/api/pendaftaran/edit-history?entityType=pra_tikrar&entityId=${entityId}`)
+      const json = await res.json().catch(() => null)
+      if (res.ok && json?.success && json?.data) {
+        setEditPhase(json.data.editPhase || null)
+        setEditHistory(Array.isArray(json.data.history) ? json.data.history : [])
+      }
+    } catch {
+      // Non-fatal
+    }
+  }, [])
+
+  useEffect(() => {
+    if (tikrarRegistration?.id) {
+      loadEditHistory(tikrarRegistration.id)
+    }
+  }, [tikrarRegistration?.id, loadEditHistory])
 
   // Check if user can register (not registered or in edit mode)
   const canRegister = useMemo(() => {
@@ -315,7 +327,7 @@ export default function ThalibahBatch2Page() {
         has_permission: registrationData.has_permission || '',
         permission_name: registrationData.permission_name || '',
         permission_phone: registrationData.permission_phone || '',
-        permission_phone_validation: '',
+        permission_phone_validation: registrationData.permission_phone || '',
         chosen_juz: registrationData.chosen_juz || '',
         no_travel_plans: registrationData.no_travel_plans || false,
         motivation: registrationData.motivation || '',
@@ -328,16 +340,22 @@ export default function ThalibahBatch2Page() {
         questions: registrationData.questions || ''
       })
     } else if (typeof window !== 'undefined' && !tikrarRegistration && !hasPrefilledRef.current) {
+      let loadedFromDraft = false
       try {
         const savedDraft = localStorage.getItem(STORAGE_KEY)
         if (savedDraft) {
           const draft = JSON.parse(savedDraft)
           // Only restore if it's from the same user
           if (draft.user_id === user?.id) {
+            hasPrefilledRef.current = true
+            loadedFromDraft = true
             // Convert old boolean format to new string format for has_permission
             const formData = draft.formData
             if (typeof formData.has_permission === 'boolean') {
               formData.has_permission = formData.has_permission ? 'yes' : ''
+            }
+            if (formData.permission_phone && !formData.permission_phone_validation) {
+              formData.permission_phone_validation = formData.permission_phone
             }
             setFormData(formData)
             setCurrentSection(draft.currentSection || 1)
@@ -346,8 +364,31 @@ export default function ThalibahBatch2Page() {
       } catch (error) {
         console.error('Error loading draft:', error)
       }
+
+      // Prefill for returning alumni if no draft was loaded
+      if (!loadedFromDraft && registrations && registrations.length > 0) {
+        hasPrefilledRef.current = true
+        const prevReg = registrations[0] as any
+        setFormData(prev => ({
+          ...prev,
+          understands_commitment: prevReg.understands_commitment ?? prev.understands_commitment,
+          tried_simulation: prevReg.tried_simulation ?? prev.tried_simulation,
+          no_negotiation: prevReg.no_negotiation ?? prev.no_negotiation,
+          saved_contact: prevReg.saved_contact ?? prev.saved_contact,
+          has_permission: prevReg.has_permission || prev.has_permission,
+          permission_name: prevReg.permission_name || prev.permission_name,
+          permission_phone: prevReg.permission_phone || prev.permission_phone,
+          permission_phone_validation: prevReg.permission_phone || prev.permission_phone_validation,
+          no_travel_plans: prevReg.no_travel_plans ?? prev.no_travel_plans,
+          motivation: prevReg.motivation || prev.motivation,
+          ready_for_team: prevReg.ready_for_team || prev.ready_for_team,
+          infaq_amount: prevReg.infaq_amount || prev.infaq_amount,
+          time_commitment: prevReg.time_commitment ?? prev.time_commitment,
+          understands_program: prevReg.understands_program ?? prev.understands_program,
+        }))
+      }
     }
-  }, [tikrarRegistration, user?.id])
+  }, [tikrarRegistration, user?.id, registrations])
 
   // Fetch user profile data from users table
   useEffect(() => {
@@ -414,6 +455,33 @@ export default function ThalibahBatch2Page() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'success_update' | 'error'>('idle')
+
+  // Check if user is an alumnus and has not filled in their testimonial
+  useEffect(() => {
+    async function checkAlumniStatus() {
+      try {
+        const res = await fetch('/api/alumni/testimonial/my')
+        if (res.ok) {
+          const data = await res.json()
+          if (data.isAlumni && !data.isAdmin) {
+            setIsAlumni(true)
+            const shouldBlock = data.requiresTestimonialBeforeRegister !== undefined
+              ? data.requiresTestimonialBeforeRegister
+              : !data.testimonial
+            if (shouldBlock && submitStatus === 'idle') {
+              toast.error('Afwan Ukhti, Ukhti harus mengisi testimoni alumni terlebih dahulu.')
+              router.push('/alumni')
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error checking alumni status:', err)
+      }
+    }
+    if (user && submitStatus === 'idle') {
+      checkAlumniStatus()
+    }
+  }, [user, router, submitStatus])
   const [submitError, setSubmitError] = useState<string>('')
   const [redirectTimer, setRedirectTimer] = useState<NodeJS.Timeout | null>(null)
 
@@ -425,28 +493,42 @@ export default function ThalibahBatch2Page() {
     setIsMounted(true)
   }, [])
 
+  const scrollToFirstError = (errorKeys: string[]) => {
+    if (!errorKeys || errorKeys.length === 0) return
+    setTimeout(() => {
+      for (const key of errorKeys) {
+        const target =
+          document.getElementById(key) ||
+          document.querySelector(`[data-field="${key}"]`) ||
+          document.querySelector(`[name="${key}"]`)
+        if (target) {
+          const container = (target.closest('.space-y-2, .space-y-3, .space-y-4') as HTMLElement) || target
+          container.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          const inputElement = container.querySelector('input:not([type="hidden"]), select, textarea') as HTMLElement
+          if (inputElement && typeof inputElement.focus === 'function') {
+            try {
+              inputElement.focus()
+            } catch (_) {}
+          }
+          return
+        }
+      }
+
+      // Fallback to first error text paragraph (excluding span asterisks)
+      const errorParagraphs = document.querySelectorAll('p.text-red-500, p[class*="text-red"]')
+      if (errorParagraphs.length > 0) {
+        const firstP = errorParagraphs[0] as HTMLElement
+        const container = (firstP.closest('.space-y-2, .space-y-3, .space-y-4') as HTMLElement) || firstP
+        container.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+    }, 100)
+  }
+
   // Auto-scroll to first error field when validation fails
   useEffect(() => {
-    if (Object.keys(errors).length > 0) {
-      // Small delay to ensure error messages are rendered
-      const timer = setTimeout(() => {
-        // Find first error message (text-red-500 class is used for errors)
-        const errorMessages = document.querySelectorAll('.text-red-500')
-        if (errorMessages.length > 0) {
-          const firstError = errorMessages[0] as HTMLElement
-          // Get the parent container that contains the field
-          const fieldContainer = firstError.closest('.space-y-2, .space-y-3') as HTMLElement
-          if (fieldContainer) {
-            fieldContainer.scrollIntoView({ behavior: 'smooth', block: 'center' })
-            // Try to focus the input/select inside the container
-            const inputElement = fieldContainer.querySelector('input, select, textarea') as HTMLElement
-            if (inputElement && typeof inputElement.focus === 'function') {
-              inputElement.focus()
-            }
-          }
-        }
-      }, 100)
-      return () => clearTimeout(timer)
+    const errorKeys = Object.keys(errors)
+    if (errorKeys.length > 0) {
+      scrollToFirstError(errorKeys)
     }
   }, [errors])
 
@@ -483,7 +565,7 @@ export default function ThalibahBatch2Page() {
     return `${formatDate(start)} - ${formatDate(end)}`;
   };
 
-  const validateSection = (section: number): boolean => {
+  const validateSection = (section: number): { isValid: boolean; errors: Record<string, string> } => {
     const newErrors: Record<string, string> = {}
 
     if (section === 0) {
@@ -507,11 +589,6 @@ export default function ThalibahBatch2Page() {
       const qNoNeg = getQuestionMeta('no_negotiation')
       if (qNoNeg.is_active && qNoNeg.is_required && !formData.no_negotiation) {
         newErrors.no_negotiation = 'Wajib menyetujui tidak menego jumlah tikrar'
-      }
-      
-      const qTelegram = getQuestionMeta('has_telegram')
-      if (qTelegram.is_active && qTelegram.is_required && !formData.has_telegram) {
-        newErrors.has_telegram = 'Wajib memiliki aplikasi Telegram'
       }
       
       const qContact = getQuestionMeta('saved_contact')
@@ -580,19 +657,31 @@ export default function ThalibahBatch2Page() {
     }
 
     setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+    return {
+      isValid: Object.keys(newErrors).length === 0,
+      errors: newErrors
+    }
   }
 
   const handleNext = () => {
-    if (validateSection(currentSection)) {
-      if (currentSection < totalSections) {
+    const { isValid, errors: validationErrors } = validateSection(currentSection)
+    if (isValid) {
+      setErrors({})
+      if (currentSection < totalSections - 1) {
         setCurrentSection(currentSection + 1)
       }
+    } else {
+      const errorList = Object.values(validationErrors)
+      if (errorList.length > 0) {
+        toast.error(errorList[0])
+      }
+      scrollToFirstError(Object.keys(validationErrors))
     }
   }
 
   const handlePrevious = () => {
-    if (currentSection > 1) {
+    setErrors({})
+    if (currentSection > 0) {
       setCurrentSection(currentSection - 1)
     }
   }
@@ -611,9 +700,21 @@ export default function ThalibahBatch2Page() {
   }, [currentSection, isMounted])
 
   const handleSubmit = async () => {
-    if (!validateSection(currentSection)) return
-    if (!user?.id || !activeBatchData) {
-      toast.error('User atau batch tidak ditemukan')
+    const { isValid, errors: validationErrors } = validateSection(currentSection)
+    if (!isValid) {
+      const errorList = Object.values(validationErrors)
+      if (errorList.length > 0) {
+        toast.error(errorList[0])
+      }
+      scrollToFirstError(Object.keys(validationErrors))
+      return
+    }
+    if (!user?.id) {
+      toast.error('Sesi login tidak ditemukan. Silakan login kembali.')
+      return
+    }
+    if (!activeBatchData) {
+      toast.error('Batch pendaftaran aktif tidak ditemukan atau belum dibuka.')
       return
     }
 
@@ -621,18 +722,25 @@ export default function ThalibahBatch2Page() {
     setSubmitError('')
 
     try {
-      // Use Server Action for mutation (follows arsitektur.md)
-      const result = await submitPraTikrarRegistration(
-        formData,
-        userProfile,
-        user,
-        activeBatchData,
-        isEditMode,
-        existingRegistrationId || undefined
-      )
+      const response = await fetch('/api/pendaftaran/pra-tikrar', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          formData,
+          userProfile,
+          user,
+          batch: activeBatchData,
+          isEditMode,
+          existingRegistrationId: existingRegistrationId || undefined,
+          editReason: editReason.trim() || undefined,
+        }),
+      })
+      const result = await response.json().catch(() => null)
 
-      if (result.success) {
-        toast.success(result.message)
+      if (response.ok && result?.success) {
+        toast.success(result.message || 'Pendaftaran berhasil dikirim!')
         setSubmitStatus((result.status || 'success') as 'idle' | 'success' | 'success_update' | 'error')
 
         // Clear draft after successful submission
@@ -643,15 +751,23 @@ export default function ThalibahBatch2Page() {
         // Refresh registrations cache
         mutateRegistrations()
 
-        // Redirect to dashboard after 3 seconds
-        const timer = setTimeout(() => {
-          router.push('/dashboard')
-        }, 3000)
+        if (isEditMode && (result.editPhase === 'after_daftar_ulang' || editPhase?.phase === 'after_daftar_ulang')) {
+          setEditReason('')
+          if (existingRegistrationId) {
+            await loadEditHistory(existingRegistrationId)
+          }
+        } else {
+          // Redirect immediately to tahap seleksi rekam-suara
+          const targetUrl = activeBatchData?.id
+            ? `/seleksi/rekam-suara?batch_id=${activeBatchData.id}`
+            : '/seleksi/rekam-suara'
 
-        setRedirectTimer(timer)
+          router.push(targetUrl)
+        }
       } else {
-        toast.error(result.error || 'Gagal mengirim pendaftaran')
-        setSubmitError(result.error || 'Terjadi kesalahan saat mengirim formulir')
+        const errorMsg = result?.error || `Gagal mengirim pendaftaran (HTTP ${response.status}). Silakan muat ulang halaman dan coba lagi.`
+        toast.error(errorMsg)
+        setSubmitError(errorMsg)
         setSubmitStatus('error')
       }
     } catch (error: any) {
@@ -705,10 +821,6 @@ export default function ThalibahBatch2Page() {
             <div className="space-y-1">
               <p className="text-gray-600 font-medium">No. WhatsApp</p>
               <p className="text-gray-900 font-semibold">{userProfile?.whatsapp || '-'}</p>
-            </div>
-            <div className="space-y-1">
-              <p className="text-gray-600 font-medium">No. Telegram</p>
-              <p className="text-gray-900 font-semibold">{userProfile?.telegram || '-'}</p>
             </div>
             <div className="space-y-1">
               <p className="text-gray-600 font-medium">Tanggal Lahir</p>
@@ -904,39 +1016,6 @@ export default function ThalibahBatch2Page() {
             </div>
             {errors.no_negotiation && (
               <p className="text-red-500 text-xs sm:text-sm font-medium">{errors.no_negotiation}</p>
-            )}
-          </div>
-        )}
- 
-        {getQuestionMeta('has_telegram').is_active && (
-          <div className="space-y-2 sm:space-y-3">
-            <Label className="text-sm sm:text-base font-semibold text-gray-800">
-              {getQuestionMeta('has_telegram').label}
-              {getQuestionMeta('has_telegram').is_required && <span className="text-red-500">*</span>}
-            </Label>
-            {getQuestionMeta('has_telegram').warning_text && (
-              <p className="text-xs sm:text-sm text-gray-500 italic mb-2">
-                {getQuestionMeta('has_telegram').warning_text}
-              </p>
-            )}
-            <div className="space-y-2 sm:space-y-3">
-              <div className="flex items-start space-x-2 sm:space-x-4 p-3 sm:p-4 border-2 rounded-lg hover:bg-green-50 transition-all duration-200 cursor-pointer hover:border-green-300">
-                <input
-                  type="radio"
-                  name="has_telegram"
-                  id="has_telegram_yes"
-                  value="yes"
-                  checked={formData.has_telegram}
-                  onChange={() => handleInputChange('has_telegram', true)}
-                  className="mt-1 w-4 h-4 sm:w-5 sm:h-5 text-green-600 focus:ring-green-500"
-                />
-                <Label htmlFor="has_telegram_yes" className="text-sm sm:text-base font-medium text-gray-700 cursor-pointer flex-1">
-                  {getQuestionMeta('has_telegram').description}
-                </Label>
-              </div>
-            </div>
-            {errors.has_telegram && (
-              <p className="text-red-500 text-xs sm:text-sm font-medium">{errors.has_telegram}</p>
             )}
           </div>
         )}
@@ -1430,6 +1509,49 @@ export default function ThalibahBatch2Page() {
   )
 
 
+  const isAdmin = user?.roles?.includes('admin') || user?.role === 'admin'
+  if (!settingsLoading && !formSettings.pra_tikrar && !isAdmin && !tikrarRegistration) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-purple-50 py-8 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-3xl p-8 shadow-sm border border-gray-100 text-center space-y-4">
+          <div className="h-16 w-16 mx-auto rounded-full bg-rose-50 text-rose-600 flex items-center justify-center">
+            <AlertCircle className="h-8 w-8" />
+          </div>
+          <h2 className="text-xl font-black text-gray-900">Pendaftaran Pra-Tikrar Ditutup</h2>
+          <p className="text-sm text-gray-600">
+            Formulir pendaftaran program Pra-Tikrar saat ini sedang ditutup atau belum dipublikasikan oleh administrator.
+          </p>
+          <div className="pt-2">
+            <Button onClick={() => router.push('/pendaftaran')} className="w-full bg-purple-700 hover:bg-purple-800 text-white font-bold rounded-xl">
+              Lihat Program Lainnya
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!batchLoading && !activeBatchData) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-purple-50 py-8 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-3xl p-8 shadow-sm border border-gray-100 text-center space-y-4">
+          <div className="h-16 w-16 mx-auto rounded-full bg-amber-50 text-amber-600 flex items-center justify-center">
+            <Calendar className="h-8 w-8" />
+          </div>
+          <h2 className="text-xl font-black text-gray-900">Pendaftaran Belum Dibuka</h2>
+          <p className="text-sm text-gray-600">
+            Saat ini belum ada batch pendaftaran yang sedang dibuka. Silakan pantau pengumuman resmi Markaz Tikrar Indonesia.
+          </p>
+          <div className="pt-2">
+            <Button onClick={() => router.push('/dashboard')} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl">
+              Kembali ke Dashboard
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   // Don't render until component is mounted to prevent hydration issues
   if (!isMounted || questionsLoading) {
     return (
@@ -1459,12 +1581,19 @@ export default function ThalibahBatch2Page() {
           <Card className="shadow-lg border-green-100">
             <CardHeader className="bg-gradient-to-r from-green-50 to-blue-50 px-3 sm:px-6 py-3 sm:py-4">
               {isEditMode && (
-                <Alert className="bg-blue-50 border-blue-200 mb-4">
-                  <Info className="h-4 w-4 text-blue-600" />
-                  <AlertDescription className="text-blue-800 text-sm">
-                    <strong>Edit Mode:</strong> Ukhti sedang mengedit data pendaftaran yang sudah ada. Perubahan akan disimpan setelah menekan tombol "Update Pendaftaran".
-                  </AlertDescription>
-                </Alert>
+                <div className="space-y-3 mb-4">
+                  <Alert className="bg-blue-50 border-blue-200">
+                    <Info className="h-4 w-4 text-blue-600" />
+                    <AlertDescription className="text-blue-800 text-sm">
+                      <strong>Edit Mode:</strong> Ukhti sedang mengedit data pendaftaran yang sudah ada. Perubahan akan disimpan setelah menekan tombol &quot;Update Pendaftaran&quot;.
+                    </AlertDescription>
+                  </Alert>
+                  <RegistrationEditPhaseBanner
+                    editPhase={editPhase}
+                    editReason={editReason}
+                    onEditReasonChange={setEditReason}
+                  />
+                </div>
               )}
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-4">
                 <CardTitle className="text-base sm:text-lg md:text-xl text-green-900">
@@ -1552,7 +1681,22 @@ export default function ThalibahBatch2Page() {
 
                 {/* Hide navigation buttons on success */}
                 {submitStatus !== 'success' && submitStatus !== 'success_update' && (
-                  <div className="flex flex-col sm:flex-row justify-between gap-3 sm:gap-4 pt-4 sm:pt-6 border-t">
+                  <div className="space-y-4 pt-4 sm:pt-6 border-t">
+                    {Object.keys(errors).length > 0 && (
+                      <Alert className="bg-red-50 border-red-200">
+                        <AlertCircle className="h-4 w-4 text-red-600" />
+                        <AlertDescription className="text-red-800 text-sm">
+                          <p className="font-semibold mb-1">Mohon lengkapi pertanyaan berikut sebelum melanjutkan:</p>
+                          <ul className="list-disc list-inside space-y-1">
+                            {Object.entries(errors).map(([key, msg]) => (
+                              <li key={key}>{msg}</li>
+                            ))}
+                          </ul>
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
+                    <div className="flex flex-col sm:flex-row justify-between gap-3 sm:gap-4">
                     <Button
                       type="button"
                       variant="outline"
@@ -1593,12 +1737,18 @@ export default function ThalibahBatch2Page() {
                         )}
                       </Button>
                     )}
+                    </div>
                   </div>
                 )}
               </form>
             </CardContent>
           </Card>
 
+          {editHistory.length > 0 && (
+            <div className="mt-6">
+              <EditHistoryTimeline history={editHistory} defaultExpanded />
+            </div>
+          )}
 
         </div>
       </div>

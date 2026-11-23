@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, User, Calendar, Loader2, Key, ClipboardCheck, Users, Activity } from 'lucide-react';
-import { resetUserPassword } from '@/app/(protected)/admin/actions';
+import { resetUserPassword } from '@/lib/admin/admin-client';
 import { toast } from 'react-hot-toast';
 
 interface UserDetailModalProps {

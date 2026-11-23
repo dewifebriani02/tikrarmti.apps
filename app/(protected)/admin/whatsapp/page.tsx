@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import { 
+  CheckSquare, Square,
   MessageSquare, Send, CheckCircle2, AlertCircle, RefreshCw, 
   ArrowLeft, Shield, Phone, Search, Clock, Sparkles, Check, Zap,
-  Users, Play, Pause, AlertTriangle, Layers, UserCheck
+  Users, Play, Pause, AlertTriangle, Layers, UserCheck, Bot, MailCheck, Unlink, Link2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,6 +15,28 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { WhatsAppInboxTab } from '@/components/admin/whatsapp/WhatsAppInboxTab';
+import { WhatsAppAutoMessagesTab } from '@/components/admin/whatsapp/WhatsAppAutoMessagesTab';
+import { WhatsAppOutboxTab } from '@/components/admin/whatsapp/WhatsAppOutboxTab';
+import {
+  waitBetweenWhatsAppMessages,
+  classifyWhatsAppError,
+} from '@/lib/utils/whatsapp-throttle';
+
+interface WatZapLicenseItem {
+  keyHash: string;
+  maskedKey: string;
+  waNumber: string;
+  displayPhoneNumber?: string;
+  type: string;
+  statusFlag?: string;
+  connectionStatus?: string;
+  isConnectedReported: boolean;
+  isOnlineLive: boolean;
+  isActivePrimary: boolean;
+  isEnvDefault: boolean;
+  isExcludedFromMTI?: boolean;
+}
 
 interface WhatsAppStatus {
   configured: boolean;
@@ -28,6 +52,13 @@ interface WhatsAppStatus {
     isConnected?: boolean;
     expiresOn?: string;
     type?: string;
+    fallbackActive?: boolean;
+    fallbackSenderNumber?: string;
+    activeNumberKeyMasked?: string;
+    activeKeyHash?: string;
+    activeSource?: 'db_override' | 'default_4240' | 'env';
+    allowAutoFallback?: boolean;
+    updatedAt?: string | null;
   };
 }
 
@@ -46,6 +77,20 @@ interface BatchInfo {
   id: string;
   name: string;
   active_count: number | string;
+}
+
+interface AdminContact {
+  id: string;
+  full_name: string;
+  role: string;
+  whatsapp: string;
+  email?: string | null;
+}
+
+interface WhatsAppGroup {
+  groupId: string;
+  name: string;
+  participantCount: number;
 }
 
 interface ActiveThalibah {
@@ -87,6 +132,18 @@ const INDIVIDUAL_TEMPLATES = [
     label: 'Peringatan Evaluasi Jurnal Harian',
     body: (name: string) => 
       `Assalamu'alaikum Warahmatullahi Wabarakatuh.\n\nYkh. Ukhti ${name || 'Thalibah'},\n\nPemberitahuan Administrasi Akademik MTI:\nBerdasarkan evaluasi sistem, tercatat Ukhti belum melengkapi pengisian Jurnal Harian Tikrar. Mohon segera mengisi jurnal dan konfirmasi ke Musyrifah pendamping sebelum batas waktu evaluasi berakhir.\n\nTautan Jurnal:\n🔗 https://markaztikrar.id/jurnal-harian\n\n*(Mohon tidak membalas pesan ini karena dikirim secara otomatis oleh sistem).*\n\nJazakillahu khairan.\nWassalamu'alaikum Warahmatullahi Wabarakatuh.\n━━━━━━━━━━━━━━\nTim Akademik Markaz Tikrar Indonesia\n🌐 https://markaztikrar.id`,
+    },
+  {
+    id: 'undangan_tarteel',
+    label: 'Undangan Join Grup Tarteel AI MTI',
+    body: (name: string) =>
+      `Assalamu'alaikum Warahmatullahi Wabarakatuh.\n\nYkh. Ukhti *${name || 'Thalibah'}*,\n\nSemoga hafalan dan ikhtiar interaksi Al-Qur'an Ukhti senantiasa diberkahi oleh Allah Ta'ala.\n\nBagi Ukhti yang memilih metode muroja'ah mandiri menggunakan aplikasi Tarteel AI di Markaz Tikrar Indonesia (MTI), kami mengundang Ukhti untuk bergabung ke grup resmi Tarteel MTI melalui tautan berikut:\n\n🔗 *Link Gabung Grup Tarteel MTI:*\nhttps://t.zip/g/NV0qqSXfVSBkeaYC?ref=umCHUGFKdP\n\n📌 *Manfaat bergabung di grup Tarteel MTI:*\n• Mengikuti leaderboard dan tantangan tilawah harian sesama thalibah MTI\n• Memantau keaktifan dan durasi interaksi tilawah/muroja'ah secara otomatis\n• Mempermudah verifikasi dan evaluasi berkala oleh Tim Musyrifah\n\nPastikan aplikasi Tarteel sudah terpasang di smartphone Ukhti sebelum mengklik tautan di atas.\n\n*(Pesan otomatis dari Sistem Markaz Tikrar Indonesia).*\n\nJazakillahu khairan.\nWassalamu'alaikum Warahmatullahi Wabarakatuh.\n━━━━━━━━━━━━━━\nTim Akademik Markaz Tikrar Indonesia\n🌐 https://markaztikrar.id`,
+  },
+  {
+    id: 'reminder_sore_murojaah_40x',
+    label: 'Pengingat Sore Murojaah 40x (Target 2 Putaran)',
+    body: (name: string) =>
+      `Assalamu'alaikum Warahmatullahi Wabarakatuh Ukhti *${name || 'Thalibah'}* 🌸\n\n*Pengingat Sore Murojaah 40x MTI*\n\nMengingatkan kembali komitmen harian murojaah sore ini:\n• Target Harian: *2 Putaran/Hari*\n• Luangkan waktu sore menjelang maghrib untuk menuntaskan setoran hari ini agar hutang putaran tidak menumpuk.\n\n🔗 Catat putaran murojaah Ukhti di:\nhttps://markaztikrar.id/murojaah\n\nSemangat menjaga Al-Qur'an lillah! 💪🌿\n*(Mohon tidak membalas pesan otomatis ini)*`,
   },
 ];
 
@@ -135,7 +192,7 @@ Semoga Ukhti senantiasa dalam limpahan taufik dan lindungan Allah Ta'ala.
 
 Melalui pesan ini, kami menginformasikan bahwa *nomor resmi layanan notifikasi WhatsApp Markaz Tikrar Indonesia (MTI)* kini aktif melalui:
 
-📱 *0813-3000-0784* (Nomor Resmi MTI)
+📱 *0813-8884-240* (Nomor Resmi MTI)
 
 Nomor ini akan digunakan untuk menyampaikan informasi penting kegiatan thalibah, antara lain:
 1. Notifikasi dan tautan halaqah bimbingan.
@@ -175,11 +232,484 @@ Wassalamu'alaikum Warahmatullahi Wabarakatuh.
 ━━━━━━━━━━━━━━
 Tim Akademik Markaz Tikrar Indonesia
 🌐 https://markaztikrar.id`,
+    },
+  {
+    id: 'reminder_sore_murojaah_broadcast',
+    label: 'Broadcast Sore Murojaah 40x (Hutang Putaran)',
+    body: `Assalamu'alaikum Warahmatullahi Wabarakatuh Ukhti *{nama}* 🌸
+
+*Pengingat Sore Murojaah 40x MTI*
+
+Waktu sore menjelang maghrib adalah momen terbaik menuntaskan target hafalan harian:
+• Target Harian: *2 Putaran/Hari*
+• Pastikan 2 putaran hari ini lunas dan lunasi akumulasi hutang putaran hari-hari sebelumnya agar target kelulusan 20 hari tetap terjaga!
+
+🔗 Buka lembar murojaah Ukhti di:
+https://markaztikrar.id/murojaah
+
+Semoga Allah memberkahi lisan dan waktu kita bersama kalam-Nya. Aamiin. 🌿
+*(Pesan otomatis dari Sistem MTI)*`,
+  },
+  {
+    id: 'undangan_tarteel_broadcast',
+    label: 'Undangan Join Grup Tarteel AI MTI',
+    body: `Assalamu'alaikum Warahmatullahi Wabarakatuh.
+
+Ykh. Ukhti *{nama}*,
+
+Semoga hafalan dan ikhtiar interaksi Al-Qur'an Juz *{juz}* Ukhti senantiasa diberkahi oleh Allah Ta'ala.
+
+Bagi Ukhti yang memilih metode muroja'ah mandiri menggunakan aplikasi Tarteel AI di Markaz Tikrar Indonesia (MTI), kami mengundang Ukhti untuk bergabung ke grup resmi Tarteel MTI melalui tautan berikut:
+
+🔗 *Link Gabung Grup Tarteel MTI:*
+https://t.zip/g/NV0qqSXfVSBkeaYC?ref=umCHUGFKdP
+
+📌 *Manfaat bergabung di grup Tarteel MTI:*
+• Mengikuti leaderboard dan tantangan tilawah harian sesama thalibah MTI
+• Memantau keaktifan dan durasi interaksi tilawah/muroja'ah secara otomatis
+• Mempermudah verifikasi dan evaluasi berkala oleh Tim Musyrifah
+
+Pastikan aplikasi Tarteel sudah terpasang di smartphone Ukhti sebelum mengklik tautan di atas.
+
+*(Pesan otomatis dari Sistem Markaz Tikrar Indonesia).*
+
+Jazakillahu khairan.
+Wassalamu'alaikum Warahmatullahi Wabarakatuh.
+━━━━━━━━━━━━━━
+Tim Akademik Markaz Tikrar Indonesia
+🌐 https://markaztikrar.id`,
   },
 ];
 
+
+interface CcSelectorCardProps {
+  adminList: AdminContact[];
+  selectedAdminCc: string[];
+  toggleAdminCc: (phone: string) => void;
+  customCcList: string[];
+  customCcInput: string;
+  setCustomCcInput: (val: string) => void;
+  addCustomCc: () => void;
+  removeCustomCc: (phone: string) => void;
+  whatsappGroups: WhatsAppGroup[];
+  isLoadingGroups: boolean;
+  lastGroupsSync: string | null;
+  fetchWhatsappGroups: (forceRefresh?: boolean) => void;
+  selectedCcGroups: string[];
+  toggleGroupCc: (groupId: string) => void;
+  isCcExpanded: boolean;
+  setIsCcExpanded: React.Dispatch<React.SetStateAction<boolean>>;
+  ccTab: 'admin' | 'group';
+  setCcTab: React.Dispatch<React.SetStateAction<'admin' | 'group'>>;
+  groupSearchQuery: string;
+  setGroupSearchQuery: (val: string) => void;
+  onClearAll: () => void;
+}
+
+function CcSelectorCard({
+  adminList,
+  selectedAdminCc,
+  toggleAdminCc,
+  customCcList,
+  customCcInput,
+  setCustomCcInput,
+  addCustomCc,
+  removeCustomCc,
+  whatsappGroups,
+  isLoadingGroups,
+  lastGroupsSync,
+  fetchWhatsappGroups,
+  selectedCcGroups,
+  toggleGroupCc,
+  isCcExpanded,
+  setIsCcExpanded,
+  ccTab,
+  setCcTab,
+  groupSearchQuery,
+  setGroupSearchQuery,
+  onClearAll,
+}: CcSelectorCardProps) {
+  const allAdminCc = Array.from(new Set([...selectedAdminCc, ...customCcList])).filter(Boolean);
+  const totalCcCount = allAdminCc.length + selectedCcGroups.length;
+
+  const filteredGroups = whatsappGroups.filter(g =>
+    g.name.toLowerCase().includes(groupSearchQuery.toLowerCase())
+  );
+
+  return (
+    <div className="bg-gray-50/80 border border-gray-200 rounded-2xl p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center">
+            <Shield className="h-4 w-4" />
+          </div>
+          <div>
+            <span className="text-xs font-bold text-gray-900 block leading-tight">
+              Tembusan (CC) ke Admin & Grup MTI
+            </span>
+            <span className="text-[10px] text-gray-500">
+              {totalCcCount > 0
+                ? `${totalCcCount} tujuan tembusan dipilih (${allAdminCc.length} Admin, ${selectedCcGroups.length} Grup)`
+                : 'Kirimkan juga salinan pesan ke nomor admin atau grup WhatsApp'}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {totalCcCount > 0 && (
+            <button
+              type="button"
+              onClick={onClearAll}
+              className="text-[10px] text-gray-400 hover:text-red-600 underline font-semibold transition-colors"
+            >
+              Hapus Semua
+            </button>
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setIsCcExpanded(prev => !prev)}
+            className="rounded-xl text-xs h-7 px-2.5 border-gray-200 gap-1"
+          >
+            <span>{isCcExpanded ? 'Tutup Pilihan' : 'Pilih Admin & Grup'}</span>
+            <Badge className="bg-emerald-100 text-emerald-800 text-[10px] px-1.5 py-0 h-4 border-none font-bold">
+              {totalCcCount}
+            </Badge>
+          </Button>
+        </div>
+      </div>
+
+      {/* Ringkasan badge nomor dan grup yang aktif dipilih */}
+      {totalCcCount > 0 && (
+        <div className="flex flex-wrap gap-1.5 pt-1 border-t border-gray-200/60">
+          {/* Badge Admin */}
+          {allAdminCc.map(num => {
+            const matchedAdmin = adminList.find(a => a.whatsapp === num);
+            return (
+              <span
+                key={num}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-900 border border-emerald-200 text-xs font-semibold"
+              >
+                <UserCheck className="w-3 h-3 text-emerald-700" />
+                <span className="text-[11px]">
+                  {matchedAdmin ? `${matchedAdmin.full_name} (${num})` : num}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (matchedAdmin) toggleAdminCc(matchedAdmin.whatsapp);
+                    else removeCustomCc(num);
+                  }}
+                  className="text-emerald-700 hover:text-red-600 transition-colors ml-0.5"
+                  title="Hapus tembusan nomor ini"
+                >
+                  &times;
+                </button>
+              </span>
+            );
+          })}
+
+          {/* Badge Grup WhatsApp */}
+          {selectedCcGroups.map(gid => {
+            const matchedGroup = whatsappGroups.find(g => g.groupId === gid);
+            return (
+              <span
+                key={gid}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 text-blue-900 border border-blue-200 text-xs font-semibold"
+              >
+                <Users className="w-3 h-3 text-blue-700" />
+                <span className="text-[11px] truncate max-w-[200px]">
+                  {matchedGroup ? matchedGroup.name : 'Grup WhatsApp'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => toggleGroupCc(gid)}
+                  className="text-blue-700 hover:text-red-600 transition-colors ml-0.5"
+                  title="Hapus tembusan grup ini"
+                >
+                  &times;
+                </button>
+              </span>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Panel checklist admin & grup saat expanded */}
+      {isCcExpanded && (
+        <div className="pt-2 border-t border-gray-200 space-y-3 animate-fadeInUp">
+          {/* Sub-Tabs: Admin vs Grup */}
+          <div className="flex bg-gray-200/80 p-0.5 rounded-xl text-xs font-bold">
+            <button
+              type="button"
+              onClick={() => setCcTab('admin')}
+              className={`flex-1 py-1.5 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                ccTab === 'admin'
+                  ? 'bg-white text-emerald-800 shadow-xs'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <UserCheck className="w-3.5 h-3.5" />
+              <span>Nomor Admin</span>
+              {allAdminCc.length > 0 && (
+                <Badge className="bg-emerald-100 text-emerald-800 text-[10px] px-1 py-0 h-4 border-none">
+                  {allAdminCc.length}
+                </Badge>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setCcTab('group');
+                if (whatsappGroups.length === 0 && !isLoadingGroups) {
+                  fetchWhatsappGroups(false);
+                }
+              }}
+              className={`flex-1 py-1.5 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                ccTab === 'group'
+                  ? 'bg-white text-emerald-800 shadow-xs'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>Grup WhatsApp</span>
+              {selectedCcGroups.length > 0 && (
+                <Badge className="bg-blue-100 text-blue-800 text-[10px] px-1 py-0 h-4 border-none">
+                  {selectedCcGroups.length}
+                </Badge>
+              )}
+            </button>
+          </div>
+
+          {/* TAB 1: ADMIN */}
+          {ccTab === 'admin' && (
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-bold text-gray-700 block">
+                  Ceklis Nomor Admin Penerima Tembusan:
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-1 bg-white rounded-xl border border-gray-200">
+                  {adminList.length === 0 ? (
+                    <div className="col-span-2 text-center py-3 text-xs text-gray-400">
+                      Memuat daftar admin...
+                    </div>
+                  ) : (
+                    adminList.map(admin => {
+                      const isChecked = selectedAdminCc.includes(admin.whatsapp);
+                      return (
+                        <label
+                          key={admin.id}
+                          onClick={() => toggleAdminCc(admin.whatsapp)}
+                          className={`p-2 rounded-lg border text-xs flex items-center justify-between cursor-pointer transition-colors ${
+                            isChecked
+                              ? 'bg-emerald-50 border-emerald-300 text-emerald-950 font-bold'
+                              : 'hover:bg-gray-50 border-gray-100 text-gray-700'
+                          }`}
+                        >
+                          <div className="truncate mr-2">
+                            <div className="truncate leading-tight">{admin.full_name}</div>
+                            <div className="text-[10px] text-gray-500 font-mono font-normal">
+                              {admin.whatsapp} • <span className="uppercase">{admin.role}</span>
+                            </div>
+                          </div>
+                          <div className="shrink-0 text-emerald-700">
+                            {isChecked ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4 text-gray-300" />}
+                          </div>
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* Input nomor tembusan manual / tambahan */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-gray-700 block">
+                  Atau Tambah Nomor Tembusan Manual (WhatsApp):
+                </label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Contoh: 08123456789 atau 628..."
+                    value={customCcInput}
+                    onChange={(e) => setCustomCcInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        addCustomCc();
+                      }
+                    }}
+                    className="rounded-xl text-xs h-8 bg-white border-gray-200 font-mono"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addCustomCc}
+                    disabled={!customCcInput.trim()}
+                    className="rounded-xl text-xs h-8 border-gray-200 font-semibold px-3"
+                  >
+                    Tambah
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: GRUP WHATSAPP */}
+          {ccTab === 'group' && (
+            <div className="space-y-2.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                <div>
+                  <span className="text-[11px] font-bold text-gray-700 block">
+                    Ceklis Grup WhatsApp Tujuan Tembusan:
+                  </span>
+                  {lastGroupsSync && (
+                    <span className="text-[10px] text-gray-400">
+                      Terakhir ditarik: {new Date(lastGroupsSync).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                    </span>
+                  )}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fetchWhatsappGroups(true)}
+                  disabled={isLoadingGroups}
+                  className="h-7 rounded-xl text-[11px] border-emerald-200 text-emerald-800 hover:bg-emerald-50 font-bold gap-1 self-start sm:self-auto"
+                  title="Tarik daftar grup WhatsApp terbaru dari perangkat"
+                >
+                  <RefreshCw className={`w-3 h-3 ${isLoadingGroups ? 'animate-spin' : ''}`} />
+                  <span>{isLoadingGroups ? 'Menarik Grup...' : 'Tarik Grup Baru'}</span>
+                </Button>
+              </div>
+
+              {/* Search bar grup */}
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Input
+                  placeholder="Cari nama grup WhatsApp..."
+                  value={groupSearchQuery}
+                  onChange={(e) => setGroupSearchQuery(e.target.value)}
+                  className="rounded-xl text-xs h-8 bg-white border-gray-200 pl-8"
+                />
+              </div>
+
+              {/* List Grup */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto p-1 bg-white rounded-xl border border-gray-200">
+                {isLoadingGroups && whatsappGroups.length === 0 ? (
+                  <div className="col-span-2 text-center py-5 text-xs text-emerald-700 font-medium flex items-center justify-center gap-2">
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Menghubungi WatZap & memuat grup...</span>
+                  </div>
+                ) : filteredGroups.length === 0 ? (
+                  <div className="col-span-2 text-center py-5 text-xs text-gray-400 space-y-2">
+                    <p>{whatsappGroups.length === 0 ? 'Belum ada grup yang ditarik.' : 'Tidak ada grup yang sesuai pencarian.'}</p>
+                    {whatsappGroups.length === 0 && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => fetchWhatsappGroups(true)}
+                        className="rounded-xl text-xs h-8 bg-emerald-700 hover:bg-emerald-800 text-white font-bold"
+                      >
+                        <RefreshCw className="w-3 h-3 mr-1" /> Tarik Daftar Grup Sekarang
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  filteredGroups.map(group => {
+                    const isChecked = selectedCcGroups.includes(group.groupId);
+                    return (
+                      <label
+                        key={group.groupId}
+                        onClick={() => toggleGroupCc(group.groupId)}
+                        className={`p-2 rounded-lg border text-xs flex items-center justify-between cursor-pointer transition-colors ${
+                          isChecked
+                            ? 'bg-blue-50 border-blue-300 text-blue-950 font-bold'
+                            : 'hover:bg-gray-50 border-gray-100 text-gray-700'
+                        }`}
+                      >
+                        <div className="truncate mr-2">
+                          <div className="truncate leading-tight font-medium">{group.name}</div>
+                          <div className="text-[10px] text-gray-500 font-normal flex items-center gap-1 mt-0.5">
+                            <span className="px-1.5 py-0.2 bg-gray-100 rounded text-[9px] font-semibold text-gray-600">
+                              {group.participantCount} Peserta
+                            </span>
+                          </div>
+                        </div>
+                        <div className="shrink-0 text-blue-700">
+                          {isChecked ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4 text-gray-300" />}
+                        </div>
+                      </label>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 export default function AdminWhatsAppPage() {
-  const [activeTab, setActiveTab] = useState<'broadcast' | 'individual'>('broadcast');
+  const [activeTab, setActiveTab] = useState<'inbox' | 'outbox' | 'broadcast' | 'individual' | 'auto'>('inbox');
+  const [autoMsgStats, setAutoMsgStats] = useState<{ active: number; total: number } | null>(null);
+  const [outboxSummary, setOutboxSummary] = useState<{ totalAll: number; sentToday: number; failedAll: number; fallbackAll: number } | null>(null);
+  const [outboxRefreshSignal, setOutboxRefreshSignal] = useState(0);
+
+  const handleOutboxSummaryChange = useCallback(
+    (summary: { totalAll: number; sentToday: number; failedAll: number; fallbackAll: number }) => {
+      setOutboxSummary((prev) =>
+        prev &&
+        prev.totalAll === summary.totalAll &&
+        prev.sentToday === summary.sentToday &&
+        prev.failedAll === summary.failedAll &&
+        prev.fallbackAll === summary.fallbackAll
+          ? prev
+          : summary
+      );
+    },
+    []
+  );
+
+  const handleAutoMsgCountChange = useCallback((active: number, total: number) => {
+    setAutoMsgStats((prev) =>
+      prev && prev.active === active && prev.total === total ? prev : { active, total }
+    );
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get('tab');
+      if (tab === 'broadcast' || tab === 'individual' || tab === 'inbox' || tab === 'outbox' || tab === 'auto') {
+        setActiveTab(tab);
+      }
+    }
+    fetch('/api/admin/whatsapp/auto-messages')
+      .then((r) => r.json())
+      .then((json) => {
+        if (json?.success && Array.isArray(json?.data?.items)) {
+          const items = json.data.items;
+          setAutoMsgStats({
+            active: items.filter((i: { enabled: boolean }) => i.enabled).length,
+            total: items.length,
+          });
+        }
+      })
+      .catch(() => {});
+    fetch('/api/admin/whatsapp/outbox?limit=1')
+      .then((r) => r.json())
+      .then((json) => {
+        if (json?.success && json?.data?.summary) {
+          setOutboxSummary(json.data.summary);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Status state
   const [status, setStatus] = useState<WhatsAppStatus | null>(null);
@@ -199,6 +729,7 @@ export default function AdminWhatsAppPage() {
   const [broadcastIndex, setBroadcastIndex] = useState(0);
   const [broadcastSuccessCount, setBroadcastSuccessCount] = useState(0);
   const [broadcastFailCount, setBroadcastFailCount] = useState(0);
+  const [broadcastStatusNote, setBroadcastStatusNote] = useState<string | null>(null);
   const [broadcastLogs, setBroadcastLogs] = useState<Array<{
     name: string;
     phone: string;
@@ -230,8 +761,174 @@ export default function AdminWhatsAppPage() {
     email?: string;
   }>>([]);
 
+  // Admin & Group CC / Tembusan state
+  const [adminList, setAdminList] = useState<AdminContact[]>([]);
+  const [selectedAdminCc, setSelectedAdminCc] = useState<string[]>([]);
+  const [customCcInput, setCustomCcInput] = useState('');
+  const [customCcList, setCustomCcList] = useState<string[]>([]);
+  const [isCcExpanded, setIsCcExpanded] = useState(false);
+
+  // WhatsApp Groups CC state
+  const [whatsappGroups, setWhatsappGroups] = useState<WhatsAppGroup[]>([]);
+  const [isLoadingGroups, setIsLoadingGroups] = useState(false);
+  const [lastGroupsSync, setLastGroupsSync] = useState<string | null>(null);
+  const [selectedCcGroups, setSelectedCcGroups] = useState<string[]>([]);
+  const [groupSearchQuery, setGroupSearchQuery] = useState('');
+  const [ccTab, setCcTab] = useState<'admin' | 'group'>('admin');
+
+  const toggleGroupCc = (groupId: string) => {
+    setSelectedCcGroups(prev =>
+      prev.includes(groupId) ? prev.filter(g => g !== groupId) : [...prev, groupId]
+    );
+  };
+
+  const handleClearAllCc = () => {
+    setSelectedAdminCc([]);
+    setCustomCcList([]);
+    setSelectedCcGroups([]);
+  };
+
+  const fetchWhatsappGroups = async (forceRefresh = false) => {
+    setIsLoadingGroups(true);
+    try {
+      const res = await fetch(`/api/admin/whatsapp/groups${forceRefresh ? '?refresh=true' : ''}`);
+      const json = await res.json();
+      if (res.ok && json.success && json.data) {
+        setWhatsappGroups(json.data.groups || []);
+        if (json.data.lastFetchedAt) {
+          setLastGroupsSync(json.data.lastFetchedAt);
+        }
+        if (forceRefresh) {
+          toast.success(`Berhasil menarik ${json.data.groups?.length || 0} grup WhatsApp terbaru!`);
+        }
+      } else {
+        if (forceRefresh) {
+          toast.error(json.error || 'Gagal memuat grup WhatsApp');
+        }
+      }
+    } catch (err: any) {
+      if (forceRefresh) {
+        toast.error('Gagal terhubung ke layanan grup WhatsApp');
+      }
+    } finally {
+      setIsLoadingGroups(false);
+    }
+  };
+
   // Local message logs
   const [messageLogs, setMessageLogs] = useState<MessageLog[]>([]);
+
+  // WatZap licenses switcher state
+  const [licenses, setLicenses] = useState<WatZapLicenseItem[]>([]);
+  const [isLoadingLicenses, setIsLoadingLicenses] = useState(false);
+  const [isSwitchingLicense, setIsSwitchingLicense] = useState<string | null>(null);
+  const [isTogglingExclusion, setIsTogglingExclusion] = useState<string | null>(null);
+  const [confirmDisconnectHash, setConfirmDisconnectHash] = useState<string | null>(null);
+  const [allowAutoFallback, setAllowAutoFallback] = useState<boolean>(false);
+  const [isLicensePanelOpen, setIsLicensePanelOpen] = useState<boolean>(true);
+
+  const fetchLicenses = async () => {
+    setIsLoadingLicenses(true);
+    try {
+      const res = await fetch('/api/admin/whatsapp/licenses');
+      const json = await res.json();
+      if (json.success && json.data) {
+        setLicenses(json.data.licenses || []);
+        if (typeof json.data.allowAutoFallback === 'boolean') {
+          setAllowAutoFallback(json.data.allowAutoFallback);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch WatZap licenses:', err);
+    } finally {
+      setIsLoadingLicenses(false);
+    }
+  };
+
+  const handleSwitchLicense = async (lic: WatZapLicenseItem) => {
+    setIsSwitchingLicense(lic.keyHash);
+    try {
+      const res = await fetch('/api/admin/whatsapp/active-number', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          keyHash: lic.keyHash,
+          waNumber: lic.waNumber,
+          allowAutoFallback,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok && json.success && json.data) {
+        if (json.data.status) setStatus(json.data.status);
+        if (json.data.licenses?.licenses) {
+          setLicenses(json.data.licenses.licenses);
+        }
+        toast.success(`Nomor pengirim aktif diubah ke ${lic.displayPhoneNumber || lic.waNumber}`);
+      } else {
+        toast.error(json.error || json.message || 'Gagal mengganti nomor aktif');
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Gagal mengganti nomor WhatsApp');
+    } finally {
+      setIsSwitchingLicense(null);
+    }
+  };
+
+  const handleToggleLicenseMTI = async (lic: WatZapLicenseItem, disconnect: boolean) => {
+    setIsTogglingExclusion(lic.keyHash);
+    try {
+      const res = await fetch('/api/admin/whatsapp/active-number', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: disconnect ? 'disconnect_mti' : 'reconnect_mti',
+          keyHash: lic.keyHash,
+          waNumber: lic.waNumber,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok && json.success && json.data) {
+        if (json.data.status) setStatus(json.data.status);
+        if (json.data.licenses?.licenses) {
+          setLicenses(json.data.licenses.licenses);
+        }
+        setConfirmDisconnectHash(null);
+        toast.success(
+          disconnect
+            ? `${lic.displayPhoneNumber || lic.waNumber} diputuskan dari MTI (tetap aktif di WatZap / aplikasi lain)`
+            : `${lic.displayPhoneNumber || lic.waNumber} dihubungkan kembali ke MTI`
+        );
+      } else {
+        toast.error(json.error || json.message || 'Gagal memperbarui koneksi nomor di MTI');
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Gagal memperbarui koneksi nomor di MTI');
+    } finally {
+      setIsTogglingExclusion(null);
+    }
+  };
+
+  const handleToggleAutoFallback = async (nextValue: boolean) => {
+    setAllowAutoFallback(nextValue);
+    try {
+      const res = await fetch('/api/admin/whatsapp/active-number', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ allowAutoFallback: nextValue }),
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        if (json.data?.status) setStatus(json.data.status);
+        toast.success(
+          nextValue
+            ? 'Fallback otomatis ke nomor cadangan diaktifkan'
+            : 'Fallback otomatis dimatikan (hanya gunakan nomor terpilih)'
+        );
+      }
+    } catch {
+      toast.error('Gagal menyimpan pengaturan fallback');
+    }
+  };
 
   // Fetch status on load
   const fetchStatus = async () => {
@@ -241,6 +938,9 @@ export default function AdminWhatsAppPage() {
       const json = await res.json();
       if (json.success && json.data) {
         setStatus(json.data);
+        if (typeof json.data.watzap?.allowAutoFallback === 'boolean') {
+          setAllowAutoFallback(json.data.watzap.allowAutoFallback);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch WhatsApp status:', err);
@@ -272,6 +972,9 @@ export default function AdminWhatsAppPage() {
           }
         }
         setRecipients(json.data.recipients || []);
+        if (Array.isArray(json.data.admins)) {
+          setAdminList(json.data.admins);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch recipients from v_active_thalibah:', err);
@@ -282,12 +985,44 @@ export default function AdminWhatsAppPage() {
 
   useEffect(() => {
     fetchStatus();
+    fetchLicenses();
     fetchRecipients();
+    fetchWhatsappGroups(false);
     try {
       const saved = localStorage.getItem('mti_wa_logs');
       if (saved) setMessageLogs(JSON.parse(saved));
     } catch {}
+
+    // Tarik daftar grup baru secara berkala setiap 5 menit
+    const groupInterval = setInterval(() => {
+      fetchWhatsappGroups(false);
+    }, 5 * 60 * 1000);
+
+    return () => clearInterval(groupInterval);
   }, []);
+
+  const toggleAdminCc = (phone: string) => {
+    setSelectedAdminCc(prev => 
+      prev.includes(phone) ? prev.filter(p => p !== phone) : [...prev, phone]
+    );
+  };
+
+  const addCustomCc = () => {
+    const trimmed = customCcInput.trim().replace(/[^0-9+]/g, '');
+    if (!trimmed) return;
+    if (!customCcList.includes(trimmed)) {
+      setCustomCcList(prev => [...prev, trimmed]);
+    }
+    setCustomCcInput('');
+  };
+
+  const removeCustomCc = (phone: string) => {
+    setCustomCcList(prev => prev.filter(p => p !== phone));
+  };
+
+  const getAllCcNumbers = () => {
+    return Array.from(new Set([...selectedAdminCc, ...customCcList])).filter(Boolean);
+  };
 
   const handleBatchChange = (batchId: string) => {
     setSelectedBatchId(batchId);
@@ -343,7 +1078,7 @@ export default function AdminWhatsAppPage() {
     setSearchQuery('');
   };
 
-  // Run broadcast runner directly with real-time feedback
+  // Run broadcast runner directly with safe randomized throttling (4-7s + batch pause + auto-stop on error/limit)
   const startBroadcast = async () => {
     if (recipients.length === 0 || !broadcastTemplate.trim()) return;
     
@@ -354,6 +1089,11 @@ export default function AdminWhatsAppPage() {
     setBroadcastSuccessCount(0);
     setBroadcastFailCount(0);
     setBroadcastLogs([]);
+    setBroadcastStatusNote('Memulai pengiriman dengan jeda aman acak 4–7 detik & istirahat per 15 pesan...');
+
+    const activeCcNumbers = getAllCcNumbers();
+    let stoppedByError = false;
+    let consecutiveErrors = 0;
 
     for (let i = 0; i < recipients.length; i++) {
       if (abortBroadcastRef.current) {
@@ -362,6 +1102,7 @@ export default function AdminWhatsAppPage() {
 
       setBroadcastIndex(i + 1);
       const recipient = recipients[i];
+      setBroadcastStatusNote(`Mengirim ke ${recipient.fullName} (${i + 1}/${recipients.length})...`);
 
       try {
         const res = await fetch('/api/admin/whatsapp/broadcast', {
@@ -375,37 +1116,143 @@ export default function AdminWhatsAppPage() {
 
         const json = await res.json();
         if (json.success && json.data?.success) {
+          consecutiveErrors = 0;
           setBroadcastSuccessCount(prev => prev + 1);
           setBroadcastLogs(prev => [
             { name: recipient.fullName, phone: recipient.whatsapp, success: true, messageId: json.data?.messageId },
             ...prev
           ]);
         } else {
+          const errMsg = json.data?.error || json.message || 'Gagal mengirim pesan';
           setBroadcastFailCount(prev => prev + 1);
           setBroadcastLogs(prev => [
-            { name: recipient.fullName, phone: recipient.whatsapp, success: false, error: json.data?.error || json.message },
+            { name: recipient.fullName, phone: recipient.whatsapp, success: false, error: errMsg },
             ...prev
           ]);
+
+          const errClass = classifyWhatsAppError(errMsg, {
+            rateLimited: json.data?.rateLimited,
+            fatalInstanceError: json.data?.fatalInstanceError,
+          });
+          if (errClass.shouldStopBatch) {
+            stoppedByError = true;
+            const stopText = `Broadcast dihentikan otomatis: ${errMsg}`;
+            setBroadcastStatusNote(stopText);
+            toast.error(stopText);
+            break;
+          }
+
+          consecutiveErrors++;
+          if (consecutiveErrors >= 3) {
+            stoppedByError = true;
+            const stopText = `Broadcast dihentikan otomatis setelah ${consecutiveErrors} kegagalan berturut-turut (${errMsg})`;
+            setBroadcastStatusNote(stopText);
+            toast.error(stopText);
+            break;
+          }
         }
       } catch (err) {
+        const errMsg = (err as Error).message || 'Network error';
         setBroadcastFailCount(prev => prev + 1);
         setBroadcastLogs(prev => [
-          { name: recipient.fullName, phone: recipient.whatsapp, success: false, error: (err as Error).message },
+          { name: recipient.fullName, phone: recipient.whatsapp, success: false, error: errMsg },
           ...prev
         ]);
+        consecutiveErrors++;
+        if (consecutiveErrors >= 3) {
+          stoppedByError = true;
+          const stopText = `Broadcast dihentikan otomatis setelah ${consecutiveErrors} gangguan koneksi berturut-turut`;
+          setBroadcastStatusNote(stopText);
+          toast.error(stopText);
+          break;
+        }
       }
 
-      // Safe delay 2.5 detik per pesan agar tidak terkena anti-spam
       if (i < recipients.length - 1 && !abortBroadcastRef.current) {
-        await new Promise(r => setTimeout(r, 2500));
+        const waitRes = await waitBetweenWhatsAppMessages(i, recipients.length, {
+          shouldAbort: () => abortBroadcastRef.current,
+          onWaitStart: ({ delayMs, batchPaused }) => {
+            const sec = Math.round(delayMs / 1000);
+            setBroadcastStatusNote(
+              batchPaused
+                ? `Istirahat antar batch (${sec} detik) setelah ${i + 1} pesan untuk mencegah blokir WhatsApp...`
+                : `Jeda aman ${sec} detik sebelum penerima berikutnya...`
+            );
+          },
+        });
+        if (waitRes.aborted) {
+          break;
+        }
       }
     }
 
+    // Kirim tembusan salinan broadcast ke nomor Admin yang diceklis (hanya jika tidak dihentikan error/abort)
+    if (activeCcNumbers.length > 0 && !abortBroadcastRef.current && !stoppedByError) {
+      const selectedBatchName = batches.find(b => b.id === selectedBatchId)?.name || 'Batch Thalibah';
+      const ccBroadcastMsg = `_📌 [TEMBUSAN BROADCAST ADMIN MTI]_\n\n*Laporan Pengiriman Broadcast ke ${recipients.length} Thalibah:*\n• Angkatan: *${selectedBatchName}*\n• Waktu: *${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} WIB*\n\n*Isi Pesan Broadcast:*\n━━━━━━━━━━━━━━\n${broadcastTemplate}\n━━━━━━━━━━━━━━\n*(Tembusan resmi terkirim otomatis ke Admin MTI)*`;
+      
+      for (let idx = 0; idx < activeCcNumbers.length; idx++) {
+        if (abortBroadcastRef.current) break;
+        const ccPhone = activeCcNumbers[idx];
+        try {
+          await fetch('/api/admin/whatsapp/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              to: ccPhone,
+              message: ccBroadcastMsg,
+              sourceTag: 'individual_cc',
+            }),
+          });
+        } catch (ccErr) {
+          console.error('Failed to send broadcast CC to:', ccPhone, ccErr);
+        }
+        if (idx < activeCcNumbers.length - 1) {
+          await waitBetweenWhatsAppMessages(idx, activeCcNumbers.length, {
+            shouldAbort: () => abortBroadcastRef.current,
+          });
+        }
+      }
+    }
+
+    // Kirim tembusan salinan broadcast ke grup WhatsApp yang diceklis
+    if (selectedCcGroups.length > 0 && !abortBroadcastRef.current && !stoppedByError) {
+      const selectedBatchName = batches.find(b => b.id === selectedBatchId)?.name || 'Batch Thalibah';
+      const ccGroupBroadcastMsg = `_📌 [TEMBUSAN BROADCAST ADMIN MTI]_\n\n*Laporan Pengiriman Broadcast ke ${recipients.length} Thalibah:*\n• Angkatan: *${selectedBatchName}*\n• Waktu: *${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} WIB*\n\n*Isi Pesan Broadcast:*\n━━━━━━━━━━━━━━\n${broadcastTemplate}\n━━━━━━━━━━━━━━\n*(Tembusan resmi terkirim otomatis ke Grup WhatsApp MTI)*`;
+
+      for (let idx = 0; idx < selectedCcGroups.length; idx++) {
+        if (abortBroadcastRef.current) break;
+        const grpId = selectedCcGroups[idx];
+        try {
+          await fetch('/api/admin/whatsapp/send-group', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              groupId: grpId,
+              message: ccGroupBroadcastMsg,
+              sourceTag: 'individual_cc',
+            }),
+          });
+        } catch (grpErr) {
+          console.error('Failed to send broadcast CC to group:', grpId, grpErr);
+        }
+        if (idx < selectedCcGroups.length - 1) {
+          await waitBetweenWhatsAppMessages(idx, selectedCcGroups.length, {
+            shouldAbort: () => abortBroadcastRef.current,
+          });
+        }
+      }
+    }
+
+    if (!stoppedByError && !abortBroadcastRef.current) {
+      setBroadcastStatusNote('Broadcast selesai dijalankan dengan throttling aman.');
+    }
     setIsBroadcasting(false);
   };
 
   const stopBroadcast = () => {
     abortBroadcastRef.current = true;
+    setBroadcastStatusNote('Broadcast dihentikan oleh admin.');
     setIsBroadcasting(false);
   };
 
@@ -418,12 +1265,16 @@ export default function AdminWhatsAppPage() {
     setSendFeedback(null);
 
     try {
+      const activeCcNumbers = getAllCcNumbers();
       const res = await fetch('/api/admin/whatsapp/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           to: recipientPhone.trim(),
+          recipientName: recipientName.trim() || undefined,
           message: messageBody.trim(),
+          ccNumbers: activeCcNumbers.length > 0 ? activeCcNumbers : undefined,
+          ccGroupIds: selectedCcGroups.length > 0 ? selectedCcGroups : undefined,
         }),
       });
 
@@ -448,7 +1299,9 @@ export default function AdminWhatsAppPage() {
 
         setSendFeedback({
           type: 'success',
-          text: `Pesan WhatsApp berhasil dikirim ke ${recipientPhone}!`,
+          text: activeCcNumbers.length > 0 
+            ? `Pesan WhatsApp berhasil dikirim ke ${recipientPhone} & tembusan ke ${activeCcNumbers.length} nomor Admin!`
+            : `Pesan WhatsApp berhasil dikirim ke ${recipientPhone}!`,
           details: json.data?.messageId ? `Message ID: ${json.data.messageId}` : undefined,
         });
       } else {
@@ -510,7 +1363,7 @@ export default function AdminWhatsAppPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => { fetchStatus(); fetchRecipients(selectedBatchId); }}
+                onClick={() => { fetchStatus(); fetchLicenses(); fetchRecipients(selectedBatchId); setOutboxRefreshSignal((n) => n + 1); }}
                 disabled={isLoadingStatus || isLoadingRecipients}
                 className="rounded-xl border-gray-200 text-xs font-semibold gap-2"
               >
@@ -521,28 +1374,89 @@ export default function AdminWhatsAppPage() {
           </div>
 
           {/* Tab Navigation */}
-          <div className="flex items-center gap-2 mt-4 pt-3 border-t border-gray-100">
+          <div className="flex items-center gap-2 mt-4 pt-3 border-t border-gray-100 overflow-x-auto pb-1">
+            <button
+              onClick={() => setActiveTab('inbox')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+                activeTab === 'inbox'
+                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200/70'
+              }`}
+            >
+              <MessageSquare className="h-4 w-4" />
+              Kotak Masuk (Live Chat Inbox)
+            </button>
+            <button
+              onClick={() => setActiveTab('outbox')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+                activeTab === 'outbox'
+                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200/70'
+              }`}
+            >
+              <MailCheck className="h-4 w-4" />
+              <span>Kotak Keluar (Outbox)</span>
+              {outboxSummary && (
+                <span
+                  className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold ${
+                    activeTab === 'outbox'
+                      ? 'bg-white/20 text-white'
+                      : outboxSummary.failedAll > 0
+                      ? 'bg-rose-100 text-rose-800'
+                      : 'bg-emerald-100 text-emerald-800'
+                  }`}
+                >
+                  {outboxSummary.failedAll > 0
+                    ? `${outboxSummary.failedAll} Gagal`
+                    : `${outboxSummary.totalAll}`}
+                </span>
+              )}
+            </button>
             <button
               onClick={() => setActiveTab('broadcast')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
                 activeTab === 'broadcast'
                   ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200/70'
               }`}
             >
               <Users className="h-4 w-4" />
-              Broadcast Thalibah Aktif (v_active_thalibah)
+              Broadcast Thalibah Aktif
             </button>
             <button
               onClick={() => setActiveTab('individual')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
                 activeTab === 'individual'
                   ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200/70'
               }`}
             >
-              <MessageSquare className="h-4 w-4" />
+              <Send className="h-4 w-4" />
               Kirim Pesan Perorangan
+            </button>
+            <button
+              onClick={() => setActiveTab('auto')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+                activeTab === 'auto'
+                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200/70'
+              }`}
+            >
+              <Bot className="h-4 w-4" />
+              <span>Pesan Otomatis</span>
+              {autoMsgStats && (
+                <span
+                  className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold ${
+                    activeTab === 'auto'
+                      ? 'bg-white/20 text-white'
+                      : autoMsgStats.active > 0
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : 'bg-gray-200 text-gray-600'
+                  }`}
+                >
+                  {autoMsgStats.active}/{autoMsgStats.total} Aktif
+                </span>
+              )}
             </button>
           </div>
         </div>
@@ -566,7 +1480,11 @@ export default function AdminWhatsAppPage() {
                     <h3 className="font-bold text-gray-900 text-base">
                       Layanan WhatsApp Gateway Resmi
                     </h3>
-                    {status?.watzap?.isConnected ? (
+                    {status?.watzap?.fallbackActive ? (
+                      <Badge className="bg-amber-100 text-amber-900 hover:bg-amber-100 border-amber-300 text-xs">
+                        Mode Cadangan Aktif
+                      </Badge>
+                    ) : status?.watzap?.isConnected ? (
                       <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200 text-xs">
                         Aktif & Terhubung
                       </Badge>
@@ -579,28 +1497,286 @@ export default function AdminWhatsAppPage() {
                   <p className="text-xs text-gray-500 leading-relaxed">
                     Nomor Pengirim:{' '}
                     <span className="font-semibold text-gray-700 font-mono">
-                      {status?.watzap?.displayPhoneNumber || '0813-3000-0784'}
+                      {status?.watzap?.displayPhoneNumber || '0813-8884-240'}
                     </span>
-                    {status?.watzap?.accountName && ` (${status.watzap.accountName})`}
+                    {` (${status?.watzap?.accountName || "Markaz Tikrar Indonesia"})`}
                     {status?.watzap?.plan && ` • Paket ${status.watzap.plan}`}
                   </p>
+                  {status?.watzap?.fallbackActive && (
+                    <p className="text-[11px] text-amber-700 font-medium mt-1">
+                      Nomor utama sedang offline — pengiriman otomatis dialihkan via nomor cadangan{" "}
+                      <span className="font-mono font-bold">{status.watzap.fallbackSenderNumber || "-"}</span>.{" "}
+                      Mohon scan ulang QR perangkat utama di app.watzap.id.
+                    </p>
+                  )}
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 bg-gray-50 px-4 py-2.5 rounded-2xl border border-gray-100">
-                <div className="text-right">
-                  <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
-                    Sumber Data Thalibah
-                  </div>
-                  <div className="text-xs font-bold text-emerald-700 flex items-center justify-end gap-1.5 mt-0.5">
-                    <UserCheck className="h-3.5 w-3.5" />
-                    v_active_thalibah (Strict Filter)
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    fetchStatus();
+                    fetchLicenses();
+                  }}
+                  disabled={isLoadingStatus || isLoadingLicenses}
+                  className="rounded-xl text-xs h-9 border-gray-200 gap-1.5"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${isLoadingStatus || isLoadingLicenses ? 'animate-spin' : ''}`} />
+                  Cek Status
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsLicensePanelOpen((prev) => !prev)}
+                  className="rounded-xl text-xs h-9 border-emerald-200 text-emerald-800 hover:bg-emerald-50 font-semibold"
+                >
+                  {isLicensePanelOpen ? 'Tutup Switcher Nomor' : 'Ganti Nomor Pengirim'}
+                </Button>
+                <div className="flex items-center gap-3 bg-gray-50 px-4 py-2.5 rounded-2xl border border-gray-100">
+                  <div className="text-right">
+                    <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                      Sumber Data Thalibah
+                    </div>
+                    <div className="text-xs font-bold text-emerald-700 flex items-center justify-end gap-1.5 mt-0.5">
+                      <UserCheck className="h-3.5 w-3.5" />
+                      v_active_thalibah (Strict Filter)
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
+
+            {isLicensePanelOpen && (
+              <div className="mt-5 pt-5 border-t border-gray-100 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <div className="text-xs font-bold text-gray-900 flex flex-wrap items-center gap-2">
+                      <span>Pilihan Nomor Lisensi WatZap (Nomor Pengirim Notifikasi)</span>
+                      {status?.watzap?.activeNumberKeyMasked && (
+                        <Badge variant="outline" className="font-mono text-[10px] text-gray-600">
+                          Key: {status.watzap.activeNumberKeyMasked}
+                        </Badge>
+                      )}
+                      {licenses.some((l) => l.isExcludedFromMTI) && (
+                        <Badge variant="outline" className="text-[10px] border-amber-300 bg-amber-50 text-amber-800">
+                          {licenses.filter((l) => l.isExcludedFromMTI).length} nomor diputus dari MTI
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-gray-500 mt-0.5">
+                      Pilih nomor aktif MTI atau klik <span className="font-semibold text-gray-700">Putuskan dari MTI</span> untuk nomor bersama akun WatZap (misal AQLI) tanpa logout dari WatZap.
+                    </p>
+                  </div>
+                  <label className="inline-flex items-center gap-2 text-xs text-gray-700 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-200 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={allowAutoFallback}
+                      onChange={(e) => handleToggleAutoFallback(e.target.checked)}
+                      className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <span className="font-medium">Fallback otomatis ke nomor lain jika offline (OFF = aman, tidak pakai nomor HP pribadi)</span>
+                  </label>
+                </div>
+
+                {isLoadingLicenses && licenses.length === 0 ? (
+                  <div className="text-xs text-gray-500 py-3 flex items-center gap-2">
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin text-emerald-600" />
+                    Memuat daftar lisensi WatZap...
+                  </div>
+                ) : licenses.length === 0 ? (
+                  <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                    Belum ada daftar lisensi WatZap yang termuat. Pastikan WATZAP_API_KEY aktif dan klik &quot;Cek Status&quot;.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {licenses.map((lic) => {
+                      const isSwitching = isSwitchingLicense === lic.keyHash;
+                      const isToggling = isTogglingExclusion === lic.keyHash;
+                      const isExcluded = Boolean(lic.isExcludedFromMTI);
+                      const isConfirmingDisconnect = confirmDisconnectHash === lic.keyHash;
+                      const isBusy = Boolean(isSwitchingLicense || isTogglingExclusion);
+                      return (
+                        <div
+                          key={lic.keyHash || lic.waNumber}
+                          className={`rounded-2xl border p-3.5 flex flex-col justify-between gap-3 transition-all ${
+                            lic.isActivePrimary
+                              ? 'border-emerald-400 bg-emerald-50/60 shadow-xs'
+                              : isExcluded
+                              ? 'border-dashed border-gray-300 bg-gray-50/90'
+                              : 'border-gray-200 bg-white hover:border-gray-300'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <div className={`font-mono font-bold text-sm ${isExcluded ? 'text-gray-500' : 'text-gray-900'}`}>
+                                {lic.displayPhoneNumber || lic.waNumber || 'Nomor Tidak Diketahui'}
+                              </div>
+                              <div className="text-[11px] text-gray-500 font-mono mt-0.5">
+                                {lic.maskedKey} • {lic.type}
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-end gap-1">
+                              {isExcluded ? (
+                                <>
+                                  <Badge className="bg-amber-100 text-amber-900 hover:bg-amber-100 border-amber-200 text-[10px]">
+                                    Diputus dari MTI
+                                  </Badge>
+                                  <Badge variant="outline" className="text-[10px] text-gray-500 border-gray-200 bg-white">
+                                    {lic.isOnlineLive ? 'Online di WatZap' : 'Offline di WatZap'}
+                                  </Badge>
+                                </>
+                              ) : (
+                                <>
+                                  {lic.isOnlineLive ? (
+                                    <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200 text-[10px]">
+                                      Online
+                                    </Badge>
+                                  ) : (
+                                    <Badge className="bg-red-100 text-red-800 hover:bg-red-100 border-red-200 text-[10px]">
+                                      Offline
+                                    </Badge>
+                                  )}
+                                  {lic.isActivePrimary && (
+                                    <Badge className="bg-emerald-700 text-white hover:bg-emerald-700 text-[10px]">
+                                      Aktif Dipakai
+                                    </Badge>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </div>
+
+                          {isExcluded ? (
+                            <div className="space-y-2 pt-1.5 border-t border-gray-200/80">
+                              <p className="text-[10px] text-gray-500 leading-relaxed">
+                                Diabaikan sistem MTI (tidak dipakai kirim pesan, fallback, maupun inbox). Tetap aman aktif di WatZap / aplikasi lain (mis. AQLI).
+                              </p>
+                              <div className="flex justify-end">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={isBusy}
+                                  onClick={() => handleToggleLicenseMTI(lic, false)}
+                                  className="h-7 rounded-xl text-[11px] px-3 border-emerald-200 text-emerald-800 hover:bg-emerald-50 gap-1"
+                                >
+                                  <Link2 className="h-3 w-3" />
+                                  {isToggling ? 'Menghubungkan...' : 'Hubungkan ke MTI'}
+                                </Button>
+                              </div>
+                            </div>
+                          ) : isConfirmingDisconnect ? (
+                            <div className="space-y-2 pt-2 border-t border-amber-200 bg-amber-50/70 -mx-1 px-2.5 py-2 rounded-xl">
+                              <p className="text-[10px] text-amber-900 leading-relaxed">
+                                Putuskan nomor ini dari <strong>MTI saja</strong>? Nomor tetap tersambung di WatZap (aman untuk AQLI/app lain), hanya tidak dipakai MTI.
+                              </p>
+                              <div className="flex items-center justify-end gap-1.5">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={isBusy}
+                                  onClick={() => setConfirmDisconnectHash(null)}
+                                  className="h-6 rounded-lg text-[10px] px-2.5 border-gray-200 bg-white text-gray-600"
+                                >
+                                  Batal
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  disabled={isBusy}
+                                  onClick={() => handleToggleLicenseMTI(lic, true)}
+                                  className="h-6 rounded-lg text-[10px] px-2.5 bg-red-600 hover:bg-red-700 text-white"
+                                >
+                                  {isToggling ? 'Memutuskan...' : 'Ya, Putuskan dari MTI'}
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-gray-100">
+                              <span className="text-[10px] text-gray-400">
+                                {lic.waNumber.endsWith('4240')
+                                  ? 'Nomor Resmi Utama (...4240)'
+                                  : lic.isEnvDefault
+                                  ? 'Default .env'
+                                  : 'Lisensi Cadangan'}
+                              </span>
+                              {lic.isActivePrimary ? (
+                                <span className="text-[11px] font-bold text-emerald-700 inline-flex items-center gap-1">
+                                  <CheckCircle2 className="h-3.5 w-3.5" />
+                                  Aktif
+                                </span>
+                              ) : (
+                                <div className="flex items-center gap-1.5">
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={isBusy}
+                                    onClick={() => setConfirmDisconnectHash(lic.keyHash)}
+                                    className="h-7 rounded-xl text-[11px] px-2.5 border-red-200 text-red-700 hover:bg-red-50 gap-1"
+                                    title="Putuskan nomor ini dari MTI saja tanpa logout di WatZap"
+                                  >
+                                    <Unlink className="h-3 w-3" />
+                                    Putuskan dari MTI
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant={lic.isOnlineLive ? 'default' : 'outline'}
+                                    disabled={isBusy}
+                                    onClick={() => handleSwitchLicense(lic)}
+                                    className={`h-7 rounded-xl text-[11px] px-3 ${
+                                      lic.isOnlineLive
+                                        ? 'bg-emerald-700 hover:bg-emerald-800 text-white'
+                                        : 'border-gray-200 text-gray-600'
+                                    }`}
+                                  >
+                                    {isSwitching ? 'Mengaktifkan...' : 'Gunakan Nomor Ini'}
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
+
+        {/* TAB 0: KOTAK MASUK & LIVE CHAT INBOX */}
+        {activeTab === 'inbox' && (
+          <div className="space-y-6">
+            <WhatsAppInboxTab senderNumber={status?.watzap?.displayPhoneNumber || status?.watzap?.senderNumber || "0813-8884-240"} />
+          </div>
+        )}
+
+        {/* TAB 0.5: KOTAK KELUAR / OUTBOX */}
+        {activeTab === 'outbox' && (
+          <div className="space-y-6">
+            <WhatsAppOutboxTab
+              onSummaryChange={handleOutboxSummaryChange}
+              refreshSignal={outboxRefreshSignal}
+            />
+          </div>
+        )}
+
+        {/* TAB 3: PESAN OTOMATIS ON/OFF */}
+        {activeTab === 'auto' && (
+          <div className="space-y-6">
+            <WhatsAppAutoMessagesTab
+              onCountChange={handleAutoMsgCountChange}
+            />
+          </div>
+        )}
 
         {/* TAB 1: BROADCAST PER BATCH (MENGGUNAKAN v_active_thalibah) */}
         {activeTab === 'broadcast' && (
@@ -700,6 +1876,30 @@ export default function AdminWhatsAppPage() {
                     />
                   </div>
 
+                                    <CcSelectorCard
+                    adminList={adminList}
+                    selectedAdminCc={selectedAdminCc}
+                    toggleAdminCc={toggleAdminCc}
+                    customCcList={customCcList}
+                    customCcInput={customCcInput}
+                    setCustomCcInput={setCustomCcInput}
+                    addCustomCc={addCustomCc}
+                    removeCustomCc={removeCustomCc}
+                    whatsappGroups={whatsappGroups}
+                    isLoadingGroups={isLoadingGroups}
+                    lastGroupsSync={lastGroupsSync}
+                    fetchWhatsappGroups={fetchWhatsappGroups}
+                    selectedCcGroups={selectedCcGroups}
+                    toggleGroupCc={toggleGroupCc}
+                    isCcExpanded={isCcExpanded}
+                    setIsCcExpanded={setIsCcExpanded}
+                    ccTab={ccTab}
+                    setCcTab={setCcTab}
+                    groupSearchQuery={groupSearchQuery}
+                    setGroupSearchQuery={setGroupSearchQuery}
+                    onClearAll={handleClearAllCc}
+                  />
+
                   {/* Action Controls */}
                   <div className="space-y-3 pt-2">
                     {isBroadcasting ? (
@@ -717,6 +1917,11 @@ export default function AdminWhatsAppPage() {
                             style={{ width: `${(broadcastIndex / Math.max(recipients.length, 1)) * 100}%` }}
                           />
                         </div>
+                        {broadcastStatusNote && (
+                          <div className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 font-medium">
+                            {broadcastStatusNote}
+                          </div>
+                        )}
                         <div className="flex items-center justify-between text-xs">
                           <span className="text-emerald-700 font-semibold">Berhasil: {broadcastSuccessCount}</span>
                           <span className="text-red-600 font-semibold">Gagal: {broadcastFailCount}</span>
@@ -732,15 +1937,22 @@ export default function AdminWhatsAppPage() {
                         </div>
                       </div>
                     ) : (
-                      <Button
-                        type="button"
-                        onClick={startBroadcast}
-                        disabled={isBroadcasting || recipients.length === 0 || !broadcastTemplate.trim()}
-                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl py-6 font-bold text-base shadow-lg shadow-emerald-600/20 gap-2"
-                      >
-                        <Send className="h-5 w-5" />
-                        Kirim Broadcast ke {recipients.length} Thalibah Aktif
-                      </Button>
+                      <div className="space-y-3">
+                        {broadcastStatusNote && (
+                          <div className="text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 font-medium">
+                            {broadcastStatusNote}
+                          </div>
+                        )}
+                        <Button
+                          type="button"
+                          onClick={startBroadcast}
+                          disabled={isBroadcasting || recipients.length === 0 || !broadcastTemplate.trim()}
+                          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl py-6 font-bold text-base shadow-lg shadow-emerald-600/20 gap-2"
+                        >
+                          <Send className="h-5 w-5" />
+                          Kirim Broadcast ke {recipients.length} Thalibah Aktif
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </CardContent>
@@ -759,7 +1971,7 @@ export default function AdminWhatsAppPage() {
                       </div>
                       <div>
                         <div className="text-xs font-bold text-gray-800">
-                          Markaz Tikrar Indonesia (0813-3000-0784)
+                          Markaz Tikrar Indonesia (0813-8884-240)
                         </div>
                         <div className="text-[10px] text-gray-500">Pratinjau Pesan Terpersonalisasi</div>
                       </div>
@@ -968,7 +2180,31 @@ export default function AdminWhatsAppPage() {
                       />
                     </div>
 
-                    {/* Feedback Alert */}
+                                    <CcSelectorCard
+                    adminList={adminList}
+                    selectedAdminCc={selectedAdminCc}
+                    toggleAdminCc={toggleAdminCc}
+                    customCcList={customCcList}
+                    customCcInput={customCcInput}
+                    setCustomCcInput={setCustomCcInput}
+                    addCustomCc={addCustomCc}
+                    removeCustomCc={removeCustomCc}
+                    whatsappGroups={whatsappGroups}
+                    isLoadingGroups={isLoadingGroups}
+                    lastGroupsSync={lastGroupsSync}
+                    fetchWhatsappGroups={fetchWhatsappGroups}
+                    selectedCcGroups={selectedCcGroups}
+                    toggleGroupCc={toggleGroupCc}
+                    isCcExpanded={isCcExpanded}
+                    setIsCcExpanded={setIsCcExpanded}
+                    ccTab={ccTab}
+                    setCcTab={setCcTab}
+                    groupSearchQuery={groupSearchQuery}
+                    setGroupSearchQuery={setGroupSearchQuery}
+                    onClearAll={handleClearAllCc}
+                  />
+
+                  {/* Feedback Alert */}
                     {sendFeedback && (
                       <Alert className={`rounded-2xl ${
                         sendFeedback.type === 'success' 
@@ -1030,7 +2266,7 @@ export default function AdminWhatsAppPage() {
                       </div>
                       <div>
                         <div className="text-xs font-bold text-gray-800">
-                          Markaz Tikrar Indonesia (0813-3000-0784)
+                          Markaz Tikrar Indonesia (0813-8884-240)
                         </div>
                         <div className="text-[10px] text-gray-500">Pratinjau Tampilan Chat</div>
                       </div>

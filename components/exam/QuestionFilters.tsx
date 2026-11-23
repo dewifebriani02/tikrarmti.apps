@@ -40,6 +40,19 @@ export function QuestionFilters({
 }: QuestionFiltersProps) {
   const hasFilters = searchQuery || filterType !== 'all' || filterActive !== 'all' || selectedJuz !== 'all' || selectedSection !== 'all' || filterPackage !== 'all';
 
+  // Extract unique numeric Juz (1..30)
+  const uniqueJuzNumbers = Array.from(
+    new Set(
+      juzOptions
+        .map((opt) => opt.juz_number || (opt.code ? parseInt(opt.code) : null))
+        .filter((n): n is number => typeof n === 'number' && !isNaN(n) && n >= 1 && n <= 30)
+    )
+  ).sort((a, b) => a - b);
+
+  const displayJuzList = uniqueJuzNumbers.length > 0
+    ? uniqueJuzNumbers
+    : Array.from({ length: 30 }, (_, i) => i + 1);
+
   const clearAllFilters = () => {
     setSearchQuery('');
     setFilterType('all');
@@ -82,10 +95,10 @@ export function QuestionFilters({
             }}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
-            <option value="all">All Juz</option>
-            {juzOptions.map((option) => (
-              <option key={option.code} value={option.juz_number}>
-                {option.name}
+            <option value="all">Semua Juz</option>
+            {displayJuzList.map((juz) => (
+              <option key={juz} value={juz}>
+                Juz {juz}
               </option>
             ))}
           </select>

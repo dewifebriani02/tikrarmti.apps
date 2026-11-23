@@ -110,7 +110,7 @@ export function PosterFeatures() {
       {/* FOOTER */}
       <div className="absolute bottom-[30px] left-0 right-0 text-center">
         <p className="text-[16px] font-extrabold text-emerald-950">
-          WA 081330000784 <span className="text-amber-500 mx-2">•</span> lynk.id/markaztikrar.id
+          WA 08138884240 <span className="text-amber-500 mx-2">•</span> lynk.id/markaztikrar.id
         </p>
       </div>
     </div>

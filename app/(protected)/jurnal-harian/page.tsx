@@ -1,15 +1,15 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { Loader2, Info, Ban, Sparkles, ShieldCheck, BookOpen } from 'lucide-react'
+import { Loader2, Info, Ban, Sparkles, ShieldCheck, BookOpen, Lock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { useAllRegistrations } from '@/hooks/useRegistrations'
 import { useActiveBatch } from '@/hooks/useBatches'
 import { useAuth } from '@/hooks/useAuth'
 import { useJurnalStatus } from '@/hooks/useDashboard'
-import { saveJurnalRecord } from './actions'
 import { getRoleRank, ROLE_RANKS } from '@/lib/roles'
+import { getJurnalLockStatus } from '@/lib/batch-schedule'
 
 // Import Modular Components
 import { JurnalHeader } from './components/JurnalHeader'
@@ -95,6 +95,13 @@ export default function JurnalHarianPage() {
   const targetBatchId = activeRegistration?.batch_id || activeRegistration?.batch?.id || activeBatch?.id
   const { jurnalStatus, isLoading: jurnalStatusLoading, mutate: mutateJurnalStatus } = useJurnalStatus(undefined, targetBatchId)
 
+  // Status Penguncian Jadwal Batch (Schedule Cutoff Lock)
+  const jurnalLock = React.useMemo(() => {
+    return getJurnalLockStatus(effectiveBatch)
+  }, [effectiveBatch])
+
+  const isBatchLocked = !isAdmin && jurnalLock.isLocked
+
   const [jurnalData, setJurnalData] = useState<JurnalData>({
     batch_id: targetBatchId || null,
     tanggal_setor: new Date().toISOString().slice(0, 10),
@@ -176,6 +183,12 @@ export default function JurnalHarianPage() {
       return
     }
 
+    // Jika jadwal batch terkunci (masuk ujian akhir / kbm selesai), blokir form pengisian
+    if (isBatchLocked) {
+      toast.info(jurnalLock.reason || 'Pengisian Jurnal Harian telah ditutup sesuai jadwal angkatan.')
+      return
+    }
+
     // Hitung week number sebenarnya (Part A: H1..H10 -> Pekan 1..10, Part B: H11..H20 -> Pekan 1..10)
     let blockWeek = weekNumber;
     if (blockCode.startsWith('M')) {
@@ -237,13 +250,18 @@ export default function JurnalHarianPage() {
         calculatedWeek = blockNum > 10 ? blockNum - 10 : blockNum;
       }
 
-      const result = await saveJurnalRecord({
-        ...data,
-        batch_id: targetBatchId || null,
-        juz_code: juzToUse || data.juz_code,
-        weekNumber: calculatedWeek
+      const res = await fetch('/api/jurnal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...data,
+          batch_id: targetBatchId || null,
+          juz_code: juzToUse || data.juz_code,
+          weekNumber: calculatedWeek
+        }),
       })
-      if (result.success) {
+      const result = await res.json().catch(() => null)
+      if (res.ok && result?.success) {
         toast.success(result.message || 'Jurnal berhasil disimpan!')
         await mutateJurnalStatus()
         setViewMode('status')
@@ -257,7 +275,7 @@ export default function JurnalHarianPage() {
           }, 50)
         }
       } else {
-        toast.error(result.error)
+        toast.error(result?.error || `Gagal menyimpan jurnal (HTTP ${res.status}). Silakan coba lagi.`)
       }
     } catch (error: any) {
       const errMsg = error?.message || "";
@@ -342,6 +360,31 @@ export default function JurnalHarianPage() {
         </button>
       </div>
 
+      {/* Schedule Cutoff Lock Banner */}
+      {jurnalLock.isLocked && (
+        <div className="p-4 bg-amber-50/90 border border-amber-200/90 rounded-2xl flex items-start gap-3 shadow-xs">
+          <div className="w-8 h-8 rounded-xl bg-amber-600 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
+            <Lock className="w-4 h-4" />
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h4 className="text-xs font-bold text-amber-950">Pengisian Jurnal Harian Ditutup</h4>
+              <span className="text-[10px] font-extrabold px-2 py-0.5 bg-amber-200/80 text-amber-900 rounded-full">
+                {jurnalLock.badgeLabel}
+              </span>
+              {isAdmin && (
+                <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full">
+                  Mode Admin (Bypass Aktif)
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-amber-900/90 leading-relaxed mt-1">
+              {jurnalLock.reason} Seluruh riwayat presensi jurnal Ukhti tetap tersimpan aman dan dapat ditinjau pada lembar status di bawah ini.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Registration Banner for Unauthorized Users */}
       {hasNoActiveRegistration && (
         <div className="relative group overflow-hidden bg-gradient-to-r from-emerald-600 to-teal-700 rounded-3xl p-6 shadow-xl border border-emerald-500/20 mb-4 transition-all hover:shadow-emerald-900/10">
@@ -395,6 +438,9 @@ export default function JurnalHarianPage() {
               currentWeekNumber={currentWeekNumber}
               onBlockClick={handleBlockClick}
               isAdminPreview={!activeRegistration && isAdmin}
+              isBatchLocked={isBatchLocked}
+              lockReason={jurnalLock.reason}
+              batchLockStatus={jurnalLock.status}
             />
           ) : (
             <JurnalEntryForm

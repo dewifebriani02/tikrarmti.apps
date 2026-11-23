@@ -370,22 +370,22 @@ export function useBatchTimeline(batchId: string | null, options?: UseBatchTimel
 
       timeline.push({
         id: '10',
-        title: 'Wisuda & Kelulusan',
+        title: 'Penerbitan Syahadah & Kelulusan',
         date: batch.graduation_start_date,
-        dateRange: `Pekan 14 (${formatDateRange(batch.graduation_start_date, batch.graduation_end_date)})`,
+        dateRange: `Kelulusan (${formatDateRange(batch.graduation_start_date, batch.graduation_end_date)})`,
         status,
         type: 'completion',
-        description: 'Wisuda dan pemberian sertifikat',
+        description: 'Pemberian syahadah dan sertifikat kelulusan',
         action: {
           type: 'link',
-          href: '/wisuda',
-          label: 'Info Wisuda',
+          href: '/kelulusan-sertifikat',
+          label: 'Info Kelulusan',
           isAvailable,
           isEnabled: isAvailable,
           disabledReason: status === 'locked'
-            ? 'Wisuda belum dimulai'
+            ? 'Penerbitan syahadah belum dimulai'
             : status === 'completed'
-            ? 'Wisuda telah selesai'
+            ? 'Penerbitan syahadah telah selesai'
             : undefined
         }
       });

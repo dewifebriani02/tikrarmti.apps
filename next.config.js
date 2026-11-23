@@ -50,7 +50,7 @@ const nextConfig = {
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production', // Remove console in production
   },
-    // CORS configuration
+  // CORS and caching configuration
   async headers() {
     // Restrict allowed origins per environment — never use wildcard with credentials
     const allowedOrigins = process.env.NODE_ENV === 'production'
@@ -83,91 +83,8 @@ const nextConfig = {
           },
         ],
       },
-      // Seleksi pages - allow microphone for audio recording
-      {
-        source: '/seleksi/:path*',
-        headers: [
-          // Security headers
-          {
-            key: 'X-DNS-Prefetch-Control',
-            value: 'on'
-          },
-          {
-            key: 'Strict-Transport-Security',
-            value: process.env.NODE_ENV === 'production'
-              ? 'max-age=31536000; includeSubDomains'
-              : 'max-age=0'
-          },
-          {
-            key: 'X-Frame-Options',
-            value: 'DENY'
-          },
-          {
-            key: 'X-Content-Type-Options',
-            value: 'nosniff'
-          },
-          {
-            key: 'Referrer-Policy',
-            value: 'strict-origin-when-cross-origin'
-          },
-          {
-            key: 'X-XSS-Protection',
-            value: '1; mode=block'
-          },
-          // No cache for dynamic content
-          {
-            key: 'Cache-Control',
-            value: 'no-cache, no-store, must-revalidate, max-age=0'
-          }
-        ],
-      },
-      // Dynamic pages (pendaftaran, dashboard, etc) - no cache
-      {
-        source: '/pendaftaran/:path*',
-        headers: [
-          // Security headers
-          {
-            key: 'X-DNS-Prefetch-Control',
-            value: 'on'
-          },
-          {
-            key: 'Strict-Transport-Security',
-            value: process.env.NODE_ENV === 'production'
-              ? 'max-age=31536000; includeSubDomains'
-              : 'max-age=0'
-          },
-          {
-            key: 'X-Frame-Options',
-            value: 'DENY'
-          },
-          {
-            key: 'X-Content-Type-Options',
-            value: 'nosniff'
-          },
-          {
-            key: 'Referrer-Policy',
-            value: 'strict-origin-when-cross-origin'
-          },
-          {
-            key: 'X-XSS-Protection',
-            value: '1; mode=block'
-          },
-          // No cache for dynamic content
-          {
-            key: 'Cache-Control',
-            value: 'no-cache, no-store, must-revalidate, max-age=0'
-          }
-        ],
-      },
-      {
-        source: '/dashboard',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'no-cache, no-store, must-revalidate, max-age=0'
-          }
-        ],
-      },
+      // Default security & anti-stale-HTML headers for all HTML pages/redirects.
+      // Never cache HTML documents or 307 redirects so clients always fetch current chunk hashes after deploy.
       {
         source: '/(.*)',
         headers: [
@@ -216,14 +133,50 @@ const nextConfig = {
             key: 'Permissions-Policy',
             value: 'camera=(), microphone=(self), geolocation=(self)'
           },
-          // Performance and caching headers for cross-platform optimization
           {
             key: 'Cache-Control',
-            value: 'public, max-age=3600'
+            value: 'no-cache, no-store, must-revalidate, max-age=0'
           }
         ],
       },
-      // Static assets optimization
+      // Dynamic pages - explicitly enforce no-store
+      {
+        source: '/seleksi/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate, max-age=0'
+          }
+        ],
+      },
+      {
+        source: '/pendaftaran/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate, max-age=0'
+          }
+        ],
+      },
+      {
+        source: '/dashboard',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate, max-age=0'
+          }
+        ],
+      },
+      {
+        source: '/dashboard/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate, max-age=0'
+          }
+        ],
+      },
+      // Static assets optimization (hashed filenames are safe to cache long-term)
       {
         source: '/_next/static/(.*)',
         headers: [

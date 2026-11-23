@@ -15,11 +15,11 @@
  *    - muallimah (60): Pengajar yang mengampu halaqah, membimbing tashih, dan menguji hafalan.
  *
  * 4. Koordinasi Kelas / Halaqah Spesifik:
- *    - roisah / raisah (45): Santri senior / Ketua Kelas di satu halaqah spesifik.
+ *    - roisah / raisah (45): Thalibah senior / Ketua Kelas di satu halaqah spesifik.
  *      Mengabsen dan mengoordinasikan teman sekelasnya di halaqah tersebut.
  *
- * 5. Santriwati:
- *    - thalibah (40): Santriwati aktif di siklus belajar 7-tahap Tikrar.
+ * 5. Thalibah:
+ *    - thalibah (40): Thalibah aktif di siklus belajar 7-tahap Tikrar.
  *    - calon_thalibah (20): Pendaftar baru dalam fase seleksi / daftar ulang.
  *
  * Multi-Role:
@@ -52,7 +52,7 @@ export const ADMIN_RANK = ROLE_RANKS.admin; // 100
 export const MANAGEMENT_RANK_THRESHOLD = 80; // Threshold untuk manajemen/pengawas lapangan (Musyrifah ke atas)
 export const STAFF_RANK_THRESHOLD = 60; // Threshold untuk pengajar/staf akademik (Muallimah ke atas)
 export const RAISAH_RANK_THRESHOLD = 45; // Threshold untuk ketua kelas (Raisah ke atas)
-export const THALIBAH_RANK_THRESHOLD = 40; // Threshold untuk santriwati aktif
+export const THALIBAH_RANK_THRESHOLD = 40; // Threshold untuk thalibah aktif
 
 /**
  * Mendapatkan nilai numerik rank dari sebuah nama role.
@@ -134,6 +134,16 @@ export function isMusyrifah(userRole: string | string[] | null | undefined): boo
 
 export function isMuallimah(userRole: string | string[] | null | undefined): boolean {
   return hasRole(userRole, 'muallimah');
+}
+
+/**
+ * Memeriksa apakah user berhak membuka/mengelola Kelas Berbayar Mu'allimah MTI.
+ * Hanya Mu'allimah terverifikasi (sudah memiliki role 'muallimah') atau Admin/Super Admin.
+ */
+export function canManagePaidClasses(
+  userRole: string | string[] | null | undefined
+): boolean {
+  return hasAnyRole(userRole, ['muallimah', 'admin', 'super_admin']);
 }
 
 export function isThalibah(userRole: string | string[] | null | undefined): boolean {
@@ -226,7 +236,7 @@ export function consolidateRoles(
 
 /**
  * Mendapatkan daftar persona/mode tampilan yang bisa dipilih oleh user.
- * Mengurutkan dari peran tertinggi ke santri.
+ * Mengurutkan dari peran tertinggi ke thalibah.
  */
 export function getAvailablePersonas(roles: string[] | null | undefined): UserRole[] {
   const extracted = extractRoles(roles) as UserRole[];
@@ -275,4 +285,27 @@ export function getPersonaLabel(role: string): string {
     default:
       return role;
   }
+}
+
+/**
+ * Memastikan nama Mu'allimah/Penguji/Pengajar selalu diawali dengan gelar kehormatan "Ustadzah".
+ * Jika nama sudah memiliki awalan gelar (Ustadzah, Ustadz, Ust., Ustz., dll), gelar tersebut
+ * distandarisasi menjadi "Ustadzah [Nama]" tanpa duplikasi.
+ */
+export function formatMuallimahName(name?: string | null): string {
+  if (!name || !name.trim()) return '';
+  const cleanName = name.trim();
+  
+  // Deteksi awalan gelar kehormatan umum
+  const match = cleanName.match(/^(ustadzah|ustadz|ustad|ust\.|ustz\.|ustd\.|ustz|ustd)\s+/i);
+  if (match) {
+    const remainder = cleanName.slice(match[0].length).trim();
+    return `Ustadzah ${remainder}`;
+  }
+  
+  if (/^ustadzah$/i.test(cleanName)) {
+    return 'Ustadzah';
+  }
+
+  return `Ustadzah ${cleanName}`;
 }

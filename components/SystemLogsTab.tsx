@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getSystemLogs, getSystemLogsStats, SystemLogEntry, SystemLogFilter } from '@/app/(protected)/admin/actions'
+import { getSystemLogs, getSystemLogsStats, SystemLogEntry, SystemLogFilter } from '@/lib/admin/admin-client'
 import {
   AlertCircle,
   Bug,

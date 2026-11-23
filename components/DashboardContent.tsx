@@ -37,7 +37,8 @@ import {
   ArrowRightLeft,
   RotateCcw,
   Compass,
-  HeartHandshake
+  HeartHandshake,
+  HelpCircle
 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog'
@@ -45,14 +46,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
-import { useActiveBatch } from '@/hooks/useBatches'
+import { useActiveBatch, useBatches } from '@/hooks/useBatches'
 import { useDashboardStats, useTashihStatus, useJurnalStatus, useHalaqahOfTheWeek } from '@/hooks/useDashboard'
 import { useMyRegistrations } from '@/hooks/useRegistrations'
 import { createClient } from '@/lib/supabase/client'
 import { usePrayerTimes } from '@/hooks/usePrayerTimes'
 import { SWRLoadingFallback, SWRErrorFallback } from '@/lib/swr/providers'
 import { cn } from '@/lib/utils'
-import { isStaff } from '@/lib/roles'
+import { isStaff, canManagePaidClasses } from '@/lib/roles'
 import { formatDynamicNit } from '@/lib/nit'
 import { usePersona } from '@/hooks/usePersona'
 import { FinalExamPortalModal } from '@/components/dashboard/FinalExamPortalModal'
@@ -76,22 +77,60 @@ export default function DashboardContent() {
   const userRole = activePersona || user?.primaryRole || 'calon_thalibah'
   const canSeeAdminStats = isStaff(userRole)
   const isImpersonating = !!(targetUserId && userRole === 'admin')
+  const userRoles = user?.roles?.length ? user.roles : user?.primaryRole ? [user.primaryRole] : []
+  const canOpenPaidClasses = !isImpersonating && canManagePaidClasses(userRoles)
   const [isRankingModalOpen, setIsRankingModalOpen] = useState(false);
   const [isThalibahRankModalOpen, setIsThalibahRankModalOpen] = useState(false);
 
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
 
+  useEffect(() => {
+    const urlBatchId = searchParams?.get('batch_id');
+    if (urlBatchId) {
+      setSelectedBatchId(urlBatchId);
+      return;
+    }
+    let stored: string | null = null;
+    try {
+      stored = typeof window !== 'undefined' ? localStorage.getItem('selected_batch_id') : null;
+    } catch {}
+    if (stored) {
+      setSelectedBatchId(stored);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    const handleBatchChange = (e: any) => {
+      if (e.detail?.batchId) {
+        setSelectedBatchId(e.detail.batchId);
+      }
+    };
+    window.addEventListener('batch-changed', handleBatchChange);
+    return () => window.removeEventListener('batch-changed', handleBatchChange);
+  }, []);
+  const [isBatchDropdownOpen, setIsBatchDropdownOpen] = useState(false);
+
   // Default selalu batch aktif; pilihan batch lama dari browser tidak dibaca lagi.
+  const formatBatchDisplay = (name: string) => {
+    if (!name) return 'Batch Aktif';
+    const match = name.match(/Batch\s*(\d+)/i) || name.match(/Angkatan\s*(\d+)/i);
+    if (match) {
+      return `Batch ${match[1]}`;
+    }
+    return name.length > 14 ? name.substring(0, 14) + '...' : name;
+  };
+
   const handleSelectBatch = (batchId: string) => {
     setSelectedBatchId(batchId);
   };
 
   // SWR hooks for data fetching
   const { activeBatch, isLoading: batchLoading, error: batchError } = useActiveBatch()
+  const { batches: adminBatches } = useBatches(canSeeAdminStats ? { limit: 20 } : undefined)
   const { stats, isLoading: statsLoading, error: statsError } = useDashboardStats(canSeeAdminStats)
   const { registrations, isLoading: registrationsLoading } = useMyRegistrations(targetUserId || undefined)
 
-  // Available batches derived from active batch and user registrations
+  // Available batches derived from active batch, admin batches, and user registrations
   const availableBatches = useMemo(() => {
     const batchesMap = new Map<string, { id: string; name: string; first_week_start_date?: string; start_date?: string; status?: string }>();
     if (activeBatch) {
@@ -101,6 +140,19 @@ export default function DashboardContent() {
         first_week_start_date: activeBatch.first_week_start_date,
         start_date: activeBatch.start_date,
         status: activeBatch.status
+      });
+    }
+    if (canSeeAdminStats && adminBatches && adminBatches.length > 0) {
+      adminBatches.forEach(b => {
+        if (!batchesMap.has(b.id)) {
+          batchesMap.set(b.id, {
+            id: b.id,
+            name: b.name,
+            first_week_start_date: b.first_week_start_date,
+            start_date: b.start_date,
+            status: b.status
+          });
+        }
       });
     }
     if (registrations && registrations.length > 0) {
@@ -118,7 +170,7 @@ export default function DashboardContent() {
       });
     }
     return Array.from(batchesMap.values());
-  }, [activeBatch, registrations]);
+  }, [activeBatch, registrations, canSeeAdminStats, adminBatches]);
 
   // Priority: User Selected Batch -> Active Batch -> First Registration Batch
   const effectiveBatchId = selectedBatchId || activeBatch?.id || (registrations?.[0]?.batch_id ?? null);
@@ -142,6 +194,63 @@ export default function DashboardContent() {
     isLoading: prayersLoading,
     updateManualCity
   } = usePrayerTimes()
+
+  const upcomingPrayer = useMemo(() => {
+    if (!prayerTimes) return null;
+    try {
+      const now = new Date();
+      const jakartaTime = now.toLocaleTimeString('en-US', { timeZone: 'Asia/Jakarta', hour12: false });
+    const parts = jakartaTime.split(':');
+    const currH = parseInt(parts[0], 10);
+    const currM = parseInt(parts[1], 10);
+    const currentMinutes = currH * 60 + currM;
+
+    const prayers = [
+      { name: 'Subuh', time: prayerTimes.Fajr },
+      { name: 'Dzuhur', time: prayerTimes.Dhuhr },
+      { name: 'Ashar', time: prayerTimes.Asr },
+      { name: 'Maghrib', time: prayerTimes.Maghrib },
+      { name: 'Isya', time: prayerTimes.Isha },
+    ];
+
+    for (const prayer of prayers) {
+      if (!prayer.time) continue;
+      const [h, m] = prayer.time.split(':').map(Number);
+      const prayerMinutes = h * 60 + m;
+      if (prayerMinutes > currentMinutes) {
+        const diff = prayerMinutes - currentMinutes;
+        const hoursLeft = Math.floor(diff / 60);
+        const minsLeft = diff % 60;
+        const timeLeft = hoursLeft > 0 ? (hoursLeft + 'j ' + minsLeft + 'm') : (minsLeft + 'm');
+        return {
+          name: prayer.name,
+          time: prayer.time,
+          timeLeft,
+          isTomorrow: false,
+        };
+      }
+    }
+
+    if (prayerTimes.Fajr) {
+      const [h, m] = prayerTimes.Fajr.split(':').map(Number);
+      const fajrMinutes = h * 60 + m;
+      const diff = (24 * 60 - currentMinutes) + fajrMinutes;
+      const hoursLeft = Math.floor(diff / 60);
+      const minsLeft = diff % 60;
+      const timeLeft = hoursLeft > 0 ? (hoursLeft + 'j ' + minsLeft + 'm') : (minsLeft + 'm');
+      return {
+        name: 'Subuh',
+        time: prayerTimes.Fajr,
+        timeLeft,
+        isTomorrow: true,
+      };
+    }
+
+    return null;
+    } catch {
+      return null;
+    }
+  }, [prayerTimes]);
 
   const handleLocationChange = () => {
     const newCity = window.prompt('Masukkan nama kota Ukhti untuk jadwal shalat (contoh: Bogor, Bandung, Surabaya):', locationName === 'Memuat...' ? '' : locationName)
@@ -207,7 +316,7 @@ export default function DashboardContent() {
   }, [user?.id, effectiveBatchId]);
 
   const hasRegisteredTikrar = useMemo(() => {
-    return effectiveBatchId && registrations.some(reg => reg.batch_id === effectiveBatchId);
+    return Boolean(effectiveBatchId && (registrations || []).some(reg => reg.batch_id === effectiveBatchId));
   }, [effectiveBatchId, registrations])
 
   // Combined loading state
@@ -248,11 +357,22 @@ export default function DashboardContent() {
     return days[num] || `${dayNum}`
   }
 
-  const totalHariTarget = (jurnalStatus?.summary.total_blocks || (canSeeAdminStats ? stats?.totalHariTarget : 0) || 0)
+  const totalHariTarget = (jurnalStatus?.summary?.total_blocks || (canSeeAdminStats ? stats?.totalHariTarget : 0) || 0)
 
   // Calculate current week based on selected batch timeline
+  const targetStartDate = selectedBatch?.first_week_start_date || selectedBatch?.start_date;
+  const isBatchUpcoming = useMemo(() => {
+    if (!selectedBatch) return false;
+    if (selectedBatch.status === 'draft') return true;
+    if (targetStartDate) {
+      const today = new Date();
+      const week1Start = new Date(targetStartDate);
+      return today < week1Start;
+    }
+    return selectedBatch.status === 'open';
+  }, [selectedBatch, targetStartDate]);
+
   const computeCurrentWeek = () => {
-    const targetStartDate = selectedBatch?.first_week_start_date || selectedBatch?.start_date;
     if (!targetStartDate) return 1;
     const today = new Date();
     const week1Start = new Date(targetStartDate);
@@ -266,11 +386,49 @@ export default function DashboardContent() {
     setCurrentWeek(computeCurrentWeek());
   }, [selectedBatch]);
 
+  // Cek apakah masa ziyadah dan murajaah batch ini sudah selesai:
+  // - Masa Ziyadah: Pekan 1 s.d. Pekan 10
+  // - Masa Murajaah: Pekan 11 (Senin s.d. Ahad akhir Pekan 11)
+  // Selesai pada Ahad malam Pekan 11 (Day 76, pukul 23:59:59.999 WIB) atau status batch closed/completed
+  const isZiyadahAndMurajaahFinished = useMemo(() => {
+    const batch = selectedBatch || activeBatch;
+    if (!batch) return false;
+    if (batch.status === 'closed' || batch.status === 'completed') return true;
+
+    const rawDate = batch.first_week_start_date || batch.start_date;
+    if (!rawDate) return false;
+
+    let clean = typeof rawDate === 'string' ? rawDate.trim() : '';
+    if (clean.includes(' ') && !clean.includes('T')) {
+      clean = clean.replace(' ', 'T');
+    }
+    if (clean.endsWith('+00')) {
+      clean = clean.replace('+00', '+00:00');
+    }
+    const parsedDate = new Date(clean.includes('T') ? clean : `${clean}T00:00:00+07:00`);
+    if (isNaN(parsedDate.getTime())) return false;
+
+    // Normalize to Monday 00:00:00 WIB
+    const wibDateStr = parsedDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
+    const [bYear, bMonth, bDay] = wibDateStr.split('-').map(Number);
+    const anchorMidnightWib = new Date(Date.UTC(bYear, bMonth - 1, bDay, -7, 0, 0, 0));
+
+    const dayName = anchorMidnightWib.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'Asia/Jakarta' });
+    const dayIndex = ({ Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 } as Record<string, number>)[dayName] ?? 1;
+    const diffToMonday = dayIndex === 0 ? -6 : (dayIndex === 1 ? 0 : 1 - dayIndex);
+    const week1Monday = new Date(anchorMidnightWib.getTime() + diffToMonday * 24 * 60 * 60 * 1000);
+
+    // Pekan 11 (Murajaah) tuntas pada Ahad malam (Day 76 pukul 23:59:59.999 WIB)
+    const murajaahCutoff = new Date(week1Monday.getTime() + (76 * 24 * 60 * 60 * 1000) + (23 * 3600000 + 59 * 60000 + 59 * 1000 + 999));
+
+    return Date.now() > murajaahCutoff.getTime();
+  }, [selectedBatch, activeBatch]);
+
   const displayStats = {
     totalHariTarget: totalHariTarget,
-    hariAktual: (jurnalStatus?.summary.completed_blocks || (canSeeAdminStats ? stats?.hariAktual : 0) || 0),
-    persentaseProgress: (jurnalStatus && (jurnalStatus.summary.total_blocks || 0) > 0)
-      ? Math.round((jurnalStatus.summary.completed_blocks / jurnalStatus.summary.total_blocks) * 100)
+    hariAktual: (jurnalStatus?.summary?.completed_blocks || (canSeeAdminStats ? stats?.hariAktual : 0) || 0),
+    persentaseProgress: (jurnalStatus?.summary && (jurnalStatus.summary.total_blocks || 0) > 0)
+      ? Math.round(((jurnalStatus.summary.completed_blocks || 0) / jurnalStatus.summary.total_blocks) * 100)
       : (canSeeAdminStats ? stats?.persentaseProgress : 0) || 0
   }
 
@@ -455,20 +613,31 @@ export default function DashboardContent() {
 
   const toGregorianLabel = () => {
     if (gregorianDate) return `${gregorianDate.day} ${gregorianDate.month} ${gregorianDate.year}`
-    return new Intl.DateTimeFormat('id-ID', { year: 'numeric',
-      month: 'long',
-      day: 'numeric', timeZone: 'Asia/Jakarta' }).format(new Date())
+    try {
+      return new Intl.DateTimeFormat('id-ID', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        timeZone: 'Asia/Jakarta',
+      }).format(new Date())
+    } catch {
+      return new Date().toLocaleDateString('id-ID')
+    }
   }
 
   const toHijriLabel = () => {
     if (hijriDate) return `${hijriDate.day} ${hijriDate.month} ${hijriDate.year} ${hijriDate.designation}`
-    const options: Intl.DateTimeFormatOptions = {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      calendar: 'islamic-umalqura'
+    try {
+      const options: Intl.DateTimeFormatOptions = {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        calendar: 'islamic-umalqura',
+      }
+      return new Intl.DateTimeFormat('id-ID', options).format(new Date())
+    } catch {
+      return ''
     }
-    return new Intl.DateTimeFormat('id-ID', options).format(new Date())
   }
 
   const isDropout = registrationStatus.registered && registrationStatus.status === 'dropout';
@@ -503,143 +672,91 @@ export default function DashboardContent() {
 
   return (
     <div className="space-y-6 sm:space-y-8 animate-fadeInUp pb-10">
-      {/* Welcome Section - Premium Glassmorphism */}
+      {/* Welcome Section - Premium Compact & Minimalist */}
       <div className={cn(
-        "relative overflow-hidden rounded-3xl p-6 sm:p-8 text-white shadow-2xl transition-all duration-700 bg-gradient-to-br ring-4",
+        "relative overflow-hidden rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-7 text-white shadow-lg sm:shadow-2xl transition-all duration-700 bg-gradient-to-br ring-2 sm:ring-4",
         welcomeTheme.gradient,
         welcomeTheme.ring
       )}>
         <div className="relative z-10">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="space-y-4 flex-1 min-w-0">
-              <div className="inline-flex items-center gap-3 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/10 text-[10px] sm:text-xs font-bold ring-1 ring-white/20">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3.5 sm:gap-6">
+            <div className="space-y-2 sm:space-y-3 flex-1 min-w-0">
+              <div className="inline-flex items-center gap-2 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/10 text-[9px] sm:text-xs font-bold ring-1 ring-white/20 [&>svg]:w-3.5 [&>svg]:h-3.5 sm:[&>svg]:w-4 sm:[&>svg]:h-4">
                 {welcomeTheme.icon}
-                <span className="tracking-[0.2em] uppercase">{welcomeTheme.label} di Tikrar MTI Apps</span>
+                <span className="tracking-[0.15em] sm:tracking-[0.2em] uppercase">{welcomeTheme.label} di Tikrar MTI Apps</span>
               </div>
               
               <div>
-                <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
-                  <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black tracking-tight break-words">
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2.5 mb-1 sm:mb-1.5">
+                  <h1 className="text-xl sm:text-3xl lg:text-4xl font-black tracking-tight break-words leading-tight">
                     {welcomeTheme.greeting}, <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-white/60">{user?.full_name?.split(' ')[0] || 'Ukhti'}!</span>
                   </h1>
-                  {user?.student_id_number && (
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-bold bg-white/20 text-white border border-white/30 backdrop-blur-sm shadow-xs self-center">
-                      <Award className="w-3.5 h-3.5 text-yellow-300" />
-                      <span>NIT: {user.student_id_number}</span>
-                    </div>
-                  )}
+                  {/* NIT dihilangkan dari greeting card agar lebih minimalis */}
                 </div>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-white/80 text-xs sm:text-sm font-semibold">
-                  <div className="flex items-center gap-1.5">
-                    <Calendar className="w-4 h-4 opacity-70" />
+                <div className="flex flex-wrap items-center gap-x-2.5 sm:gap-x-4 gap-y-0.5 sm:gap-y-1 text-white/80 text-[11px] sm:text-sm font-semibold">
+                  <div className="flex items-center gap-1 sm:gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 opacity-70" />
                     <span>{toGregorianLabel()}</span>
                   </div>
-                  <div className="hidden sm:block w-1.5 h-1.5 rounded-full bg-white/20" />
-                  <div className="flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4 text-yellow-400" />
-                    <span>{toHijriLabel()}</span>
-                  </div>
+                  {toHijriLabel() && (
+                    <>
+                      <div className="hidden sm:block w-1.5 h-1.5 rounded-full bg-white/20" />
+                      <div className="flex items-center gap-1 sm:gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-yellow-400" />
+                        <span>{toHijriLabel()}</span>
+                      </div>
+                    </>
+                  )}
                   <button 
                     onClick={handleLocationChange}
-                    className="flex items-center gap-1.5 text-white/90 bg-white/10 px-3 py-1 rounded-full border border-white/10 hover:bg-white/20 transition-all group lg:ml-4"
+                    className="flex items-center gap-1 sm:gap-1.5 text-white/90 bg-white/10 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full border border-white/10 hover:bg-white/20 transition-all group lg:ml-3 text-[10px] sm:text-xs"
                     title="Klik untuk ganti lokasi"
                   >
-                    <MapPin className="w-4 h-4 text-green-300 group-hover:scale-110 transition-transform" />
+                    <MapPin className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-green-300 group-hover:scale-110 transition-transform" />
                     <span className="font-bold tracking-tight">{locationName}</span>
                   </button>
                 </div>
               </div>
 
-              {/* Ultra-Compact Prayer Times Bar */}
+              {/* Jam Shalat Yang Akan Datang */}
               {prayersLoading ? (
-                <div className="flex items-center gap-4 pt-2 animate-pulse">
-                   <div className="h-4 w-12 bg-white/10 rounded-full" />
-                   <div className="h-4 w-12 bg-white/10 rounded-full" />
-                   <div className="h-4 w-12 bg-white/10 rounded-full" />
+                <div className="flex items-center gap-2 pt-1 animate-pulse">
+                   <div className="h-4 w-32 bg-white/10 rounded-full" />
                 </div>
-              ) : prayerTimes ? (
-                <div className="flex items-center gap-x-4 sm:gap-x-6 pt-3 overflow-x-auto scrollbar-hide">
-                  {[
-                    { label: 'Subuh', time: prayerTimes.Fajr },
-                    { label: 'Dzuhur', time: prayerTimes.Dhuhr },
-                    { label: 'Ashar', time: prayerTimes.Asr },
-                    { label: 'Maghrib', time: prayerTimes.Maghrib },
-                    { label: 'Isya', time: prayerTimes.Isha },
-                  ].map((p, i) => (
-                    <div key={i} className="flex items-center gap-2 whitespace-nowrap">
-                      <div className="flex flex-col items-start leading-tight">
-                        <span className="text-[8px] font-bold text-white/40 uppercase tracking-tighter">{p.label}</span>
-                        <span className="text-sm font-black text-white tracking-tight">{p.time}</span>
-                      </div>
-                      {i < 4 && <div className="ml-1 h-4 w-px bg-white/10" />}
-                    </div>
-                  ))}
+              ) : upcomingPrayer ? (
+                <div className="flex items-center gap-1.5 sm:gap-2 pt-0.5 sm:pt-1 text-white/90">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 sm:py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-[10px] sm:text-xs font-semibold">
+                    <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-300 shrink-0" />
+                    <span className="text-white/70">Shalat Berikutnya:</span>
+                    <span className="font-bold text-white">{upcomingPrayer.name}</span>
+                    <span className="font-mono font-bold text-amber-300">{upcomingPrayer.time}</span>
+                    <span className="text-[9px] sm:text-[10px] text-white/60">({upcomingPrayer.timeLeft})</span>
+                  </div>
                 </div>
-              ) : (
-                <div className="text-[10px] text-white/40 italic pt-2">
-                  Jadwal tidak tersedia
-                </div>
-              )}
+              ) : null}
             </div>
             
-            <div className="flex items-center gap-3 w-full md:w-auto overflow-x-auto pb-1 sm:pb-0 scrollbar-hide snap-x shrink-0">
-              {/* Batch Selector Card */}
-              {availableBatches.length > 0 && (
-                <div className="shrink-0 snap-center h-16 lg:h-24 px-4 rounded-2xl lg:rounded-[2rem] bg-white/10 backdrop-blur-xl border border-white/20 flex flex-col items-center justify-center shadow-2xl transition-all hover:bg-white/15">
-                  <p className="text-[9px] lg:text-[10px] uppercase font-black text-amber-200 tracking-widest flex items-center gap-1">
-                    <Layers className="w-3 h-3 text-amber-300" />
-                    Angkatan
-                  </p>
-                  {availableBatches.length > 1 ? (
-                    <select
-                      value={effectiveBatchId || ''}
-                      onChange={(e) => handleSelectBatch(e.target.value)}
-                      className="bg-transparent text-white font-black text-xs lg:text-sm cursor-pointer focus:outline-none mt-0.5 lg:mt-1 max-w-[140px] truncate text-center"
-                    >
-                      {availableBatches.map(b => (
-                        <option key={b.id} value={b.id} className="text-gray-900 bg-white font-bold">
-                          {b.name}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <p className="text-xs lg:text-sm font-black text-white/90 mt-0.5 lg:mt-1 truncate max-w-[130px]">
-                      {selectedBatch?.name || 'Batch Aktif'}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* Thalibah Rank Card */}
-              {userRank && (
+            {/* Right Section: Compact Thalibah Rank (jika ada) */}
+            {userRank && (
+              <div className="shrink-0 self-start md:self-center pt-2 md:pt-0">
                 <div 
-                  className="relative group shrink-0 snap-center cursor-pointer"
+                  className="relative group cursor-pointer"
                   onClick={() => setIsThalibahRankModalOpen(true)}
                 >
-                  <div className="absolute inset-0 bg-gradient-to-b from-amber-400/20 to-transparent blur-xl opacity-50 rounded-3xl group-hover:opacity-70 transition-opacity" />
-                  <div className="relative h-16 lg:h-24 px-5 lg:px-0 lg:w-28 rounded-2xl lg:rounded-[2rem] bg-gradient-to-b from-amber-500/10 to-black/40 backdrop-blur-xl border border-amber-500/20 flex flex-col justify-center items-center shadow-2xl transition-all group-hover:border-amber-400/50 group-hover:scale-105" title="Klik untuk evaluasi skor">
-                    <div className="flex items-center gap-1.5 lg:mb-1">
-                       <Trophy className="w-3.5 h-3.5 lg:w-4 lg:h-4 text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.5)]" />
-                       <p className="text-[9px] lg:text-[10px] uppercase font-black text-amber-200/80 tracking-widest drop-shadow-md">Peringkat</p>
+                  <div className="absolute inset-0 bg-gradient-to-b from-amber-400/20 to-transparent blur-xl opacity-50 rounded-2xl group-hover:opacity-70 transition-opacity" />
+                  <div className="relative h-11 sm:h-13 px-3 sm:px-4 rounded-xl sm:rounded-2xl bg-gradient-to-b from-amber-500/10 to-black/40 backdrop-blur-xl border border-amber-500/20 flex flex-col justify-center items-center shadow-lg transition-all group-hover:border-amber-400/50 group-hover:scale-105" title={userRank?.week ? ("Klik untuk evaluasi skor kedisiplinan pekan " + userRank.week) : "Klik untuk evaluasi skor"}>
+                    <div className="flex items-center gap-1 sm:gap-1.5">
+                       <Trophy className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.5)]" />
+                       <p className="text-[7.5px] sm:text-[9px] uppercase font-black text-amber-200/80 tracking-wider drop-shadow-md">{userRank?.week ? ("Disiplin P" + userRank.week) : "Peringkat"}</p>
                     </div>
-                    <div className="flex items-baseline gap-1 mt-0.5 lg:mt-1">
-                      <span className="text-2xl lg:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-b from-amber-100 to-amber-400 drop-shadow-sm">{userRank.rank}</span>
-                      <span className="text-xs lg:text-sm font-bold text-amber-500/60">/ {userRank.total}</span>
+                    <div className="flex items-baseline gap-1 mt-0.5">
+                      <span className="text-base sm:text-lg font-black text-transparent bg-clip-text bg-gradient-to-b from-amber-100 to-amber-400 drop-shadow-sm">{userRank.rank}</span>
+                      <span className="text-[9px] sm:text-[10px] font-bold text-amber-500/60">/ {userRank.total}</span>
                     </div>
                   </div>
                 </div>
-              )}
-
-              {/* Pekan Card */}
-              <div className="shrink-0 snap-center h-16 lg:h-24 px-5 lg:px-0 lg:w-24 rounded-2xl lg:rounded-[2rem] bg-white/5 backdrop-blur-xl border border-white/10 flex flex-col items-center justify-center shadow-2xl transition-all hover:bg-white/10">
-                <p className="text-[9px] lg:text-[10px] uppercase font-black text-white/50 tracking-widest">Pekan</p>
-                <div className="flex items-center gap-3 lg:gap-2 mt-0.5 lg:mt-1">
-                   <button onClick={() => setCurrentWeek(w => Math.max(1, w - 1))} className="text-white/40 hover:text-white transition-colors w-6 lg:w-auto text-center font-medium">‹</button>
-                   <p className="text-2xl lg:text-4xl font-black text-white/90">{currentWeek}</p>
-                   <button onClick={() => setCurrentWeek(w => w + 1)} className="text-white/40 hover:text-white transition-colors w-6 lg:w-auto text-center font-medium">›</button>
-                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
 
@@ -648,8 +765,20 @@ export default function DashboardContent() {
         <div className="absolute bottom-0 left-0 -mb-10 -ml-10 w-60 h-60 bg-black/10 rounded-full blur-3xl" />
       </div>
 
-      {/* SP Warning Banner */}
-      {!canSeeAdminStats && jurnalStatus?.summary?.sp_summary && (
+      {/* Upcoming Batch Info Notice */}
+      {isBatchUpcoming && selectedBatch && (
+        <div className="bg-amber-50 border border-amber-200/80 rounded-2xl p-4 flex items-center gap-3 text-amber-950 shadow-sm animate-fadeIn">
+          <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-700 flex items-center justify-center shrink-0 font-bold">
+            <Sparkles className="w-5 h-5 text-amber-600" />
+          </div>
+          <div className="text-xs sm:text-sm leading-relaxed">
+            <span className="font-bold text-amber-900">{selectedBatch.name}</span> saat ini berada pada tahap <span className="font-bold text-amber-800 bg-amber-100/70 px-1.5 py-0.5 rounded">Masa Pendaftaran / Pra-KBM</span>. Kegiatan Belajar Mengajar (KBM Pekan 1) belum dimulai.
+          </div>
+        </div>
+      )}
+
+      {/* SP Warning Banner - otomatis tidak muncul jika masa ziyadah dan murajaah sudah selesai */}
+      {!isZiyadahAndMurajaahFinished && !canSeeAdminStats && jurnalStatus?.summary?.sp_summary && (
         <div className={cn(
           "relative overflow-hidden rounded-[2rem] p-6 shadow-2xl border-l-8 animate-fadeIn",
           jurnalStatus.summary.sp_summary.sp_level === 3 ? "bg-rose-50 border-rose-600 shadow-rose-950/5" :
@@ -700,10 +829,10 @@ export default function DashboardContent() {
         </div>
       )}
 
-      {/* 2. Progress Jurnal & Tashih */}
-      {(tashihStatus || jurnalStatus || canSeeAdminStats) && (
+      {/* 2. Progress Jurnal & Tashih - otomatis tidak muncul jika masa ziyadah dan murajaah sudah selesai */}
+      {!isZiyadahAndMurajaahFinished && (tashihStatus || jurnalStatus || canSeeAdminStats) && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-          {tashihStatus && (
+          {tashihStatus && tashihStatus.summary && tashihStatus.juz_info && (
             <Dialog>
               <DialogTrigger asChild>
                 <div className="block group cursor-pointer">
@@ -730,7 +859,7 @@ export default function DashboardContent() {
                         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                           <div className="text-center flex flex-col justify-center px-1 sm:px-2">
                             <p className="text-lg sm:text-xl font-black text-emerald-700 leading-none">
-                              {Math.round((tashihStatus.summary.completed_blocks / tashihStatus.summary.total_blocks) * 100)}%
+                              {(tashihStatus.summary.total_blocks > 0 ? Math.round(((tashihStatus.summary.completed_blocks || 0) / tashihStatus.summary.total_blocks) * 100) : 0)}%
                             </p>
                             <p className="text-[8px] sm:text-[9px] uppercase font-bold text-emerald-600/70 tracking-wider mt-1 whitespace-nowrap">
                               {tashihStatus.summary.completed_blocks} / {tashihStatus.summary.total_blocks} Blok
@@ -752,7 +881,7 @@ export default function DashboardContent() {
                       <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
                         <div
                           className="bg-gradient-to-r from-emerald-500 to-teal-500 h-full rounded-full transition-all duration-1000 ease-out"
-                          style={{ width: `${(tashihStatus.summary.completed_blocks / tashihStatus.summary.total_blocks) * 100}%` }}
+                          style={{ width: `${tashihStatus.summary.total_blocks > 0 ? ((tashihStatus.summary.completed_blocks || 0) / tashihStatus.summary.total_blocks) * 100 : 0}%` }}
                         ></div>
                       </div>
                     </CardContent>
@@ -779,7 +908,7 @@ export default function DashboardContent() {
                       <p className="text-xs text-emerald-700/80 font-medium mt-0.5">Telah disetorkan {tashihStatus.summary.completed_blocks} dari total {tashihStatus.summary.total_blocks} blok.</p>
                     </div>
                     <div className="w-14 h-14 rounded-full bg-emerald-100 border-2 border-emerald-200 flex items-center justify-center shrink-0">
-                      <p className="text-sm font-black text-emerald-600">{Math.round((tashihStatus.summary.completed_blocks / tashihStatus.summary.total_blocks) * 100)}%</p>
+                      <p className="text-sm font-black text-emerald-600">{(tashihStatus.summary.total_blocks > 0 ? Math.round(((tashihStatus.summary.completed_blocks || 0) / tashihStatus.summary.total_blocks) * 100) : 0)}%</p>
                     </div>
                   </div>
 
@@ -817,7 +946,7 @@ export default function DashboardContent() {
             </Dialog>
           )}
 
-        {jurnalStatus && (
+        {jurnalStatus && jurnalStatus.summary && jurnalStatus.juz_info && (
             <Dialog>
               <DialogTrigger asChild>
                 <div className="block group cursor-pointer">
@@ -844,7 +973,7 @@ export default function DashboardContent() {
                         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                           <div className="text-center flex flex-col justify-center px-1 sm:px-2">
                             <p className="text-lg sm:text-xl font-black text-purple-700 leading-none">
-                              {Math.round((jurnalStatus.summary.completed_blocks / jurnalStatus.summary.total_blocks) * 100)}%
+                              {(jurnalStatus.summary.total_blocks > 0 ? Math.round(((jurnalStatus.summary.completed_blocks || 0) / jurnalStatus.summary.total_blocks) * 100) : 0)}%
                             </p>
                             <p className="text-[8px] sm:text-[9px] uppercase font-bold text-purple-600/70 tracking-wider mt-1 whitespace-nowrap">
                               {jurnalStatus.summary.completed_blocks} / {jurnalStatus.summary.total_blocks} Blok
@@ -866,7 +995,7 @@ export default function DashboardContent() {
                       <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
                         <div
                           className="bg-gradient-to-r from-purple-500 to-pink-500 h-full rounded-full transition-all duration-1000 ease-out"
-                          style={{ width: `${(jurnalStatus.summary.completed_blocks / jurnalStatus.summary.total_blocks) * 100}%` }}
+                          style={{ width: `${jurnalStatus.summary.total_blocks > 0 ? ((jurnalStatus.summary.completed_blocks || 0) / jurnalStatus.summary.total_blocks) * 100 : 0}%` }}
                         ></div>
                       </div>
                     </CardContent>
@@ -893,7 +1022,7 @@ export default function DashboardContent() {
                       <p className="text-xs text-purple-700/80 font-medium mt-0.5">Telah diselesaikan {jurnalStatus.summary.completed_blocks} dari total {jurnalStatus.summary.total_blocks} blok.</p>
                     </div>
                     <div className="w-14 h-14 rounded-full bg-purple-100 border-2 border-purple-200 flex items-center justify-center shrink-0">
-                      <p className="text-sm font-black text-purple-600">{Math.round((jurnalStatus.summary.completed_blocks / jurnalStatus.summary.total_blocks) * 100)}%</p>
+                      <p className="text-sm font-black text-purple-600">{(jurnalStatus.summary.total_blocks > 0 ? Math.round(((jurnalStatus.summary.completed_blocks || 0) / jurnalStatus.summary.total_blocks) * 100) : 0)}%</p>
                     </div>
                   </div>
 
@@ -958,13 +1087,14 @@ export default function DashboardContent() {
               </div>
               <h2 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight mb-1 break-words">
                 {(() => {
-                  if (!halaqahOfTheWeek.name.includes(' | ')) return halaqahOfTheWeek.name;
-                  const parts = halaqahOfTheWeek.name.split(' | ');
+                  const hotwName = halaqahOfTheWeek.name || '';
+                  if (!hotwName.includes(' | ')) return hotwName;
+                  const parts = hotwName.split(' | ');
                   const prefixPart = parts[0];
                   
                   const newNamePart = `Ustadzah ${halaqahOfTheWeek.muallimah_name}`;
                   
-                  if (prefixPart.toLowerCase().includes('pra')) {
+                  if ((prefixPart || "").toLowerCase().includes('pra')) {
                     return `${prefixPart} | ${newNamePart}`;
                   }
                   
@@ -992,7 +1122,7 @@ export default function DashboardContent() {
                   <span className="text-xl sm:text-2xl font-black leading-none">{halaqahOfTheWeek.active_tashih || 0}</span>
                   <span className="text-xs sm:text-sm font-bold leading-none mb-0.5 text-gray-400">/ {halaqahOfTheWeek.total_thalibah}</span>
                 </div>
-                <span className="text-[8px] sm:text-[9px] font-bold text-gray-400 mt-1 text-center">Santri Aktif</span>
+                <span className="text-[8px] sm:text-[9px] font-bold text-gray-400 mt-1 text-center">Thalibah Aktif</span>
               </div>
               
               {currentWeek >= 2 && (
@@ -1002,7 +1132,7 @@ export default function DashboardContent() {
                     <span className="text-xl sm:text-2xl font-black leading-none">{halaqahOfTheWeek.active_jurnal || 0}</span>
                     <span className="text-xs sm:text-sm font-bold leading-none mb-0.5 text-gray-400">/ {halaqahOfTheWeek.total_thalibah}</span>
                   </div>
-                  <span className="text-[8px] sm:text-[9px] font-bold text-gray-400 mt-1 text-center">Santri Aktif</span>
+                  <span className="text-[8px] sm:text-[9px] font-bold text-gray-400 mt-1 text-center">Thalibah Aktif</span>
                 </div>
               )}
             </div>
@@ -1033,6 +1163,37 @@ export default function DashboardContent() {
 
         {/* Unified Registration Hub Card - Muncul di masa pendaftaran aktif */}
         <RegistrationHubCard />
+
+        {/* Dedicated Mu'allimah Paid Class Banner */}
+        {canOpenPaidClasses && (
+          <Link href="/muallimah/kelas-berbayar" className="block group focus:outline-none">
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-900 via-emerald-800 to-teal-900 p-4 sm:p-5 text-white shadow-lg shadow-emerald-950/15 border border-emerald-700/40 transition-all duration-300 group-hover:-translate-y-0.5 group-hover:shadow-xl">
+              <div className="flex items-center justify-between gap-4 relative z-10">
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="w-11 h-11 rounded-xl bg-amber-400/20 border border-amber-300/30 text-amber-300 flex items-center justify-center shrink-0">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-amber-300 mb-0.5">
+                      <span>Khusus Mu&apos;allimah MTI</span>
+                    </div>
+                    <h3 className="text-sm sm:text-base font-black text-white leading-tight truncate">
+                      Buka Kelas Berbayar Resmi MTI
+                    </h3>
+                    <p className="text-xs text-emerald-100/80 font-medium line-clamp-1 mt-0.5">
+                      Ajukan &amp; kelola kelas mandiri untuk Thalibah maupun Umum.
+                    </p>
+                  </div>
+                </div>
+                <div className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white text-emerald-900 text-xs font-black shadow-sm group-hover:bg-amber-300 transition-colors">
+                  <span className="hidden sm:inline">Kelola Kelas</span>
+                  <ChevronRight className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-amber-400/10 blur-2xl pointer-events-none" />
+            </div>
+          </Link>
+        )}
 
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
@@ -1125,6 +1286,19 @@ export default function DashboardContent() {
                 shadowColor: 'shadow-amber-600/30',
                 bgCard: 'hover:border-amber-300 hover:bg-amber-50/30'
               },
+              ...(canOpenPaidClasses
+                ? [
+                    {
+                      label: 'Buka Kelas Berbayar',
+                      desc: "Kelola kelas mandiri Mu'allimah",
+                      icon: Sparkles,
+                      href: '/muallimah/kelas-berbayar',
+                      gradient: 'from-amber-500 to-emerald-600',
+                      shadowColor: 'shadow-emerald-500/25',
+                      bgCard: 'hover:border-emerald-200 hover:bg-emerald-50/20'
+                    }
+                  ]
+                : [])
             ];
 
             return menuItems.map((item, i) => (
@@ -1138,6 +1312,7 @@ export default function DashboardContent() {
                   } else if (item.label.includes('Sit-In')) {
                     e.preventDefault();
                     setIsScheduleOptionsOpen(true);
+
                   }
                 }}
                 className="group min-w-0 block focus:outline-none"
@@ -1264,7 +1439,15 @@ export default function DashboardContent() {
                         <div>
                           <p className="text-xs font-bold text-gray-900">{activity.title}</p>
                           <p className="text-[10px] text-gray-400">
-                            {new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' }).format(activity.date)}
+                            {activity.date && !isNaN(activity.date.getTime())
+                              ? (() => {
+                                  try {
+                                    return new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' }).format(activity.date);
+                                  } catch {
+                                    return '';
+                                  }
+                                })()
+                              : ''}
                           </p>
                         </div>
                       </div>
@@ -1362,9 +1545,13 @@ export default function DashboardContent() {
                 <Trophy className="w-7 h-7" />
               </div>
               <div className="text-left">
-                <DialogTitle className="text-2xl font-black tracking-tight">Evaluasi Kedisiplinan</DialogTitle>
+                <DialogTitle className="text-2xl font-black tracking-tight">
+                  Evaluasi Kedisiplinan {userRank?.week ? `(Pekan ${userRank.week})` : ""}
+                </DialogTitle>
                 <DialogDescription className="text-amber-900/80 font-semibold mt-1">
-                  Rincian perhitungan skor disiplin Anda
+                  {userRank?.isCurriculumCompleted 
+                    ? `Pekan pembelajaran aktif kurikulum terakhir (Pekan ${userRank?.week || 10})` 
+                    : `Rincian skor ketepatan waktu setor Jurnal & Tashih Pekan ${userRank?.week || ""}`}
                 </DialogDescription>
               </div>
             </div>
@@ -1372,14 +1559,16 @@ export default function DashboardContent() {
           <div className="p-6 space-y-6">
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-amber-100/50 rounded-2xl p-4 flex flex-col items-center justify-center border border-amber-200">
-                <p className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-1">Peringkat</p>
+                <p className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-1">
+                  Peringkat (Pekan {userRank?.week || 10})
+                </p>
                 <div className="flex items-baseline gap-1">
                   <span className="text-4xl font-black text-amber-600">{userRank?.rank}</span>
                   <span className="text-sm font-bold text-amber-500/70">/ {userRank?.total}</span>
                 </div>
               </div>
               <div className="bg-amber-100/50 rounded-2xl p-4 flex flex-col items-center justify-center border border-amber-200">
-                <p className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-1">Total Skor</p>
+                <p className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-1">Skor Disiplin</p>
                 <div className="flex items-baseline gap-1">
                   <span className="text-4xl font-black text-amber-600">{userRank?.score}</span>
                   <span className="text-sm font-bold text-amber-500/70">pts</span>
@@ -1392,8 +1581,14 @@ export default function DashboardContent() {
               <ul className="text-sm text-gray-600 space-y-2">
                 <li className="flex items-start gap-2">
                   <div className="mt-0.5 w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
-                  <p>Skor dihitung berdasarkan <b>ketepatan waktu</b> Anda menyetorkan Jurnal dan Tugas Tashih pekanan.</p>
+                  <p>Peringkat kedisiplinan dievaluasi setiap pekan pembelajaran berdasarkan <b>ketepatan waktu</b> Anda menyetorkan Jurnal dan Tugas Tashih.</p>
                 </li>
+                {userRank?.isCurriculumCompleted && (
+                  <li className="flex items-start gap-2">
+                    <div className="mt-0.5 w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                    <p className="text-amber-900 font-medium">Kurikulum pembelajaran telah selesai di <b>Pekan {userRank?.week || 10}</b>. Peringkat kedisiplinan dikunci pada pekan terakhir kurikulum tersebut dan tidak menurun selama masa muraja'ah & ujian akhir.</p>
+                  </li>
+                )}
                 <li className="flex items-start gap-2">
                   <div className="mt-0.5 w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
                   <p>Setiap blok (Jurnal/Tashih) yang dikumpulkan <b>tepat waktu</b> atau lebih awal mendapatkan skor wajib penuh <b>10 poin</b>.</p>
@@ -1408,7 +1603,7 @@ export default function DashboardContent() {
                 </li>
                 <li className="flex items-start gap-2">
                   <div className="mt-0.5 w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
-                  <p>Total skor maksimal adalah <b>100 Poin</b> (80 poin wajib + 20 poin ekstra kegiatan opsional).</p>
+                  <p>Total skor maksimal per pekan adalah <b>100 Poin</b> (80 poin wajib + 20 poin ekstra kegiatan opsional).</p>
                 </li>
               </ul>
             </div>
@@ -1507,7 +1702,7 @@ export default function DashboardContent() {
                           <table className="w-full text-sm text-left">
                             <thead className="bg-gray-50 text-gray-500 text-[10px] uppercase tracking-wider">
                               <tr>
-                                <th className="px-4 py-3 font-semibold">Nama Santri</th>
+                                <th className="px-4 py-3 font-semibold">Nama Thalibah</th>
                                 <th className="px-4 py-3 font-semibold text-center">Progress</th>
                                 <th className="px-4 py-3 font-semibold text-center">Jurnal</th>
                                 <th className="px-4 py-3 font-semibold text-center">Tashih</th>

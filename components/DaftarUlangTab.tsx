@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { cn, parseAkadFiles } from '@/lib/utils';
+import { formatMuallimahName } from '@/lib/roles';
 import {
   FileText,
   Download,
@@ -456,13 +457,13 @@ export function DaftarUlangTab({ batchId: initialBatchId }: DaftarUlangTabProps)
           'Jadwal Halaqah Ujian': formatHalaqahSchedule(ujianHalaqah),
           'Lokasi Halaqah Ujian': ujianHalaqah.location || '-',
           'Tipe Kelas Ujian': ujianHalaqah.class_type || '-',
-          'Muallimah Ujian': ujianHalaqah.muallimah_name || '-',
+          'Muallimah Ujian': ujianHalaqah.muallimah_name ? formatMuallimahName(ujianHalaqah.muallimah_name) : '-',
 
           'Halaqah Tashih': item.is_tashih_umum ? 'Umum' : (tashihHalaqah.name || '-'),
           'Jadwal Halaqah Tashih': item.is_tashih_umum ? 'Umum' : formatHalaqahSchedule(tashihHalaqah),
           'Lokasi Halaqah Tashih': item.is_tashih_umum ? '-' : (tashihHalaqah.location || '-'),
           'Tipe Kelas Tashih': item.is_tashih_umum ? '-' : (tashihHalaqah.class_type || '-'),
-          'Muallimah Tashih': item.is_tashih_umum ? '-' : (tashihHalaqah.muallimah_name || '-'),
+          'Muallimah Tashih': item.is_tashih_umum ? '-' : (tashihHalaqah.muallimah_name ? formatMuallimahName(tashihHalaqah.muallimah_name) : '-'),
 
           // Partner
           'Tipe Partner': item.partner_type || '-',

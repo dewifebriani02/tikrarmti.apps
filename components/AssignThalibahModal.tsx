@@ -14,7 +14,7 @@ import {
   Info
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { getHalaqahs, assignThalibahToHalaqah } from '@/app/(protected)/admin/halaqah/actions';
+import { getHalaqahs, assignThalibahToHalaqah } from '@/lib/admin/halaqah-client';
 
 interface Thalibah {
   id: string;

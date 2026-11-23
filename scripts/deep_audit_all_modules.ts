@@ -318,11 +318,11 @@ async function deepAudit() {
     const hmCount = await query(`SELECT count(*) FROM halaqah_mentors`);
     auditReport.push({
       category: 'Admin',
-      page: '/admin/halaqah (Manajemen Kelas & Pembagian Santri)',
+      page: '/admin/halaqah (Manajemen Kelas & Pembagian Thalibah)',
       endpoints: ['/api/admin/halaqah', '/api/halaqah/auto-create', '/api/halaqah/[id]/students'],
       dbTables: ['halaqah', 'halaqah_students', 'halaqah_mentors', 'users'],
       status: 'PASS',
-      details: `Sinkron: ${hCount.rows[0].count} Halaqah, ${hmCount.rows[0].count} Mentor, ${hsCount.rows[0].count} Penempatan santri.`
+      details: `Sinkron: ${hCount.rows[0].count} Halaqah, ${hmCount.rows[0].count} Mentor, ${hsCount.rows[0].count} Penempatan thalibah.`
     });
   } catch (e: any) {
     auditReport.push({

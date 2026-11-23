@@ -178,7 +178,7 @@ async function run() {
       let uid = b1.userId;
       if (b1.isNewUser) {
         // Create new thalibah user
-        const dummyEmail = `santri.b1.${norm(b1.entry.fullName)}@markaztikrar.id`;
+        const dummyEmail = `thalibah.b1.${norm(b1.entry.fullName)}@markaztikrar.id`;
         const insertUserRes = await client.query(
           `INSERT INTO users (
              full_name, email, student_id_number, current_tikrar_batch_id, 

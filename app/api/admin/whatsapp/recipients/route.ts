@@ -28,10 +28,45 @@ export async function GET(request: Request) {
     // Ambil detail thalibah aktif langsung dari view v_active_thalibah
     const recipients = await whatsappService.getActiveThalibahRecipients(batchId);
 
+    // Ambil daftar admin terdaftar yang nomor WhatsApp-nya aktif untuk opsi tembusan (CC)
+    const { rows: admins } = await query(
+      `SELECT DISTINCT ON (whatsapp)
+         id, 
+         full_name, 
+         role, 
+         roles,
+         whatsapp,
+         email
+       FROM users 
+       WHERE (role IN ('admin', 'super_admin') OR 'admin' = ANY(roles) OR 'super_admin' = ANY(roles))
+         AND whatsapp IS NOT NULL AND TRIM(whatsapp) != ''
+         AND is_active = true
+       ORDER BY whatsapp, full_name ASC`
+    );
+
+    const formattedAdmins = admins.map((a) => {
+      const userRoles = Array.isArray(a.roles) ? a.roles : [];
+      let displayRole = a.role;
+      if (a.role === 'super_admin' || userRoles.includes('super_admin')) {
+        displayRole = 'super_admin';
+      } else if (a.role === 'admin' || userRoles.includes('admin')) {
+        displayRole = 'admin';
+      }
+      return {
+        id: a.id,
+        full_name: a.full_name,
+        role: displayRole,
+        roles: a.roles,
+        whatsapp: a.whatsapp,
+        email: a.email,
+      };
+    });
+
     return ApiResponses.success({
       batches,
       totalRecipients: recipients.length,
       recipients,
+      admins: formattedAdmins.sort((a, b) => a.full_name.localeCompare(b.full_name)),
     });
   } catch (error) {
     console.error('[WhatsApp Recipients Route] Error:', error);

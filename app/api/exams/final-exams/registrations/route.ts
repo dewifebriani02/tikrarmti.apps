@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { ApiResponses } from '@/lib/api-responses';
 import { transaction } from '@/lib/db';
+import { isSchedulePast } from '@/lib/utils/date-helpers';
 
 export async function GET(request: Request) {
   const supabase = createClient();
@@ -57,7 +58,7 @@ export async function POST(request: Request) {
     const result = await transaction(async (client) => {
       // 1. Lock and check the schedule
       const schedRes = await client.query(
-        `SELECT id, batch_id, exam_type, max_quota, current_count, status
+        `SELECT id, batch_id, exam_type, exam_date, start_time, end_time, max_quota, current_count, status
          FROM final_exam_schedules
          WHERE id = $1
          FOR UPDATE`,
@@ -73,17 +74,6 @@ export async function POST(request: Request) {
         throw new Error('Jadwal ujian tidak aktif');
       }
 
-      // Check real count
-      const countRes = await client.query(
-        `SELECT COUNT(*)::int as reg_count FROM final_exam_registrations WHERE schedule_id = $1`,
-        [schedule_id]
-      );
-      const currentRealCount = countRes.rows[0]?.reg_count || 0;
-
-      if (currentRealCount >= (schedule.max_quota || 5)) {
-        throw new Error('QUOTA_FULL');
-      }
-
       // 2. Check if user is already registered for this schedule
       const existingReg = await client.query(
         `SELECT id FROM final_exam_registrations WHERE user_id = $1 AND schedule_id = $2`,
@@ -94,7 +84,23 @@ export async function POST(request: Request) {
         return { success: true, message: 'Anda sudah terdaftar di jadwal ini' };
       }
 
-      // 3. Check if user is already registered for another schedule of the same exam_type and batch
+      // 3. Check if the schedule has already passed
+      if (isSchedulePast(schedule.exam_date, schedule.start_time, schedule.end_time)) {
+        throw new Error('SCHEDULE_PAST');
+      }
+
+      // 4. Check real count for quota
+      const countRes = await client.query(
+        `SELECT COUNT(*)::int as reg_count FROM final_exam_registrations WHERE schedule_id = $1`,
+        [schedule_id]
+      );
+      const currentRealCount = countRes.rows[0]?.reg_count || 0;
+
+      if (currentRealCount >= (schedule.max_quota || 5)) {
+        throw new Error('QUOTA_FULL');
+      }
+
+      // 5. Check if user is already registered for another schedule of the same exam_type and batch
       const otherReg = await client.query(
         `SELECT r.id, r.schedule_id 
          FROM final_exam_registrations r
@@ -116,14 +122,14 @@ export async function POST(request: Request) {
         );
       }
 
-      // 4. Insert new registration
+      // 6. Insert new registration
       await client.query(
         `INSERT INTO final_exam_registrations (user_id, schedule_id, status, created_at, updated_at)
          VALUES ($1, $2, 'registered', NOW(), NOW())`,
         [authUser.id, schedule_id]
       );
 
-      // 5. Update schedule current_count
+      // 7. Update schedule current_count
       await client.query(
         `UPDATE final_exam_schedules 
          SET current_count = (SELECT COUNT(*) FROM final_exam_registrations WHERE schedule_id = $1),
@@ -139,6 +145,9 @@ export async function POST(request: Request) {
   } catch (error: any) {
     if (error.message === 'QUOTA_FULL') {
       return ApiResponses.badRequest('Maaf Ukhti, kuota jadwal ini baru saja penuh. Silakan pilih jadwal lain.');
+    }
+    if (error.message === 'SCHEDULE_PAST') {
+      return ApiResponses.badRequest('Maaf Ukhti, jadwal ujian ini sudah lewat dan tidak dapat dipilih lagi.');
     }
     return ApiResponses.badRequest(error.message || 'Gagal mendaftar');
   }

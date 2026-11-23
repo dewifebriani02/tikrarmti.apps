@@ -2254,17 +2254,18 @@ Semoga Allah Ta'ala melipatgandakan pahala dan keberkahan untuk Ukhti sekeluarga
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-gray-700">Bukti Transfer (Opsional)</Label>
                 <div className="flex items-center gap-3">
-                  <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition-colors border border-gray-200">
+                  <div className="relative cursor-pointer inline-flex items-center gap-1.5 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition-colors border border-gray-200 overflow-hidden">
                     <Upload className="w-3.5 h-3.5" />
                     <span>{uploadingManualProof ? 'Mengunggah...' : 'Unggah Tangkapan Layar WA'}</span>
                     <input
                       type="file"
-                      accept="image/*,application/pdf"
+                      accept="image/jpeg,image/png,image/webp,image/jpg,application/pdf"
                       onChange={handleManualFileUpload}
                       disabled={uploadingManualProof}
-                      className="hidden"
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                      title="Unggah Tangkapan Layar WA"
                     />
-                  </label>
+                  </div>
                   {manualForm.proof_url && (
                     <div className="flex items-center gap-2">
                       <span className="text-emerald-700 text-xs font-semibold flex items-center gap-1">

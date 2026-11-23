@@ -4,6 +4,8 @@ import { useState, useEffect, Suspense, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useRegistrationBatch } from '@/hooks/useBatches';
+import { useFormSettings } from '@/hooks/useFormSettings';
+import { useJuzOptions } from '@/hooks/useJuzOptions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,11 +14,16 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
-import { Calendar, BookOpen, GraduationCap, Loader2, Info, Clock, ShieldCheck } from 'lucide-react';
+import { Calendar, BookOpen, GraduationCap, Loader2, Info, Clock, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import {
+  RegistrationEditPhaseBanner,
+  EditHistoryTimeline,
+  type EditHistoryItem,
+  type EditPhaseClientInfo,
+} from '@/components/registration/EditHistoryTimeline';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
-import { submitMuallimahRegistration, getMuallimahRegistrationQuestions } from './actions';
 
 interface Question {
   id?: string;
@@ -217,7 +224,21 @@ function MuallimahRegistrationContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
+  const { settings: formSettings, isLoading: settingsLoading } = useFormSettings();
   const { registrationBatch, isLoading: batchLoading } = useRegistrationBatch();
+  const { juzOptions, isLoading: juzLoading } = useJuzOptions();
+
+  // Dynamic active juz options from Pengaturan Pilihan Juz (tabel juz_options)
+  const activeJuzNumbers = useMemo(() => {
+    const active = (juzOptions || []).filter(j => j.is_active);
+    if (active.length === 0) return new Set<string>();
+    return new Set(active.map(j => String(j.juz_number)));
+  }, [juzOptions]);
+
+  const availableJuzToTeach = useMemo(() => {
+    if (activeJuzNumbers.size === 0) return allJuzOptions;
+    return allJuzOptions.filter(juz => activeJuzNumbers.has(juz.value));
+  }, [activeJuzNumbers]);
   const supabase = createClient();
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -231,6 +252,11 @@ function MuallimahRegistrationContent() {
 
   // Edit mode states
   const [isEditMode, setIsEditMode] = useState(false);
+  const [hasExistingRegistration, setHasExistingRegistration] = useState(false);
+  const [akadStatus, setAkadStatus] = useState<string | null>(null);
+  const [editPhase, setEditPhase] = useState<EditPhaseClientInfo | null>(null);
+  const [editHistory, setEditHistory] = useState<EditHistoryItem[]>([]);
+  const [editReason, setEditReason] = useState('');
 
   const [formData, setFormData] = useState<MuallimahFormData>({
     tajweed_institution: '',
@@ -272,8 +298,11 @@ function MuallimahRegistrationContent() {
   useEffect(() => {
     async function loadQuestions() {
       try {
-        const result = await getMuallimahRegistrationQuestions();
-        if (result.success && result.data) {
+        const response = await fetch('/api/pendaftaran/questions?type=muallimah', {
+          cache: 'no-store',
+        });
+        const result = await response.json().catch(() => null);
+        if (response.ok && result?.success && result.data) {
           setQuestions(result.data as Question[]);
         }
       } catch (error) {
@@ -354,7 +383,10 @@ function MuallimahRegistrationContent() {
         const res = await fetch('/api/alumni/testimonial/my');
         if (res.ok) {
           const data = await res.json();
-          if (data.isAlumni && !data.testimonial) {
+          const shouldBlock = data.requiresTestimonialBeforeRegister !== undefined
+            ? data.requiresTestimonialBeforeRegister
+            : (data.isAlumni && !data.isAdmin && !data.testimonial);
+          if (shouldBlock) {
             toast.error('Afwan Ukhti, Ukhti harus mengisi testimoni alumni terlebih dahulu.');
             router.push('/alumni');
           }
@@ -377,7 +409,7 @@ function MuallimahRegistrationContent() {
 
   // AUTO-SAVE: Load draft from localStorage on mount
   useEffect(() => {
-    if (user?.id && !isFormSubmitted) {
+    if (user?.id && !isFormSubmitted && !hasExistingRegistration) {
       const savedDraft = localStorage.getItem(`muallimah_draft_${user.id}`);
       if (savedDraft) {
         try {
@@ -396,11 +428,11 @@ function MuallimahRegistrationContent() {
         }
       }
     }
-  }, [user?.id, isFormSubmitted]);
+  }, [user?.id, isFormSubmitted, hasExistingRegistration]);
 
   // AUTO-SAVE: Save to localStorage whenever formData changes
   useEffect(() => {
-    if (user?.id && !isFormSubmitted && formData) {
+    if (user?.id && !isFormSubmitted && !hasExistingRegistration && formData) {
       const timeoutId = setTimeout(() => {
         // Don't save if it's just the initial empty state
         const hasData = Object.values(formData).some(val => 
@@ -412,7 +444,7 @@ function MuallimahRegistrationContent() {
       }, 1000);
       return () => clearTimeout(timeoutId);
     }
-  }, [formData, user?.id, isFormSubmitted]);
+  }, [formData, user?.id, isFormSubmitted, hasExistingRegistration]);
 
   // Set batchId
   useEffect(() => {
@@ -441,14 +473,15 @@ function MuallimahRegistrationContent() {
 
   const fetchProfileAndAkad = async () => {
     try {
-      // 1. Fetch Profile (Batch-independent registration)
-      const { data: profile, error: profileError } = await supabase
-        .from('muallimah_registrations')
-        .select('*')
-        .eq('user_id', user?.id)
-        .maybeSingle();
+      const response = await fetch(`/api/pendaftaran/muallimah?batch_id=${encodeURIComponent(batchId)}`, {
+        cache: 'no-store',
+      });
+      const json = await response.json().catch(() => null);
+      if (!response.ok || !json?.success) {
+        throw new Error(json?.error?.message || json?.error || 'Gagal memuat data pendaftaran');
+      }
 
-      if (profileError) throw profileError;
+      const { profile, akad, editPhase: fetchedPhase, history: fetchedHistory } = json.data || {};
 
       if (profile) {
         setProfileExists(true);
@@ -467,18 +500,17 @@ function MuallimahRegistrationContent() {
         }));
       }
 
-      // 2. Fetch Akad for this batch
-      const { data: akad, error: akadError } = await supabase
-        .from('muallimah_akads')
-        .select('*')
-        .eq('user_id', user?.id)
-        .eq('batch_id', batchId)
-        .maybeSingle();
+      setEditPhase(fetchedPhase || null);
+      setEditHistory(Array.isArray(fetchedHistory) ? fetchedHistory : []);
 
       if (akad) {
-        if (akad.status === 'approved' || akad.status === 'rejected') {
+        setHasExistingRegistration(true);
+        setAkadStatus(akad.status || null);
+        if (akad.status === 'rejected') {
           setIsFormSubmitted(true);
+          setIsEditMode(false);
         } else {
+          setIsFormSubmitted(false);
           setIsEditMode(true);
         }
 
@@ -490,10 +522,10 @@ function MuallimahRegistrationContent() {
           : akad.backup_schedule;
 
         const isNewFormat = preferredSchedule && (preferredSchedule.tikrar || preferredSchedule.pra_tahfidz || preferredSchedule.berbayar);
-        
+
         let class_tikrar = false;
         let class_pratikrar = false;
-        
+
         let schedule_tikrar_day = '';
         let schedule_tikrar_time_start = '';
         let schedule_tikrar_time_end = '';
@@ -507,7 +539,6 @@ function MuallimahRegistrationContent() {
         let schedule_pratikrar_day2 = '';
         let schedule_pratikrar_time_start2 = '';
         let schedule_pratikrar_time_end2 = '';
-
 
         if (isNewFormat) {
           class_tikrar = !!preferredSchedule.tikrar;
@@ -533,9 +564,7 @@ function MuallimahRegistrationContent() {
               schedule_pratikrar_time_end2 = backupSchedule.pra_tahfidz.time_end2 || backupSchedule.pra_tahfidz.time_end || '';
             }
           }
-
         } else {
-          // Legacy format mapping
           const legacyClassType = akad.class_type || '';
           if (legacyClassType.includes('tikrar_tahfidz')) {
             class_tikrar = true;
@@ -778,17 +807,37 @@ function MuallimahRegistrationContent() {
 
     setIsLoading(true);
     try {
-      const result = await submitMuallimahRegistration(formData, userData, user, batchId);
-      if (result.success) {
-        setIsFormSubmitted(true);
-        toast.success(result.message);
+      const response = await fetch('/api/pendaftaran/muallimah', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          formData,
+          userData,
+          user,
+          batchId,
+          editReason: editReason.trim() || undefined,
+        }),
+      });
+      const result = await response.json().catch(() => null);
+      if (response.ok && result?.success) {
+        toast.success(result.message || "Pendaftaran Mu'allimah berhasil dikirim!");
         // Clear auto-save draft on success
         if (user?.id) {
           localStorage.removeItem(`muallimah_draft_${user.id}`);
         }
-        router.push('/dashboard');
+        const wasEditMode = isEditMode || hasExistingRegistration;
+        setHasExistingRegistration(true);
+        setIsEditMode(true);
+        setEditReason('');
+        if (wasEditMode && (result.editPhase === 'after_daftar_ulang' || editPhase?.phase === 'after_daftar_ulang' || result.historyRecorded || (result.notificationsSent?.sentCount || 0) > 0)) {
+          await fetchProfileAndAkad();
+        } else {
+          router.push('/dashboard');
+        }
       } else {
-        toast.error(result.error || 'Gagal mengirim pendaftaran');
+        toast.error(result?.error || `Gagal mengirim pendaftaran (HTTP ${response.status}). Silakan muat ulang halaman dan coba lagi.`);
       }
     } catch (error: any) {
       toast.error(error?.message || 'Terjadi kesalahan');
@@ -796,6 +845,28 @@ function MuallimahRegistrationContent() {
       setIsLoading(false);
     }
   };
+
+  const isAdmin = user?.roles?.includes('admin') || user?.role === 'admin';
+  if (!settingsLoading && !formSettings.muallimah && !isAdmin && !isFormSubmitted && !hasExistingRegistration) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-3xl p-8 shadow-sm border border-gray-100 text-center space-y-4">
+          <div className="h-16 w-16 mx-auto rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <GraduationCap className="h-8 w-8" />
+          </div>
+          <h2 className="text-xl font-black text-gray-900">Pendaftaran Mu'allimah Ditutup</h2>
+          <p className="text-sm text-gray-600">
+            Formulir pendaftaran dan akad Mu'allimah saat ini sedang ditutup atau belum dipublikasikan oleh administrator.
+          </p>
+          <div className="pt-2">
+            <Button onClick={() => router.push('/pendaftaran')} className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl">
+              Lihat Program Lainnya
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (authLoading || batchLoading || questionsLoading) {
     return (
@@ -817,13 +888,38 @@ function MuallimahRegistrationContent() {
         </p>
       </div>
 
-      {isFormSubmitted && (
-        <Alert className="mb-6 bg-blue-50 border-blue-200">
-          <Info className="h-4 w-4 text-blue-600" />
-          <AlertDescription className="text-blue-800 font-medium">
-            Pendaftaran Ukhti sedang dalam proses review. Data tidak dapat diubah saat ini.
+      {isFormSubmitted && akadStatus === 'rejected' && (
+        <Alert className="mb-6 bg-rose-50 border-rose-200">
+          <Info className="h-4 w-4 text-rose-600" />
+          <AlertDescription className="text-rose-800 font-medium">
+            Pendaftaran Mu'allimah Ukhti pada batch ini berstatus tidak disetujui. Silakan hubungi admin untuk informasi lebih lanjut.
           </AlertDescription>
         </Alert>
+      )}
+
+      {hasExistingRegistration && akadStatus !== 'rejected' && (
+        <div className="mb-6 space-y-4">
+          <Alert className={akadStatus === 'approved' ? 'bg-emerald-50 border-emerald-200' : 'bg-blue-50 border-blue-200'}>
+            <CheckCircle2 className={akadStatus === 'approved' ? 'h-4 w-4 text-emerald-600' : 'h-4 w-4 text-blue-600'} />
+            <AlertDescription className={akadStatus === 'approved' ? 'text-emerald-900 text-sm' : 'text-blue-900 text-sm'}>
+              {akadStatus === 'approved'
+                ? 'Akad & Pendaftaran Mu\'allimah Ukhti sudah disetujui. Ukhti tetap dapat memperbarui profil maupun jadwal mengajar di bawah ini.'
+                : 'Pendaftaran Mu\'allimah Ukhti sudah tercatat dan sedang menunggu review. Ukhti dapat memperbarui data atau jadwal kapan saja.'}
+            </AlertDescription>
+          </Alert>
+
+          <RegistrationEditPhaseBanner
+            editPhase={editPhase}
+            isMuallimahClass
+            editReason={editReason}
+            onEditReasonChange={setEditReason}
+          />
+
+          <EditHistoryTimeline
+            history={editHistory}
+            title="Riwayat Perubahan Data & Jadwal Mengajar"
+          />
+        </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-8">
@@ -1286,42 +1382,72 @@ function MuallimahRegistrationContent() {
 
             {getQuestionMeta('preferred_juz').is_active && (
               <div className="space-y-4">
-                <Label className="text-base font-semibold">
-                  {getQuestionMeta('preferred_juz').label}
-                  {getQuestionMeta('preferred_juz').is_required && <span className="text-red-500">*</span>}
-                </Label>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                  <Label className="text-base font-semibold">
+                    {getQuestionMeta('preferred_juz').label}
+                    {getQuestionMeta('preferred_juz').is_required && <span className="text-red-500">*</span>}
+                  </Label>
+                  {activeJuzNumbers.size > 0 && (
+                    <span className="text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full font-semibold inline-flex items-center gap-1.5 w-fit">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
+                      Sinkronisasi Pilihan Juz MTI ({availableJuzToTeach.length} Juz Aktif)
+                    </span>
+                  )}
+                </div>
+                {getQuestionMeta('preferred_juz').description && (
+                  <p className="text-sm text-gray-500">
+                    {getQuestionMeta('preferred_juz').description}
+                  </p>
+                )}
+
                 {formData.memorized_juz.length === 0 ? (
                   <p className="text-sm font-semibold text-rose-600 bg-rose-50 border border-rose-100 rounded-xl p-4">
-                    ⚠️ Silakan pilih Juz yang sudah dihafal terlebih dahulu di bagian "Informasi Hafalan" di atas untuk dapat memilih Juz yang ingin diampu.
+                    ⚠️ Silakan pilih Juz yang sudah dihafal terlebih dahulu di bagian &quot;Informasi Hafalan&quot; di atas untuk dapat memilih Juz yang ingin diampu.
                   </p>
+                ) : availableJuzToTeach.filter(juz => formData.memorized_juz.includes(juz.value)).length === 0 ? (
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-sm space-y-2">
+                    <p className="font-bold flex items-center gap-2">
+                      <Info className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                      Belum Ada Juz Hafalan yang Sesuai dengan Program Batch Ini
+                    </p>
+                    <p className="text-xs text-amber-800 leading-relaxed">
+                      Juz yang dibuka oleh Markaz Tikrar pada batch ini adalah: <strong>{availableJuzToTeach.map(j => `Juz ${j.value}`).join(', ')}</strong>.
+                      Dari hafalan yang Ukhti pilih di atas ({formData.memorized_juz.map(j => `Juz ${j}`).join(', ')}), belum ada yang termasuk ke dalam daftar juz yang dibuka. Silakan periksa kembali pilihan hafalan di Seksi 1 atau hubungi admin.
+                    </p>
+                  </div>
                 ) : (
-                  <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-10 gap-2 p-3 border rounded-xl bg-white">
-                    {allJuzOptions
-                      .filter(juz => formData.memorized_juz.includes(juz.value))
-                      .map(juz => {
-                        const isChecked = formData.preferred_juz.includes(juz.value);
-                        return (
-                          <label 
-                            key={`pref-${juz.value}`} 
-                            className={`flex items-center justify-center p-2 rounded-lg cursor-pointer transition-all border text-sm font-bold ${isChecked ? 'bg-green-700 border-green-700 text-white shadow-sm' : 'bg-white border-gray-200 text-gray-600 hover:border-green-500 hover:text-green-700'}`}
-                          >
-                            <input 
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={(e) => {
-                                const checked = e.target.checked;
-                                const newJuz = checked 
-                                  ? [...formData.preferred_juz, juz.value]
-                                  : formData.preferred_juz.filter(v => v !== juz.value);
-                                handleInputChange('preferred_juz', newJuz);
-                              }}
-                              disabled={isFormSubmitted}
-                              className="hidden"
-                            />
-                            {juz.value}
-                          </label>
-                        );
-                      })}
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-10 gap-2 p-3 border rounded-xl bg-white">
+                      {availableJuzToTeach
+                        .filter(juz => formData.memorized_juz.includes(juz.value))
+                        .map(juz => {
+                          const isChecked = formData.preferred_juz.includes(juz.value);
+                          return (
+                            <label 
+                              key={`pref-${juz.value}`} 
+                              className={`flex items-center justify-center p-2 rounded-lg cursor-pointer transition-all border text-sm font-bold ${isChecked ? 'bg-green-700 border-green-700 text-white shadow-sm' : 'bg-white border-gray-200 text-gray-600 hover:border-green-500 hover:text-green-700'}`}
+                            >
+                              <input 
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  const checked = e.target.checked;
+                                  const newJuz = checked 
+                                    ? [...formData.preferred_juz, juz.value]
+                                    : formData.preferred_juz.filter(v => v !== juz.value);
+                                  handleInputChange('preferred_juz', newJuz);
+                                }}
+                                disabled={isFormSubmitted}
+                                className="hidden"
+                              />
+                              {juz.value}
+                            </label>
+                          );
+                        })}
+                    </div>
+                    <p className="text-[11px] text-gray-500">
+                      * Menampilkan Juz yang dibuka MTI pada batch ini ({availableJuzToTeach.map(j => j.value).join(', ')}) dan sesuai dengan hafalan Ukhti.
+                    </p>
                   </div>
                 )}
                 {errors.preferred_juz && <p className="text-xs text-red-500 font-medium">{errors.preferred_juz}</p>}

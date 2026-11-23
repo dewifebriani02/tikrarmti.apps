@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyRegistrations, useAllRegistrations } from '@/hooks/useRegistrations';
-import { useActiveBatch } from '@/hooks/useBatches';
+import { useActiveBatch, useRegistrationBatch, useBatches } from '@/hooks/useBatches';
 import { useDashboardStats, useLearningJourney, useUserProgress, useJurnalStatus } from '@/hooks/useDashboard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -127,6 +127,15 @@ const getDayNameFromNumber = (dayNum: number | string | undefined | null) => {
   return days[num] || '-';
 };
 
+// Helper to get concise clean batch name (e.g. "Batch 4")
+const getBatchShortName = (b?: { name?: string | null; batch_number?: number | null } | null) => {
+  if (!b) return 'Batch';
+  const match = b.name?.match(/Batch\s+\d+/i);
+  if (match) return match[0];
+  if (b.batch_number) return `Batch ${b.batch_number}`;
+  return b.name || 'Batch';
+};
+
 export default function PerjalananSaya() {
   const { user, isLoading: authLoading, isAuthenticated, isUnauthenticated } = useAuth();
   const router = useRouter();
@@ -139,10 +148,21 @@ export default function PerjalananSaya() {
   const [isAlumnus, setIsAlumnus] = useState(false);
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
 
-  // Default selalu batch aktif; pilihan batch lama dari browser tidak dibaca lagi.
+  // User batch filter selector
   const handleSelectBatch = (id: string) => {
     setSelectedBatchId(id);
   };
+
+  // Sync batchId from URL query param if provided
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const urlBatch = params.get('batchId') || params.get('batch');
+      if (urlBatch) {
+        setSelectedBatchId(urlBatch);
+      }
+    }
+  }, []);
   
   useEffect(() => {
     fetch('/api/alumni/testimonial/my')
@@ -173,51 +193,112 @@ export default function PerjalananSaya() {
   // SWR hooks for data fetching - useAllRegistrations to show ALL registrations (no batch filter)
   const { registrations, isLoading: registrationsLoading, error: registrationsError } = useAllRegistrations();
   const { activeBatch, isLoading: activeBatchLoading } = useActiveBatch();
+  const { registrationBatch, isLoading: regBatchLoading } = useRegistrationBatch();
+  const { batches: allBatches } = useBatches();
   const { progress } = useUserProgress();
   const { journey } = useLearningJourney();
   
-  // Compute list of all available batches for this user (Active + any registered)
+  // Compute list of all available batches for this user (Open batch, Active batch, and Registered batches)
   const availableBatches = useMemo(() => {
-    const batchesMap = new Map<string, { id: string, name: string }>();
-    
-    // Add active batch if it exists
-    if (activeBatch) {
-      batchesMap.set(activeBatch.id, { 
-        id: activeBatch.id, 
-        name: activeBatch.name || `Batch ${(activeBatch as any).batch_number}`
+    const batchesMap = new Map<string, { id: string; name: string }>();
+
+    const getBatchLabel = (b: { id: string; name?: string | null; batch_number?: number | null; status?: string | null }) => {
+      const shortName = getBatchShortName(b);
+      if (registrationBatch && b.id === registrationBatch.id) {
+        return `${shortName} (Pendaftaran Dibuka)`;
+      }
+      if (activeBatch && b.id === activeBatch.id) {
+        return `${shortName} (Sedang Berjalan)`;
+      }
+      return shortName;
+    };
+
+    // 1. Add registrationBatch first (so it appears at the top of dropdown)
+    if (registrationBatch) {
+      batchesMap.set(registrationBatch.id, {
+        id: registrationBatch.id,
+        name: getBatchLabel(registrationBatch)
       });
     }
-    
-    // Add all batches from user's registrations
+
+    // 2. Add activeBatch (ongoing KBM batch)
+    if (activeBatch && !batchesMap.has(activeBatch.id)) {
+      batchesMap.set(activeBatch.id, {
+        id: activeBatch.id,
+        name: getBatchLabel(activeBatch)
+      });
+    }
+
+    // 3. Add all batches from user registrations
     if (registrations && registrations.length > 0) {
       registrations.forEach(reg => {
         if (reg.batch_id && !batchesMap.has(reg.batch_id)) {
+          const matched = allBatches?.find(b => b.id === reg.batch_id);
+          const shortName = matched ? getBatchShortName(matched) : ((reg as any).batch_name?.match(/Batch\s+\d+/i)?.[0] || 'Batch');
+          const suffix = (reg.batch_id === registrationBatch?.id)
+            ? ' (Pendaftaran Dibuka)'
+            : (reg.batch_id === activeBatch?.id)
+            ? ' (Sedang Berjalan)'
+            : ' (Riwayat)';
           batchesMap.set(reg.batch_id, {
             id: reg.batch_id,
-            name: (reg as any).batch_name || `Batch (Dari Pendaftaran)`
+            name: `${shortName}${suffix}`
           });
         }
       });
     }
-    
-    return Array.from(batchesMap.values());
-  }, [activeBatch, registrations]);
 
-  // Get batch_id: Priority is User Selected -> Active Batch -> Latest Registration
+    // 4. Add any other open or ongoing batches from allBatches
+    if (allBatches && allBatches.length > 0) {
+      allBatches.forEach(b => {
+        if (!batchesMap.has(b.id) && (b.status === 'open' || b.status === 'ongoing')) {
+          batchesMap.set(b.id, {
+            id: b.id,
+            name: getBatchLabel(b)
+          });
+        }
+      });
+    }
+
+    return Array.from(batchesMap.values());
+  }, [registrationBatch, activeBatch, registrations, allBatches]);
+
+  // Priority: User Selected -> Open/Registration Batch (Batch Baru yang sedang buka) -> Latest User Registration -> Active/Ongoing Batch -> First Available
   const batchId = useMemo(() => {
+    // 1. Explicit user selection from dropdown filter
     if (selectedBatchId) {
       return selectedBatchId;
     }
-    // Priority 1: Active Batch (Always show the currently running/open batch)
-    if (activeBatch) {
-      return activeBatch.id;
+
+    // 2. Default: Open batch yang sedang buka (Batch Baru)
+    // Sesuai instruksi: calon thalibah baru maupun thalibah berjalan defaultnya di batch baru yang sedang buka
+    if (registrationBatch?.id) {
+      return registrationBatch.id;
     }
-    // Priority 2: Registration from DB
+
+    // 3. Fallback: Latest registration of user
     if (registrations && registrations.length > 0 && registrations[0].batch_id) {
       return registrations[0].batch_id;
     }
+
+    // 4. Fallback: Active ongoing batch
+    if (activeBatch?.id) {
+      return activeBatch.id;
+    }
+
+    // 5. Fallback: First available batch
+    if (allBatches && allBatches.length > 0) {
+      return allBatches[0].id;
+    }
+
     return null;
-  }, [selectedBatchId, registrations, activeBatch]);
+  }, [selectedBatchId, registrationBatch, registrations, activeBatch, allBatches]);
+
+  // Check if user has an active ongoing registration in activeBatch
+  const userOngoingReg = useMemo(() => {
+    if (!registrations || !activeBatch) return null;
+    return registrations.find(r => r.batch_id === activeBatch.id && ['approved', 'pending'].includes(r.status));
+  }, [registrations, activeBatch]);
 
   const userRole = (user as any)?.primaryRole || 'thalibah';
   const canSeeAdminStats = isStaff(userRole);
@@ -248,10 +329,24 @@ export default function PerjalananSaya() {
     return murajaahBlocks.every((b: any) => b.is_completed);
   }, [jurnalStatus]);
 
-  // Fetch batch timeline data - safely handle undefined registrations
+  // Current user registration specifically for current batchId
+  const currentBatchReg = useMemo(() => {
+    if (!registrations || !batchId) return null;
+    const batchRegs = registrations.filter(reg => reg.batch_id === batchId && reg.status !== 'withdrawn');
+    return (
+      batchRegs.find(reg => reg.selection_status === 'selected') ||
+      batchRegs.find(reg => (reg as any).needs_revision || (reg as any).oral_assessment_status === 'needs_revision' || (reg as any).oral_assessment_notes === 'NEEDS_REVISION') ||
+      batchRegs.find(reg => !!(reg as any).oral_submission_url) ||
+      batchRegs[0] ||
+      registrations.find(reg => reg.batch_id === batchId) ||
+      null
+    );
+  }, [registrations, batchId]);
+
+  // Fetch batch timeline data - scoped to current batchId and currentBatchReg
   const { batch, timeline: batchTimeline, isLoading: batchLoading } = useBatchTimeline(batchId, {
-    registrationStatus: registrations && (registrations[0]?.selection_status === 'selected' || registrations[0]?.status === 'completed') ? 'approved' : registrations?.[0]?.status as any,
-    selectionStatus: registrations?.[0]?.selection_status
+    registrationStatus: currentBatchReg && (currentBatchReg.selection_status === 'selected' || currentBatchReg.status === 'completed') ? 'approved' : currentBatchReg?.status as any,
+    selectionStatus: currentBatchReg?.selection_status
   });
 
   // Calculate registration status from SWR data - safely handle undefined registrations
@@ -274,7 +369,13 @@ export default function PerjalananSaya() {
     const hasAnyRegistration = batchRegistrations.some(reg => reg.status !== 'withdrawn');
     const hasActiveRegistration = batchRegistrations.some(reg => ['approved', 'pending'].includes(reg.status));
     const approvedRegistration = batchRegistrations.find(reg => reg.selection_status === 'selected');
-    const registration = (approvedRegistration || batchRegistrations[0]) as TikrarRegistration;
+    const revisionRegistration = batchRegistrations.find(reg =>
+      (reg as any)?.needs_revision ||
+      (reg as any)?.oral_assessment_status === 'needs_revision' ||
+      (reg as any)?.oral_assessment_notes === 'NEEDS_REVISION'
+    );
+    const oralSubmittedRegistration = batchRegistrations.find(reg => !!(reg as any)?.oral_submission_url);
+    const registration = (approvedRegistration || revisionRegistration || oralSubmittedRegistration || batchRegistrations[0]) as TikrarRegistration;
 
     const showSelectionResult = (() => {
       if (!batch?.selection_result_date) return false;
@@ -292,17 +393,17 @@ export default function PerjalananSaya() {
       hasRegistered: hasAnyRegistration, // Show timeline for all registered users (including rejected)
       registration: registration ? { ...registration, status: displayStatus, selection_status: displaySelectionStatus } : undefined,
       hasActiveRegistration,
-      pendingApproval: registrations.some(reg => reg.selection_status === 'pending') || !showSelectionResult,
+      pendingApproval: batchRegistrations.some(reg => reg.selection_status === 'pending') || !showSelectionResult,
       approved: showSelectionResult && !!approvedRegistration,
-      rejected: showSelectionResult && registrations.some(reg => reg.selection_status === 'not_selected'),
+      rejected: showSelectionResult && batchRegistrations.some(reg => reg.selection_status === 'not_selected'),
       isAlumnus,
       // Consider having oral assessment as having submitted (even without url if admin input score manually)
       hasOralSubmission: !!(
         (registration?.oral_submission_url ||
-        (registration?.oral_assessment_status && registration?.oral_assessment_status !== 'pending' && registration?.oral_assessment_status !== 'not_submitted') ||
+        (registration?.oral_assessment_status && registration?.oral_assessment_status !== 'pending' && registration?.oral_assessment_status !== 'not_submitted' && registration?.oral_assessment_status !== 'needs_revision') ||
         (registration?.oral_total_score != null && registration?.oral_total_score > 0) ||
         (registration?.oral_score != null && registration?.oral_score > 0)) &&
-        !((registration as any)?.needs_revision || (registration as any)?.oral_assessment_notes === 'NEEDS_REVISION')
+        !((registration as any)?.needs_revision || registration?.oral_assessment_status === 'needs_revision' || (registration as any)?.oral_assessment_notes === 'NEEDS_REVISION')
       ),
       oralSubmissionUrl: registration?.oral_submission_url,
       oralSubmittedAt: registration?.oral_submitted_at,
@@ -313,7 +414,7 @@ export default function PerjalananSaya() {
       examStatus: (registration as any)?.exam_status,
       examScore: registration?.exam_score,
       examSubmittedAt: (registration as any)?.exam_submitted_at,
-      needsRevision: (registration as any)?.needs_revision || (registration as any)?.oral_assessment_notes === 'NEEDS_REVISION',
+      needsRevision: (registration as any)?.needs_revision || registration?.oral_assessment_status === 'needs_revision' || (registration as any)?.oral_assessment_notes === 'NEEDS_REVISION',
       writtenQuizSubmittedAt: registration?.written_quiz_submitted_at || (registration as any)?.written_submitted_at,
       selectionStatus: displaySelectionStatus,
       showSelectionResult,
@@ -480,7 +581,7 @@ export default function PerjalananSaya() {
             // Show recording button if: has form AND (hasn't recorded yet, OR registration is still open allowing re-record, OR needs revision)
             isTestAction: hasFormPendaftaran && (!hasOral || (isRegistrationStarted && !isRegistrationDone) || registrationStatus.needsRevision),
             isTestDisabled: !isRegistrationStarted || (isRegistrationDone && !registrationStatus.needsRevision),
-            testUrl: `/seleksi/rekam-suara?batchId=${batchId}`
+            testUrl: `/seleksi/rekam-suara?batchId=${batchId}${registrationStatus?.registrationId ? `&registrationId=${registrationStatus.registrationId}` : ''}`
           },
         ]
       },
@@ -613,13 +714,13 @@ export default function PerjalananSaya() {
       },
       { 
         id: 5, name: 'Kelulusan', status: isGraduationDoneByDate ? 'completed' : (isLearningDoneByDate ? 'current' : 'future'), 
-        desc: batch?.graduation_start_date ? formatDateIndo(batch.graduation_start_date) : 'Wisuda & Sertifikat', 
+        desc: batch?.graduation_start_date ? formatDateIndo(batch.graduation_start_date) : 'Syahadah & Sertifikat', 
         icon: <Award className="w-4 h-4" />,
         subPhases: [
           { name: 'Ujian Tulis', date: formatDateRangeShort(batch?.final_exam_start_date, batch?.final_exam_end_date), done: !!writtenExam, data: writtenExam ? (writtenExam.status === 'graded' ? `Nilai: ${writtenExam.score_tulisan}` : 'Sudah terdaftar') : 'Belum ujian', isPortalAction: isFinalExamStarted || isAdmin, isPortalDisabled: !isFinalExamStarted && !isAdmin, isLocked: !isFinalExamStarted && !isAdmin },
           { name: 'Ujian Lisan', date: formatDateRangeShort(batch?.final_exam_start_date, batch?.final_exam_end_date), done: !!oralExam, data: oralExam ? (oralExam.status === 'graded' ? `Nilai: ${oralExam.score_lisan}` : `${formatDateIndo(oralExam.schedule?.exam_date || '')}`) : 'Belum memilih jadwal', isPortalAction: isLearningDone || isAdmin, isPortalDisabled: !isFinalExamStarted },
-          { name: 'Wisuda', date: batch?.graduation_start_date ? formatDateShort(batch.graduation_start_date) : '', done: isGraduationDone, data: batch?.graduation_start_date ? formatDateIndo(batch.graduation_start_date) : '-' },
-          { name: 'Sertifikat', date: batch?.graduation_start_date ? formatDateShort(batch.graduation_start_date) : '', done: isGraduationDone, data: isGraduationDone ? 'Sudah terbit' : 'Menunggu wisuda' }
+          { name: 'Penerbitan Syahadah', date: batch?.graduation_start_date ? formatDateShort(batch.graduation_start_date) : '', done: isGraduationDone, data: batch?.graduation_start_date ? formatDateIndo(batch.graduation_start_date) : '-' },
+          { name: 'Sertifikat', date: batch?.graduation_start_date ? formatDateShort(batch.graduation_start_date) : '', done: isGraduationDone, data: isGraduationDone ? 'Sudah terbit' : 'Menunggu penerbitan' }
         ]
       },
     ].filter(phase => !(isPraTikrar && phase.id === 5));
@@ -904,26 +1005,30 @@ export default function PerjalananSaya() {
         <div className="relative z-10 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <span className="bg-white/10 backdrop-blur-md border border-white/20 text-green-200 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">
-              Fase Pembelajaran Santri
+              Fase Pembelajaran Thalibah
             </span>
             {availableBatches.length > 0 && (
-              <div className="relative inline-block">
-                <select 
-                  id="batch-selector"
-                  className="bg-black/20 border border-white/20 text-white text-xs font-bold rounded-full px-3.5 py-1.5 outline-none appearance-none cursor-pointer pr-8 hover:bg-black/30 transition-colors"
-                  value={batchId || ''}
-                  onChange={(e) => handleSelectBatch(e.target.value)}
-                >
-                  {availableBatches.map(b => (
-                    <option key={b.id} value={b.id} className="bg-green-950 text-white font-medium">
-                      {b.name} {b.id === activeBatch?.id ? ' (Aktif)' : ''}
-                    </option>
-                  ))}
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-green-200">
-                  <svg className="fill-current h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
-                  </svg>
+              <div className="relative flex items-center">
+                <div className="flex items-center gap-1.5 bg-black/30 border border-white/25 text-white text-xs font-bold rounded-full pl-3 pr-2 py-1.5 backdrop-blur-sm shadow-inner hover:bg-black/40 transition-colors">
+                  <Calendar className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+                  <span className="text-[11px] font-semibold text-green-100 hidden sm:inline">Pilih Batch:</span>
+                  <select 
+                    id="batch-selector"
+                    className="bg-transparent text-white text-xs font-bold outline-none cursor-pointer pr-6 appearance-none border-none focus:ring-0 max-w-[210px] sm:max-w-none truncate"
+                    value={batchId || ''}
+                    onChange={(e) => handleSelectBatch(e.target.value)}
+                  >
+                    {availableBatches.map(b => (
+                      <option key={b.id} value={b.id} className="bg-green-950 text-white font-medium py-1">
+                        {b.name}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="pointer-events-none absolute right-3 flex items-center text-green-200">
+                    <svg className="fill-current h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                      <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                    </svg>
+                  </div>
                 </div>
               </div>
             )}
@@ -936,6 +1041,44 @@ export default function PerjalananSaya() {
               Pantau seluruh tahapan pembelajaran, status seleksi, daftar ulang, hingga ujian akhir kelulusan di sini.
             </p>
           </div>
+
+          {/* Banner jika thalibah aktif sedang melihat batch baru yang dibuka */}
+          {activeBatch && batchId !== activeBatch.id && userOngoingReg && (
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3.5 rounded-xl bg-amber-400/20 border border-amber-300/30 text-amber-100 text-xs backdrop-blur-sm">
+              <div className="flex items-start sm:items-center gap-2.5">
+                <Sparkles className="w-4 h-4 text-amber-300 shrink-0 mt-0.5 sm:mt-0" />
+                <span className="leading-relaxed">
+                  Ukhti terdaftar aktif di <strong>{getBatchShortName(activeBatch)}</strong>. Saat ini sedang melihat timeline <strong>{getBatchShortName(batch)}</strong>.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleSelectBatch(activeBatch.id)}
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-400/30 hover:bg-amber-400/50 text-white font-bold text-xs shadow-sm transition-all self-start sm:self-auto shrink-0 border border-amber-300/30 whitespace-nowrap"
+              >
+                Lihat {getBatchShortName(activeBatch)} →
+              </button>
+            </div>
+          )}
+
+          {/* Banner jika sedang melihat batch aktif namun pendaftaran batch baru dibuka */}
+          {registrationBatch && batchId !== registrationBatch.id && (
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3.5 rounded-xl bg-emerald-500/20 border border-emerald-300/30 text-emerald-100 text-xs backdrop-blur-sm">
+              <div className="flex items-start sm:items-center gap-2.5">
+                <Info className="w-4 h-4 text-emerald-300 shrink-0 mt-0.5 sm:mt-0" />
+                <span className="leading-relaxed">
+                  Menampilkan riwayat <strong>{getBatchShortName(batch)}</strong>. Pendaftaran <strong>{getBatchShortName(registrationBatch)}</strong> telah dibuka!
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleSelectBatch(registrationBatch.id)}
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-400/30 hover:bg-emerald-400/50 text-white font-bold text-xs shadow-sm transition-all self-start sm:self-auto shrink-0 border border-emerald-300/30 whitespace-nowrap"
+              >
+                Lihat {getBatchShortName(registrationBatch)} →
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

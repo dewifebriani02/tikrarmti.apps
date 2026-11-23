@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import {
   Settings,
+  HelpCircle,
   Bell,
   User,
   Home,
@@ -15,6 +16,7 @@ import {
   LogOut,
   RefreshCw,
   Trash2,
+  Globe,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { LogoutConfirmModal } from '@/components/LogoutConfirmModal';
@@ -39,6 +41,10 @@ export default function GlobalAuthenticatedHeader({
 
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const isAdminAccount =
+    (user?.roles || []).some((r: string) => r === 'admin' || r === 'super_admin') ||
+    ['admin', 'super_admin'].includes((user as any)?.primaryRole || '') ||
+    ['admin', 'super_admin'].includes((user as any)?.role || '');
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -156,6 +162,7 @@ export default function GlobalAuthenticatedHeader({
       '/admin/tikrar': 'Pendaftaran & Seleksi',
       '/admin/users': 'Manajemen Users',
       '/admin/exams': 'Manajemen Ujian Akhir',
+      '/admin/murojaah': "Monitoring Muroja'ah",
       '/admin/batch-program': 'Manajemen Batch & Program',
       '/admin/otp-viewer': 'OTP Viewer',
       '/admin/partner': 'Manajemen Partner',
@@ -290,7 +297,7 @@ export default function GlobalAuthenticatedHeader({
   ];
 
   return (
-    <header className="glass-premium sticky top-0 shadow-sm border-b border-green-900/10 transition-all duration-300 w-full z-[50]">
+    <header className="glass-premium sticky top-0 shadow-sm border-b border-green-900/10 transition-all duration-300 w-full z-[70]">
 
       <div className="px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16 lg:h-20">
@@ -336,8 +343,31 @@ export default function GlobalAuthenticatedHeader({
           {/* Right Section - Actions & Profile */}
           <div className="flex items-center space-x-2 md:space-x-3">
 
-            {/* Persona Switcher Pill */}
-            {isMounted && <PersonaSwitcher variant="header" />}
+
+            {/* Quick Landing Page Button for Admin */}
+            {isMounted && isAdminAccount && (
+              <Link
+                href="/?view=landing"
+                className="hidden sm:flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-300/80 rounded-lg transition-colors shadow-2xs"
+                title="Lihat Landing Page (Beranda Publik)"
+              >
+                <Globe className="w-4 h-4 text-amber-700 shrink-0" />
+                <span>Landing Page</span>
+              </Link>
+            )}
+
+            {/* Quick FAQ / Bantuan Button - Teks selalu terlihat jelas di HP & Desktop */}
+            {isMounted && (
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent('open-faq-modal'))}
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300/80 rounded-lg transition-colors shadow-2xs cursor-pointer"
+                title="Pusat Bantuan & FAQ"
+              >
+                <HelpCircle className="w-4 h-4 text-emerald-700 shrink-0" />
+                <span className="text-xs font-bold text-emerald-800">FAQ</span>
+              </button>
+            )}
 
             {/* Notifications - Desktop/Tablet */}
             <div className="relative hidden md:block" ref={notificationRef}>
@@ -450,7 +480,10 @@ export default function GlobalAuthenticatedHeader({
 
               {/* Profile Dropdown */}
               {isMounted && showProfileDropdown && (
-                <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-green-900/20 overflow-hidden z-[100]">
+                <div 
+                  style={{ WebkitOverflowScrolling: "touch" }}
+                  className="absolute right-0 mt-2 w-72 sm:w-64 max-h-[calc(100dvh-5.5rem)] overflow-y-auto overscroll-contain bg-white rounded-2xl shadow-2xl border border-gray-100/80 z-[100] pb-24 lg:pb-3 flex flex-col divide-y divide-gray-100"
+                >
                   <div className="bg-gradient-to-r from-green-900 to-green-800 text-white p-4">
                     <div className="flex items-center space-x-3">
                       {/* Avatar in dropdown */}
@@ -500,6 +533,17 @@ export default function GlobalAuthenticatedHeader({
                   {isMounted && <PersonaSwitcher variant="menu" />}
 
                   <div className="p-2">
+                    {isAdminAccount && (
+                      <Link
+                        href="/?view=landing"
+                        onClick={() => setShowProfileDropdown(false)}
+                        className="flex items-center space-x-3 px-3 py-2 text-sm font-semibold text-amber-900 bg-amber-50/70 hover:bg-amber-100 rounded-lg transition-colors duration-200 w-full mb-1"
+                      >
+                        <Globe className="w-4 h-4 text-amber-700" />
+                        <span>Lihat Landing Page</span>
+                      </Link>
+                    )}
+
                     <Link
                       href="/pengaturan"
                       className="flex items-center space-x-3 px-3 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-900 rounded-lg transition-colors duration-200 w-full"
@@ -534,19 +578,21 @@ export default function GlobalAuthenticatedHeader({
 
                     <div className="border-t border-gray-100 my-2"></div>
 
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setShowLogoutModal(true);
-                      }}
-                      type="button"
-                      aria-label="Keluar dari akun"
-                      className="flex items-center space-x-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 hover:text-red-700 active:bg-red-100 active:text-red-800 rounded-lg transition-all duration-200 w-full focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 touch-manipulation min-h-[48px] font-medium sm:px-3 sm:py-3 sm:min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                    >
-                      <LogOut className="w-6 h-6 sm:w-5 sm:h-5" />
-                      <span>Keluar</span>
-                    </button>
+                    <div className="pt-2">
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setShowLogoutModal(true);
+                        }}
+                        type="button"
+                        aria-label="Keluar dari akun"
+                        className="flex items-center justify-center space-x-2.5 px-4 py-3 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 hover:text-rose-700 active:bg-rose-200 rounded-xl transition-all duration-200 w-full border border-rose-200/80 shadow-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 touch-manipulation min-h-[46px] cursor-pointer"
+                      >
+                        <LogOut className="w-4 h-4 text-rose-600" />
+                        <span>Keluar dari Akun</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}

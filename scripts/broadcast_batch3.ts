@@ -28,7 +28,7 @@ async function main() {
   );
 
   console.log(`Data ditarik: ${thalibahs.length} Thalibah Aktif (100% verified, non-blacklist, approved).`);
-  console.log(`Pengirim: Layanan Resmi WhatsApp Markaz Tikrar Indonesia (0813-3000-0784)`);
+  console.log(`Pengirim: Layanan Resmi WhatsApp Markaz Tikrar Indonesia (0813-8884-240)`);
   
   const isDryRun = process.argv.includes('--dry-run');
   if (isDryRun) {
@@ -56,7 +56,7 @@ Semoga Ukhti senantiasa dalam limpahan taufik dan lindungan Allah Ta'ala.
 
 Melalui pesan ini, kami menginformasikan bahwa *nomor resmi layanan notifikasi WhatsApp Markaz Tikrar Indonesia (MTI)* kini aktif melalui:
 
-📱 *0813-3000-0784* (Nomor Resmi MTI)
+📱 *0813-8884-240* (Nomor Resmi MTI)
 
 Nomor ini akan digunakan untuk menyampaikan informasi penting kegiatan thalibah, antara lain:
 1. Notifikasi dan tautan halaqah bimbingan.

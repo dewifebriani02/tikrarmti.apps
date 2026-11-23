@@ -30,16 +30,19 @@ npm run build
 # 3. Synchronize Application Code and .next to VPS
 echo ""
 echo "Step 3: Syncing Build & Source Code to ${REMOTE_PATH}..."
-rsync -avz --delete \
+rsync -avz --delete --no-owner --no-group \
   --exclude 'node_modules' \
   --exclude '.git' \
+  --exclude '.worktrees' \
+  --exclude '.agents' \
+  --exclude '.gemini' \
   --exclude 'backups' \
   --exclude 'public/uploads' \
   --exclude '.env.local' \
+  --exclude 'cron*.log' \
+  --exclude 'build_output.log' \
   --exclude '.next/cache' \
   --exclude '.next/types' \
-  --exclude 'app/api/admin/whatsapp/broadcast' \
-  --exclude 'app/api/admin/whatsapp/recipients' \
   ./ ${VPS_USER}@${VPS_HOST}:${REMOTE_PATH}/
 
 # 4. Check & Sync Production Environment Variables

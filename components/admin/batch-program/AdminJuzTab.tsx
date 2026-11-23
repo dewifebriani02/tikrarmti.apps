@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Plus, RefreshCw, BookOpen, Save, X, Check, BookMarked, Edit, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { toggleJuzOptionActive, createJuzOption, getJuzOptionsAdmin, updateJuzOption } from '@/app/(protected)/admin/actions';
+import { toggleJuzOptionActive, createJuzOption, getJuzOptionsAdmin, updateJuzOption } from '@/lib/admin/admin-client';
 
 interface JuzOption {
   id: string;

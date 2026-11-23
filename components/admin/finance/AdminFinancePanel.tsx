@@ -33,7 +33,7 @@ export const FINANCE_CATEGORIES = [
   'Infaq Pra-Tikrar',
   'Infaq Murojaah 40x',
   'Donasi Operasional & IT',
-  'Beasiswa Santriwati & Dhuafa',
+  'Beasiswa Thalibah & Dhuafa',
   'Kafalah Muallimah & Pengajar',
   'Wakaf Al-Quran & Fasilitas',
   'Operasional Server & IT',

@@ -36,6 +36,7 @@ export function FinalExamPortalModal({
   const [selectedType, setSelectedType] = useState<'oral' | 'written' | null>(null);
   const [selectionOpen, setSelectionOpen] = useState(false);
   const [registrations, setRegistrations] = useState<any[]>([]);
+  const [writtenAttempt, setWrittenAttempt] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -53,6 +54,16 @@ export function FinalExamPortalModal({
       if (result.success) {
         setRegistrations(Array.isArray(result.data) ? result.data : result.data ? [result.data] : []);
       }
+
+      try {
+        const attemptUrl = `/api/exam/attempts?source=final-exam${batchId ? `&batchId=${batchId}` : ''}`;
+        const attemptRes = await fetch(attemptUrl);
+        const attemptData = await attemptRes.json();
+        setWrittenAttempt(attemptRes.ok ? (attemptData.attempt || null) : null);
+      } catch (err) {
+        console.error('Fetch final-exam written attempt error:', err);
+        setWrittenAttempt(null);
+      }
     } catch (error) {
       console.error('Fetch registrations error:', error);
     } finally {
@@ -64,7 +75,7 @@ export function FinalExamPortalModal({
     const reg = registrations.find(r => r.schedule?.exam_type === type);
 
     if (type === 'written') {
-      if (reg?.status === 'graded') return 'graded';
+      if (reg?.status === 'graded' || writtenAttempt?.status === 'submitted') return 'graded';
       if (!isAdmin && !isMurajaahCompleted) return 'locked';
       const now = new Date();
       if (!isAdmin && finalExamStartDate && now < new Date(finalExamStartDate)) return 'locked';
@@ -94,9 +105,9 @@ export function FinalExamPortalModal({
     // Direct written exam to CBT multiple-choice exam
     if (type === 'written') {
       if (status === 'graded') {
-        router.push('/exam/results?source=final-exam');
+        router.push(`/exam/results?source=final-exam${writtenAttempt?.id ? `&attemptId=${writtenAttempt.id}` : ''}${batchId ? `&batchId=${batchId}` : ''}`);
       } else {
-        router.push('/exam?source=final-exam');
+        router.push(`/exam?source=final-exam${batchId ? `&batchId=${batchId}` : ''}`);
       }
       onClose();
       return;

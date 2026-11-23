@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@/hooks/useAuth'
 import { safeRedirectPath } from '@/lib/utils/safe-redirect'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,12 +20,20 @@ import { PhoneInput } from '@/components/ui/phone-input'
 import { validatePhoneNumberFormat } from '@/lib/utils/sanitize'
 import { negaraList, provinsiList, zonaWaktuList } from '@/lib/data/registration-data'
 import { AlertCircle, CheckCircle, Loader2 } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
+
+const API_FIELD_TO_FORM_FIELD: Record<string, string> = {
+  nama_kunyah: 'namaKunyah',
+  full_name: 'namaLengkap',
+  zona_waktu: 'zonaWaktu',
+  tanggal_lahir: 'tanggalLahir',
+  tempat_lahir: 'tempatLahir',
+  jenis_kelamin: 'jenisKelamin',
+  alasan_daftar: 'alasanDaftar',
+}
 
 export default function LengkapiProfilePage() {
   const router = useRouter()
-  const [isClientAuthenticated, setIsClientAuthenticated] = useState<boolean | null>(null)
-  const [clientAuthUser, setClientAuthUser] = useState<any | null>(null)
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
 
   const [formData, setFormData] = useState({
     namaKunyah: '',
@@ -36,7 +43,6 @@ export default function LengkapiProfilePage() {
     kota: '',
     alamat: '',
     whatsapp: '',
-    telegram: '',
     zonaWaktu: '',
     tanggalLahir: '',
     tempatLahir: '',
@@ -48,105 +54,121 @@ export default function LengkapiProfilePage() {
 
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isLoading, setIsLoading] = useState(false)
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true)
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle')
   const [errorMessage, setErrorMessage] = useState('')
-  const [isLoadingProfile, setIsLoadingProfile] = useState(true)
   const [returnUrl, setReturnUrl] = useState<string | null>(null)
 
-  // Redirect if not authenticated
+  // Get returnUrl / returnTo from searchParams
   useEffect(() => {
-    const checkAuth = async () => {
-      const supabase = createClient()
-      const { data: { user: authUser } } = await supabase.auth.getUser()
-      if (!authUser) {
-        setIsClientAuthenticated(false)
-        router.push('/login?redirect=/lengkapi-profile')
-      } else {
-        setClientAuthUser(authUser)
-        setIsClientAuthenticated(true)
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      const returnParam = params.get('returnUrl') || params.get('returnTo')
+      if (returnParam) {
+        setReturnUrl(safeRedirectPath(returnParam, '/dashboard'))
       }
-    }
-    checkAuth()
-  }, [router])
-
-  // Check if user came from a registration page and store return URL
-  useEffect(() => {
-    // Check URL params for return URL
-    const params = new URLSearchParams(window.location.search)
-    const returnTo = params.get('returnTo')
-    if (returnTo) {
-      setReturnUrl(safeRedirectPath(returnTo))
     }
   }, [])
 
-  // Load existing user profile if available
+  // Verify mti_session via /api/auth/me and prefill existing user profile
   useEffect(() => {
-    const loadUserProfile = async () => {
-      if (!clientAuthUser) return
+    let active = true
 
+    async function loadSessionAndProfile() {
       try {
-        const response = await fetch('/api/auth/me')
-        if (response.ok) {
-          const result = await response.json()
-          const userData = result.data || result.user || result
+        const response = await fetch('/api/auth/me', {
+          method: 'GET',
+          credentials: 'include',
+          cache: 'no-store',
+        })
 
-          // Pre-fill form with existing data
-          if (userData) {
-            setFormData(prev => ({
-              ...prev,
-              namaLengkap: userData.full_name || clientAuthUser.user_metadata?.full_name || prev.namaLengkap,
-              negara: userData.negara || prev.negara,
-              provinsi: userData.provinsi || prev.provinsi,
-              kota: userData.kota || prev.kota,
-              alamat: userData.alamat || prev.alamat,
-              whatsapp: userData.whatsapp || prev.whatsapp,
-              telegram: userData.telegram || prev.telegram,
-              zonaWaktu: userData.zona_waktu || prev.zonaWaktu,
-              tanggalLahir: userData.tanggal_lahir ? new Date(userData.tanggal_lahir).toISOString().split('T')[0] : prev.tanggalLahir,
-              tempatLahir: userData.tempat_lahir || prev.tempatLahir,
-              jenisKelamin: userData.jenis_kelamin || prev.jenisKelamin,
-              pekerjaan: userData.pekerjaan || prev.pekerjaan,
-              alasanDaftar: userData.alasan_daftar || prev.alasanDaftar
-            }))
-          }
+        const result = await response.json().catch(() => null)
+        const userData = result?.user || result?.data
+
+        if (!response.ok || response.status === 401 || !result?.success || !userData) {
+          if (!active) return
+          setIsAuthenticated(false)
+          const search = typeof window !== 'undefined' ? window.location.search : ''
+          const redirectTarget = `/lengkapi-profile${search}`
+          router.replace(`/login?redirect=${encodeURIComponent(redirectTarget)}`)
+          return
         }
+
+        if (!active) return
+        setIsAuthenticated(true)
+        setFormData(prev => ({
+          ...prev,
+          namaKunyah: userData.nama_kunyah || prev.namaKunyah,
+          namaLengkap: userData.full_name || prev.namaLengkap,
+          negara: userData.negara || prev.negara,
+          provinsi: userData.provinsi || prev.provinsi,
+          kota: userData.kota || prev.kota,
+          alamat: userData.alamat || prev.alamat,
+          whatsapp: userData.whatsapp || prev.whatsapp,
+          zonaWaktu: userData.zona_waktu || prev.zonaWaktu,
+          tanggalLahir: userData.tanggal_lahir
+            ? new Date(userData.tanggal_lahir).toISOString().split('T')[0]
+            : prev.tanggalLahir,
+          tempatLahir: userData.tempat_lahir || prev.tempatLahir,
+          jenisKelamin: userData.jenis_kelamin || prev.jenisKelamin,
+          pekerjaan: userData.pekerjaan || prev.pekerjaan,
+          alasanDaftar: userData.alasan_daftar || prev.alasanDaftar,
+        }))
       } catch (error) {
-        console.error('Error loading user profile:', error)
+        console.error('Error verifying session/profile:', error)
+        if (!active) return
+        setIsAuthenticated(false)
+        router.replace('/login?redirect=%2Flengkapi-profile')
       } finally {
-        setIsLoadingProfile(false)
+        if (active) {
+          setIsLoadingProfile(false)
+        }
       }
     }
 
-    if (isClientAuthenticated) {
-      loadUserProfile()
+    loadSessionAndProfile()
+
+    return () => {
+      active = false
     }
-  }, [clientAuthUser, isClientAuthenticated])
+  }, [router])
 
   const handleInputChange = (field: string, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }))
+    // Clear error when user types
     if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }))
+      setErrors(prev => ({
+        ...prev,
+        [field]: ''
+      }))
     }
   }
 
-  const validateForm = (): boolean => {
+  const validateForm = () => {
     const newErrors: Record<string, string> = {}
 
     // Required fields
-    if (!formData.namaLengkap.trim()) newErrors.namaLengkap = 'Nama lengkap harus diisi'
-    if (!formData.negara) newErrors.negara = 'Negara harus dipilih'
-    if (!formData.kota.trim()) newErrors.kota = 'Kota harus diisi'
-    if (!formData.alamat.trim()) newErrors.alamat = 'Alamat harus diisi'
-    if (!formData.zonaWaktu) newErrors.zonaWaktu = 'Zona waktu harus dipilih'
-    if (!formData.tanggalLahir) newErrors.tanggalLahir = 'Tanggal lahir harus diisi'
-    if (!formData.tempatLahir.trim()) newErrors.tempatLahir = 'Tempat lahir harus diisi'
-    if (!formData.jenisKelamin) newErrors.jenisKelamin = 'Jenis kelamin harus dipilih'
-    if (!formData.pekerjaan.trim()) newErrors.pekerjaan = 'Pekerjaan harus diisi'
-    if (!formData.alasanDaftar.trim()) newErrors.alasanDaftar = 'Alasan mendaftar harus diisi'
+    if (!formData.namaLengkap.trim()) newErrors.namaLengkap = 'Nama lengkap wajib diisi'
+    if (!formData.negara) newErrors.negara = 'Negara wajib dipilih'
+    if (formData.negara === 'Indonesia' && !formData.provinsi) {
+      newErrors.provinsi = 'Provinsi wajib dipilih untuk Indonesia'
+    }
+    if (!formData.kota.trim()) newErrors.kota = 'Kota wajib diisi'
+    if (!formData.alamat.trim()) newErrors.alamat = 'Alamat wajib diisi'
+    if (!formData.whatsapp.trim()) newErrors.whatsapp = 'Nomor WhatsApp wajib diisi'
+    if (!formData.zonaWaktu) newErrors.zonaWaktu = 'Zona waktu wajib dipilih'
+    if (!formData.tanggalLahir) newErrors.tanggalLahir = 'Tanggal lahir wajib diisi'
+    if (!formData.tempatLahir.trim()) newErrors.tempatLahir = 'Tempat lahir wajib diisi'
+    if (!formData.jenisKelamin) newErrors.jenisKelamin = 'Jenis kelamin wajib dipilih'
+    if (!formData.pekerjaan.trim()) newErrors.pekerjaan = 'Pekerjaan wajib diisi'
+    if (!formData.alasanDaftar.trim()) newErrors.alasanDaftar = 'Alasan mendaftar wajib diisi'
 
-    // Validate phone number
-    if (!formData.whatsapp.trim()) {
-      newErrors.whatsapp = 'Nomor WhatsApp harus diisi'
+    // Validate phone numbers with country context
+    if (!formData.whatsapp || !formData.whatsapp.trim()) {
+      newErrors.whatsapp = 'Nomor WhatsApp wajib diisi'
     } else {
       const isValid = validatePhoneNumberFormat(formData.whatsapp, formData.negara)
       if (!isValid) {
@@ -154,17 +176,9 @@ export default function LengkapiProfilePage() {
       }
     }
 
-    // Validate telegram if provided
-    if (formData.telegram && formData.telegram.trim()) {
-      const isValid = validatePhoneNumberFormat(formData.telegram, formData.negara)
-      if (!isValid) {
-        newErrors.telegram = 'Format nomor Telegram tidak valid'
-      }
-    }
-
     // Agreement checkbox
     if (!formData.setujuSyarat) {
-      newErrors.setujuSyarat = '<em>Ukhti</em> harus menyetujui syarat dan ketentuan'
+      newErrors.setujuSyarat = 'Ukhti harus menyetujui syarat dan ketentuan'
     }
 
     setErrors(newErrors)
@@ -193,7 +207,6 @@ export default function LengkapiProfilePage() {
         kota: formData.kota,
         alamat: formData.alamat,
         whatsapp: formData.whatsapp,
-        telegram: formData.telegram || undefined,
         zona_waktu: formData.zonaWaktu,
         tanggal_lahir: new Date(formData.tanggalLahir).toISOString(),
         tempat_lahir: formData.tempatLahir,
@@ -205,25 +218,31 @@ export default function LengkapiProfilePage() {
 
       const response = await fetch('/api/user/profile/complete', {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(requestData),
       })
 
-      const result = await response.json()
+      const result = await response.json().catch(() => null)
 
       if (!response.ok) {
+        if (response.status === 401) {
+          router.replace('/login?redirect=%2Flengkapi-profile')
+          return
+        }
         // Handle validation errors
-        if (result.error?.details?.issues) {
+        if (result?.error?.details?.issues) {
           const validationErrors: Record<string, string> = {}
           result.error.details.issues.forEach((issue: any) => {
-            validationErrors[issue.field] = issue.message
+            const formField = API_FIELD_TO_FORM_FIELD[issue.field] || issue.field
+            validationErrors[formField] = issue.message
           })
           setErrors(validationErrors)
           setErrorMessage('Terdapat kesalahan pada form. Silakan periksa kembali.')
         } else {
-          setErrorMessage(result.error?.message || result.error || 'Gagal melengkapi profil')
+          setErrorMessage(result?.error?.message || result?.error || 'Gagal melengkapi profil')
         }
         setSubmitStatus('error')
         return
@@ -231,17 +250,15 @@ export default function LengkapiProfilePage() {
 
       setSubmitStatus('success')
 
-      // Redirect after success with cache busting
+      // Redirect with full navigation so ProtectedLayout SSR reads the updated profile
       setTimeout(() => {
-        // If user came from a registration page, return there with section=1 to show data diri
         if (returnUrl) {
-          // Add timestamp to prevent caching
           const url = returnUrl.includes('?')
             ? `${returnUrl}&t=${Date.now()}`
             : `${returnUrl}?t=${Date.now()}`
-          router.push(url)
+          window.location.replace(url)
         } else {
-          router.push('/dashboard')
+          window.location.replace('/dashboard')
         }
       }, 1500)
 
@@ -254,7 +271,7 @@ export default function LengkapiProfilePage() {
     }
   }
 
-  if (isClientAuthenticated === null || isLoadingProfile) {
+  if (isAuthenticated === null || isLoadingProfile) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -265,7 +282,7 @@ export default function LengkapiProfilePage() {
     )
   }
 
-  if (isClientAuthenticated === false) {
+  if (isAuthenticated === false) {
     return null // Will redirect
   }
 
@@ -487,25 +504,6 @@ export default function LengkapiProfilePage() {
               )}
             </div>
 
-            {/* Telegram */}
-            <div>
-              <Label htmlFor="telegram">
-                Nomor Telegram <span className="text-gray-400 text-sm">(Opsional)</span>
-              </Label>
-              <div className={errors.telegram ? 'border border-red-500 rounded-md' : ''}>
-                <PhoneInput
-                  id="telegram"
-                  value={formData.telegram}
-                  onChange={(value) => handleInputChange('telegram', value)}
-                  placeholder="Contoh: 081234567890"
-                  error={errors.telegram}
-                />
-              </div>
-              {errors.telegram && (
-                <p className="text-red-500 text-sm mt-1">{errors.telegram}</p>
-              )}
-            </div>
-
             {/* Zona Waktu */}
             <div>
               <Label htmlFor="zonaWaktu">
@@ -557,7 +555,7 @@ export default function LengkapiProfilePage() {
                 id="alasanDaftar"
                 value={formData.alasanDaftar}
                 onChange={(e) => handleInputChange('alasanDaftar', e.target.value)}
-                placeholder="Ceritakan alasan <em>Ukhti</em> mendaftar"
+                placeholder="Ceritakan alasan Ukhti mendaftar"
                 className={errors.alasanDaftar ? 'border-red-500' : ''}
               />
               {errors.alasanDaftar && (

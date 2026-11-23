@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { formatMuallimahName } from '@/lib/roles';
 import { ChevronDown, ChevronUp, Loader2, BookOpen, CheckCircle, Users, Trophy, Medal } from 'lucide-react';
 
 interface ThalibahSummary {
@@ -145,7 +146,7 @@ export function HalaqahSummaryTab({ batchId }: HalaqahSummaryTabProps) {
                       {h.name}
                     </h3>
                     <p className="text-sm font-medium text-gray-500 mt-1">
-                      Mu'allimah: <span className="text-gray-700 font-bold">{h.muallimah_name}</span>
+                      Mu'allimah: <span className="text-gray-700 font-bold">{formatMuallimahName(h.muallimah_name)}</span>
                     </p>
                   </div>
                 </div>
@@ -179,7 +180,7 @@ export function HalaqahSummaryTab({ batchId }: HalaqahSummaryTabProps) {
                   </div>
                   <div className="flex flex-col items-end">
                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
-                      Santri
+                      Thalibah
                     </span>
                     <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-100 text-gray-700 rounded-lg">
                       <Users className="w-3.5 h-3.5" />
@@ -214,7 +215,7 @@ export function HalaqahSummaryTab({ batchId }: HalaqahSummaryTabProps) {
                         {h.name}
                       </h3>
                       <p className="text-xs font-medium text-gray-500 mt-0.5 truncate">
-                        Mu'allimah: <span className="text-gray-700 font-bold">{h.muallimah_name}</span>
+                        Mu'allimah: <span className="text-gray-700 font-bold">{formatMuallimahName(h.muallimah_name)}</span>
                       </p>
                     </div>
                   </div>
@@ -242,7 +243,7 @@ export function HalaqahSummaryTab({ batchId }: HalaqahSummaryTabProps) {
                     <span className="text-xs font-black text-purple-800">{h.avg_progress}%</span>
                   </div>
                   <div className="bg-gray-100/80 border border-gray-200/80 rounded-xl p-1.5 text-center">
-                    <span className="text-[9px] font-bold text-gray-500 uppercase block">Santri</span>
+                    <span className="text-[9px] font-bold text-gray-500 uppercase block">Thalibah</span>
                     <span className="text-xs font-black text-gray-800">{h.total_thalibah}</span>
                   </div>
                 </div>
@@ -254,7 +255,7 @@ export function HalaqahSummaryTab({ batchId }: HalaqahSummaryTabProps) {
               <div className="border-t border-gray-100 bg-gray-50/50 p-3 sm:p-5">
                 {h.thalibah.length === 0 ? (
                   <p className="text-center text-gray-400 text-sm py-4">
-                    Tidak ada santri aktif di kelas ini.
+                    Tidak ada thalibah aktif di kelas ini.
                   </p>
                 ) : (
                   <div className="space-y-2 sm:space-y-3">

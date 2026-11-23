@@ -61,8 +61,8 @@ export async function POST(request: Request) {
         oral_submission_file_name: null,
         oral_submitted_at: null,
         oral_assessment_status: 'pending',
-        oral_score: null, // Legacy field
         oral_total_score: null,
+        oral_assessment_notes: 'NEEDS_REVISION',
         needs_revision: true
       })
       .eq('id', registrationId);
