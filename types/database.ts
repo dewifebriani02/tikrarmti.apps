@@ -102,6 +102,7 @@ export interface Program {
   id: string;
   batch_id: string;
   name: string;
+  class_type?: string | null;
   description?: string;
   target_level?: string;
   duration_weeks?: number;

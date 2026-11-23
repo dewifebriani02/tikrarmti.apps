@@ -14,7 +14,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
-import { Calendar, BookOpen, GraduationCap, Loader2, Info, Clock, ShieldCheck } from 'lucide-react';
+import { Calendar, BookOpen, GraduationCap, Loader2, Info, Clock, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import {
+  RegistrationEditPhaseBanner,
+  EditHistoryTimeline,
+  type EditHistoryItem,
+  type EditPhaseClientInfo,
+} from '@/components/registration/EditHistoryTimeline';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
@@ -246,6 +252,11 @@ function MuallimahRegistrationContent() {
 
   // Edit mode states
   const [isEditMode, setIsEditMode] = useState(false);
+  const [hasExistingRegistration, setHasExistingRegistration] = useState(false);
+  const [akadStatus, setAkadStatus] = useState<string | null>(null);
+  const [editPhase, setEditPhase] = useState<EditPhaseClientInfo | null>(null);
+  const [editHistory, setEditHistory] = useState<EditHistoryItem[]>([]);
+  const [editReason, setEditReason] = useState('');
 
   const [formData, setFormData] = useState<MuallimahFormData>({
     tajweed_institution: '',
@@ -398,7 +409,7 @@ function MuallimahRegistrationContent() {
 
   // AUTO-SAVE: Load draft from localStorage on mount
   useEffect(() => {
-    if (user?.id && !isFormSubmitted) {
+    if (user?.id && !isFormSubmitted && !hasExistingRegistration) {
       const savedDraft = localStorage.getItem(`muallimah_draft_${user.id}`);
       if (savedDraft) {
         try {
@@ -417,11 +428,11 @@ function MuallimahRegistrationContent() {
         }
       }
     }
-  }, [user?.id, isFormSubmitted]);
+  }, [user?.id, isFormSubmitted, hasExistingRegistration]);
 
   // AUTO-SAVE: Save to localStorage whenever formData changes
   useEffect(() => {
-    if (user?.id && !isFormSubmitted && formData) {
+    if (user?.id && !isFormSubmitted && !hasExistingRegistration && formData) {
       const timeoutId = setTimeout(() => {
         // Don't save if it's just the initial empty state
         const hasData = Object.values(formData).some(val => 
@@ -433,7 +444,7 @@ function MuallimahRegistrationContent() {
       }, 1000);
       return () => clearTimeout(timeoutId);
     }
-  }, [formData, user?.id, isFormSubmitted]);
+  }, [formData, user?.id, isFormSubmitted, hasExistingRegistration]);
 
   // Set batchId
   useEffect(() => {
@@ -462,14 +473,15 @@ function MuallimahRegistrationContent() {
 
   const fetchProfileAndAkad = async () => {
     try {
-      // 1. Fetch Profile (Batch-independent registration)
-      const { data: profile, error: profileError } = await supabase
-        .from('muallimah_registrations')
-        .select('*')
-        .eq('user_id', user?.id)
-        .maybeSingle();
+      const response = await fetch(`/api/pendaftaran/muallimah?batch_id=${encodeURIComponent(batchId)}`, {
+        cache: 'no-store',
+      });
+      const json = await response.json().catch(() => null);
+      if (!response.ok || !json?.success) {
+        throw new Error(json?.error?.message || json?.error || 'Gagal memuat data pendaftaran');
+      }
 
-      if (profileError) throw profileError;
+      const { profile, akad, editPhase: fetchedPhase, history: fetchedHistory } = json.data || {};
 
       if (profile) {
         setProfileExists(true);
@@ -488,18 +500,17 @@ function MuallimahRegistrationContent() {
         }));
       }
 
-      // 2. Fetch Akad for this batch
-      const { data: akad, error: akadError } = await supabase
-        .from('muallimah_akads')
-        .select('*')
-        .eq('user_id', user?.id)
-        .eq('batch_id', batchId)
-        .maybeSingle();
+      setEditPhase(fetchedPhase || null);
+      setEditHistory(Array.isArray(fetchedHistory) ? fetchedHistory : []);
 
       if (akad) {
-        if (akad.status === 'approved' || akad.status === 'rejected') {
+        setHasExistingRegistration(true);
+        setAkadStatus(akad.status || null);
+        if (akad.status === 'rejected') {
           setIsFormSubmitted(true);
+          setIsEditMode(false);
         } else {
+          setIsFormSubmitted(false);
           setIsEditMode(true);
         }
 
@@ -511,10 +522,10 @@ function MuallimahRegistrationContent() {
           : akad.backup_schedule;
 
         const isNewFormat = preferredSchedule && (preferredSchedule.tikrar || preferredSchedule.pra_tahfidz || preferredSchedule.berbayar);
-        
+
         let class_tikrar = false;
         let class_pratikrar = false;
-        
+
         let schedule_tikrar_day = '';
         let schedule_tikrar_time_start = '';
         let schedule_tikrar_time_end = '';
@@ -528,7 +539,6 @@ function MuallimahRegistrationContent() {
         let schedule_pratikrar_day2 = '';
         let schedule_pratikrar_time_start2 = '';
         let schedule_pratikrar_time_end2 = '';
-
 
         if (isNewFormat) {
           class_tikrar = !!preferredSchedule.tikrar;
@@ -554,9 +564,7 @@ function MuallimahRegistrationContent() {
               schedule_pratikrar_time_end2 = backupSchedule.pra_tahfidz.time_end2 || backupSchedule.pra_tahfidz.time_end || '';
             }
           }
-
         } else {
-          // Legacy format mapping
           const legacyClassType = akad.class_type || '';
           if (legacyClassType.includes('tikrar_tahfidz')) {
             class_tikrar = true;
@@ -809,17 +817,25 @@ function MuallimahRegistrationContent() {
           userData,
           user,
           batchId,
+          editReason: editReason.trim() || undefined,
         }),
       });
       const result = await response.json().catch(() => null);
       if (response.ok && result?.success) {
-        setIsFormSubmitted(true);
         toast.success(result.message || "Pendaftaran Mu'allimah berhasil dikirim!");
         // Clear auto-save draft on success
         if (user?.id) {
           localStorage.removeItem(`muallimah_draft_${user.id}`);
         }
-        router.push('/dashboard');
+        const wasEditMode = isEditMode || hasExistingRegistration;
+        setHasExistingRegistration(true);
+        setIsEditMode(true);
+        setEditReason('');
+        if (wasEditMode && (result.editPhase === 'after_daftar_ulang' || editPhase?.phase === 'after_daftar_ulang' || result.historyRecorded || (result.notificationsSent?.sentCount || 0) > 0)) {
+          await fetchProfileAndAkad();
+        } else {
+          router.push('/dashboard');
+        }
       } else {
         toast.error(result?.error || `Gagal mengirim pendaftaran (HTTP ${response.status}). Silakan muat ulang halaman dan coba lagi.`);
       }
@@ -831,7 +847,7 @@ function MuallimahRegistrationContent() {
   };
 
   const isAdmin = user?.roles?.includes('admin') || user?.role === 'admin';
-  if (!settingsLoading && !formSettings.muallimah && !isAdmin && !isFormSubmitted) {
+  if (!settingsLoading && !formSettings.muallimah && !isAdmin && !isFormSubmitted && !hasExistingRegistration) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-3xl p-8 shadow-sm border border-gray-100 text-center space-y-4">
@@ -872,13 +888,38 @@ function MuallimahRegistrationContent() {
         </p>
       </div>
 
-      {isFormSubmitted && (
-        <Alert className="mb-6 bg-blue-50 border-blue-200">
-          <Info className="h-4 w-4 text-blue-600" />
-          <AlertDescription className="text-blue-800 font-medium">
-            Pendaftaran Ukhti sedang dalam proses review. Data tidak dapat diubah saat ini.
+      {isFormSubmitted && akadStatus === 'rejected' && (
+        <Alert className="mb-6 bg-rose-50 border-rose-200">
+          <Info className="h-4 w-4 text-rose-600" />
+          <AlertDescription className="text-rose-800 font-medium">
+            Pendaftaran Mu'allimah Ukhti pada batch ini berstatus tidak disetujui. Silakan hubungi admin untuk informasi lebih lanjut.
           </AlertDescription>
         </Alert>
+      )}
+
+      {hasExistingRegistration && akadStatus !== 'rejected' && (
+        <div className="mb-6 space-y-4">
+          <Alert className={akadStatus === 'approved' ? 'bg-emerald-50 border-emerald-200' : 'bg-blue-50 border-blue-200'}>
+            <CheckCircle2 className={akadStatus === 'approved' ? 'h-4 w-4 text-emerald-600' : 'h-4 w-4 text-blue-600'} />
+            <AlertDescription className={akadStatus === 'approved' ? 'text-emerald-900 text-sm' : 'text-blue-900 text-sm'}>
+              {akadStatus === 'approved'
+                ? 'Akad & Pendaftaran Mu\'allimah Ukhti sudah disetujui. Ukhti tetap dapat memperbarui profil maupun jadwal mengajar di bawah ini.'
+                : 'Pendaftaran Mu\'allimah Ukhti sudah tercatat dan sedang menunggu review. Ukhti dapat memperbarui data atau jadwal kapan saja.'}
+            </AlertDescription>
+          </Alert>
+
+          <RegistrationEditPhaseBanner
+            editPhase={editPhase}
+            isMuallimahClass
+            editReason={editReason}
+            onEditReasonChange={setEditReason}
+          />
+
+          <EditHistoryTimeline
+            history={editHistory}
+            title="Riwayat Perubahan Data & Jadwal Mengajar"
+          />
+        </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-8">

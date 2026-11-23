@@ -136,6 +136,16 @@ export function isMuallimah(userRole: string | string[] | null | undefined): boo
   return hasRole(userRole, 'muallimah');
 }
 
+/**
+ * Memeriksa apakah user berhak membuka/mengelola Kelas Berbayar Mu'allimah MTI.
+ * Hanya Mu'allimah terverifikasi (sudah memiliki role 'muallimah') atau Admin/Super Admin.
+ */
+export function canManagePaidClasses(
+  userRole: string | string[] | null | undefined
+): boolean {
+  return hasAnyRole(userRole, ['muallimah', 'admin', 'super_admin']);
+}
+
 export function isThalibah(userRole: string | string[] | null | undefined): boolean {
   return hasRole(userRole, 'thalibah');
 }

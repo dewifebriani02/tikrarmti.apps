@@ -11,12 +11,14 @@ import {
   ChevronRight,
   CheckCircle2,
   AlertCircle,
-  Crown
+  Crown,
+  Edit3
 } from 'lucide-react';
 import { useRegistrationBatch } from '@/hooks/useBatches';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyRegistrations } from '@/hooks/useRegistrations';
 import { useFormSettings } from '@/hooks/useFormSettings';
+import { canManagePaidClasses } from '@/lib/roles';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -42,7 +44,13 @@ export function RegistrationHubCard({
 
   const [isRegisteredMuallimah, setIsRegisteredMuallimah] = useState(false);
   const [isRegisteredMusyrifah, setIsRegisteredMusyrifah] = useState(false);
-  const [checkingRoleStatus, setCheckingRoleStatus] = useState(false);
+
+  const userRoles = user?.roles?.length
+    ? user.roles
+    : user?.primaryRole
+    ? [user.primaryRole]
+    : [];
+  const canOpenPaidClasses = canManagePaidClasses(userRoles);
 
   // Dynamic publication status from switchboard, with prop override capability if passed
   const isPraTikrarActive = typeof showPraTikrar === 'boolean' ? showPraTikrar : Boolean(formSettings.pra_tikrar);
@@ -95,7 +103,7 @@ export function RegistrationHubCard({
     const now = new Date();
 
     const diffDays = Math.ceil((deadlineWIB.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    
+
     const formattedDate = deadlineWIB.toLocaleDateString('id-ID', {
       day: 'numeric',
       month: 'short',
@@ -111,17 +119,6 @@ export function RegistrationHubCard({
   }, [registrationBatch]);
 
   // Check thalibah registrations in the registration batch
-  const pendingTikrarRegistration = useMemo(() => {
-    if (!registrationBatch?.id || !registrations.length) return null;
-    return registrations.find(
-      reg =>
-        reg.batch_id === registrationBatch.id &&
-        reg.program?.name?.toLowerCase().includes('tahfidz') &&
-        !reg.program?.name?.toLowerCase().includes('pra') &&
-        reg.status === 'pending'
-    ) || null;
-  }, [registrationBatch?.id, registrations]);
-
   const hasRegisteredTikrar = useMemo(() => {
     if (!registrationBatch?.id || !registrations.length) return false;
     return registrations.some(
@@ -155,7 +152,6 @@ export function RegistrationHubCard({
     let isMounted = true;
 
     async function checkRoleRegistrations() {
-      setCheckingRoleStatus(true);
       try {
         const res = await fetch(`/api/pendaftaran/roles-status?batch_id=${registrationBatch!.id}`);
         if (res.ok) {
@@ -167,10 +163,6 @@ export function RegistrationHubCard({
         }
       } catch (err) {
         console.error('Error checking role registrations:', err);
-      } finally {
-        if (isMounted) {
-          setCheckingRoleStatus(false);
-        }
       }
     }
 
@@ -192,10 +184,9 @@ export function RegistrationHubCard({
     <div className={`mb-6 sm:mb-8 ${className}`}>
       <Card className="rounded-2xl sm:rounded-[2.5rem] border-none shadow-xl sm:shadow-2xl shadow-emerald-950/15 overflow-hidden bg-white ring-1 ring-emerald-900/10">
         <CardContent className="p-0">
-          
+
           {/* Header Banner Hub - Minimalist & Compact */}
           <div className="bg-gradient-to-br from-emerald-900 via-teal-900 to-green-950 p-4 sm:p-6 md:p-8 text-white relative overflow-hidden">
-            {/* Background glowing circles */}
             <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl -z-0 pointer-events-none"></div>
             <div className="absolute bottom-0 left-0 w-64 h-64 bg-amber-400/10 rounded-full blur-2xl -z-0 pointer-events-none"></div>
 
@@ -203,7 +194,7 @@ export function RegistrationHubCard({
               <div className="space-y-2 sm:space-y-3 max-w-2xl">
                 <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                   <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full text-[10px] sm:text-xs font-black shadow-md uppercase tracking-wider ${
-                    isRegistrationOpen 
+                    isRegistrationOpen
                       ? 'bg-gradient-to-r from-amber-400 to-yellow-500 text-amber-950'
                       : 'bg-stone-700/80 text-stone-200 border border-stone-600'
                   }`}>
@@ -217,14 +208,14 @@ export function RegistrationHubCard({
 
                 {showTitle && (
                   <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-tight">
-                    Pintu Khidmat & Belajar <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-200 to-emerald-200">Al-Qur'an</span>
+                    Pintu Khidmat & Belajar <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-200 to-emerald-200">Al-Qur&apos;an</span>
                   </h2>
                 )}
 
                 <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed font-medium">
                   {isRegistrationOpen
                     ? 'Silakan pilih jalur di bawah ini sesuai tujuan dan peran Ukhti. Setiap program memiliki formulir, komitmen waktu, serta tahapan seleksi yang berbeda.'
-                    : 'Pendaftaran untuk batch ini saat ini telah ditutup. Silakan pantau pengumuman resmi untuk jadwal pendaftaran batch berikutnya.'}
+                    : 'Pendaftaran baru untuk batch ini telah ditutup. Jika Ukhti sudah terdaftar, Ukhti tetap dapat melihat atau mengedit data pendaftaran.'}
                 </p>
               </div>
 
@@ -240,14 +231,14 @@ export function RegistrationHubCard({
                   <span className={`inline-block text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full ${
                     !isRegistrationOpen
                       ? 'bg-rose-500/25 text-rose-200 border border-rose-400/30'
-                      : deadlineInfo.diffDays <= 3 
-                      ? 'bg-rose-500/25 text-rose-200 border border-rose-400/30' 
+                      : deadlineInfo.diffDays <= 3
+                      ? 'bg-rose-500/25 text-rose-200 border border-rose-400/30'
                       : 'bg-amber-400/20 text-amber-200 border border-amber-300/30'
                   }`}>
-                    {!isRegistrationOpen 
-                      ? 'Ditutup' 
-                      : deadlineInfo.diffDays === 0 
-                      ? 'Hari Terakhir!' 
+                    {!isRegistrationOpen
+                      ? 'Ditutup'
+                      : deadlineInfo.diffDays === 0
+                      ? 'Hari Terakhir!'
                       : `⏳ Sisa ${deadlineInfo.diffDays} hari lagi`}
                   </span>
                 </div>
@@ -255,7 +246,7 @@ export function RegistrationHubCard({
             </div>
           </div>
 
-          {/* Cards Section — Fixed 1 col on mobile, fixed 2 cols on tablet (sm+) and laptop */}
+          {/* Cards Section */}
           <div className="p-4 sm:p-6 md:p-8 bg-gradient-to-b from-stone-50/50 to-white">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
 
@@ -281,7 +272,7 @@ export function RegistrationHubCard({
                       Thalibah Tikrar Tahfidz
                     </h3>
                     <p className="text-xs sm:text-sm text-gray-600 mt-1 leading-relaxed">
-                      Hafalan Al-Qur'an intensif metode 40x pengulangan (Juz 1, 2, 27, 28, 29, 30) dengan sistem pasangan setoran.
+                      Hafalan Al-Qur&apos;an intensif metode 40x pengulangan (Juz 1, 2, 27, 28, 29, 30) dengan sistem pasangan setoran.
                     </p>
                   </div>
 
@@ -302,17 +293,16 @@ export function RegistrationHubCard({
                         <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                         Sudah Terdaftar
                       </Button>
-                      {pendingTikrarRegistration && isRegistrationOpen && (
-                        <Link href={`/pendaftaran/tikrar-tahfidz?batchId=${batchId}&edit=true`} className="block">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full border-amber-300 text-amber-800 hover:bg-amber-50 font-bold rounded-xl text-xs"
-                          >
-                            Ubah Pilihan Juz / Jadwal
-                          </Button>
-                        </Link>
-                      )}
+                      <Link href={`/pendaftaran/tikrar-tahfidz?batchId=${batchId}&edit=true`} className="block">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full border-amber-300 text-amber-800 hover:bg-amber-50 font-bold rounded-xl text-xs gap-1.5"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          Edit Data / Jadwal / Juz
+                        </Button>
+                      </Link>
                     </div>
                   ) : canRegisterTikrar ? (
                     <Link href={`/pendaftaran/tikrar-tahfidz?batchId=${batchId}`} className="block">
@@ -333,7 +323,7 @@ export function RegistrationHubCard({
               </div>
 
               {/* 2. Pra-Tikrar */}
-              {isPraTikrarActive && (
+              {(isPraTikrarActive || hasRegisteredPraTikrar) && (
                 <div className="bg-white border-2 border-fuchsia-200/80 hover:border-fuchsia-400 rounded-2xl p-5 sm:p-6 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between group">
                   <div className="space-y-3">
                     <div className="flex items-center justify-between gap-2">
@@ -355,7 +345,7 @@ export function RegistrationHubCard({
                         Thalibah Pra-Tikrar
                       </h3>
                       <p className="text-xs sm:text-sm text-gray-600 mt-1 leading-relaxed">
-                        Perbaikan bacaan dasar Al-Qur'an (Tahsin) & pembekalan makhraj huruf sebelum melanjutkan ke program hafalan.
+                        Perbaikan bacaan dasar Al-Qur&apos;an (Tahsin) &amp; pembekalan makhraj huruf sebelum melanjutkan ke program hafalan.
                       </p>
                     </div>
 
@@ -368,13 +358,25 @@ export function RegistrationHubCard({
 
                   <div className="pt-5">
                     {hasRegisteredPraTikrar ? (
-                      <Button
-                        disabled
-                        className="w-full bg-emerald-50 text-emerald-700 border border-emerald-300 font-bold py-2.5 rounded-xl cursor-default flex items-center justify-center gap-1.5"
-                      >
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                        Sudah Terdaftar
-                      </Button>
+                      <div className="space-y-2">
+                        <Button
+                          disabled
+                          className="w-full bg-emerald-50 text-emerald-700 border border-emerald-300 font-bold py-2.5 rounded-xl cursor-default flex items-center justify-center gap-1.5"
+                        >
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          Sudah Terdaftar
+                        </Button>
+                        <Link href={`/pendaftaran/pra-tikrar?batchId=${batchId}&edit=true`} className="block">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full border-fuchsia-300 text-fuchsia-800 hover:bg-fuchsia-50 font-bold rounded-xl text-xs gap-1.5"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                            Edit Data Pendaftaran
+                          </Button>
+                        </Link>
+                      </div>
                     ) : canRegisterPraTikrar ? (
                       <Link href={`/pendaftaran/pra-tikrar?batchId=${batchId}`} className="block">
                         <Button className="w-full bg-gradient-to-r from-fuchsia-700 to-purple-800 hover:from-fuchsia-800 hover:to-purple-900 text-white font-bold py-2.5 rounded-xl shadow-md shadow-fuchsia-900/10 hover:shadow-lg transition-all flex items-center justify-center gap-1.5">
@@ -413,7 +415,7 @@ export function RegistrationHubCard({
 
                   <div>
                     <h3 className="text-base sm:text-lg font-bold text-gray-900 group-hover:text-emerald-800 transition-colors">
-                      Mu'allimah (Guru Penguji)
+                      Mu&apos;allimah (Guru Penguji)
                     </h3>
                     <p className="text-xs sm:text-sm text-gray-600 mt-1 leading-relaxed">
                       Khusus calon pengajar untuk menyimak setoran, menguji pekanan, dan mentashih bacaan thalibah.
@@ -421,23 +423,35 @@ export function RegistrationHubCard({
                   </div>
 
                   <div className="text-[11px] font-medium text-gray-500 pt-2 border-t border-gray-100">
-                    📝 Formulir: <strong className="text-gray-700">Profil & Akad Komitmen Mengajar</strong>
+                    📝 Formulir: <strong className="text-gray-700">Profil &amp; Akad Komitmen Mengajar</strong>
                   </div>
                 </div>
 
                 <div className="pt-5">
                   {isRegisteredMuallimah ? (
-                    <Button
-                      disabled
-                      className="w-full bg-emerald-50 text-emerald-700 border border-emerald-300 font-bold py-2.5 rounded-xl cursor-default flex items-center justify-center gap-1.5"
-                    >
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                      Sudah Terdaftar
-                    </Button>
+                    <div className="space-y-2">
+                      <Button
+                        disabled
+                        className="w-full bg-emerald-50 text-emerald-700 border border-emerald-300 font-bold py-2.5 rounded-xl cursor-default flex items-center justify-center gap-1.5"
+                      >
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                        Sudah Terdaftar
+                      </Button>
+                      <Link href={`/pendaftaran/muallimah?batchId=${batchId}&edit=true`} className="block">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full border-emerald-300 text-emerald-800 hover:bg-emerald-50 font-bold rounded-xl text-xs gap-1.5"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          Edit Data &amp; Jadwal Mengajar
+                        </Button>
+                      </Link>
+                    </div>
                   ) : canRegisterMuallimah ? (
                     <Link href={`/pendaftaran/muallimah?batchId=${batchId}`} className="block">
                       <Button className="w-full bg-gradient-to-r from-emerald-700 to-green-800 hover:from-emerald-800 hover:to-green-900 text-white font-bold py-2.5 rounded-xl shadow-md shadow-emerald-950/10 hover:shadow-lg transition-all flex items-center justify-center gap-1.5">
-                        Daftar Sebagai Mu'allimah
+                        Daftar Sebagai Mu&apos;allimah
                         <ChevronRight className="w-4 h-4" />
                       </Button>
                     </Link>
@@ -453,7 +467,7 @@ export function RegistrationHubCard({
               </div>
 
               {/* 4. Musyrifah / Raisah */}
-              {isMusyrifahActive && (
+              {(isMusyrifahActive || isRegisteredMusyrifah) && (
                 <div className="bg-white border-2 border-blue-200/80 hover:border-blue-400 rounded-2xl p-5 sm:p-6 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between group">
                   <div className="space-y-3">
                     <div className="flex items-center justify-between gap-2">
@@ -480,19 +494,31 @@ export function RegistrationHubCard({
                     </div>
 
                     <div className="text-[11px] font-medium text-gray-500 pt-2 border-t border-gray-100">
-                      🎯 Fokus: <strong className="text-gray-700">Pelatihan Leadership & Manajemen MTI</strong>
+                      🎯 Fokus: <strong className="text-gray-700">Pelatihan Leadership &amp; Manajemen MTI</strong>
                     </div>
                   </div>
 
                   <div className="pt-5">
                     {isRegisteredMusyrifah ? (
-                      <Button
-                        disabled
-                        className="w-full bg-emerald-50 text-emerald-700 border border-emerald-300 font-bold py-2.5 rounded-xl cursor-default flex items-center justify-center gap-1.5"
-                      >
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                        Sudah Terdaftar
-                      </Button>
+                      <div className="space-y-2">
+                        <Button
+                          disabled
+                          className="w-full bg-emerald-50 text-emerald-700 border border-emerald-300 font-bold py-2.5 rounded-xl cursor-default flex items-center justify-center gap-1.5"
+                        >
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          Sudah Terdaftar
+                        </Button>
+                        <Link href={`/pendaftaran/musyrifah?batchId=${batchId}&edit=true`} className="block">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full border-blue-300 text-blue-800 hover:bg-blue-50 font-bold rounded-xl text-xs gap-1.5"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                            Edit Data Pendaftaran
+                          </Button>
+                        </Link>
+                      </div>
                     ) : canRegisterMusyrifah ? (
                       <Link href={`/pendaftaran/musyrifah?batchId=${batchId}`} className="block">
                         <Button className="w-full bg-gradient-to-r from-blue-700 to-indigo-800 hover:from-blue-800 hover:to-indigo-900 text-white font-bold py-2.5 rounded-xl shadow-md shadow-blue-900/10 hover:shadow-lg transition-all flex items-center justify-center gap-1.5">
@@ -525,17 +551,17 @@ export function RegistrationHubCard({
                           Bimbingan Khusus
                         </span>
                         <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-800 border border-indigo-200">
-                          Kelas Eksklusif Mu'allimah
+                          Kelas Eksklusif Mu&apos;allimah
                         </span>
                       </div>
                     </div>
 
                     <div>
                       <h3 className="text-base sm:text-lg font-bold text-gray-900 group-hover:text-indigo-800 transition-colors">
-                        Kelas Berbayar Resmi Mu'allimah MTI
+                        Kelas Berbayar Resmi Mu&apos;allimah MTI
                       </h3>
                       <p className="text-xs sm:text-sm text-gray-600 mt-1 leading-relaxed">
-                        Bimbingan intensif talaqqi tahsin & karantina hafalan kelompok kecil (5–15 thalibah) bersama Mu'allimah terverifikasi MTI.
+                        Bimbingan intensif talaqqi tahsin &amp; karantina hafalan kelompok kecil (5–15 thalibah) bersama Mu&apos;allimah terverifikasi MTI.
                       </p>
                     </div>
 
@@ -546,13 +572,26 @@ export function RegistrationHubCard({
                     </div>
                   </div>
 
-                  <div className="pt-5">
+                  <div className="pt-5 space-y-2">
                     <Link href="/pendaftaran/kelas-berbayar" className="block">
                       <Button className="w-full bg-gradient-to-r from-indigo-700 to-purple-800 hover:from-indigo-800 hover:to-purple-900 text-white font-bold py-2.5 rounded-xl shadow-md shadow-indigo-900/10 hover:shadow-lg transition-all flex items-center justify-center gap-1.5">
-                        Lihat Daftar Kelas &amp; Mendaftar
+                        Lihat Daftar Kelas, Edit &amp; Mendaftar
                         <ChevronRight className="w-4 h-4" />
                       </Button>
                     </Link>
+
+                    {canOpenPaidClasses && (
+                      <Link href="/muallimah/kelas-berbayar" className="block">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full border-emerald-300 bg-emerald-50/70 text-emerald-800 hover:bg-emerald-100 font-bold rounded-xl text-xs gap-1.5"
+                        >
+                          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                          Ajukan Buka Kelas Berbayar (Khusus Mu&apos;allimah)
+                        </Button>
+                      </Link>
+                    )}
                   </div>
                 </div>
               )}

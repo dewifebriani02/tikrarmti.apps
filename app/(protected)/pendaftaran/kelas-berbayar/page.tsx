@@ -20,9 +20,17 @@ import {
   GraduationCap,
   Hourglass,
   UserCheck,
-  Sparkles
+  Sparkles,
+  Edit2
 } from 'lucide-react';
+import {
+  RegistrationEditPhaseBanner,
+  EditHistoryTimeline,
+  type EditHistoryItem,
+  type EditPhaseClientInfo,
+} from '@/components/registration/EditHistoryTimeline';
 import { useAuth } from '@/hooks/useAuth';
+import { canManagePaidClasses } from '@/lib/roles';
 import { formatPaidClassDate } from '@/lib/flyer-prompt';
 import { toast, Toaster } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -67,17 +75,39 @@ interface PaidClass {
   remaining_slots?: number;
   is_full?: boolean;
   is_user_registered?: boolean;
+  user_registration?: {
+    id: string;
+    full_name?: string;
+    email?: string;
+    whatsapp?: string;
+    telegram?: string | null;
+    city_domicile?: string | null;
+    motivation?: string | null;
+    payment_proof_url?: string | null;
+    status?: string;
+  } | null;
 }
 
 export default function PendaftaranKelasBerbayarPage() {
   const { user } = useAuth();
+  const userRoles = user?.roles?.length
+    ? user.roles
+    : user?.primaryRole
+    ? [user.primaryRole]
+    : [];
+  const canOpenPaidClasses = canManagePaidClasses(userRoles);
+
   const [classes, setClasses] = useState<PaidClass[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDay, setSelectedDay] = useState<string>('all');
 
-  // Registration modal
+  // Registration & Edit modal
   const [registeringClass, setRegisteringClass] = useState<PaidClass | null>(null);
+  const [editingRegistration, setEditingRegistration] = useState<PaidClass['user_registration'] | null>(null);
+  const [editPhase, setEditPhase] = useState<EditPhaseClientInfo | null>(null);
+  const [editHistory, setEditHistory] = useState<EditHistoryItem[]>([]);
+  const [editReason, setEditReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [registrationSuccess, setRegistrationSuccess] = useState<{
     classItem: PaidClass;
@@ -89,6 +119,7 @@ export default function PendaftaranKelasBerbayarPage() {
     full_name: '',
     email: '',
     whatsapp: '',
+    telegram: '',
     city_domicile: '',
     motivation: '',
     payment_confirmed: false,
@@ -131,14 +162,51 @@ export default function PendaftaranKelasBerbayarPage() {
 
   const openRegisterModal = (item: PaidClass) => {
     setRegisteringClass(item);
-    setFormData(prev => ({
-      ...prev,
-      full_name: prev.full_name || user?.full_name || '',
-      email: prev.email || user?.email || '',
-      whatsapp: prev.whatsapp || (user as any)?.whatsapp || '',
-      payment_confirmed: false,
-      payment_proof_url: '',
-    }));
+    setEditReason('');
+
+    if (item.is_user_registered && item.user_registration) {
+      const reg = item.user_registration;
+      setEditingRegistration(reg);
+      setFormData({
+        full_name: reg.full_name || user?.full_name || '',
+        email: reg.email || user?.email || '',
+        whatsapp: reg.whatsapp || (user as any)?.whatsapp || '',
+        telegram: reg.telegram || '',
+        city_domicile: reg.city_domicile || '',
+        motivation: reg.motivation || '',
+        payment_confirmed: false,
+        payment_proof_url: reg.payment_proof_url || '',
+      });
+      setEditPhase(null);
+      setEditHistory([]);
+      fetch(`/api/pendaftaran/edit-history?entityType=paid_class_registration&entityId=${encodeURIComponent(reg.id)}`, {
+        cache: 'no-store',
+      })
+        .then(r => r.json())
+        .then(json => {
+          if (json?.success && json?.data) {
+            setEditPhase(json.data.editPhase || null);
+            setEditHistory(Array.isArray(json.data.history) ? json.data.history : []);
+          }
+        })
+        .catch(() => {
+          // Non-fatal
+        });
+    } else {
+      setEditingRegistration(null);
+      setEditPhase(null);
+      setEditHistory([]);
+      setFormData({
+        full_name: user?.full_name || (user as any)?.name || '',
+        email: user?.email || '',
+        whatsapp: (user as any)?.whatsapp || '',
+        telegram: '',
+        city_domicile: '',
+        motivation: '',
+        payment_confirmed: false,
+        payment_proof_url: '',
+      });
+    }
   };
 
   const handleRegisterSubmit = async (e: React.FormEvent) => {
@@ -152,19 +220,36 @@ export default function PendaftaranKelasBerbayarPage() {
 
     setIsSubmitting(true);
     try {
+      const isUpdating = Boolean(editingRegistration?.id);
       const res = await fetch('/api/paid-classes/register', {
-        method: 'POST',
+        method: isUpdating ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          paid_class_id: registeringClass.id,
-          full_name: formData.full_name,
-          email: formData.email,
-          whatsapp: formData.whatsapp,
-          city_domicile: formData.city_domicile,
-          motivation: formData.motivation,
-          payment_proof_url: formData.payment_proof_url,
-          infaq_amount: registeringClass.fee_amount,
-        }),
+        body: JSON.stringify(
+          isUpdating
+            ? {
+                registration_id: editingRegistration?.id,
+                paid_class_id: registeringClass.id,
+                full_name: formData.full_name,
+                email: formData.email,
+                whatsapp: formData.whatsapp,
+                telegram: formData.telegram,
+                city_domicile: formData.city_domicile,
+                motivation: formData.motivation,
+                payment_proof_url: formData.payment_proof_url,
+                editReason: editReason.trim() || undefined,
+              }
+            : {
+                paid_class_id: registeringClass.id,
+                full_name: formData.full_name,
+                email: formData.email,
+                whatsapp: formData.whatsapp,
+                telegram: formData.telegram,
+                city_domicile: formData.city_domicile,
+                motivation: formData.motivation,
+                payment_proof_url: formData.payment_proof_url,
+                infaq_amount: registeringClass.fee_amount,
+              }
+        ),
       });
 
       const data = await res.json();
@@ -172,13 +257,19 @@ export default function PendaftaranKelasBerbayarPage() {
         throw new Error(data?.error?.message || data?.message || 'Pendaftaran gagal');
       }
 
-      toast.success('Alhamdulillah, pendaftaran berhasil dikirim!');
-      const targetClass = registeringClass;
-      setRegisteringClass(null);
-      setRegistrationSuccess({
-        classItem: targetClass,
-        groupLink: targetClass.whatsapp_group_link || null,
-      });
+      if (isUpdating) {
+        toast.success(data?.data?.message || data?.message || 'Data pendaftaran berhasil diperbarui!');
+        setRegisteringClass(null);
+        setEditingRegistration(null);
+      } else {
+        toast.success('Alhamdulillah, pendaftaran berhasil dikirim!');
+        const targetClass = registeringClass;
+        setRegisteringClass(null);
+        setRegistrationSuccess({
+          classItem: targetClass,
+          groupLink: targetClass.whatsapp_group_link || null,
+        });
+      }
 
       // Refresh list to update counter and registered status
       fetchApprovedClasses();
@@ -253,13 +344,15 @@ export default function PendaftaranKelasBerbayarPage() {
             </div>
 
             <div className="flex items-center gap-2">
-              <Link
-                href="/muallimah/kelas-berbayar"
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold transition-colors"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                <span>Buka Kelas (Mu'allimah)</span>
-              </Link>
+              {canOpenPaidClasses && (
+                <Link
+                  href="/muallimah/kelas-berbayar"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold transition-colors"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Buka Kelas (Mu'allimah)</span>
+                </Link>
+              )}
 
               <Button
                 variant="outline"
@@ -391,13 +484,15 @@ export default function PendaftaranKelasBerbayarPage() {
               >
                 Reset Filter
               </Button>
-              <Link
-                href="/muallimah/kelas-berbayar"
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold shadow-xs transition-colors"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                Ajukan Kelas (Khusus Mu'allimah)
-              </Link>
+              {canOpenPaidClasses && (
+                <Link
+                  href="/muallimah/kelas-berbayar"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold shadow-xs transition-colors"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                  Ajukan Kelas (Khusus Mu'allimah)
+                </Link>
+              )}
             </div>
           </div>
         ) : (
@@ -557,6 +652,17 @@ export default function PendaftaranKelasBerbayarPage() {
                             <CheckCircle2 className="w-4 h-4 mr-1.5 text-emerald-600" />
                             Ukhti Sudah Terdaftar
                           </Button>
+                          {c.user_registration && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => openRegisterModal(c)}
+                              className="w-full border-indigo-200 text-indigo-800 hover:bg-indigo-50 font-bold py-2 rounded-xl text-xs gap-1.5"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                              Edit Data Pendaftaran
+                            </Button>
+                          )}
                           {c.whatsapp_group_link && (
                             <a
                               href={c.whatsapp_group_link}
@@ -601,14 +707,17 @@ export default function PendaftaranKelasBerbayarPage() {
             <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/80">
               <div className="space-y-0.5">
                 <span className="text-[10px] font-black uppercase text-indigo-700 tracking-wider">
-                  Formulir Pendaftaran Thalibah
+                  {editingRegistration ? 'Edit Data Pendaftaran Thalibah' : 'Formulir Pendaftaran Thalibah'}
                 </span>
                 <h3 className="font-bold text-gray-900 text-base">
                   {registeringClass.class_name}
                 </h3>
               </div>
               <button
-                onClick={() => setRegisteringClass(null)}
+                onClick={() => {
+                  setRegisteringClass(null);
+                  setEditingRegistration(null);
+                }}
                 className="p-1.5 text-gray-400 hover:text-gray-600 rounded-xl hover:bg-gray-100 transition-colors"
               >
                 <X className="w-5 h-5" />
@@ -616,6 +725,19 @@ export default function PendaftaranKelasBerbayarPage() {
             </div>
 
             <form onSubmit={handleRegisterSubmit} className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 text-sm">
+              {editingRegistration && (
+                <div className="space-y-3">
+                  <RegistrationEditPhaseBanner
+                    editPhase={editPhase}
+                    editReason={editReason}
+                    onEditReasonChange={setEditReason}
+                  />
+                  <EditHistoryTimeline
+                    history={editHistory}
+                    title="Riwayat Perubahan Pendaftaran"
+                  />
+                </div>
+              )}
               {/* Summary Card */}
               <div className="p-4 rounded-2xl bg-indigo-50/80 border border-indigo-200 text-indigo-950 space-y-2 text-xs">
                 <div className="flex justify-between items-center">
@@ -715,17 +837,32 @@ export default function PendaftaranKelasBerbayarPage() {
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">
-                  Kota / Domisili
-                </label>
-                <input
-                  type="text"
-                  value={formData.city_domicile}
-                  onChange={e => setFormData(prev => ({ ...prev, city_domicile: e.target.value }))}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                  placeholder="Contoh: Jakarta Selatan"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    Kota / Domisili
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.city_domicile}
+                    onChange={e => setFormData(prev => ({ ...prev, city_domicile: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                    placeholder="Contoh: Jakarta Selatan"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    No. Telegram (Opsional)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.telegram}
+                    onChange={e => setFormData(prev => ({ ...prev, telegram: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                    placeholder="0812xxxxxxxx / @username"
+                  />
+                </div>
               </div>
 
               <div className="space-y-1.5">
@@ -771,7 +908,10 @@ export default function PendaftaranKelasBerbayarPage() {
               <div className="pt-2 flex justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => setRegisteringClass(null)}
+                  onClick={() => {
+                    setRegisteringClass(null);
+                    setEditingRegistration(null);
+                  }}
                   className="px-4 py-2.5 text-xs font-bold text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
                 >
                   Batal
@@ -786,7 +926,7 @@ export default function PendaftaranKelasBerbayarPage() {
                   ) : (
                     <Send className="w-4 h-4" />
                   )}
-                  Kirim Pendaftaran
+                  {editingRegistration ? 'Simpan Perubahan' : 'Kirim Pendaftaran'}
                 </Button>
               </div>
             </form>

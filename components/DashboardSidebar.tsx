@@ -8,7 +8,7 @@ import {
   LayoutGrid, ClipboardList, FileText, UserCheck, BarChart3, Calendar, Shield, Settings,
   MessageSquare, HeartHandshake, HelpCircle, Award, ArrowRightLeft, Video, Database, RotateCcw, Sparkles, Landmark, Flame, Globe
 } from 'lucide-react';
-import { ROLE_RANKS, hasRequiredRank, isStaff } from '@/lib/roles';
+import { ROLE_RANKS, canManagePaidClasses, hasRequiredRank, isStaff } from '@/lib/roles';
 import { useAuth } from '@/hooks/useAuth';
 import { useState, useEffect } from 'react';
 import { LogoutConfirmModal } from '@/components/LogoutConfirmModal';
@@ -61,6 +61,13 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
     };
   }, []);
 
+  const userRoles = user?.roles?.length
+    ? user.roles
+    : user?.primaryRole
+    ? [user.primaryRole]
+    : [];
+  const hasPaidClassAccess = canManagePaidClasses(userRoles);
+
   // Role-based navigation items powered by Active Persona and MTI Journey Flow
   const getNavItems = () => {
     const baseItems: any[] = [];
@@ -88,6 +95,11 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
         href: '/admin/muallimah',
         label: 'Daftar Muallimah',
         icon: <GraduationCap className="h-5 w-5 text-green-600" />,
+      });
+      baseItems.push({
+        href: '/muallimah/kelas-berbayar',
+        label: 'Kelas Berbayar MTI',
+        icon: <Sparkles className="h-5 w-5 text-amber-500" />,
       });
       baseItems.push({
         href: '/admin/tikrar',
@@ -235,6 +247,15 @@ export default function DashboardSidebar({ isOpen = false, onClose }: UniversalS
         label: 'Mutasi Jadwal',
         icon: <ArrowRightLeft className="h-5 w-5" />,
       });
+
+      if (hasPaidClassAccess) {
+        baseItems.push({ type: 'header', label: "Khusus Mu'allimah" });
+        baseItems.push({
+          href: '/muallimah/kelas-berbayar',
+          label: 'Kelas Berbayar MTI',
+          icon: <Sparkles className="h-5 w-5 text-amber-500" />,
+        });
+      }
 
       baseItems.push({ type: 'header', label: 'Profil & Akun' });
       baseItems.push({

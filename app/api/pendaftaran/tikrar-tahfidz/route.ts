@@ -11,6 +11,7 @@ export async function POST(request: NextRequest) {
       batch,
       isEditMode = false,
       existingRegistrationId,
+      editReason,
     } = body || {};
 
     if (!formData || typeof formData !== 'object') {
@@ -26,7 +27,8 @@ export async function POST(request: NextRequest) {
       user,
       batch,
       Boolean(isEditMode),
-      existingRegistrationId
+      existingRegistrationId,
+      typeof editReason === 'string' ? editReason : undefined
     );
 
     const statusCode = result.success ? 200 : (result.statusCode || 400);

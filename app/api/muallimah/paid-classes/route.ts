@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { getAuthorizationContext, isUserAdmin } from '@/lib/rbac';
+import { getAuthorizationContext } from '@/lib/rbac';
+import { canManagePaidClasses, hasAnyRole } from '@/lib/roles';
 import { ApiResponses } from '@/lib/api-responses';
 import { generateFlyerAIPrompt } from '@/lib/flyer-prompt';
 
@@ -45,6 +46,7 @@ export async function GET(request: NextRequest) {
       const classIds = (data || []).map((c: any) => c.id);
       const registrationCounts: Record<string, number> = {};
       const userRegisteredClassIds = new Set<string>();
+      const userRegistrationMap: Record<string, any> = {};
 
       if (classIds.length > 0) {
         const { data: regData } = await supabaseAdmin
@@ -60,12 +62,13 @@ export async function GET(request: NextRequest) {
         if (authContext?.userId) {
           const { data: userRegs } = await supabaseAdmin
             .from('paid_class_registrations')
-            .select('paid_class_id')
+            .select('*')
             .eq('user_id', authContext.userId)
             .neq('status', 'cancelled');
 
           (userRegs || []).forEach((ur: any) => {
             userRegisteredClassIds.add(ur.paid_class_id);
+            userRegistrationMap[ur.paid_class_id] = ur;
           });
         }
       }
@@ -79,6 +82,7 @@ export async function GET(request: NextRequest) {
           remaining_slots: Math.max(0, max - enrolled),
           is_full: enrolled >= max,
           is_user_registered: userRegisteredClassIds.has(c.id),
+          user_registration: userRegistrationMap[c.id] || null,
         };
       });
 
@@ -90,7 +94,17 @@ export async function GET(request: NextRequest) {
       return ApiResponses.unauthorized('Silakan login terlebih dahulu');
     }
 
-    const isAdmin = isUserAdmin(authContext);
+    if (!canManagePaidClasses(authContext.roles)) {
+      return ApiResponses.forbidden(
+        "Akses khusus Mu'allimah terverifikasi atau Admin MTI."
+      );
+    }
+
+    const isAdmin = hasAnyRole(authContext.roles, ['admin', 'super_admin']);
+
+    if (scope === 'all' && !isAdmin) {
+      return ApiResponses.forbidden('Hanya Admin yang dapat melihat seluruh pengajuan kelas.');
+    }
 
     let query = supabaseAdmin
       .from('muallimah_paid_classes')
@@ -164,6 +178,12 @@ export async function POST(request: NextRequest) {
     const authContext = await getAuthorizationContext();
     if (!authContext) {
       return ApiResponses.unauthorized('Silakan login terlebih dahulu');
+    }
+
+    if (!canManagePaidClasses(authContext.roles)) {
+      return ApiResponses.forbidden(
+        "Hanya Mu'allimah terverifikasi atau Admin yang dapat mengajukan pembukaan Kelas Berbayar."
+      );
     }
 
     const body = await request.json();

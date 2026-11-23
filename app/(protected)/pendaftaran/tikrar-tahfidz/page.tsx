@@ -20,6 +20,12 @@ import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useFormSettings } from '@/hooks/useFormSettings'
+import {
+  EditHistoryTimeline,
+  RegistrationEditPhaseBanner,
+  type EditHistoryItem,
+  type EditPhaseClientInfo,
+} from '@/components/registration/EditHistoryTimeline'
 
 interface FormData {
   // Section 1 - Komitmen & Pemahaman
@@ -273,13 +279,38 @@ export default function ThalibahBatch2Page() {
   // reference changes later (e.g. SWR revalidation after mutateRegistrations()).
   const hasPrefilledRef = React.useRef(false)
 
-  // Check if user is already registered for Tikrah Tahfidz program
+  const [editPhase, setEditPhase] = useState<EditPhaseClientInfo | null>(null)
+  const [editHistory, setEditHistory] = useState<EditHistoryItem[]>([])
+  const [editReason, setEditReason] = useState('')
+
+  // Check if user is already registered for this program
   const tikrarRegistration = useMemo(() => {
     return registrations.find(reg =>
       reg.batch_id === activeBatchData?.id &&
+      (reg.program?.class_type !== 'pra_tahfidz' &&
+        !reg.program?.name?.toLowerCase().includes('pra')) &&
       (reg.status === 'approved' || reg.status === 'pending')
     )
   }, [registrations, activeBatchData])
+
+  const loadEditHistory = React.useCallback(async (entityId: string) => {
+    try {
+      const res = await fetch(`/api/pendaftaran/edit-history?entityType=tikrar&entityId=${entityId}`)
+      const json = await res.json().catch(() => null)
+      if (res.ok && json?.success && json?.data) {
+        setEditPhase(json.data.editPhase || null)
+        setEditHistory(Array.isArray(json.data.history) ? json.data.history : [])
+      }
+    } catch {
+      // Non-fatal
+    }
+  }, [])
+
+  useEffect(() => {
+    if (tikrarRegistration?.id) {
+      loadEditHistory(tikrarRegistration.id)
+    }
+  }, [tikrarRegistration?.id, loadEditHistory])
 
   // Check if user can register (not registered or in edit mode)
   const canRegister = useMemo(() => {
@@ -316,7 +347,7 @@ export default function ThalibahBatch2Page() {
         has_permission: registrationData.has_permission || '',
         permission_name: registrationData.permission_name || '',
         permission_phone: registrationData.permission_phone || '',
-        permission_phone_validation: '',
+        permission_phone_validation: registrationData.permission_phone || '',
         chosen_juz: registrationData.chosen_juz || '',
         no_travel_plans: registrationData.no_travel_plans || false,
         motivation: registrationData.motivation || '',
@@ -778,6 +809,7 @@ export default function ThalibahBatch2Page() {
           batch: activeBatchData,
           isEditMode,
           existingRegistrationId: existingRegistrationId || undefined,
+          editReason: editReason.trim() || undefined,
         }),
       })
       const result = await response.json().catch(() => null)
@@ -794,12 +826,19 @@ export default function ThalibahBatch2Page() {
         // Refresh registrations cache
         mutateRegistrations()
 
-        // Redirect immediately to tahap seleksi rekam-suara
-        const targetUrl = activeBatchData?.id 
-          ? `/seleksi/rekam-suara?batch_id=${activeBatchData.id}` 
-          : '/seleksi/rekam-suara'
+        if (isEditMode && (result.editPhase === 'after_daftar_ulang' || editPhase?.phase === 'after_daftar_ulang')) {
+          setEditReason('')
+          if (existingRegistrationId) {
+            await loadEditHistory(existingRegistrationId)
+          }
+        } else {
+          // Redirect immediately to tahap seleksi rekam-suara
+          const targetUrl = activeBatchData?.id
+            ? `/seleksi/rekam-suara?batch_id=${activeBatchData.id}`
+            : '/seleksi/rekam-suara'
 
-        router.push(targetUrl)
+          router.push(targetUrl)
+        }
       } else {
         const errorMsg = result?.error || `Gagal mengirim pendaftaran (HTTP ${response.status}). Silakan muat ulang halaman dan coba lagi.`
         toast.error(errorMsg)
@@ -1755,7 +1794,7 @@ export default function ThalibahBatch2Page() {
 
 
   const isAdmin = user?.roles?.includes('admin') || user?.role === 'admin'
-  if (!settingsLoading && !formSettings.tikrar_tahfidz && !isAdmin) {
+  if (!settingsLoading && !formSettings.tikrar_tahfidz && !isAdmin && !tikrarRegistration) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-purple-50 py-8 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-3xl p-8 shadow-sm border border-gray-100 text-center space-y-4">
@@ -1826,12 +1865,19 @@ export default function ThalibahBatch2Page() {
           <Card className="shadow-lg border-green-100">
             <CardHeader className="bg-gradient-to-r from-green-50 to-blue-50 px-3 sm:px-6 py-3 sm:py-4">
               {isEditMode && (
-                <Alert className="bg-blue-50 border-blue-200 mb-4">
-                  <Info className="h-4 w-4 text-blue-600" />
-                  <AlertDescription className="text-blue-800 text-sm">
-                    <strong>Edit Mode:</strong> Ukhti sedang mengedit data pendaftaran yang sudah ada. Perubahan akan disimpan setelah menekan tombol "Update Pendaftaran".
-                  </AlertDescription>
-                </Alert>
+                <div className="space-y-3 mb-4">
+                  <Alert className="bg-blue-50 border-blue-200">
+                    <Info className="h-4 w-4 text-blue-600" />
+                    <AlertDescription className="text-blue-800 text-sm">
+                      <strong>Edit Mode:</strong> Ukhti sedang mengedit data pendaftaran yang sudah ada. Perubahan akan disimpan setelah menekan tombol &quot;Update Pendaftaran&quot;.
+                    </AlertDescription>
+                  </Alert>
+                  <RegistrationEditPhaseBanner
+                    editPhase={editPhase}
+                    editReason={editReason}
+                    onEditReasonChange={setEditReason}
+                  />
+                </div>
               )}
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-4">
                 <CardTitle className="text-base sm:text-lg md:text-xl text-green-900">
@@ -1984,6 +2030,11 @@ export default function ThalibahBatch2Page() {
             </CardContent>
           </Card>
 
+          {editHistory.length > 0 && (
+            <div className="mt-6">
+              <EditHistoryTimeline history={editHistory} defaultExpanded />
+            </div>
+          )}
 
         </div>
       </div>

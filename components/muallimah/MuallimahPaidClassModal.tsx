@@ -5,6 +5,12 @@ import { X, Sparkles, Send, Calendar, DollarSign, BookOpen, ShieldCheck, UserChe
 import { AutoFlyerCanvas, FlyerClassData } from './AutoFlyerCanvas';
 import { calculateEstimatedEndDate } from '@/lib/flyer-prompt';
 import { toast } from 'sonner';
+import {
+  RegistrationEditPhaseBanner,
+  EditHistoryTimeline,
+  type EditHistoryItem,
+  type EditPhaseClientInfo,
+} from '@/components/registration/EditHistoryTimeline';
 
 interface MuallimahPaidClassModalProps {
   isOpen: boolean;
@@ -84,6 +90,9 @@ export function MuallimahPaidClassModal({
   const [isEndDateManuallyEdited, setIsEndDateManuallyEdited] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<'form' | 'preview'>('form');
+  const [editPhase, setEditPhase] = useState<EditPhaseClientInfo | null>(null);
+  const [editHistory, setEditHistory] = useState<EditHistoryItem[]>([]);
+  const [editReason, setEditReason] = useState('');
 
   useEffect(() => {
     if (initialData) {
@@ -129,6 +138,25 @@ export function MuallimahPaidClassModal({
         zoom_link: '',
       });
       setIsEndDateManuallyEdited(false);
+    }
+    setEditReason('');
+    if (isOpen && initialData?.id) {
+      fetch(`/api/pendaftaran/edit-history?entityType=paid_class&entityId=${encodeURIComponent(initialData.id)}`, {
+        cache: 'no-store',
+      })
+        .then(r => r.json())
+        .then(json => {
+          if (json?.success && json?.data) {
+            setEditPhase(json.data.editPhase || null);
+            setEditHistory(Array.isArray(json.data.history) ? json.data.history : []);
+          }
+        })
+        .catch(() => {
+          // Non-fatal
+        });
+    } else {
+      setEditPhase(null);
+      setEditHistory([]);
     }
   }, [initialData, isOpen]);
 
@@ -230,7 +258,11 @@ export function MuallimahPaidClassModal({
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(
+          isEdit
+            ? { ...formData, editReason: editReason.trim() || undefined }
+            : formData
+        )
       });
 
       const json = await res.json();
@@ -239,9 +271,11 @@ export function MuallimahPaidClassModal({
       }
 
       toast.success(
-        isEdit
-          ? 'Perubahan kelas berbayar berhasil disimpan!'
-          : 'Alhamdulillah, pengajuan Kelas Berbayar MTI berhasil dikirim ke Admin!'
+        json?.data?.message ||
+          json?.message ||
+          (isEdit
+            ? 'Perubahan kelas berbayar berhasil disimpan!'
+            : 'Alhamdulillah, pengajuan Kelas Berbayar MTI berhasil dikirim ke Admin!')
       );
       onSuccess();
       onClose();
@@ -327,6 +361,28 @@ export function MuallimahPaidClassModal({
               activeTab === 'form' ? 'block' : 'hidden lg:block'
             }`}
           >
+            {isEdit && (
+              <div className="space-y-3">
+                <RegistrationEditPhaseBanner
+                  editPhase={editPhase}
+                  isMuallimahClass
+                  editReason={editReason}
+                  onEditReasonChange={setEditReason}
+                />
+                {(initialData?.enrolled_count || 0) > 0 && (
+                  <div className="p-3 rounded-xl bg-blue-50/90 border border-blue-200 text-xs text-blue-950 flex items-start gap-2">
+                    <BellRing className="w-4 h-4 text-blue-700 shrink-0 mt-0.5" />
+                    <span>
+                      Terdapat <strong>{initialData.enrolled_count} thalibah aktif</strong> di kelas ini. Jika Ukhti mengubah jadwal hari/jam, tanggal mulai/selesai, link Zoom, atau link grup WhatsApp, notifikasi WA otomatis akan langsung dikirim ke seluruh thalibah tersebut.
+                    </span>
+                  </div>
+                )}
+                <EditHistoryTimeline
+                  history={editHistory}
+                  title="Riwayat Perubahan Kelas Berbayar"
+                />
+              </div>
+            )}
             {/* 1. Judul & Materi */}
             <div className="space-y-3 p-4 rounded-2xl bg-emerald-50/30 border border-emerald-100">
               <h3 className="text-xs font-bold text-emerald-900 uppercase tracking-wider flex items-center gap-1.5">
@@ -763,7 +819,9 @@ export function MuallimahPaidClassModal({
         {/* Footer Actions */}
         <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between shrink-0">
           <p className="text-xs text-gray-500 hidden sm:block">
-            * Pengajuan akan ditinjau oleh Admin MTI sebelum dipublikasikan.
+            {isEdit && initialData?.status !== 'pending'
+              ? '* Perubahan jadwal & tautan kelas aktif akan otomatis diberitahukan via WA ke thalibah terdaftar.'
+              : '* Pengajuan akan ditinjau oleh Admin MTI sebelum dipublikasikan.'}
           </p>
           <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
             <button

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Sparkles,
   Plus,
@@ -18,10 +18,12 @@ import {
   ShieldAlert,
   ArrowLeft,
   Hourglass,
-  UserCheck
+  UserCheck,
+  Lock
 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
+import { canManagePaidClasses } from '@/lib/roles';
 import { MuallimahPaidClassModal } from '@/components/muallimah/MuallimahPaidClassModal';
 import { AutoFlyerCanvas } from '@/components/muallimah/AutoFlyerCanvas';
 import { formatPaidClassDate } from '@/lib/flyer-prompt';
@@ -29,6 +31,13 @@ import { toast, Toaster } from 'sonner';
 
 export default function MuallimahPaidClassesPage() {
   const { user } = useAuth();
+  const userRoles = user?.roles?.length
+    ? user.roles
+    : user?.primaryRole
+    ? [user.primaryRole]
+    : [];
+  const canOpenPaidClasses = canManagePaidClasses(userRoles);
+
   const [classes, setClasses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -39,7 +48,11 @@ export default function MuallimahPaidClassesPage() {
   // Flyer Preview Modal state
   const [viewingFlyerClass, setViewingFlyerClass] = useState<any | null>(null);
 
-  const fetchMyClasses = async () => {
+  const fetchMyClasses = useCallback(async () => {
+    if (!canOpenPaidClasses) {
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       const res = await fetch('/api/muallimah/paid-classes?scope=my');
@@ -54,11 +67,11 @@ export default function MuallimahPaidClassesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [canOpenPaidClasses]);
 
   useEffect(() => {
     fetchMyClasses();
-  }, []);
+  }, [fetchMyClasses]);
 
   const handleDelete = async (classItem: any) => {
     if (!confirm(`Hapus pengajuan kelas "${classItem.class_name}"?`)) return;
@@ -79,9 +92,44 @@ export default function MuallimahPaidClassesPage() {
     }
   };
 
+  if (!canOpenPaidClasses) {
+    return (
+      <div className="min-h-screen bg-gray-50/50 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-3xl border border-rose-100 shadow-xl p-8 text-center space-y-5">
+          <div className="w-16 h-16 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto border border-rose-100">
+            <Lock className="w-8 h-8" />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-xl font-black text-gray-900">
+              Akses Khusus Mu&apos;allimah MTI
+            </h1>
+            <p className="text-xs sm:text-sm text-gray-600 leading-relaxed">
+              Halaman pengajuan dan pengelolaan Kelas Berbayar hanya tersedia untuk Mu&apos;allimah yang sudah terverifikasi oleh Admin MTI.
+            </p>
+          </div>
+          <div className="space-y-2 pt-2">
+            <Link
+              href="/pendaftaran/kelas-berbayar"
+              className="w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-indigo-700 hover:bg-indigo-800 text-white rounded-xl text-xs font-bold shadow-sm transition-colors"
+            >
+              Lihat Katalog Kelas Berbayar (Thalibah)
+            </Link>
+            <Link
+              href="/dashboard"
+              className="w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition-colors"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Kembali ke Dashboard
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Stats
   const totalClasses = classes.length;
-  const approvedClasses = classes.filter(c => c.status === 'approved').length;
+  const approvedClasses = classes.filter(c => c.status === 'approved' || c.status === 'active').length;
   const pendingClasses = classes.filter(c => c.status === 'pending').length;
   const rejectedClasses = classes.filter(c => c.status === 'rejected').length;
 
@@ -241,7 +289,7 @@ export default function MuallimahPaidClassesPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 p-6">
               {classes.map(classItem => {
-                const isApproved = classItem.status === 'approved';
+                const isApproved = classItem.status === 'approved' || classItem.status === 'active';
                 const isPending = classItem.status === 'pending';
                 const isRejected = classItem.status === 'rejected';
                 const startFormatted = formatPaidClassDate(classItem.start_date, 'short');
@@ -313,7 +361,11 @@ export default function MuallimahPaidClassesPage() {
                         </div>
                         <div className="flex items-center gap-1.5">
                           <Users className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                          <span>Maks. {classItem.max_students} Thalibah</span>
+                          <span>
+                            {typeof classItem.enrolled_count === 'number' && classItem.enrolled_count > 0
+                              ? `${classItem.enrolled_count} / ${classItem.max_students} Thalibah`
+                              : `Maks. ${classItem.max_students} Thalibah`}
+                          </span>
                         </div>
                         {classItem.duration_info && (
                           <div className="col-span-2 flex items-center gap-1.5 pt-1 border-t border-gray-200/60 text-teal-800 font-semibold">
@@ -365,17 +417,18 @@ export default function MuallimahPaidClassesPage() {
                         <span>Auto-Flyer & AI</span>
                       </button>
 
-                      <div className="flex items-center gap-1">
-                        {isPending && (
+                      <div className="flex items-center gap-1.5">
+                        {!isRejected && (
                           <button
                             onClick={() => {
                               setEditingClass(classItem);
                               setIsFormModalOpen(true);
                             }}
-                            className="p-1.5 text-gray-500 hover:text-gray-800 rounded-lg hover:bg-gray-200 transition-colors"
-                            title="Ubah rincian kelas"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-gray-700 hover:text-emerald-900 bg-white border border-gray-200 hover:border-emerald-300 rounded-lg hover:bg-emerald-50/60 transition-colors"
+                            title="Ubah rincian & jadwal kelas"
                           >
-                            <Edit2 className="w-4 h-4" />
+                            <Edit2 className="w-3.5 h-3.5" />
+                            <span>Edit</span>
                           </button>
                         )}
                         {isPending && (

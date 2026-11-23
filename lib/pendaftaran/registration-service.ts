@@ -1,6 +1,63 @@
 import { createClient } from '@/lib/supabase/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { revalidatePath } from 'next/cache';
+import {
+  computeFieldDiffs,
+  recordRegistrationEdit,
+  resolveBatchEditPhase,
+  syncMuallimahHalaqahAndNotifyThalibah,
+} from '@/lib/pendaftaran/edit-history';
+
+const TIKRAR_FIELD_LABELS: Record<string, string> = {
+  chosen_juz: 'Pilihan Juz',
+  main_time_slot: 'Jadwal Utama',
+  backup_time_slot: 'Jadwal Cadangan',
+  wa_phone: 'No. WhatsApp',
+  telegram_phone: 'No. Telegram',
+  domicile: 'Domisili',
+  address: 'Alamat',
+  timezone: 'Zona Waktu',
+  has_permission: 'Status Izin Wali/Suami',
+  permission_name: 'Nama Pemberi Izin',
+  permission_phone: 'No. HP Pemberi Izin',
+  no_travel_plans: 'Komitmen Tidak Safar',
+  motivation: 'Motivasi',
+  ready_for_team: 'Komitmen Tim / Infaq',
+  infaq_amount: 'Nominal Infaq',
+  time_commitment: 'Komitmen Waktu',
+  questions: 'Pertanyaan / Catatan',
+};
+
+const PRA_TIKRAR_FIELD_LABELS: Record<string, string> = {
+  wa_phone: 'No. WhatsApp',
+  telegram_phone: 'No. Telegram',
+  domicile: 'Domisili',
+  address: 'Alamat',
+  timezone: 'Zona Waktu',
+  has_permission: 'Status Izin Wali/Suami',
+  permission_name: 'Nama Pemberi Izin',
+  permission_phone: 'No. HP Pemberi Izin',
+  motivation: 'Motivasi',
+  questions: 'Pertanyaan / Catatan',
+};
+
+const MUALLIMAH_FIELD_LABELS: Record<string, string> = {
+  preferred_juz: 'Juz Pilihan Mengajar',
+  class_type: 'Tipe Kelas',
+  preferred_max_thalibah: 'Kuota Maksimal Thalibah',
+  preferred_schedule: 'Jadwal Mengajar Utama',
+  backup_schedule: 'Jadwal Mengajar Cadangan',
+  tajweed_institution: 'Lembaga Tajwid',
+  quran_institution: 'Lembaga Al-Qur\'an',
+  teaching_communities: 'Komunitas Mengajar',
+  memorized_tajweed_matan: 'Matan Tajwid Dihafal',
+  studied_matan_exegesis: 'Syarah Matan Dipelajari',
+  memorization_level: 'Tingkat Hafalan',
+  memorized_juz: 'Juz yang Dihafal',
+  examined_juz: 'Juz yang Pernah Diuji',
+  certified_juz: 'Juz Bersertifikat',
+  age: 'Usia',
+};
 
 export async function submitTikrarRegistrationImpl(
   formData: any,
@@ -8,7 +65,8 @@ export async function submitTikrarRegistrationImpl(
   _user: any,
   batch: any,
   isEditMode: boolean,
-  existingRegistrationId?: string
+  existingRegistrationId?: string,
+  editReason?: string
 ) {
   try {
     const supabase = createClient();
@@ -128,10 +186,15 @@ export async function submitTikrarRegistrationImpl(
     if (isEditMode && existingRegistrationId) {
       const { data: existingReg } = await supabase
         .from('pendaftaran_tikrar_tahfidz')
-        .select('chosen_juz')
+        .select('*')
         .eq('id', existingRegistrationId)
         .eq('user_id', authUser.id)
         .single();
+
+      const phaseInfo = await resolveBatchEditPhase({
+        userId: authUser.id,
+        batchId: batch.id,
+      });
 
       const getJuzNumber = (juz: string | null | undefined) => {
         const num = parseInt((juz || '').replace(/[^0-9]/g, ''), 10);
@@ -142,7 +205,10 @@ export async function submitTikrarRegistrationImpl(
       const newJuzNumber = getJuzNumber(formData.chosen_juz);
       const juzChanged = oldJuzNumber !== null && newJuzNumber !== null && oldJuzNumber !== newJuzNumber;
 
-      if (juzChanged) {
+      // Only reset written exam score when user hasn't entered daftar ulang yet
+      const shouldResetExam = juzChanged && !phaseInfo.hasDaftarUlang;
+
+      if (shouldResetExam) {
         Object.assign(submitData, {
           exam_score: null,
           exam_status: 'not_started',
@@ -161,7 +227,7 @@ export async function submitTikrarRegistrationImpl(
 
       const result = await supabase
         .from('pendaftaran_tikrar_tahfidz')
-        .update(submitData)
+        .update({ ...submitData, updated_at: new Date().toISOString() })
         .eq('id', existingRegistrationId)
         .eq('user_id', authUser.id);
 
@@ -173,6 +239,20 @@ export async function submitTikrarRegistrationImpl(
         };
       }
 
+      const diffs = existingReg
+        ? computeFieldDiffs(existingReg, submitData, TIKRAR_FIELD_LABELS)
+        : {};
+
+      const historyRow = await recordRegistrationEdit({
+        entityType: 'tikrar',
+        entityId: existingRegistrationId,
+        userId: authUser.id,
+        batchId: batch.id,
+        editPhase: phaseInfo.phase,
+        changedFields: diffs,
+        editReason,
+      });
+
       try {
         revalidatePath('/dashboard');
         revalidatePath('/pendaftaran');
@@ -182,8 +262,12 @@ export async function submitTikrarRegistrationImpl(
 
       return {
         success: true,
-        message: juzChanged
+        editPhase: phaseInfo.phase,
+        historyRecorded: Boolean(historyRow),
+        message: shouldResetExam
           ? 'Alhamdulillah! Data pendaftaran berhasil diperbarui! Karena pilihan juz berubah, Ukhti perlu mengulang Test Tertulis untuk penempatan juz yang baru.'
+          : historyRow
+          ? 'Alhamdulillah! Perubahan data pendaftaran berhasil disimpan dan tercatat di Riwayat Edit.'
           : 'Alhamdulillah! Data pendaftaran berhasil diperbarui!',
         status: 'success_update',
       };
@@ -229,7 +313,8 @@ export async function submitPraTikrarRegistrationImpl(
   _user: any,
   batch: any,
   isEditMode: boolean,
-  existingRegistrationId?: string
+  existingRegistrationId?: string,
+  editReason?: string
 ) {
   try {
     const supabase = createClient();
@@ -309,9 +394,21 @@ export async function submitPraTikrarRegistrationImpl(
     };
 
     if (isEditMode && existingRegistrationId) {
+      const { data: existingReg } = await supabase
+        .from('pendaftaran_tikrar_tahfidz')
+        .select('*')
+        .eq('id', existingRegistrationId)
+        .eq('user_id', authUser.id)
+        .single();
+
+      const phaseInfo = await resolveBatchEditPhase({
+        userId: authUser.id,
+        batchId: batch.id,
+      });
+
       const result = await supabase
         .from('pendaftaran_tikrar_tahfidz')
-        .update(submitData)
+        .update({ ...submitData, updated_at: new Date().toISOString() })
         .eq('id', existingRegistrationId)
         .eq('user_id', authUser.id);
 
@@ -323,6 +420,20 @@ export async function submitPraTikrarRegistrationImpl(
         };
       }
 
+      const diffs = existingReg
+        ? computeFieldDiffs(existingReg, submitData, PRA_TIKRAR_FIELD_LABELS)
+        : {};
+
+      const historyRow = await recordRegistrationEdit({
+        entityType: 'pra_tikrar',
+        entityId: existingRegistrationId,
+        userId: authUser.id,
+        batchId: batch.id,
+        editPhase: phaseInfo.phase,
+        changedFields: diffs,
+        editReason,
+      });
+
       try {
         revalidatePath('/dashboard');
         revalidatePath('/pendaftaran');
@@ -331,7 +442,11 @@ export async function submitPraTikrarRegistrationImpl(
 
       return {
         success: true,
-        message: 'Alhamdulillah! Data pendaftaran Pra-Tikrar berhasil diperbarui!',
+        editPhase: phaseInfo.phase,
+        historyRecorded: Boolean(historyRow),
+        message: historyRow
+          ? 'Alhamdulillah! Perubahan data Pra-Tikrar disimpan & tercatat di Riwayat Edit.'
+          : 'Alhamdulillah! Data pendaftaran Pra-Tikrar berhasil diperbarui!',
         status: 'success_update',
       };
     } else {
@@ -373,7 +488,8 @@ export async function submitMuallimahRegistrationImpl(
   formData: any,
   userData: any,
   _user: any,
-  batchId: string
+  batchId: string,
+  editReason?: string
 ) {
   try {
     const supabase = createClient();
@@ -444,11 +560,19 @@ export async function submitMuallimahRegistrationImpl(
       batch_id: batchId,
     };
 
-    const { data: existingProfile, error: checkError } = await supabaseAdmin
-      .from('muallimah_registrations')
-      .select('id')
-      .eq('user_id', authUser.id)
-      .maybeSingle();
+    const [{ data: existingProfile, error: checkError }, { data: existingAkad }] = await Promise.all([
+      supabaseAdmin
+        .from('muallimah_registrations')
+        .select('*')
+        .eq('user_id', authUser.id)
+        .maybeSingle(),
+      supabaseAdmin
+        .from('muallimah_akads')
+        .select('*')
+        .eq('user_id', authUser.id)
+        .eq('batch_id', batchId)
+        .maybeSingle(),
+    ]);
 
     if (checkError) {
       return { success: false, statusCode: 400, error: `Gagal memvalidasi profil: ${checkError.message}` };
@@ -470,37 +594,97 @@ export async function submitMuallimahRegistrationImpl(
       return { success: false, statusCode: 400, error: `Gagal menyimpan profil: ${profileResult.error.message}` };
     }
 
+    // Preserve existing approved/rejected status instead of resetting to 'pending' on edit
+    const preservedStatus = existingAkad?.status || 'pending';
     const akadData = {
       user_id: authUser.id,
       batch_id: batchId,
       preferred_juz: Array.isArray(formData.preferred_juz) ? formData.preferred_juz.join(', ') : null,
       class_type: classTypesSelected.join(', ') || 'tikrar_tahfidz',
-      paid_class_scheme: 'none',
+      paid_class_scheme: existingAkad?.paid_class_scheme || 'none',
       preferred_max_thalibah: formData.preferred_max_thalibah || 10,
       preferred_schedule: JSON.stringify(preferredScheduleObj),
       backup_schedule: Object.keys(backupScheduleObj).length > 0 ? JSON.stringify(backupScheduleObj) : null,
       understands_commitment: formData.understands_commitment === true,
-      status: 'pending',
-      akad_signed_at: new Date().toISOString(),
+      status: preservedStatus,
+      akad_signed_at: existingAkad?.akad_signed_at || new Date().toISOString(),
     };
 
-    const { error: akadError } = await supabaseAdmin
+    const { data: upsertedAkad, error: akadError } = await supabaseAdmin
       .from('muallimah_akads')
-      .upsert(akadData, { onConflict: 'user_id,batch_id' });
+      .upsert(akadData, { onConflict: 'user_id,batch_id' })
+      .select('id')
+      .single();
 
     if (akadError) {
       return { success: false, statusCode: 400, error: `Gagal menyimpan akad: ${akadError.message}` };
     }
 
+    let notificationsSent: any = null;
+    let historyRecorded = false;
+    let editPhase: 'before_daftar_ulang' | 'after_daftar_ulang' = 'before_daftar_ulang';
+
+    if (existingAkad) {
+      const phaseInfo = await resolveBatchEditPhase({
+        userId: authUser.id,
+        batchId,
+        isMuallimah: true,
+      });
+      editPhase = phaseInfo.phase;
+
+      const oldCombined = { ...(existingProfile || {}), ...existingAkad };
+      const newCombined = { ...profileData, ...akadData };
+      const diffs = computeFieldDiffs(oldCombined, newCombined, MUALLIMAH_FIELD_LABELS);
+
+      if (Object.keys(diffs).length > 0) {
+        notificationsSent = await syncMuallimahHalaqahAndNotifyThalibah({
+          muallimahUserId: authUser.id,
+          muallimahName: profileData.full_name,
+          batchId,
+          oldPreferredSchedule: existingAkad.preferred_schedule,
+          newPreferredSchedule: preferredScheduleObj,
+          editReason,
+        });
+
+        const entityId = upsertedAkad?.id || existingAkad.id;
+        const historyRow = await recordRegistrationEdit({
+          entityType: 'muallimah',
+          entityId,
+          userId: authUser.id,
+          batchId,
+          editPhase: phaseInfo.phase,
+          changedFields: diffs,
+          editReason,
+          notificationsSent,
+        });
+        historyRecorded = Boolean(historyRow);
+      }
+    }
+
     try {
       revalidatePath('/dashboard');
+      revalidatePath('/pendaftaran');
       revalidatePath('/pendaftaran/muallimah');
+      revalidatePath('/halaqah');
       revalidatePath('/admin');
     } catch {}
 
+    let message = existingAkad
+      ? 'Alhamdulillah! Data & Jadwal Mu\'allimah berhasil diperbarui!'
+      : 'Alhamdulillah! Pendaftaran dan Akad berhasil disimpan!';
+    if (notificationsSent && notificationsSent.sentCount > 0) {
+      message = `Alhamdulillah! Jadwal berhasil diperbarui & notifikasi WhatsApp otomatis terkirim ke ${notificationsSent.sentCount} thalibah.`;
+    } else if (historyRecorded) {
+      message = 'Alhamdulillah! Perubahan data Mu\'allimah berhasil disimpan & tercatat di Riwayat Edit.';
+    }
+
     return {
       success: true,
-      message: 'Alhamdulillah! Pendaftaran dan Akad berhasil disimpan!',
+      akadId: upsertedAkad?.id || existingAkad?.id || null,
+      editPhase,
+      historyRecorded,
+      notificationsSent,
+      message,
     };
   } catch (error: any) {
     console.error('Submit muallimah unexpected error:', error);

@@ -53,7 +53,7 @@ import { createClient } from '@/lib/supabase/client'
 import { usePrayerTimes } from '@/hooks/usePrayerTimes'
 import { SWRLoadingFallback, SWRErrorFallback } from '@/lib/swr/providers'
 import { cn } from '@/lib/utils'
-import { isStaff } from '@/lib/roles'
+import { isStaff, canManagePaidClasses } from '@/lib/roles'
 import { formatDynamicNit } from '@/lib/nit'
 import { usePersona } from '@/hooks/usePersona'
 import { FinalExamPortalModal } from '@/components/dashboard/FinalExamPortalModal'
@@ -77,6 +77,8 @@ export default function DashboardContent() {
   const userRole = activePersona || user?.primaryRole || 'calon_thalibah'
   const canSeeAdminStats = isStaff(userRole)
   const isImpersonating = !!(targetUserId && userRole === 'admin')
+  const userRoles = user?.roles?.length ? user.roles : user?.primaryRole ? [user.primaryRole] : []
+  const canOpenPaidClasses = !isImpersonating && canManagePaidClasses(userRoles)
   const [isRankingModalOpen, setIsRankingModalOpen] = useState(false);
   const [isThalibahRankModalOpen, setIsThalibahRankModalOpen] = useState(false);
 
@@ -1162,6 +1164,37 @@ export default function DashboardContent() {
         {/* Unified Registration Hub Card - Muncul di masa pendaftaran aktif */}
         <RegistrationHubCard />
 
+        {/* Dedicated Mu'allimah Paid Class Banner */}
+        {canOpenPaidClasses && (
+          <Link href="/muallimah/kelas-berbayar" className="block group focus:outline-none">
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-900 via-emerald-800 to-teal-900 p-4 sm:p-5 text-white shadow-lg shadow-emerald-950/15 border border-emerald-700/40 transition-all duration-300 group-hover:-translate-y-0.5 group-hover:shadow-xl">
+              <div className="flex items-center justify-between gap-4 relative z-10">
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="w-11 h-11 rounded-xl bg-amber-400/20 border border-amber-300/30 text-amber-300 flex items-center justify-center shrink-0">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-amber-300 mb-0.5">
+                      <span>Khusus Mu&apos;allimah MTI</span>
+                    </div>
+                    <h3 className="text-sm sm:text-base font-black text-white leading-tight truncate">
+                      Buka Kelas Berbayar Resmi MTI
+                    </h3>
+                    <p className="text-xs text-emerald-100/80 font-medium line-clamp-1 mt-0.5">
+                      Ajukan &amp; kelola kelas mandiri untuk Thalibah maupun Umum.
+                    </p>
+                  </div>
+                </div>
+                <div className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white text-emerald-900 text-xs font-black shadow-sm group-hover:bg-amber-300 transition-colors">
+                  <span className="hidden sm:inline">Kelola Kelas</span>
+                  <ChevronRight className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-amber-400/10 blur-2xl pointer-events-none" />
+            </div>
+          </Link>
+        )}
+
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
             <LayoutGrid className="w-5 h-5 text-green-700" />
@@ -1253,7 +1286,19 @@ export default function DashboardContent() {
                 shadowColor: 'shadow-amber-600/30',
                 bgCard: 'hover:border-amber-300 hover:bg-amber-50/30'
               },
-
+              ...(canOpenPaidClasses
+                ? [
+                    {
+                      label: 'Buka Kelas Berbayar',
+                      desc: "Kelola kelas mandiri Mu'allimah",
+                      icon: Sparkles,
+                      href: '/muallimah/kelas-berbayar',
+                      gradient: 'from-amber-500 to-emerald-600',
+                      shadowColor: 'shadow-emerald-500/25',
+                      bgCard: 'hover:border-emerald-200 hover:bg-emerald-50/20'
+                    }
+                  ]
+                : [])
             ];
 
             return menuItems.map((item, i) => (
