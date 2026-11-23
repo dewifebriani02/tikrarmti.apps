@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { formatProperName } from '@/lib/utils/proper-name';
 import { revalidatePath } from 'next/cache';
 import {
   computeFieldDiffs,
@@ -147,7 +148,7 @@ export async function submitTikrarRegistrationImpl(
       batch_id: batch.id,
       program_id: program.id,
       batch_name: batch.name || '...',
-      full_name: userProfile?.full_name || authUser.user_metadata?.full_name || authUser.email || '',
+      full_name: formatProperName(userProfile?.full_name || authUser.user_metadata?.full_name || '') || authUser.email || '',
       email: authUser.email || '',
       wa_phone: userProfile?.whatsapp || '',
       telegram_phone: userProfile?.telegram || '',
@@ -162,7 +163,7 @@ export async function submitTikrarRegistrationImpl(
       has_telegram: formData.has_telegram,
       saved_contact: formData.saved_contact,
       has_permission: formData.has_permission,
-      permission_name: isJanda ? '' : formData.permission_name,
+      permission_name: isJanda ? '' : formatProperName(formData.permission_name),
       permission_phone: isJanda ? '' : formData.permission_phone,
       chosen_juz: formData.chosen_juz,
       no_travel_plans: formData.no_travel_plans,
@@ -368,7 +369,7 @@ export async function submitPraTikrarRegistrationImpl(
       batch_id: batch.id,
       program_id: program?.id || null,
       batch_name: batch.name || '...',
-      full_name: userProfile?.full_name || authUser.user_metadata?.full_name || authUser.email || '',
+      full_name: formatProperName(userProfile?.full_name || authUser.user_metadata?.full_name || '') || authUser.email || '',
       email: authUser.email || '',
       wa_phone: userProfile?.whatsapp || '',
       telegram_phone: userProfile?.telegram || '',
@@ -379,7 +380,7 @@ export async function submitPraTikrarRegistrationImpl(
       timezone: userProfile?.zona_waktu || 'WIB',
       understands_commitment: formData.understands_commitment,
       has_permission: formData.has_permission,
-      permission_name: isJanda ? '' : formData.permission_name,
+      permission_name: isJanda ? '' : formatProperName(formData.permission_name),
       permission_phone: isJanda ? '' : formData.permission_phone,
       chosen_juz: '30',
       motivation: formData.motivation,
@@ -543,7 +544,7 @@ export async function submitMuallimahRegistrationImpl(
 
     const profileData: any = {
       user_id: authUser.id,
-      full_name: userData?.full_name || authUser.user_metadata?.full_name || (authUser.user_metadata as any)?.name || '',
+      full_name: formatProperName(userData?.full_name || authUser.user_metadata?.full_name || (authUser.user_metadata as any)?.name || ''),
       email: authUser.email || '',
       whatsapp: userData?.whatsapp || '',
       occupation: userData?.pekerjaan || '',

@@ -4,6 +4,7 @@ import { createServerClient } from '@/lib/supabase/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { getAuthorizationContext, isUserAdmin } from '@/lib/rbac';
 import { deleteUploadedFile } from '@/lib/storage';
+import { formatProperName } from '@/lib/utils/proper-name';
 import {
   computeFieldDiffs,
   recordRegistrationEdit,
@@ -207,7 +208,7 @@ export async function PUT(
       if (body.saved_contact !== undefined) updateData.saved_contact = body.saved_contact;
       if (body.has_permission !== undefined) updateData.has_permission = body.has_permission;
 
-      if (body.full_name !== undefined) updateData.full_name = body.full_name;
+      if (body.full_name !== undefined) updateData.full_name = formatProperName(body.full_name);
       if (body.wa_phone !== undefined) updateData.wa_phone = body.wa_phone;
       if (body.telegram_phone !== undefined) updateData.telegram_phone = body.telegram_phone;
       if (body.domicile !== undefined) updateData.domicile = body.domicile;
@@ -217,7 +218,7 @@ export async function PUT(
       if (body.infaq_amount !== undefined) updateData.infaq_amount = body.infaq_amount;
       if (body.timezone !== undefined) updateData.timezone = body.timezone;
 
-      if (body.permission_name !== undefined) updateData.permission_name = body.permission_name;
+      if (body.permission_name !== undefined) updateData.permission_name = formatProperName(body.permission_name);
       if (body.permission_phone !== undefined) updateData.permission_phone = body.permission_phone;
       if (body.chosen_juz !== undefined) updateData.chosen_juz = body.chosen_juz;
       if (body.no_travel_plans !== undefined) updateData.no_travel_plans = body.no_travel_plans;

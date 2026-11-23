@@ -4,6 +4,7 @@ import { ApiResponses } from '@/lib/api-responses';
 import { pendaftaranSchemas } from '@/lib/schemas';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { getAuthorizationContext } from '@/lib/rbac';
+import { formatProperName } from '@/lib/utils/proper-name';
 
 // PostgreSQL-backed admin client (replaces Supabase service role)
 const supabaseAdmin = createSupabaseAdmin();
@@ -124,7 +125,7 @@ export async function POST(request: Request) {
       has_telegram: validatedBody.has_telegram || false,
       saved_contact: validatedBody.saved_contact || false,
       has_permission: (validatedBody.has_permission as 'yes' | 'janda' | '') || '',
-      permission_name: validatedBody.permission_name || '',
+      permission_name: formatProperName(validatedBody.permission_name || ''),
       permission_phone: validatedBody.permission_phone || '',
       chosen_juz: validatedBody.chosen_juz || '',
       no_travel_plans: validatedBody.no_travel_plans || false,
@@ -135,7 +136,7 @@ export async function POST(request: Request) {
       time_commitment: validatedBody.time_commitment || false,
       understands_program: validatedBody.understands_program || false,
       email: validatedBody.email,
-      full_name: validatedBody.full_name,
+      full_name: formatProperName(validatedBody.full_name),
       address: validatedBody.address,
       wa_phone: validatedBody.phone || validatedBody.wa_phone || '',
       telegram_phone: validatedBody.telegram_phone,

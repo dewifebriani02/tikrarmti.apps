@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { getAuthorizationContext, isUserAdmin } from '@/lib/rbac';
 import { ApiResponses } from '@/lib/api-responses';
+import { formatProperName } from '@/lib/utils/proper-name';
 import {
   computeFieldDiffs,
   recordRegistrationEdit,
@@ -100,7 +101,7 @@ export async function POST(request: NextRequest) {
     const newReg = {
       paid_class_id,
       user_id: authContext?.userId || null,
-      full_name: full_name.trim(),
+      full_name: formatProperName(full_name),
       email: email.trim().toLowerCase(),
       whatsapp: whatsapp.trim(),
       telegram: telegram?.trim() || null,
@@ -196,7 +197,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const updates = {
-      full_name: full_name.trim(),
+      full_name: formatProperName(full_name),
       email: email.trim().toLowerCase(),
       whatsapp: whatsapp.trim(),
       telegram: telegram !== undefined ? (telegram?.trim() || null) : existingReg.telegram,

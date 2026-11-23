@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { getAuthorizationContext } from '@/lib/rbac';
 import { ApiResponses } from '@/lib/api-responses';
+import { formatProperName } from '@/lib/utils/proper-name';
 
 export async function GET(
   request: Request,
@@ -94,7 +95,10 @@ export async function PUT(
     const safeUpdates: Record<string, unknown> = {};
     for (const field of editableFields) {
       if (Object.prototype.hasOwnProperty.call(body, field)) {
-        safeUpdates[field] = body[field];
+        safeUpdates[field] =
+          (field === 'full_name' || field === 'permission_name') && typeof body[field] === 'string'
+            ? formatProperName(body[field])
+            : body[field];
       }
     }
 
