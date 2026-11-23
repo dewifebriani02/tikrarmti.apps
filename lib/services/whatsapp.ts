@@ -9,7 +9,9 @@ import {
   getWatZapActiveNumberConfig,
   hashWatZapKey,
   invalidateWatZapConfigCache,
+  isLicenseExcludedFromMTI,
   maskWatZapKey,
+  normalizeWatZapWaDigits,
   PREFERRED_DEFAULT_WA_SUFFIX,
   setWatZapActiveNumberConfig,
 } from '@/lib/services/watzap-config';
@@ -67,6 +69,7 @@ export interface WatZapLicenseItem {
   isOnlineLive: boolean;
   isActivePrimary: boolean;
   isEnvDefault: boolean;
+  isExcludedFromMTI: boolean;
 }
 
 export interface WhatsAppGroupInfo {
@@ -252,6 +255,7 @@ export class WhatsAppService {
     allowAutoFallback: boolean;
     source: WatZapActiveSource;
     updatedAt?: string | null;
+    isExcluded?: boolean;
   }> {
     const dbConfig = await getWatZapActiveNumberConfig();
     if (dbConfig?.preferred_number_key) {
@@ -265,6 +269,7 @@ export class WhatsAppService {
         allowAutoFallback: dbConfig.allow_auto_fallback === true,
         source: 'db_override',
         updatedAt: dbConfig.updated_at || null,
+        isExcluded: isLicenseExcludedFromMTI(dbConfig, dbConfig.preferred_number_key, waNum),
       };
     }
 
@@ -283,7 +288,9 @@ export class WhatsAppService {
       const checking = await this.fetchCheckingKey(apiKey);
       const licenses = Array.isArray(checking?.data?.licenses_key) ? checking.data.licenses_key : [];
       const lic4240 = licenses.find((lic: { key?: string; wa_number?: string }) =>
-        lic?.key && String(lic.wa_number || '').replace(/[^0-9]/g, '').endsWith(PREFERRED_DEFAULT_WA_SUFFIX)
+        lic?.key &&
+        String(lic.wa_number || '').replace(/[^0-9]/g, '').endsWith(PREFERRED_DEFAULT_WA_SUFFIX) &&
+        !isLicenseExcludedFromMTI(dbConfig, lic.key, lic.wa_number)
       );
 
       if (lic4240?.key) {
@@ -311,12 +318,39 @@ export class WhatsAppService {
     }
 
     const envKey = this.envNumberKey;
+    const envWa = this.licensePhoneCache.get(envKey) || undefined;
     return {
       numberKey: envKey,
-      waNumber: this.licensePhoneCache.get(envKey) || undefined,
+      waNumber: envWa,
       allowAutoFallback: false,
       source: 'env',
+      isExcluded: isLicenseExcludedFromMTI(dbConfig, envKey, envWa),
     };
+  }
+
+  /**
+   * Checks whether an incoming or outgoing WatZap license number_key / WA number
+   * has been disconnected/excluded from MTI (e.g. a shared WatZap license used by AQLI).
+   */
+  public async isNumberKeyExcludedFromMTI(
+    numberKey?: string | null,
+    waNumber?: string | null
+  ): Promise<boolean> {
+    const cleanKey = (numberKey || '').trim();
+    const dbConfig = await getWatZapActiveNumberConfig();
+
+    let resolvedWa = waNumber || (cleanKey ? this.licensePhoneCache.get(cleanKey) : undefined);
+    if (
+      !resolvedWa &&
+      cleanKey &&
+      this.apiKey &&
+      (dbConfig === null || dbConfig.excluded_wa_numbers.length > 0)
+    ) {
+      await this.fetchCheckingKey(this.apiKey);
+      resolvedWa = this.licensePhoneCache.get(cleanKey);
+    }
+
+    return isLicenseExcludedFromMTI(dbConfig, cleanKey, resolvedWa);
   }
 
   public async getActiveNumberKey(): Promise<string> {
@@ -335,11 +369,13 @@ export class WhatsAppService {
     const key = this.apiKey;
     if (!key) return null;
 
+    const dbConfig = await getWatZapActiveNumberConfig();
     const now = Date.now();
     if (
       this.cachedFallbackKey &&
       this.cachedFallbackKey.key !== failedNumKey &&
-      this.cachedFallbackKey.expiresAt > now
+      this.cachedFallbackKey.expiresAt > now &&
+      !isLicenseExcludedFromMTI(dbConfig, this.cachedFallbackKey.key, this.cachedFallbackKey.waNumber)
     ) {
       return { key: this.cachedFallbackKey.key, waNumber: this.cachedFallbackKey.waNumber };
     }
@@ -349,9 +385,10 @@ export class WhatsAppService {
       const licenses = Array.isArray(json?.data?.licenses_key) ? json.data.licenses_key : [];
 
       const candidates = licenses.filter(
-        (lic: { key?: string; type?: string; is_connected?: boolean; connection_status?: string }) =>
+        (lic: { key?: string; wa_number?: string; type?: string; is_connected?: boolean; connection_status?: string }) =>
           lic?.key &&
           lic.key !== failedNumKey &&
+          !isLicenseExcludedFromMTI(dbConfig, lic.key, lic.wa_number) &&
           (lic.type === 'unofficial' || !lic.type) &&
           (lic.is_connected || lic.connection_status === 'connected')
       );
@@ -401,6 +438,7 @@ export class WhatsAppService {
       };
     }
 
+    const dbConfig = await getWatZapActiveNumberConfig();
     const checking = await this.fetchCheckingKey(apiKey);
     const rawLicenses = Array.isArray(checking?.data?.licenses_key)
       ? checking.data.licenses_key
@@ -424,9 +462,16 @@ export class WhatsAppService {
           isOnlineLive,
           isActivePrimary: Boolean(rawKey && rawKey === ctx.numberKey),
           isEnvDefault: Boolean(rawKey && rawKey === this.envNumberKey),
+          isExcludedFromMTI: isLicenseExcludedFromMTI(dbConfig, rawKey, waNumber),
         };
       })
     );
+
+    validated.sort((a, b) => {
+      if (a.isActivePrimary !== b.isActivePrimary) return a.isActivePrimary ? -1 : 1;
+      if (a.isExcludedFromMTI !== b.isExcludedFromMTI) return a.isExcludedFromMTI ? 1 : -1;
+      return 0;
+    });
 
     return {
       configured: true,
@@ -490,6 +535,18 @@ export class WhatsAppService {
 
     const targetKey = String(targetLic.key).trim();
     const targetWaNumber = String(targetLic.wa_number || '').replace(/[^0-9]/g, '');
+    const dbConfig = await getWatZapActiveNumberConfig();
+
+    if (
+      (params.keyHash || params.waNumber) &&
+      isLicenseExcludedFromMTI(dbConfig, targetKey, targetWaNumber)
+    ) {
+      return {
+        success: false,
+        error:
+          'Nomor ini sedang diputuskan dari MTI. Hubungkan kembali ke MTI terlebih dahulu jika ingin memakainya.',
+      };
+    }
 
     await setWatZapActiveNumberConfig({
       preferred_number_key: targetKey,
@@ -498,6 +555,101 @@ export class WhatsAppService {
         params.allowAutoFallback !== undefined
           ? params.allowAutoFallback
           : currentCtx.allowAutoFallback,
+      updated_by: params.updatedBy || null,
+    });
+
+    this.invalidateNumberCaches();
+    const status = await this.getStatus();
+    return { success: true, status };
+  }
+
+  /**
+   * Disconnect or reconnect a WatZap license from MTI only (without logging out
+   * on WatZap, so shared licenses used by other apps like AQLI remain active there).
+   */
+  public async setLicenseExclusion(params: {
+    keyHash?: string;
+    waNumber?: string;
+    excluded: boolean;
+    updatedBy?: string | null;
+  }): Promise<{
+    success: boolean;
+    error?: string;
+    status?: WhatsAppStatusResult;
+  }> {
+    const apiKey = this.apiKey;
+    if (!apiKey) {
+      return { success: false, error: 'WATZAP_API_KEY belum dikonfigurasi di server' };
+    }
+
+    const checking = await this.fetchCheckingKey(apiKey);
+    const rawLicenses: any[] = Array.isArray(checking?.data?.licenses_key)
+      ? checking.data.licenses_key
+      : [];
+
+    let targetLic: any = null;
+    if (params.keyHash) {
+      targetLic = rawLicenses.find(
+        (lic) => lic?.key && hashWatZapKey(String(lic.key)) === params.keyHash
+      );
+    } else if (params.waNumber) {
+      const targetDigits = normalizePhoneNumber(params.waNumber);
+      targetLic = rawLicenses.find((lic) => {
+        const waDigits = String(lic?.wa_number || '').replace(/[^0-9]/g, '');
+        return waDigits === targetDigits || waDigits.endsWith(targetDigits);
+      });
+    }
+
+    if (!targetLic?.key) {
+      return {
+        success: false,
+        error: 'Lisensi nomor WhatsApp tidak ditemukan di akun WatZap',
+      };
+    }
+
+    const targetKey = String(targetLic.key).trim();
+    const targetHash = hashWatZapKey(targetKey);
+    const targetWa = normalizeWatZapWaDigits(String(targetLic.wa_number || ''));
+    const currentCtx = await this.resolveActiveNumberContext();
+
+    if (params.excluded && targetKey === currentCtx.numberKey) {
+      return {
+        success: false,
+        error:
+          'Tidak dapat memutuskan nomor yang sedang aktif dipakai MTI. Pindahkan nomor aktif terlebih dahulu.',
+      };
+    }
+
+    const dbConfig = await getWatZapActiveNumberConfig();
+    const hashSet = new Set<string>(dbConfig?.excluded_key_hashes || []);
+    const waSet = new Set<string>(
+      dbConfig ? dbConfig.excluded_wa_numbers : ['628567712914']
+    );
+
+    if (params.excluded) {
+      hashSet.add(targetHash);
+      if (targetWa) waSet.add(targetWa);
+    } else {
+      hashSet.delete(targetHash);
+      if (targetWa) {
+        for (const existingWa of Array.from(waSet)) {
+          const cleanExisting = normalizeWatZapWaDigits(existingWa);
+          if (
+            cleanExisting === targetWa ||
+            (cleanExisting.length >= 9 && targetWa.endsWith(cleanExisting))
+          ) {
+            waSet.delete(existingWa);
+          }
+        }
+      }
+    }
+
+    await setWatZapActiveNumberConfig({
+      preferred_number_key: currentCtx.numberKey,
+      preferred_wa_number: currentCtx.waNumber || undefined,
+      allow_auto_fallback: currentCtx.allowAutoFallback,
+      excluded_key_hashes: Array.from(hashSet),
+      excluded_wa_numbers: Array.from(waSet),
       updated_by: params.updatedBy || null,
     });
 
@@ -593,8 +745,10 @@ export class WhatsAppService {
     const ctx = await this.resolveActiveNumberContext();
     const numKey = ctx.numberKey;
 
-    if (!key || !numKey) {
-      const error = 'WATZAP_API_KEY atau WATZAP_NUMBER_KEY belum dikonfigurasi di server';
+    if (!key || !numKey || ctx.isExcluded) {
+      const error = ctx.isExcluded
+        ? 'Nomor pengirim sedang diputuskan dari MTI'
+        : 'WATZAP_API_KEY atau WATZAP_NUMBER_KEY belum dikonfigurasi di server';
       await logWhatsAppOutbox({
         recipientPhone: formattedPhone,
         recipientName: meta?.recipientName,
@@ -756,8 +910,10 @@ export class WhatsAppService {
     const ctx = await this.resolveActiveNumberContext();
     const numKey = ctx.numberKey;
 
-    if (!key || !numKey) {
-      const error = 'WATZAP_API_KEY atau WATZAP_NUMBER_KEY belum dikonfigurasi di server';
+    if (!key || !numKey || ctx.isExcluded) {
+      const error = ctx.isExcluded
+        ? 'Nomor pengirim sedang diputuskan dari MTI'
+        : 'WATZAP_API_KEY atau WATZAP_NUMBER_KEY belum dikonfigurasi di server';
       await logWhatsAppOutbox({
         recipientPhone: formattedPhone,
         recipientName: meta?.recipientName,
@@ -927,8 +1083,10 @@ export class WhatsAppService {
     const ctx = await this.resolveActiveNumberContext();
     const numKey = ctx.numberKey;
 
-    if (!key || !numKey) {
-      const error = 'WATZAP_API_KEY atau WATZAP_NUMBER_KEY belum dikonfigurasi di server';
+    if (!key || !numKey || ctx.isExcluded) {
+      const error = ctx.isExcluded
+        ? 'Nomor pengirim sedang diputuskan dari MTI'
+        : 'WATZAP_API_KEY atau WATZAP_NUMBER_KEY belum dikonfigurasi di server';
       await logWhatsAppOutbox({
         recipientPhone: formattedPhone,
         recipientName: meta?.recipientName,
@@ -1116,8 +1274,10 @@ export class WhatsAppService {
     const ctx = await this.resolveActiveNumberContext();
     const numKey = ctx.numberKey;
 
-    if (!key || !numKey) {
-      const error = 'WATZAP_API_KEY atau WATZAP_NUMBER_KEY belum dikonfigurasi di server';
+    if (!key || !numKey || ctx.isExcluded) {
+      const error = ctx.isExcluded
+        ? 'Nomor pengirim sedang diputuskan dari MTI'
+        : 'WATZAP_API_KEY atau WATZAP_NUMBER_KEY belum dikonfigurasi di server';
       await logWhatsAppOutbox({
         recipientPhone: cleanGroupId,
         recipientName: meta?.recipientName || 'Grup WhatsApp',

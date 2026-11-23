@@ -12,14 +12,11 @@ export async function POST(request: NextRequest) {
     if (authError) return authError;
 
     const body = await request.json().catch(() => ({}));
+    const action = typeof body.action === 'string' ? body.action.trim() : undefined;
     const keyHash = typeof body.keyHash === 'string' ? body.keyHash.trim() : undefined;
     const waNumber = typeof body.waNumber === 'string' ? body.waNumber.trim() : undefined;
     const allowAutoFallback =
       typeof body.allowAutoFallback === 'boolean' ? body.allowAutoFallback : undefined;
-
-    if (!keyHash && !waNumber && allowAutoFallback === undefined) {
-      return ApiResponses.badRequest('Parameter keyHash, waNumber, atau allowAutoFallback wajib diisi');
-    }
 
     let updatedBy: string | null = null;
     try {
@@ -28,6 +25,42 @@ export async function POST(request: NextRequest) {
       updatedBy = data?.user?.email || data?.user?.id || null;
     } catch {
       // Non-fatal
+    }
+
+    if (action === 'disconnect_mti' || action === 'reconnect_mti') {
+      if (!keyHash && !waNumber) {
+        return ApiResponses.badRequest('Parameter keyHash atau waNumber wajib diisi');
+      }
+
+      const excluded = action === 'disconnect_mti';
+      const exclusionRes = await whatsappService.setLicenseExclusion({
+        keyHash,
+        waNumber,
+        excluded,
+        updatedBy,
+      });
+
+      if (!exclusionRes.success) {
+        return ApiResponses.badRequest(
+          exclusionRes.error || 'Gagal memperbarui status koneksi nomor di MTI'
+        );
+      }
+
+      const licenses = await whatsappService.getLicenses();
+      return ApiResponses.success(
+        {
+          status: exclusionRes.status,
+          licenses,
+          excluded,
+        },
+        excluded
+          ? 'Nomor berhasil diputuskan dari MTI (tetap aktif di WatZap / aplikasi lain)'
+          : 'Nomor berhasil dihubungkan kembali ke MTI'
+      );
+    }
+
+    if (!keyHash && !waNumber && allowAutoFallback === undefined) {
+      return ApiResponses.badRequest('Parameter keyHash, waNumber, atau allowAutoFallback wajib diisi');
     }
 
     const switchRes = await whatsappService.switchActiveLicense({

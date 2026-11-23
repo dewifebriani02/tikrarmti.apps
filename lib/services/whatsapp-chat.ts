@@ -152,6 +152,13 @@ export async function processIncomingWebhook(payload: any): Promise<WebhookProce
 
   if (isUnofficial) {
     const d = payload.data || {};
+    const incomingNumberKey = typeof d.number_key === 'string' ? d.number_key.trim() : '';
+    if (incomingNumberKey) {
+      const isExcluded = await whatsappService.isNumberKeyExcludedFromMTI(incomingNumberKey);
+      if (isExcluded) {
+        return { handled: false, reason: 'License disconnected from MTI' };
+      }
+    }
     // Skip if chat_id indicates a WhatsApp Group (@g.us)
     if (typeof d.chat_id === 'string' && d.chat_id.includes('@g.us')) {
       return { handled: false, reason: 'Group messages skipped' };

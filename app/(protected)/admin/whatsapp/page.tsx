@@ -7,7 +7,7 @@ import {
   CheckSquare, Square,
   MessageSquare, Send, CheckCircle2, AlertCircle, RefreshCw, 
   ArrowLeft, Shield, Phone, Search, Clock, Sparkles, Check, Zap,
-  Users, Play, Pause, AlertTriangle, Layers, UserCheck, Bot, MailCheck
+  Users, Play, Pause, AlertTriangle, Layers, UserCheck, Bot, MailCheck, Unlink, Link2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -35,6 +35,7 @@ interface WatZapLicenseItem {
   isOnlineLive: boolean;
   isActivePrimary: boolean;
   isEnvDefault: boolean;
+  isExcludedFromMTI?: boolean;
 }
 
 interface WhatsAppStatus {
@@ -821,6 +822,8 @@ export default function AdminWhatsAppPage() {
   const [licenses, setLicenses] = useState<WatZapLicenseItem[]>([]);
   const [isLoadingLicenses, setIsLoadingLicenses] = useState(false);
   const [isSwitchingLicense, setIsSwitchingLicense] = useState<string | null>(null);
+  const [isTogglingExclusion, setIsTogglingExclusion] = useState<string | null>(null);
+  const [confirmDisconnectHash, setConfirmDisconnectHash] = useState<string | null>(null);
   const [allowAutoFallback, setAllowAutoFallback] = useState<boolean>(false);
   const [isLicensePanelOpen, setIsLicensePanelOpen] = useState<boolean>(true);
 
@@ -868,6 +871,40 @@ export default function AdminWhatsAppPage() {
       toast.error(err?.message || 'Gagal mengganti nomor WhatsApp');
     } finally {
       setIsSwitchingLicense(null);
+    }
+  };
+
+  const handleToggleLicenseMTI = async (lic: WatZapLicenseItem, disconnect: boolean) => {
+    setIsTogglingExclusion(lic.keyHash);
+    try {
+      const res = await fetch('/api/admin/whatsapp/active-number', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: disconnect ? 'disconnect_mti' : 'reconnect_mti',
+          keyHash: lic.keyHash,
+          waNumber: lic.waNumber,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok && json.success && json.data) {
+        if (json.data.status) setStatus(json.data.status);
+        if (json.data.licenses?.licenses) {
+          setLicenses(json.data.licenses.licenses);
+        }
+        setConfirmDisconnectHash(null);
+        toast.success(
+          disconnect
+            ? `${lic.displayPhoneNumber || lic.waNumber} diputuskan dari MTI (tetap aktif di WatZap / aplikasi lain)`
+            : `${lic.displayPhoneNumber || lic.waNumber} dihubungkan kembali ke MTI`
+        );
+      } else {
+        toast.error(json.error || json.message || 'Gagal memperbarui koneksi nomor di MTI');
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Gagal memperbarui koneksi nomor di MTI');
+    } finally {
+      setIsTogglingExclusion(null);
     }
   };
 
@@ -1517,16 +1554,21 @@ export default function AdminWhatsAppPage() {
               <div className="mt-5 pt-5 border-t border-gray-100 space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div>
-                    <div className="text-xs font-bold text-gray-900 flex items-center gap-2">
+                    <div className="text-xs font-bold text-gray-900 flex flex-wrap items-center gap-2">
                       <span>Pilihan Nomor Lisensi WatZap (Nomor Pengirim Notifikasi)</span>
                       {status?.watzap?.activeNumberKeyMasked && (
                         <Badge variant="outline" className="font-mono text-[10px] text-gray-600">
                           Key: {status.watzap.activeNumberKeyMasked}
                         </Badge>
                       )}
+                      {licenses.some((l) => l.isExcludedFromMTI) && (
+                        <Badge variant="outline" className="text-[10px] border-amber-300 bg-amber-50 text-amber-800">
+                          {licenses.filter((l) => l.isExcludedFromMTI).length} nomor diputus dari MTI
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-[11px] text-gray-500 mt-0.5">
-                      Pilih nomor WhatsApp aktif untuk seluruh pengiriman notifikasi sistem (broadcast, pengingat, perubahan jadwal, & inbox).
+                      Pilih nomor aktif MTI atau klik <span className="font-semibold text-gray-700">Putuskan dari MTI</span> untuk nomor bersama akun WatZap (misal AQLI) tanpa logout dari WatZap.
                     </p>
                   </div>
                   <label className="inline-flex items-center gap-2 text-xs text-gray-700 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-200 cursor-pointer select-none">
@@ -1553,18 +1595,24 @@ export default function AdminWhatsAppPage() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     {licenses.map((lic) => {
                       const isSwitching = isSwitchingLicense === lic.keyHash;
+                      const isToggling = isTogglingExclusion === lic.keyHash;
+                      const isExcluded = Boolean(lic.isExcludedFromMTI);
+                      const isConfirmingDisconnect = confirmDisconnectHash === lic.keyHash;
+                      const isBusy = Boolean(isSwitchingLicense || isTogglingExclusion);
                       return (
                         <div
                           key={lic.keyHash || lic.waNumber}
                           className={`rounded-2xl border p-3.5 flex flex-col justify-between gap-3 transition-all ${
                             lic.isActivePrimary
                               ? 'border-emerald-400 bg-emerald-50/60 shadow-xs'
+                              : isExcluded
+                              ? 'border-dashed border-gray-300 bg-gray-50/90'
                               : 'border-gray-200 bg-white hover:border-gray-300'
                           }`}
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div>
-                              <div className="font-mono font-bold text-sm text-gray-900">
+                              <div className={`font-mono font-bold text-sm ${isExcluded ? 'text-gray-500' : 'text-gray-900'}`}>
                                 {lic.displayPhoneNumber || lic.waNumber || 'Nomor Tidak Diketahui'}
                               </div>
                               <div className="text-[11px] text-gray-500 font-mono mt-0.5">
@@ -1572,53 +1620,128 @@ export default function AdminWhatsAppPage() {
                               </div>
                             </div>
                             <div className="flex flex-col items-end gap-1">
-                              {lic.isOnlineLive ? (
-                                <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200 text-[10px]">
-                                  Online
-                                </Badge>
+                              {isExcluded ? (
+                                <>
+                                  <Badge className="bg-amber-100 text-amber-900 hover:bg-amber-100 border-amber-200 text-[10px]">
+                                    Diputus dari MTI
+                                  </Badge>
+                                  <Badge variant="outline" className="text-[10px] text-gray-500 border-gray-200 bg-white">
+                                    {lic.isOnlineLive ? 'Online di WatZap' : 'Offline di WatZap'}
+                                  </Badge>
+                                </>
                               ) : (
-                                <Badge className="bg-red-100 text-red-800 hover:bg-red-100 border-red-200 text-[10px]">
-                                  Offline
-                                </Badge>
-                              )}
-                              {lic.isActivePrimary && (
-                                <Badge className="bg-emerald-700 text-white hover:bg-emerald-700 text-[10px]">
-                                  Aktif Dipakai
-                                </Badge>
+                                <>
+                                  {lic.isOnlineLive ? (
+                                    <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200 text-[10px]">
+                                      Online
+                                    </Badge>
+                                  ) : (
+                                    <Badge className="bg-red-100 text-red-800 hover:bg-red-100 border-red-200 text-[10px]">
+                                      Offline
+                                    </Badge>
+                                  )}
+                                  {lic.isActivePrimary && (
+                                    <Badge className="bg-emerald-700 text-white hover:bg-emerald-700 text-[10px]">
+                                      Aktif Dipakai
+                                    </Badge>
+                                  )}
+                                </>
                               )}
                             </div>
                           </div>
 
-                          <div className="flex items-center justify-between gap-2 pt-1 border-t border-gray-100">
-                            <span className="text-[10px] text-gray-400">
-                              {lic.waNumber.endsWith('4240')
-                                ? 'Nomor Resmi Utama (...4240)'
-                                : lic.isEnvDefault
-                                ? 'Default .env'
-                                : 'Lisensi Cadangan'}
-                            </span>
-                            {lic.isActivePrimary ? (
-                              <span className="text-[11px] font-bold text-emerald-700 inline-flex items-center gap-1">
-                                <CheckCircle2 className="h-3.5 w-3.5" />
-                                Aktif
+                          {isExcluded ? (
+                            <div className="space-y-2 pt-1.5 border-t border-gray-200/80">
+                              <p className="text-[10px] text-gray-500 leading-relaxed">
+                                Diabaikan sistem MTI (tidak dipakai kirim pesan, fallback, maupun inbox). Tetap aman aktif di WatZap / aplikasi lain (mis. AQLI).
+                              </p>
+                              <div className="flex justify-end">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={isBusy}
+                                  onClick={() => handleToggleLicenseMTI(lic, false)}
+                                  className="h-7 rounded-xl text-[11px] px-3 border-emerald-200 text-emerald-800 hover:bg-emerald-50 gap-1"
+                                >
+                                  <Link2 className="h-3 w-3" />
+                                  {isToggling ? 'Menghubungkan...' : 'Hubungkan ke MTI'}
+                                </Button>
+                              </div>
+                            </div>
+                          ) : isConfirmingDisconnect ? (
+                            <div className="space-y-2 pt-2 border-t border-amber-200 bg-amber-50/70 -mx-1 px-2.5 py-2 rounded-xl">
+                              <p className="text-[10px] text-amber-900 leading-relaxed">
+                                Putuskan nomor ini dari <strong>MTI saja</strong>? Nomor tetap tersambung di WatZap (aman untuk AQLI/app lain), hanya tidak dipakai MTI.
+                              </p>
+                              <div className="flex items-center justify-end gap-1.5">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={isBusy}
+                                  onClick={() => setConfirmDisconnectHash(null)}
+                                  className="h-6 rounded-lg text-[10px] px-2.5 border-gray-200 bg-white text-gray-600"
+                                >
+                                  Batal
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  disabled={isBusy}
+                                  onClick={() => handleToggleLicenseMTI(lic, true)}
+                                  className="h-6 rounded-lg text-[10px] px-2.5 bg-red-600 hover:bg-red-700 text-white"
+                                >
+                                  {isToggling ? 'Memutuskan...' : 'Ya, Putuskan dari MTI'}
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-gray-100">
+                              <span className="text-[10px] text-gray-400">
+                                {lic.waNumber.endsWith('4240')
+                                  ? 'Nomor Resmi Utama (...4240)'
+                                  : lic.isEnvDefault
+                                  ? 'Default .env'
+                                  : 'Lisensi Cadangan'}
                               </span>
-                            ) : (
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant={lic.isOnlineLive ? 'default' : 'outline'}
-                                disabled={Boolean(isSwitchingLicense)}
-                                onClick={() => handleSwitchLicense(lic)}
-                                className={`h-7 rounded-xl text-[11px] px-3 ${
-                                  lic.isOnlineLive
-                                    ? 'bg-emerald-700 hover:bg-emerald-800 text-white'
-                                    : 'border-gray-200 text-gray-600'
-                                }`}
-                              >
-                                {isSwitching ? 'Mengaktifkan...' : 'Gunakan Nomor Ini'}
-                              </Button>
-                            )}
-                          </div>
+                              {lic.isActivePrimary ? (
+                                <span className="text-[11px] font-bold text-emerald-700 inline-flex items-center gap-1">
+                                  <CheckCircle2 className="h-3.5 w-3.5" />
+                                  Aktif
+                                </span>
+                              ) : (
+                                <div className="flex items-center gap-1.5">
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={isBusy}
+                                    onClick={() => setConfirmDisconnectHash(lic.keyHash)}
+                                    className="h-7 rounded-xl text-[11px] px-2.5 border-red-200 text-red-700 hover:bg-red-50 gap-1"
+                                    title="Putuskan nomor ini dari MTI saja tanpa logout di WatZap"
+                                  >
+                                    <Unlink className="h-3 w-3" />
+                                    Putuskan dari MTI
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant={lic.isOnlineLive ? 'default' : 'outline'}
+                                    disabled={isBusy}
+                                    onClick={() => handleSwitchLicense(lic)}
+                                    className={`h-7 rounded-xl text-[11px] px-3 ${
+                                      lic.isOnlineLive
+                                        ? 'bg-emerald-700 hover:bg-emerald-800 text-white'
+                                        : 'border-gray-200 text-gray-600'
+                                    }`}
+                                  >
+                                    {isSwitching ? 'Mengaktifkan...' : 'Gunakan Nomor Ini'}
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
