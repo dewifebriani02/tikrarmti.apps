@@ -483,7 +483,7 @@ async function executeEscalateToAdmin(
         `• *Kategori*: ${args.reason}\n` +
         `• *Ringkasan*: ${args.summary}\n\n` +
         `Balas langsung di Live Chat Inbox:\nhttps://markaztikrar.id/admin/whatsapp`;
-      const res = await whatsappService.sendTextMessage(adminPhone, alertText);
+      const res = await whatsappService.sendTextMessage(adminPhone, alertText, { sourceTag: 'ai_escalation', recipientName: 'Admin MTI' });
       if (res.success) notifiedAdmins.push(adminPhone);
     } catch (err) {
       console.warn('[WhatsAppAI] Failed notifying admin phone:', adminPhone, err);
@@ -746,7 +746,7 @@ Berikan balasan WhatsApp yang tepat, ramah, dan membantu.`;
     }
 
     // Re-check if bot is still enabled (unless escalated during this turn which already paused after generating reply)
-    const sendRes = await whatsappService.sendTextMessage(params.phoneNumber, replyText);
+    const sendRes = await whatsappService.sendTextMessage(params.phoneNumber, replyText, { sourceTag: 'ai_bot' });
     if (!sendRes.success) {
       console.error('[WhatsAppAI] Failed to send WatZap reply:', sendRes.error);
       return { replied: false, reason: sendRes.error };

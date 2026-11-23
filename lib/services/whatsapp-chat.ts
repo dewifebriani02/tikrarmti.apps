@@ -459,10 +459,10 @@ export async function sendReplyMessage(params: {
   let savedMessageText = text;
 
   if (mediaUrl) {
-    sendRes = await whatsappService.sendImageUrl(conv.phone_number, mediaUrl, text || undefined);
+    sendRes = await whatsappService.sendImageUrl(conv.phone_number, mediaUrl, text || undefined, { sourceTag: 'live_chat', recipientName: conv.display_name });
     savedMessageText = text ? `📷 [Foto]: ${text}` : `📷 [Foto]`;
   } else {
-    sendRes = await whatsappService.sendTextMessage(conv.phone_number, text);
+    sendRes = await whatsappService.sendTextMessage(conv.phone_number, text, { sourceTag: 'live_chat', recipientName: conv.display_name });
   }
   if (!sendRes.success) {
     return {
@@ -678,7 +678,7 @@ export async function getWatZapWebhookStatus(): Promise<{
   error?: string;
 }> {
   const apiKey = process.env.WATZAP_API_KEY?.trim();
-  const numberKey = process.env.WATZAP_NUMBER_KEY?.trim();
+  const numberKey = await whatsappService.getActiveNumberKey();
 
   if (!apiKey || !numberKey) {
     return { configured: false, error: 'WATZAP_API_KEY atau WATZAP_NUMBER_KEY belum diset' };
@@ -742,7 +742,7 @@ export async function getWatZapWebhookStatus(): Promise<{
  */
 export async function setWatZapWebhookUrl(targetUrl: string): Promise<{ success: boolean; message?: string }> {
   const apiKey = process.env.WATZAP_API_KEY?.trim();
-  const numberKey = process.env.WATZAP_NUMBER_KEY?.trim();
+  const numberKey = await whatsappService.getActiveNumberKey();
 
   if (!apiKey || !numberKey) {
     return { success: false, message: 'WATZAP_API_KEY atau WATZAP_NUMBER_KEY belum diset' };
@@ -950,7 +950,7 @@ export async function handleMurojaahOptOut(params: {
   let confirmationSent = false;
   try {
     const sendRes = shouldSendConfirmation
-      ? await whatsappService.sendTextMessage(params.phoneNumber, confirmationText)
+      ? await whatsappService.sendTextMessage(params.phoneNumber, confirmationText, { sourceTag: 'opt_out_reply' })
       : { success: false, messageId: undefined as string | undefined };
     confirmationSent = Boolean(sendRes.success);
     if (!shouldSendConfirmation) {

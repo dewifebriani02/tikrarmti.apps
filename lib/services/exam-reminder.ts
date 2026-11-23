@@ -577,7 +577,7 @@ export async function sendH1ExaminerReminders(
     }
 
     try {
-      const sendRes = await whatsappService.sendTextMessage(formattedPhone, messageText);
+      const sendRes = await whatsappService.sendTextMessage(formattedPhone, messageText, { sourceTag: 'cron_ujian_lisan' });
       if (sendRes.success) {
         sentCount++;
         consecutiveGatewayErrors = 0;
@@ -763,7 +763,7 @@ export async function sendH1ExamReminders(
 
     // Live WhatsApp dispatch
     try {
-      const sendRes = await whatsappService.sendTextMessage(formattedPhone, messageText);
+      const sendRes = await whatsappService.sendTextMessage(formattedPhone, messageText, { sourceTag: 'cron_ujian_lisan' });
       if (sendRes.success) {
         sentCount++;
         consecutiveGatewayErrors = 0;

@@ -1,4 +1,4 @@
-import { query, queryOne } from '@/lib/db';
+import { queryOne } from '@/lib/db';
 
 export const WHATSAPP_AUTO_MESSAGES_SETTINGS_KEY = 'whatsapp_auto_messages_config';
 
@@ -16,7 +16,7 @@ export type WhatsAppAutoMessageKey =
   | 'ai_auto_reply';
 
 export const DEFAULT_WHATSAPP_AUTO_MESSAGES_CONFIG: WhatsAppAutoMessagesConfig = {
-  reminder_sore_murojaah: true,
+  reminder_sore_murojaah: false,
   reminder_ujian_lisan_thalibah: true,
   reminder_ujian_lisan_examiner: true,
   reminder_kelas_berbayar_h1: true,
@@ -24,43 +24,65 @@ export const DEFAULT_WHATSAPP_AUTO_MESSAGES_CONFIG: WhatsAppAutoMessagesConfig =
   ai_escalation_admin_alert: true,
 };
 
-export async function getWhatsAppAutoMessagesConfig(): Promise<{
+/**
+ * Fail-closed config returned on DB read errors so transient database glitches
+ * never trigger automated WhatsApp messages that an admin turned OFF.
+ */
+export const FAIL_CLOSED_WHATSAPP_AUTO_MESSAGES_CONFIG: WhatsAppAutoMessagesConfig = {
+  reminder_sore_murojaah: false,
+  reminder_ujian_lisan_thalibah: false,
+  reminder_ujian_lisan_examiner: false,
+  reminder_kelas_berbayar_h1: false,
+  auto_reply_stop_opt_out: false,
+  ai_escalation_admin_alert: false,
+};
+
+async function loadWhatsAppAutoMessagesRow(): Promise<{
   config: WhatsAppAutoMessagesConfig;
   updatedAt: string | null;
 }> {
-  try {
-    const row = await queryOne<{ value: any; updated_at: string | null }>(
-      `SELECT value, updated_at::text
-       FROM system_settings
-       WHERE key = $1
-       LIMIT 1`,
-      [WHATSAPP_AUTO_MESSAGES_SETTINGS_KEY]
-    );
+  const row = await queryOne<{ value: any; updated_at: string | null }>(
+    `SELECT value, updated_at::text
+     FROM system_settings
+     WHERE key = $1
+     LIMIT 1`,
+    [WHATSAPP_AUTO_MESSAGES_SETTINGS_KEY]
+  );
 
-    if (!row || !row.value) {
-      return {
-        config: { ...DEFAULT_WHATSAPP_AUTO_MESSAGES_CONFIG },
-        updatedAt: null,
-      };
-    }
-
-    const v = row.value;
-    return {
-      config: {
-        reminder_sore_murojaah: v.reminder_sore_murojaah !== false,
-        reminder_ujian_lisan_thalibah: v.reminder_ujian_lisan_thalibah !== false,
-        reminder_ujian_lisan_examiner: v.reminder_ujian_lisan_examiner !== false,
-        reminder_kelas_berbayar_h1: v.reminder_kelas_berbayar_h1 !== false,
-        auto_reply_stop_opt_out: v.auto_reply_stop_opt_out !== false,
-        ai_escalation_admin_alert: v.ai_escalation_admin_alert !== false,
-      },
-      updatedAt: row.updated_at || null,
-    };
-  } catch (err) {
-    console.warn('[WhatsAppAutoSettings] Failed loading config, using defaults:', err);
+  if (!row || !row.value) {
     return {
       config: { ...DEFAULT_WHATSAPP_AUTO_MESSAGES_CONFIG },
       updatedAt: null,
+    };
+  }
+
+  const v = row.value;
+  return {
+    config: {
+      reminder_sore_murojaah: v.reminder_sore_murojaah === true,
+      reminder_ujian_lisan_thalibah: v.reminder_ujian_lisan_thalibah !== false,
+      reminder_ujian_lisan_examiner: v.reminder_ujian_lisan_examiner !== false,
+      reminder_kelas_berbayar_h1: v.reminder_kelas_berbayar_h1 !== false,
+      auto_reply_stop_opt_out: v.auto_reply_stop_opt_out !== false,
+      ai_escalation_admin_alert: v.ai_escalation_admin_alert !== false,
+    },
+    updatedAt: row.updated_at || null,
+  };
+}
+
+export async function getWhatsAppAutoMessagesConfig(): Promise<{
+  config: WhatsAppAutoMessagesConfig;
+  updatedAt: string | null;
+  loadFailed?: boolean;
+}> {
+  try {
+    return await loadWhatsAppAutoMessagesRow();
+  } catch (err) {
+    console.error('[WhatsAppAutoSettings] Failed loading config, failing closed (all OFF):', err);
+    return {
+      config: { ...FAIL_CLOSED_WHATSAPP_AUTO_MESSAGES_CONFIG },
+      updatedAt: null,
+      loadFailed: true,
     };
   }
 }
@@ -71,7 +93,7 @@ export async function updateWhatsAppAutoMessagesConfig(
   config: WhatsAppAutoMessagesConfig;
   updatedAt: string | null;
 }> {
-  const { config: current } = await getWhatsAppAutoMessagesConfig();
+  const { config: current } = await loadWhatsAppAutoMessagesRow();
   const next: WhatsAppAutoMessagesConfig = {
     reminder_sore_murojaah:
       patch.reminder_sore_murojaah !== undefined

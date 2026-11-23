@@ -130,7 +130,8 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/alumni/testimonial/my
- * Create or update testimonial for the target batch (resets is_approved to false)
+ * Create or update testimonial for the target batch (resets is_approved to false).
+ * Restricted strictly to approved/graduated participants/alumni of ongoing/closed batches (or admin).
  */
 export async function POST(request: NextRequest) {
   try {
@@ -151,15 +152,38 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Rating harus berupa angka antara 1 sampai 5' }, { status: 400 });
     }
 
-    // Determine target batch name: use explicit batch_name if verified or fallback to newest unreviewed/eligible batch
+    const isAdmin = (user.roles || []).includes('admin') || user.role === 'admin';
     const { rows: eligibleRegs } = await query(ELIGIBLE_REGS_SQL, [user.id]);
+
+    // Strictly reject users without any approved/graduated registration in an ongoing/closed batch
+    if (!isAdmin && eligibleRegs.length === 0) {
+      return NextResponse.json(
+        {
+          error:
+            'Hanya peserta atau alumni yang telah disetujui pada angkatan berjalan/selesai yang dapat mengirim testimoni.',
+        },
+        { status: 403 }
+      );
+    }
 
     let batchName: string | null = null;
     if (typeof requestedBatchName === 'string' && requestedBatchName.trim()) {
       const matched = eligibleRegs.find(
         (r: any) => (r.batch_name || '').trim().toLowerCase() === requestedBatchName.trim().toLowerCase()
       );
-      batchName = matched?.batch_name || requestedBatchName.trim();
+      if (matched) {
+        batchName = matched.batch_name;
+      } else if (isAdmin) {
+        batchName = requestedBatchName.trim();
+      } else {
+        return NextResponse.json(
+          {
+            error:
+              'Angkatan yang dipilih tidak sesuai dengan riwayat kepesertaan aktif/alumni Ukhti.',
+          },
+          { status: 403 }
+        );
+      }
     } else {
       const { rows: allMyTestimonials } = await query(
         `SELECT batch_name FROM testimonials WHERE user_id = $1`,
@@ -171,7 +195,17 @@ export async function POST(request: NextRequest) {
       const unreviewed = eligibleRegs.find(
         (r: any) => !submittedKeys.has((r.batch_name || '').trim().toLowerCase())
       );
-      batchName = unreviewed?.batch_name || eligibleRegs[0]?.batch_name || 'Tikrar Tahfidz MTI Batch 3';
+      batchName = unreviewed?.batch_name || eligibleRegs[0]?.batch_name || null;
+      if (!batchName && isAdmin) {
+        batchName = 'Tikrar Tahfidz MTI Batch 3';
+      }
+    }
+
+    if (!batchName) {
+      return NextResponse.json(
+        { error: 'Angkatan testimoni tidak valid atau tidak ditemukan.' },
+        { status: 400 }
+      );
     }
 
     const existing = await queryOne(

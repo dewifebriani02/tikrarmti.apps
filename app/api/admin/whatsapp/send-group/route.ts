@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     if (authError) return authError;
 
     const body = await request.json();
-    const { groupId, message } = body;
+    const { groupId, groupName, message, sourceTag } = body;
 
     if (!groupId) {
       return ApiResponses.badRequest('Parameter "groupId" (ID Grup WhatsApp berakhiran @g.us) wajib diisi');
@@ -20,7 +20,10 @@ export async function POST(request: Request) {
       return ApiResponses.badRequest('Parameter "message" wajib diisi');
     }
 
-    const result = await whatsappService.sendGroupMessage(groupId, message);
+    const result = await whatsappService.sendGroupMessage(groupId, message, {
+      sourceTag: typeof sourceTag === 'string' && sourceTag.trim() ? sourceTag.trim() : 'group_manual',
+      recipientName: typeof groupName === 'string' && groupName.trim() ? groupName.trim() : 'Grup WhatsApp',
+    });
 
     if (!result.success) {
       return ApiResponses.badRequest(result.error || 'Gagal mengirim pesan ke grup WhatsApp');

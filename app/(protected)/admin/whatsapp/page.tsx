@@ -7,7 +7,7 @@ import {
   CheckSquare, Square,
   MessageSquare, Send, CheckCircle2, AlertCircle, RefreshCw, 
   ArrowLeft, Shield, Phone, Search, Clock, Sparkles, Check, Zap,
-  Users, Play, Pause, AlertTriangle, Layers, UserCheck, Bot
+  Users, Play, Pause, AlertTriangle, Layers, UserCheck, Bot, MailCheck
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,10 +17,25 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { WhatsAppInboxTab } from '@/components/admin/whatsapp/WhatsAppInboxTab';
 import { WhatsAppAutoMessagesTab } from '@/components/admin/whatsapp/WhatsAppAutoMessagesTab';
+import { WhatsAppOutboxTab } from '@/components/admin/whatsapp/WhatsAppOutboxTab';
 import {
   waitBetweenWhatsAppMessages,
   classifyWhatsAppError,
 } from '@/lib/utils/whatsapp-throttle';
+
+interface WatZapLicenseItem {
+  keyHash: string;
+  maskedKey: string;
+  waNumber: string;
+  displayPhoneNumber?: string;
+  type: string;
+  statusFlag?: string;
+  connectionStatus?: string;
+  isConnectedReported: boolean;
+  isOnlineLive: boolean;
+  isActivePrimary: boolean;
+  isEnvDefault: boolean;
+}
 
 interface WhatsAppStatus {
   configured: boolean;
@@ -38,6 +53,11 @@ interface WhatsAppStatus {
     type?: string;
     fallbackActive?: boolean;
     fallbackSenderNumber?: string;
+    activeNumberKeyMasked?: string;
+    activeKeyHash?: string;
+    activeSource?: 'db_override' | 'default_4240' | 'env';
+    allowAutoFallback?: boolean;
+    updatedAt?: string | null;
   };
 }
 
@@ -634,8 +654,25 @@ function CcSelectorCard({
 
 
 export default function AdminWhatsAppPage() {
-  const [activeTab, setActiveTab] = useState<'inbox' | 'broadcast' | 'individual' | 'auto'>('inbox');
+  const [activeTab, setActiveTab] = useState<'inbox' | 'outbox' | 'broadcast' | 'individual' | 'auto'>('inbox');
   const [autoMsgStats, setAutoMsgStats] = useState<{ active: number; total: number } | null>(null);
+  const [outboxSummary, setOutboxSummary] = useState<{ totalAll: number; sentToday: number; failedAll: number; fallbackAll: number } | null>(null);
+  const [outboxRefreshSignal, setOutboxRefreshSignal] = useState(0);
+
+  const handleOutboxSummaryChange = useCallback(
+    (summary: { totalAll: number; sentToday: number; failedAll: number; fallbackAll: number }) => {
+      setOutboxSummary((prev) =>
+        prev &&
+        prev.totalAll === summary.totalAll &&
+        prev.sentToday === summary.sentToday &&
+        prev.failedAll === summary.failedAll &&
+        prev.fallbackAll === summary.fallbackAll
+          ? prev
+          : summary
+      );
+    },
+    []
+  );
 
   const handleAutoMsgCountChange = useCallback((active: number, total: number) => {
     setAutoMsgStats((prev) =>
@@ -647,7 +684,7 @@ export default function AdminWhatsAppPage() {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const tab = params.get('tab');
-      if (tab === 'broadcast' || tab === 'individual' || tab === 'inbox' || tab === 'auto') {
+      if (tab === 'broadcast' || tab === 'individual' || tab === 'inbox' || tab === 'outbox' || tab === 'auto') {
         setActiveTab(tab);
       }
     }
@@ -660,6 +697,14 @@ export default function AdminWhatsAppPage() {
             active: items.filter((i: { enabled: boolean }) => i.enabled).length,
             total: items.length,
           });
+        }
+      })
+      .catch(() => {});
+    fetch('/api/admin/whatsapp/outbox?limit=1')
+      .then((r) => r.json())
+      .then((json) => {
+        if (json?.success && json?.data?.summary) {
+          setOutboxSummary(json.data.summary);
         }
       })
       .catch(() => {});
@@ -772,6 +817,82 @@ export default function AdminWhatsAppPage() {
   // Local message logs
   const [messageLogs, setMessageLogs] = useState<MessageLog[]>([]);
 
+  // WatZap licenses switcher state
+  const [licenses, setLicenses] = useState<WatZapLicenseItem[]>([]);
+  const [isLoadingLicenses, setIsLoadingLicenses] = useState(false);
+  const [isSwitchingLicense, setIsSwitchingLicense] = useState<string | null>(null);
+  const [allowAutoFallback, setAllowAutoFallback] = useState<boolean>(false);
+  const [isLicensePanelOpen, setIsLicensePanelOpen] = useState<boolean>(true);
+
+  const fetchLicenses = async () => {
+    setIsLoadingLicenses(true);
+    try {
+      const res = await fetch('/api/admin/whatsapp/licenses');
+      const json = await res.json();
+      if (json.success && json.data) {
+        setLicenses(json.data.licenses || []);
+        if (typeof json.data.allowAutoFallback === 'boolean') {
+          setAllowAutoFallback(json.data.allowAutoFallback);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch WatZap licenses:', err);
+    } finally {
+      setIsLoadingLicenses(false);
+    }
+  };
+
+  const handleSwitchLicense = async (lic: WatZapLicenseItem) => {
+    setIsSwitchingLicense(lic.keyHash);
+    try {
+      const res = await fetch('/api/admin/whatsapp/active-number', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          keyHash: lic.keyHash,
+          waNumber: lic.waNumber,
+          allowAutoFallback,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok && json.success && json.data) {
+        if (json.data.status) setStatus(json.data.status);
+        if (json.data.licenses?.licenses) {
+          setLicenses(json.data.licenses.licenses);
+        }
+        toast.success(`Nomor pengirim aktif diubah ke ${lic.displayPhoneNumber || lic.waNumber}`);
+      } else {
+        toast.error(json.error || json.message || 'Gagal mengganti nomor aktif');
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Gagal mengganti nomor WhatsApp');
+    } finally {
+      setIsSwitchingLicense(null);
+    }
+  };
+
+  const handleToggleAutoFallback = async (nextValue: boolean) => {
+    setAllowAutoFallback(nextValue);
+    try {
+      const res = await fetch('/api/admin/whatsapp/active-number', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ allowAutoFallback: nextValue }),
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        if (json.data?.status) setStatus(json.data.status);
+        toast.success(
+          nextValue
+            ? 'Fallback otomatis ke nomor cadangan diaktifkan'
+            : 'Fallback otomatis dimatikan (hanya gunakan nomor terpilih)'
+        );
+      }
+    } catch {
+      toast.error('Gagal menyimpan pengaturan fallback');
+    }
+  };
+
   // Fetch status on load
   const fetchStatus = async () => {
     setIsLoadingStatus(true);
@@ -780,6 +901,9 @@ export default function AdminWhatsAppPage() {
       const json = await res.json();
       if (json.success && json.data) {
         setStatus(json.data);
+        if (typeof json.data.watzap?.allowAutoFallback === 'boolean') {
+          setAllowAutoFallback(json.data.watzap.allowAutoFallback);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch WhatsApp status:', err);
@@ -824,6 +948,7 @@ export default function AdminWhatsAppPage() {
 
   useEffect(() => {
     fetchStatus();
+    fetchLicenses();
     fetchRecipients();
     fetchWhatsappGroups(false);
     try {
@@ -1039,6 +1164,7 @@ export default function AdminWhatsAppPage() {
             body: JSON.stringify({
               to: ccPhone,
               message: ccBroadcastMsg,
+              sourceTag: 'individual_cc',
             }),
           });
         } catch (ccErr) {
@@ -1067,6 +1193,7 @@ export default function AdminWhatsAppPage() {
             body: JSON.stringify({
               groupId: grpId,
               message: ccGroupBroadcastMsg,
+              sourceTag: 'individual_cc',
             }),
           });
         } catch (grpErr) {
@@ -1107,6 +1234,7 @@ export default function AdminWhatsAppPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           to: recipientPhone.trim(),
+          recipientName: recipientName.trim() || undefined,
           message: messageBody.trim(),
           ccNumbers: activeCcNumbers.length > 0 ? activeCcNumbers : undefined,
           ccGroupIds: selectedCcGroups.length > 0 ? selectedCcGroups : undefined,
@@ -1198,7 +1326,7 @@ export default function AdminWhatsAppPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => { fetchStatus(); fetchRecipients(selectedBatchId); }}
+                onClick={() => { fetchStatus(); fetchLicenses(); fetchRecipients(selectedBatchId); setOutboxRefreshSignal((n) => n + 1); }}
                 disabled={isLoadingStatus || isLoadingRecipients}
                 className="rounded-xl border-gray-200 text-xs font-semibold gap-2"
               >
@@ -1220,6 +1348,32 @@ export default function AdminWhatsAppPage() {
             >
               <MessageSquare className="h-4 w-4" />
               Kotak Masuk (Live Chat Inbox)
+            </button>
+            <button
+              onClick={() => setActiveTab('outbox')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+                activeTab === 'outbox'
+                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200/70'
+              }`}
+            >
+              <MailCheck className="h-4 w-4" />
+              <span>Kotak Keluar (Outbox)</span>
+              {outboxSummary && (
+                <span
+                  className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold ${
+                    activeTab === 'outbox'
+                      ? 'bg-white/20 text-white'
+                      : outboxSummary.failedAll > 0
+                      ? 'bg-rose-100 text-rose-800'
+                      : 'bg-emerald-100 text-emerald-800'
+                  }`}
+                >
+                  {outboxSummary.failedAll > 0
+                    ? `${outboxSummary.failedAll} Gagal`
+                    : `${outboxSummary.totalAll}`}
+                </span>
+              )}
             </button>
             <button
               onClick={() => setActiveTab('broadcast')}
@@ -1321,18 +1475,157 @@ export default function AdminWhatsAppPage() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 bg-gray-50 px-4 py-2.5 rounded-2xl border border-gray-100">
-                <div className="text-right">
-                  <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
-                    Sumber Data Thalibah
-                  </div>
-                  <div className="text-xs font-bold text-emerald-700 flex items-center justify-end gap-1.5 mt-0.5">
-                    <UserCheck className="h-3.5 w-3.5" />
-                    v_active_thalibah (Strict Filter)
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    fetchStatus();
+                    fetchLicenses();
+                  }}
+                  disabled={isLoadingStatus || isLoadingLicenses}
+                  className="rounded-xl text-xs h-9 border-gray-200 gap-1.5"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${isLoadingStatus || isLoadingLicenses ? 'animate-spin' : ''}`} />
+                  Cek Status
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsLicensePanelOpen((prev) => !prev)}
+                  className="rounded-xl text-xs h-9 border-emerald-200 text-emerald-800 hover:bg-emerald-50 font-semibold"
+                >
+                  {isLicensePanelOpen ? 'Tutup Switcher Nomor' : 'Ganti Nomor Pengirim'}
+                </Button>
+                <div className="flex items-center gap-3 bg-gray-50 px-4 py-2.5 rounded-2xl border border-gray-100">
+                  <div className="text-right">
+                    <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                      Sumber Data Thalibah
+                    </div>
+                    <div className="text-xs font-bold text-emerald-700 flex items-center justify-end gap-1.5 mt-0.5">
+                      <UserCheck className="h-3.5 w-3.5" />
+                      v_active_thalibah (Strict Filter)
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
+
+            {isLicensePanelOpen && (
+              <div className="mt-5 pt-5 border-t border-gray-100 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <div className="text-xs font-bold text-gray-900 flex items-center gap-2">
+                      <span>Pilihan Nomor Lisensi WatZap (Nomor Pengirim Notifikasi)</span>
+                      {status?.watzap?.activeNumberKeyMasked && (
+                        <Badge variant="outline" className="font-mono text-[10px] text-gray-600">
+                          Key: {status.watzap.activeNumberKeyMasked}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-gray-500 mt-0.5">
+                      Pilih nomor WhatsApp aktif untuk seluruh pengiriman notifikasi sistem (broadcast, pengingat, perubahan jadwal, & inbox).
+                    </p>
+                  </div>
+                  <label className="inline-flex items-center gap-2 text-xs text-gray-700 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-200 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={allowAutoFallback}
+                      onChange={(e) => handleToggleAutoFallback(e.target.checked)}
+                      className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <span className="font-medium">Fallback otomatis ke nomor lain jika offline (OFF = aman, tidak pakai nomor HP pribadi)</span>
+                  </label>
+                </div>
+
+                {isLoadingLicenses && licenses.length === 0 ? (
+                  <div className="text-xs text-gray-500 py-3 flex items-center gap-2">
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin text-emerald-600" />
+                    Memuat daftar lisensi WatZap...
+                  </div>
+                ) : licenses.length === 0 ? (
+                  <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                    Belum ada daftar lisensi WatZap yang termuat. Pastikan WATZAP_API_KEY aktif dan klik &quot;Cek Status&quot;.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {licenses.map((lic) => {
+                      const isSwitching = isSwitchingLicense === lic.keyHash;
+                      return (
+                        <div
+                          key={lic.keyHash || lic.waNumber}
+                          className={`rounded-2xl border p-3.5 flex flex-col justify-between gap-3 transition-all ${
+                            lic.isActivePrimary
+                              ? 'border-emerald-400 bg-emerald-50/60 shadow-xs'
+                              : 'border-gray-200 bg-white hover:border-gray-300'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <div className="font-mono font-bold text-sm text-gray-900">
+                                {lic.displayPhoneNumber || lic.waNumber || 'Nomor Tidak Diketahui'}
+                              </div>
+                              <div className="text-[11px] text-gray-500 font-mono mt-0.5">
+                                {lic.maskedKey} • {lic.type}
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-end gap-1">
+                              {lic.isOnlineLive ? (
+                                <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200 text-[10px]">
+                                  Online
+                                </Badge>
+                              ) : (
+                                <Badge className="bg-red-100 text-red-800 hover:bg-red-100 border-red-200 text-[10px]">
+                                  Offline
+                                </Badge>
+                              )}
+                              {lic.isActivePrimary && (
+                                <Badge className="bg-emerald-700 text-white hover:bg-emerald-700 text-[10px]">
+                                  Aktif Dipakai
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between gap-2 pt-1 border-t border-gray-100">
+                            <span className="text-[10px] text-gray-400">
+                              {lic.waNumber.endsWith('4240')
+                                ? 'Nomor Resmi Utama (...4240)'
+                                : lic.isEnvDefault
+                                ? 'Default .env'
+                                : 'Lisensi Cadangan'}
+                            </span>
+                            {lic.isActivePrimary ? (
+                              <span className="text-[11px] font-bold text-emerald-700 inline-flex items-center gap-1">
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                Aktif
+                              </span>
+                            ) : (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant={lic.isOnlineLive ? 'default' : 'outline'}
+                                disabled={Boolean(isSwitchingLicense)}
+                                onClick={() => handleSwitchLicense(lic)}
+                                className={`h-7 rounded-xl text-[11px] px-3 ${
+                                  lic.isOnlineLive
+                                    ? 'bg-emerald-700 hover:bg-emerald-800 text-white'
+                                    : 'border-gray-200 text-gray-600'
+                                }`}
+                              >
+                                {isSwitching ? 'Mengaktifkan...' : 'Gunakan Nomor Ini'}
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -1340,6 +1633,16 @@ export default function AdminWhatsAppPage() {
         {activeTab === 'inbox' && (
           <div className="space-y-6">
             <WhatsAppInboxTab senderNumber={status?.watzap?.displayPhoneNumber || status?.watzap?.senderNumber || "0813-8884-240"} />
+          </div>
+        )}
+
+        {/* TAB 0.5: KOTAK KELUAR / OUTBOX */}
+        {activeTab === 'outbox' && (
+          <div className="space-y-6">
+            <WhatsAppOutboxTab
+              onSummaryChange={handleOutboxSummaryChange}
+              refreshSignal={outboxRefreshSignal}
+            />
           </div>
         )}
 

@@ -25,7 +25,14 @@ export async function POST(request: Request) {
     if (singleRecipient) {
       const recipient = singleRecipient as ActiveThalibahRecipient;
       const formattedMessage = personalizeMessage(messageTemplate, recipient);
-      const res = await whatsappService.sendTextMessage(recipient.whatsapp, formattedMessage);
+      const res = await whatsappService.sendTextMessage(recipient.whatsapp, formattedMessage, {
+        sourceTag: 'broadcast',
+        recipientName: recipient.fullName,
+        metadata: {
+          userId: recipient.userId,
+          batchId: recipient.batchId,
+        },
+      });
 
       return ApiResponses.success({
         userId: recipient.userId,
@@ -33,6 +40,7 @@ export async function POST(request: Request) {
         whatsapp: recipient.whatsapp,
         success: res.success,
         messageId: res.messageId,
+        senderNumber: res.senderNumber,
         error: res.error,
         rateLimited: res.rateLimited,
         fatalInstanceError: res.fatalInstanceError,

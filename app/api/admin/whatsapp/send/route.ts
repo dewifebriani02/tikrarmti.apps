@@ -12,11 +12,13 @@ export async function POST(request: Request) {
     if (authError) return authError;
 
     const body = await request.json();
-    const { to, message, templateName, components, ccNumbers, ccGroupIds } = body;
+    const { to, message, recipientName, sourceTag, templateName, components, ccNumbers, ccGroupIds } = body;
 
     if (!to) {
       return ApiResponses.badRequest('Parameter "to" (nomor WhatsApp tujuan) wajib diisi');
     }
+
+    const effectiveTag = typeof sourceTag === 'string' && sourceTag.trim() ? sourceTag.trim() : 'individual';
 
     let result;
     if (templateName) {
@@ -24,13 +26,17 @@ export async function POST(request: Request) {
         to,
         templateName,
         'id',
-        components
+        components,
+        { sourceTag: effectiveTag, recipientName: recipientName || null }
       );
     } else {
       if (!message) {
         return ApiResponses.badRequest('Parameter "message" wajib diisi jika tidak menggunakan template');
       }
-      result = await whatsappService.sendTextMessage(to, message);
+      result = await whatsappService.sendTextMessage(to, message, {
+        sourceTag: effectiveTag,
+        recipientName: recipientName || null,
+      });
     }
 
     if (!result.success) {
@@ -60,7 +66,10 @@ export async function POST(request: Request) {
       for (const ccNum of ccNumbers) {
         if (!ccNum || typeof ccNum !== 'string') continue;
         try {
-          const ccRes = await whatsappService.sendTextMessage(ccNum, fullCcMessage);
+          const ccRes = await whatsappService.sendTextMessage(ccNum, fullCcMessage, {
+            sourceTag: 'individual_cc',
+            metadata: { ccFor: to },
+          });
           ccResults.push({
             to: ccNum,
             type: 'admin',
@@ -86,7 +95,10 @@ export async function POST(request: Request) {
       for (const gid of ccGroupIds) {
         if (!gid || typeof gid !== 'string') continue;
         try {
-          const grpRes = await whatsappService.sendGroupMessage(gid, fullCcMessage);
+          const grpRes = await whatsappService.sendGroupMessage(gid, fullCcMessage, {
+            sourceTag: 'individual_cc',
+            metadata: { ccFor: to },
+          });
           ccResults.push({
             to: gid,
             type: 'group',

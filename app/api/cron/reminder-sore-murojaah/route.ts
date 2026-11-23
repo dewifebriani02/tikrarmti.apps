@@ -92,7 +92,7 @@ async function handleReminder(request: Request) {
     }
 
     // Fetch active Murojaah 40x participants with incomplete rounds today
-    const { rows: candidates } = await query(`
+    const { rows: rawCandidates } = await query(`
       SELECT 
         p.id as progress_id,
         p.user_id,
@@ -135,6 +135,24 @@ async function handleReminder(request: Request) {
       LIMIT $1
     `, [limit]);
 
+    // Filter out participants who are already debt-free / ahead of schedule (totalDebt === 0 && todayRemaining === 0)
+    const now = new Date();
+    const candidates = rawCandidates
+      .map((c) => {
+        const expiryDate = c.expires_at ? new Date(c.expires_at) : new Date(new Date(c.started_at).getTime() + 20 * 86400000);
+        const remainingTime = expiryDate.getTime() - now.getTime();
+        const daysRemaining = Math.max(0, Math.ceil(remainingTime / (1000 * 60 * 60 * 24)));
+        const debt = calculateMurojaahDebt({
+          startedAt: c.started_at,
+          totalCompleted: Number(c.total_completed || 0),
+          todayLogsCount: Number(c.today_count || 0),
+        });
+        return { c, daysRemaining, debt };
+      })
+      .filter(({ debt }) => !debt.isDebtFree && (debt.todayRemaining > 0 || debt.totalDebt > 0));
+
+    const skippedDebtFreeCount = rawCandidates.length - candidates.length;
+
     const results: Array<{
       userId: string;
       fullName: string;
@@ -157,7 +175,7 @@ async function handleReminder(request: Request) {
         stoppedEarly = true;
         stopReason = !waStatus.configured
           ? 'WatZap belum dikonfigurasi'
-          : 'Instance WhatsApp (utama & cadangan) sedang offline/terputus — pengiriman dibatalkan untuk mencegah spam/limit';
+          : 'Instance WhatsApp aktif sedang offline/terputus — pengiriman dibatalkan untuk mencegah spam/limit';
         return NextResponse.json({
           success: true,
           timestamp: new Date().toISOString(),
@@ -165,7 +183,7 @@ async function handleReminder(request: Request) {
           totalCandidates: candidates.length,
           sentCount: 0,
           failedCount: 0,
-          skippedCount: candidates.length,
+          skippedCount: candidates.length + skippedDebtFreeCount,
           stoppedEarly,
           stopReason,
           batchPausesCount: 0,
@@ -175,17 +193,7 @@ async function handleReminder(request: Request) {
     }
 
     for (let i = 0; i < candidates.length; i++) {
-      const c = candidates[i];
-      const now = new Date();
-      const expiryDate = c.expires_at ? new Date(c.expires_at) : new Date(new Date(c.started_at).getTime() + 20 * 86400000);
-      const remainingTime = expiryDate.getTime() - now.getTime();
-      const daysRemaining = Math.max(0, Math.ceil(remainingTime / (1000 * 60 * 60 * 24)));
-
-      const debt = calculateMurojaahDebt({
-        startedAt: c.started_at,
-        totalCompleted: Number(c.total_completed || 0),
-        todayLogsCount: Number(c.today_count || 0),
-      });
+      const { c, daysRemaining, debt } = candidates[i];
 
       const message = buildMurojaahAfternoonReminder({
         userName: c.full_name,
@@ -212,7 +220,11 @@ async function handleReminder(request: Request) {
 
       // Send actual WhatsApp message via WatZap
       try {
-        const sendRes = await whatsappService.sendTextMessage(c.whatsapp, message);
+        const sendRes = await whatsappService.sendTextMessage(c.whatsapp, message, {
+          sourceTag: 'cron_murojaah',
+          recipientName: c.full_name,
+          metadata: { userId: c.user_id, juzCode: c.juz_code, totalDebt: debt.totalDebt },
+        });
         results.push({
           userId: c.user_id,
           fullName: c.full_name,
@@ -274,7 +286,7 @@ async function handleReminder(request: Request) {
 
     const successfulCount = results.filter((r) => r.sent).length;
     const failedCount = results.filter((r) => !r.sent).length;
-    const skippedCount = Math.max(0, candidates.length - results.length);
+    const skippedCount = Math.max(0, candidates.length - results.length) + skippedDebtFreeCount;
 
     return NextResponse.json({
       success: true,

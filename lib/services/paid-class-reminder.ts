@@ -498,7 +498,7 @@ export async function sendH1PaidClassThalibahReminders(
     }
 
     try {
-      const sendRes = await whatsappService.sendTextMessage(formattedPhone, messageText);
+      const sendRes = await whatsappService.sendTextMessage(formattedPhone, messageText, { sourceTag: 'cron_kelas_berbayar' });
       if (sendRes.success) {
         sentCount++;
         consecutiveGatewayErrors = 0;
@@ -689,7 +689,7 @@ export async function sendH1PaidClassUstadzahReminders(
     }
 
     try {
-      const sendRes = await whatsappService.sendTextMessage(formattedPhone, messageText);
+      const sendRes = await whatsappService.sendTextMessage(formattedPhone, messageText, { sourceTag: 'cron_kelas_berbayar' });
       if (sendRes.success) {
         sentCount++;
         consecutiveGatewayErrors = 0;
