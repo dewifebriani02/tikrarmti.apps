@@ -149,10 +149,10 @@ export function ExamDeduplicateModal({
             </div>
             <div>
               <h3 className="text-base sm:text-xl font-black tracking-tight flex items-center gap-2">
-                Pembersih Duplikasi Soal Ujian (Presisi per Paket)
+                Pembersih Duplikasi Soal Ujian (Presisi Tinggi)
               </h3>
               <p className="text-[11px] sm:text-xs text-emerald-100/90 mt-0.5 line-clamp-1 sm:line-clamp-none">
-                Deteksi duplikasi ketat dalam paket yang sama (teks soal, opsi jawaban, dan kunci jawaban identik)
+                Deteksi duplikasi identik (teks soal, opsi jawaban, dan kunci) di dalam paket sama maupun lintas Paket A ↔ B pada Juz yang sama
               </p>
             </div>
           </div>
@@ -171,7 +171,7 @@ export function ExamDeduplicateModal({
           <div className="bg-emerald-50/90 border border-emerald-200/80 rounded-2xl p-3 sm:p-3.5 flex items-center gap-2.5 text-xs text-emerald-900 font-medium">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             <div className="text-[11px] sm:text-xs leading-relaxed">
-              <strong className="font-bold text-emerald-950">Mode Aman per Paket:</strong> Pemindaian hanya memeriksa soal aktif (<code className="px-1.5 py-0.5 bg-emerald-150 rounded text-[10px] font-mono font-bold">is_active = true</code>) di dalam <strong>paket yang sama</strong> dan mencocokkan teks soal <strong>beserta pilihan &amp; kunci jawabannya</strong> agar soal berbeda tidak pernah ikut terhapus.
+              <strong className="font-bold text-emerald-950">Mode Aman &amp; Presisi:</strong> Pemindaian hanya memeriksa soal aktif (<code className="px-1.5 py-0.5 bg-emerald-150 rounded text-[10px] font-mono font-bold">is_active = true</code>) dan mewajibkan <strong>teks soal, pilihan jawaban, serta kunci jawaban</strong> cocok 100% (baik dalam paket sama maupun lintas Paket A ↔ B pada Juz yang sama) agar soal berbeda tidak pernah terhapus.
             </div>
           </div>
 
