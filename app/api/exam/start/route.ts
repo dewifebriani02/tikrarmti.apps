@@ -19,11 +19,12 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { juz_number, source, batchId } = body;
+    const { juz_number, source } = body;
+    const batchId = body.batchId || body.batch_id || null;
     const isFinalExam = source === 'final-exam';
     const examType = isFinalExam ? 'final-exam' : 'selection';
 
-    if (!juz_number || (isFinalExam ? (juz_number < 1 || juz_number > 30) : ![28, 29, 30].includes(juz_number))) {
+    if (!juz_number || juz_number < 1 || juz_number > 30) {
       return NextResponse.json({ error: 'Invalid juz number' }, { status: 400 });
     }
 

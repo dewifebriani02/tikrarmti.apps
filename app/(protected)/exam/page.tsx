@@ -35,7 +35,7 @@ export default function ExamPage() {
 function ExamContent() {
   const searchParams = useSearchParams();
   const source = searchParams?.get('source') || '';
-  const batchId = searchParams?.get('batchId') || '';
+  const batchId = searchParams?.get('batchId') || searchParams?.get('batch_id') || '';
   const router = useRouter();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);

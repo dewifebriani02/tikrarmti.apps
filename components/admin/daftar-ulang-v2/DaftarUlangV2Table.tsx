@@ -24,7 +24,7 @@ interface DaftarUlangV2TableProps {
   sortOrder: 'asc' | 'desc';
   onSort: (field: string) => void;
   onEditExamScore?: (submission: DaftarUlangSubmission) => void;
-  onResetExamScore?: (submissionId: string) => void;
+  onResetExamScore?: (submission: DaftarUlangSubmission) => void;
 }
 
 
@@ -95,13 +95,13 @@ function ActionMenu({ submission, onView, onEdit, onDelete, onUpdateStatus, onRe
             </button>
           )}
 
-          {submission.exam_status === 'completed' && onResetExamScore && (
+          {(submission.registration?.exam_status === 'completed' || submission.registration?.exam_score != null || submission.exam_status === 'completed') && onResetExamScore && (
             <button
               onClick={() => { setIsOpen(false); onResetExamScore(submission); }}
               className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-              title="Reset ujian yang gagal agar user bisa mengulang, dan ubah juz kembali"
+              title="Reset ujian seleksi agar thalibah bisa mengulang, dan ubah juz kembali"
             >
-              <RotateCcw className="w-4 h-4 text-amber-500" /> Reset Ujian Akhir
+              <RotateCcw className="w-4 h-4 text-amber-500" /> Reset Ujian Tulis
             </button>
           )}
 
@@ -577,7 +577,7 @@ export function DaftarUlangV2Table({
                             </button>
                             {submission.registration?.exam_score != null && (
                               <button
-                                onClick={() => onResetExamScore && onResetExamScore(submission.registration.id)}
+                                onClick={() => onResetExamScore && onResetExamScore(submission)}
                                 disabled={resettingId === submission.registration.id}
                                 className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-red-600 transition-colors disabled:opacity-50"
                                 title="Hapus/Reset Nilai"
