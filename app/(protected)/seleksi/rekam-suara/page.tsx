@@ -340,7 +340,7 @@ function RekamSuaraContent() {
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -350,14 +350,77 @@ function RekamSuaraContent() {
       return;
     }
 
-    const maxSize = 10 * 1024 * 1024; // 10MB
+    const maxSize = 15 * 1024 * 1024; // 15MB
     if (file.size > maxSize) {
-      setError('Ukuran file terlalu besar. Maksimal 10 MB.');
+      setError('Ukuran file terlalu besar. Maksimal 15 MB.');
       return;
     }
 
-    setAudioBlob(file);
-    updateAudioURL(URL.createObjectURL(file));
+    // Read the File into an in-memory Blob immediately while the Android content:// URI permission is still valid.
+    // Otherwise, listening to the preview 3 times (~5 minutes) causes Android to revoke the temporary file handle,
+    // which makes fetch/FormData throw "TypeError: Failed to fetch" (ERR_UPLOAD_FILE_CHANGED / ERR_ACCESS_DENIED).
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const safeName = file.name || `recording-${Date.now()}.mp3`;
+      const safeType = file.type || 'audio/mpeg';
+      const inMemoryFile = new File([arrayBuffer], safeName, {
+        type: safeType,
+        lastModified: file.lastModified || Date.now(),
+      });
+      setAudioBlob(inMemoryFile);
+      updateAudioURL(URL.createObjectURL(inMemoryFile));
+    } catch (readErr) {
+      console.warn('[FILE READ] Fallback to raw File reference:', readErr);
+      setAudioBlob(file);
+      updateAudioURL(URL.createObjectURL(file));
+    }
+  };
+
+  const sendAudioViaXhr = (
+    formData: FormData,
+    onProgress: (percent: number) => void
+  ): Promise<{ ok: boolean; status: number; data: any }> => {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/seleksi/submit', true);
+      xhr.withCredentials = true;
+      xhr.timeout = 180000; // 3 minutes for slow mobile networks
+
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable && event.total > 0) {
+          const pct = Math.min(95, Math.max(5, Math.round((event.loaded / event.total) * 95)));
+          onProgress(pct);
+        }
+      };
+
+      xhr.onload = () => {
+        let parsed: any = {};
+        try {
+          parsed = xhr.responseText ? JSON.parse(xhr.responseText) : {};
+        } catch {
+          parsed = {};
+        }
+        resolve({
+          ok: xhr.status >= 200 && xhr.status < 300,
+          status: xhr.status,
+          data: parsed,
+        });
+      };
+
+      xhr.onerror = () => {
+        reject(new Error('NETWORK_ERROR'));
+      };
+
+      xhr.ontimeout = () => {
+        reject(new Error('UPLOAD_TIMEOUT'));
+      };
+
+      xhr.onabort = () => {
+        reject(new Error('UPLOAD_ABORTED'));
+      };
+
+      xhr.send(formData);
+    });
   };
 
   const uploadAudio = async () => {
@@ -384,9 +447,9 @@ function RekamSuaraContent() {
     setError(null);
 
     try {
-      const maxSize = 10 * 1024 * 1024; // 10MB
+      const maxSize = 15 * 1024 * 1024; // 15MB
       if (audioBlob.size > maxSize) {
-        setError('Ukuran file terlalu besar. Maksimal 10 MB.');
+        setError('Ukuran file terlalu besar. Maksimal 15 MB.');
         return;
       }
 
@@ -397,34 +460,66 @@ function RekamSuaraContent() {
         if (ext) fileExtension = ext;
       } else if (audioBlob.type) {
         const ext = audioBlob.type.split('/')[1]?.split(';')[0];
-        if (ext) fileExtension = ext === 'mp4' ? 'm4a' : ext;
+        if (ext) fileExtension = ext === 'mp4' ? 'm4a' : ext === 'mpeg' ? 'mp3' : ext;
       }
 
       const fileName = `${user.id}_alfath29_${timestamp}.${fileExtension}`;
 
-      setUploadProgress(30);
+      setUploadProgress(5);
 
-      // Upload via server API
-      const formData = new FormData();
-      formData.append('audio', audioBlob, fileName);
-      formData.append('fileName', fileName);
-      formData.append('registration_id', regId);
-      if (activeBatchId) {
-        formData.append('batch_id', activeBatchId);
+      // Ensure payload is backed by an in-memory Blob so mobile browsers never fail reading a stale file descriptor
+      let uploadPayload: Blob = audioBlob;
+      try {
+        const buf = await audioBlob.arrayBuffer();
+        uploadPayload = new Blob([buf], { type: audioBlob.type || 'audio/mpeg' });
+      } catch (bufErr) {
+        // If the original Android content:// URI expired before buffering, inform the user clearly
+        throw new Error('FILE_HANDLE_EXPIRED');
       }
 
-      const uploadRes = await fetch('/api/seleksi/submit', {
-        method: 'POST',
-        body: formData,
-        credentials: 'include',
-      });
+      const buildFormData = () => {
+        const fd = new FormData();
+        fd.append('audio', uploadPayload, fileName);
+        fd.append('fileName', fileName);
+        fd.append('registration_id', regId);
+        if (activeBatchId) {
+          fd.append('batch_id', activeBatchId);
+        }
+        return fd;
+      };
 
-      if (!uploadRes.ok) {
-        const errData = await uploadRes.json().catch(() => ({}));
-        throw new Error(errData.error || 'Gagal mengunggah audio seleksi');
+      // Upload with automatic retry (up to 2 attempts) for transient mobile network drops
+      let lastResponse: { ok: boolean; status: number; data: any } | null = null;
+      let lastErr: any = null;
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          lastResponse = await sendAudioViaXhr(buildFormData(), (pct) => setUploadProgress(pct));
+          lastErr = null;
+          break;
+        } catch (xhrErr: any) {
+          lastErr = xhrErr;
+          if (attempt < 2) {
+            setUploadProgress(10);
+            await new Promise((r) => setTimeout(r, 1200));
+          }
+        }
       }
 
-      const uploadResult = await uploadRes.json();
+      if (lastErr) {
+        throw lastErr;
+      }
+
+      if (!lastResponse || !lastResponse.ok) {
+        if (lastResponse?.status === 413) {
+          throw new Error('Ukuran file rekaman terlalu besar untuk dikirim. Silakan gunakan file audio di bawah 10 MB.');
+        }
+        if (lastResponse?.status === 401) {
+          throw new Error('Sesi login Ukhti telah berakhir. Silakan muat ulang halaman dan login kembali.');
+        }
+        throw new Error(lastResponse?.data?.error || `Gagal mengunggah audio seleksi (Kode ${lastResponse?.status || 'Jaringan'})`);
+      }
+
+      const uploadResult = lastResponse.data;
       const savedData = uploadResult.data || uploadResult.submission || {};
       const publicUrl = savedData.oral_submission_url || savedData.audio_url;
       const savedFileName = savedData.oral_submission_file_name || fileName;
@@ -451,7 +546,16 @@ function RekamSuaraContent() {
 
     } catch (err: any) {
       console.error('Upload error:', err);
-      setError(err.message || 'Gagal mengunggah rekaman.');
+      const rawMsg = String(err?.message || '');
+      if (rawMsg === 'FILE_HANDLE_EXPIRED') {
+        setError('Akses ke file rekaman di HP telah kedaluwarsa setelah didengarkan. Silakan klik tombol "Ulangi", pilih kembali file rekaman yang sama, lalu langsung klik "Kirim Rekaman".');
+      } else if (rawMsg === 'UPLOAD_TIMEOUT') {
+        setError('Waktu unggah habis karena koneksi internet lambat. Pastikan sinyal stabil lalu klik "Kirim Rekaman" sekali lagi.');
+      } else if (rawMsg === 'NETWORK_ERROR' || rawMsg.toLowerCase().includes('failed to fetch') || rawMsg.toLowerCase().includes('networkerror')) {
+        setError('Koneksi terputus atau izin baca file di HP habis saat mengirim rekaman. Silakan klik "Ulangi", pilih kembali file rekaman, lalu langsung klik "Kirim Rekaman".');
+      } else {
+        setError(rawMsg || 'Gagal mengunggah rekaman.');
+      }
       setUploadProgress(0);
     } finally {
       setIsUploading(false);
@@ -832,7 +936,7 @@ function RekamSuaraContent() {
                       </div>
                       <div>
                         <p className="text-sm font-bold text-gray-800">Unggah File Audio dari HP / Komputer</p>
-                        <p className="text-xs text-gray-500 mt-0.5">Format: MP3, M4A, WAV, OGG, WebM, AAC (Maks. 10 MB)</p>
+                        <p className="text-xs text-gray-500 mt-0.5">Format: MP3, M4A, WAV, OGG, WebM, AAC, OPUS (Maks. 15 MB)</p>
                       </div>
                       <div className="pt-2">
                         <span className="inline-flex items-center px-4 py-2 rounded-lg text-xs font-semibold bg-white border border-gray-300 text-gray-700 shadow-sm hover:bg-gray-50">
