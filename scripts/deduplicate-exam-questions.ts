@@ -3,10 +3,15 @@
  * scripts/deduplicate-exam-questions.ts
  *
  * MTI Exam Question Safe Deduplication Utility
- * Detects and resolves TRUE duplicate questions strictly within the same (juz_number, question_package).
- * Never deduplicates across different packages (e.g. Paket A vs Paket B) and never uses blind fuzzy
- * text similarity without matching options & answers (preventing false positives on template prompts
- * like "Ayat yang terdapat pada surat ..." or "Setelah surat ...").
+ * Detects and resolves TRUE duplicate questions in two safe passes:
+ *   1. Same-package exact/normalized duplicates: same (juz_number, question_package) with
+ *      identical normalized question_text, options, AND correct_answer.
+ *   2. Cross-package A <-> B exact/normalized duplicates within the SAME juz_number:
+ *      ONLY when normalized question_text, options, AND correct_answer are 100% identical
+ *      (preventing 1-Juz examinees who take Paket A + Paket B from getting the exact same question twice).
+ *
+ * Never uses blind fuzzy text similarity without matching options & answers (preventing false positives
+ * on template prompts like "Ayat yang terdapat pada surat ..." or "Setelah surat ...").
  * Only scans active questions (is_active = true) by default, ignoring archived questions.
  *
  * Usage:
@@ -206,7 +211,7 @@ export async function evaluateWithAI(
     const opts1 = (q1.options || []).map((o) => o.text).join(' | ');
     const opts2 = (q2.options || []).map((o) => o.text).join(' | ');
     const prompt = `Anda adalah auditor bank soal Al-Qur'an Markaz Tikrar Indonesia (MTI).
-Evaluasi apakah kedua soal pilihan ganda dalam PAKET YANG SAMA berikut adalah DUPLIKAT SEJATI (menanyakan ayat/hal yang sama persis beserta opsi dan kunci jawaban yang sama):
+Evaluasi apakah kedua soal pilihan ganda berikut adalah DUPLIKAT SEJATI (menanyakan ayat/hal yang sama persis beserta opsi dan kunci jawaban yang sama):
 
 Soal 1 (Juz ${q1.juz_number}${q1.question_package}, Bagian ${q1.section_number}):
 Teks: "${q1.question_text}"
@@ -241,8 +246,12 @@ Format JSON output persis:
 
 /**
  * Scans questions and detects TRUE duplicates safely:
- * 1. Strictly scoped to the SAME (juz_number, question_package) — never merges Paket A with Paket B.
- * 2. Requires BOTH identical normalized question text AND identical normalized options & correct answer.
+ * 1. Pass 1 (Same Package): Groups questions in the SAME (juz_number, question_package) whose
+ *    normalized question_text, normalized options, AND normalized correct_answer are all identical.
+ * 2. Pass 2 (Cross-Package A <-> B within SAME Juz): Groups questions across Paket A & Paket B
+ *    in the SAME juz_number ONLY when normalized question_text, normalized options, AND normalized
+ *    correct_answer are 100% identical (so 1-Juz exams combining Paket A + Paket B never repeat
+ *    the exact same question). Keeps Paket A (or higher attempt count) as canonical.
  * 3. No blind fuzzy (Dice >= 0.88) auto-deletion. Optional Gemini AI check only inspects
  *    same-package pairs whose options & correct answer already match.
  * 4. By default, only scans active questions (is_active = true), ignoring archived ones.
@@ -289,24 +298,23 @@ export async function detectDuplicates(
   const duplicateGroups: DuplicateGroup[] = [];
   const processedIds = new Set<string>();
 
-  // 1. Exact/Normalized grouping strictly within SAME (juz_number, question_package)
-  //    AND requiring identical normalized prompt + options + correct_answer.
-  const exactMap = new Map<string, QuestionRecord[]>();
+  // 1. Pass 1: Exact/Normalized grouping strictly within SAME (juz_number, question_package)
+  //    requiring identical normalized prompt + options + correct_answer.
+  const samePkgMap = new Map<string, QuestionRecord[]>();
 
   for (const q of questions) {
     const pkg = (q.question_package || '').toUpperCase();
     const normPrompt = normalizeArabicText(q.question_text);
     const { optionsKey, answerKey } = buildOptionsSignature(q);
 
-    // Key requires same Juz, same Package, same normalized prompt, same options, AND same answer
     const key = `${q.juz_number}::${pkg}::${normPrompt}::${optionsKey}::${answerKey}`;
-    if (!exactMap.has(key)) {
-      exactMap.set(key, []);
+    if (!samePkgMap.has(key)) {
+      samePkgMap.set(key, []);
     }
-    exactMap.get(key)!.push(q);
+    samePkgMap.get(key)!.push(q);
   }
 
-  for (const [, qList] of Array.from(exactMap.entries())) {
+  for (const [, qList] of Array.from(samePkgMap.entries())) {
     if (qList.length > 1) {
       const sorted = [...qList].sort((a, b) => {
         const attA = getAttemptCount(a.id);
@@ -345,7 +353,72 @@ export async function detectDuplicates(
     }
   }
 
-  // 2. Optional AI Semantic verification strictly within SAME (juz_number, question_package)
+  // 2. Pass 2: Cross-package (Paket A <-> Paket B within SAME Juz) 100% identical duplicates
+  //    (identical normalized prompt + identical normalized options + identical normalized answer).
+  //    Protects 1-Juz examinees (Paket A + Paket B) from receiving the exact same question twice.
+  const crossPkgMap = new Map<string, QuestionRecord[]>();
+  const remainingForCrossPkg = questions.filter((q) => !processedIds.has(q.id));
+
+  for (const q of remainingForCrossPkg) {
+    const normPrompt = normalizeArabicText(q.question_text);
+    const { optionsKey, answerKey } = buildOptionsSignature(q);
+    if (!normPrompt || !optionsKey || !answerKey) continue;
+
+    const key = `${q.juz_number}::${normPrompt}::${optionsKey}::${answerKey}`;
+    if (!crossPkgMap.has(key)) {
+      crossPkgMap.set(key, []);
+    }
+    crossPkgMap.get(key)!.push(q);
+  }
+
+  for (const [, qList] of Array.from(crossPkgMap.entries())) {
+    const distinctPackages = new Set(qList.map((x) => (x.question_package || '').toUpperCase()));
+    if (qList.length > 1 && distinctPackages.size > 1) {
+      // Prefer Paket A as canonical (or higher attempt count if tied), so Paket B duplicate is flagged
+      const sorted = [...qList].sort((a, b) => {
+        const pkgA = (a.question_package || '').toUpperCase();
+        const pkgB = (b.question_package || '').toUpperCase();
+        if (pkgA !== pkgB) {
+          if (pkgA === 'A') return -1;
+          if (pkgB === 'A') return 1;
+        }
+        const attA = getAttemptCount(a.id);
+        const attB = getAttemptCount(b.id);
+        if (attB !== attA) return attB - attA;
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      });
+
+      const canonical = sorted[0];
+      const duplicates = sorted.slice(1);
+
+      const isExactRaw = duplicates.every(
+        (d) =>
+          d.question_text.trim() === canonical.question_text.trim() &&
+          (d.correct_answer || '').trim() === (canonical.correct_answer || '').trim()
+      );
+
+      duplicates.forEach((d) => processedIds.add(d.id));
+      processedIds.add(canonical.id);
+
+      const referencedInAttempts: Record<string, number> = {};
+      referencedInAttempts[canonical.id] = getAttemptCount(canonical.id);
+      duplicates.forEach((d) => {
+        referencedInAttempts[d.id] = getAttemptCount(d.id);
+      });
+
+      duplicateGroups.push({
+        juz_number: canonical.juz_number,
+        matchType: isExactRaw ? 'exact' : 'normalized',
+        canonical,
+        duplicates,
+        confidence: 1.0,
+        reason: `Duplikat 100% identik (teks, opsi, dan kunci) lintas Paket ${Array.from(distinctPackages).sort().join(' ↔ ')} pada Juz ${canonical.juz_number}`,
+        referencedInAttempts,
+      });
+    }
+  }
+
+  // 3. Pass 3 (Optional): AI Semantic verification strictly within SAME (juz_number, question_package)
   //    ONLY for pairs that ALSO have matching options & correct answer (never blind fuzzy matching!).
   if (options.useAi) {
     const remaining = questions.filter((q) => !processedIds.has(q.id));
@@ -489,7 +562,7 @@ async function main() {
   console.log(
     `Filter Soal: ${activeOnly ? 'HANYA SOAL AKTIF (is_active = true, mengabaikan arsip)' : 'SEMUA SOAL (TERMASUK ARSIP)'}`
   );
-  console.log(`Cakupan: Ketat per Paket (juz_number + question_package) & cocok Teks + Opsi + Kunci`);
+  console.log(`Cakupan: Ketat (dalam paket sama & 100% identik lintas Paket A ↔ B pada Juz sama)`);
   if (juz) console.log(`Filter Juz: ${juz}`);
   console.log(`AI Semantic Check: ${useAi ? 'ENABLED (Gemini)' : 'DISABLED (Deterministic Exact+Normalized)'}`);
   console.log('---------------------------------------------------------------');
