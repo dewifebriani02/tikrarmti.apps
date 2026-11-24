@@ -47,6 +47,162 @@ export function getRequiredExamJuz(chosenJuz: string): JuzNumber | null {
 }
 
 /**
+ * Determine whether an exam should test only Half Juz (Package A) or Full Juz (Package A + Package B).
+ * - Selection Exam (isFinalExam = false): always tests Full Juz (prerequisite juz: Package A + Package B).
+ * - Final Exam (isFinalExam = true): if chosen_juz ends with 'A' (e.g. '30A', '29A', '1A', '2A', '27A'),
+ *   tests only Package A; if it ends with 'B' (e.g. '30B', '29B', '28B', '1B') or has no A suffix,
+ *   tests Full Juz (Package A + Package B).
+ */
+export function isHalfJuzFinalExam(chosenJuz?: string | null, isFinalExam = false): boolean {
+  if (!isFinalExam) return false;
+  return !!chosenJuz?.trim().toUpperCase().endsWith('A');
+}
+
+/**
+ * Get configured Package A and Package B question quotas from exam_configurations row.
+ * Defaults to 50 for Package A and 50 for Package B (total max 100 for full juz).
+ */
+export function getExamPackageQuotas(config?: {
+  package_a_questions?: number | null;
+  package_b_questions?: number | null;
+  questions_per_attempt?: number | null;
+} | null): { packageAQuota: number; packageBQuota: number } {
+  const hasExplicitPackageQuotas =
+    (config?.package_a_questions !== undefined && config?.package_a_questions !== null) ||
+    (config?.package_b_questions !== undefined && config?.package_b_questions !== null);
+
+  if (hasExplicitPackageQuotas) {
+    const packageAQuota = Math.max(0, Number(config?.package_a_questions ?? 50));
+    const packageBQuota = Math.max(0, Number(config?.package_b_questions ?? 50));
+    return { packageAQuota, packageBQuota };
+  }
+
+  if (config?.questions_per_attempt && config.questions_per_attempt > 0) {
+    const half = Math.floor(config.questions_per_attempt / 2);
+    return {
+      packageAQuota: config.questions_per_attempt - half,
+      packageBQuota: half,
+    };
+  }
+
+  return { packageAQuota: 50, packageBQuota: 50 };
+}
+
+/**
+ * Distribute N questions evenly across sections (or sequentially if shuffle is disabled).
+ */
+export function distributeQuestionsBySection(
+  allQuestions: any[],
+  totalNeeded: number,
+  shouldShuffle = true
+): any[] {
+  if (totalNeeded <= 0 || !allQuestions || allQuestions.length === 0) return [];
+  if (allQuestions.length <= totalNeeded) {
+    return shouldShuffle ? shuffleArray(allQuestions) : [...allQuestions];
+  }
+
+  if (!shouldShuffle) {
+    return allQuestions.slice(0, totalNeeded);
+  }
+
+  // Group by section_number
+  const bySection: Record<number, any[]> = {};
+  for (const q of allQuestions) {
+    const sec = q.section_number || 1;
+    if (!bySection[sec]) bySection[sec] = [];
+    bySection[sec].push(q);
+  }
+
+  const sectionKeys = Object.keys(bySection).map(Number).sort((a, b) => a - b);
+  const numSections = sectionKeys.length;
+  if (numSections === 0) return [];
+
+  const basePerSection = Math.floor(totalNeeded / numSections);
+  let remainder = totalNeeded % numSections;
+
+  const selected: any[] = [];
+  const overflow: any[] = [];
+
+  for (const sec of sectionKeys) {
+    const pool = shuffleArray(bySection[sec]);
+    const needed = basePerSection + (remainder > 0 ? 1 : 0);
+    if (remainder > 0) remainder--;
+
+    if (pool.length >= needed) {
+      selected.push(...pool.slice(0, needed));
+      overflow.push(...pool.slice(needed));
+    } else {
+      selected.push(...pool);
+    }
+  }
+
+  // Fill any deficit from overflow
+  const deficit = totalNeeded - selected.length;
+  if (deficit > 0 && overflow.length > 0) {
+    const extra = shuffleArray(overflow).slice(0, deficit);
+    selected.push(...extra);
+  }
+
+  return shuffleArray(selected);
+}
+
+/**
+ * Select exam questions according to package quota rules:
+ * - Half Juz Final Exam (Paket A): up to packageAQuota questions from Package A (plus 'Both' if needed)
+ * - Full Juz Exam (Ujian Seleksi & Ujian Akhir Paket B):
+ *   up to packageAQuota questions from Package A + up to packageBQuota questions from Package B
+ *   (max packageAQuota + packageBQuota questions, default 50 + 50 = 100).
+ */
+export function selectExamQuestionsByQuota(
+  allJuzQuestions: any[],
+  options: {
+    chosenJuz?: string | null;
+    isFinalExam: boolean;
+    config?: {
+      package_a_questions?: number | null;
+      package_b_questions?: number | null;
+      questions_per_attempt?: number | null;
+      shuffle_questions?: boolean | null;
+    } | null;
+  }
+): any[] {
+  const { packageAQuota, packageBQuota } = getExamPackageQuotas(options.config);
+  const shouldShuffle = options.config?.shuffle_questions ?? true;
+  const halfJuzOnly = isHalfJuzFinalExam(options.chosenJuz, options.isFinalExam);
+
+  const pkgAQuestions = allJuzQuestions.filter(
+    (q) => (q.question_package || '').toUpperCase() === 'A'
+  );
+  const pkgBQuestions = allJuzQuestions.filter(
+    (q) => (q.question_package || '').toUpperCase() === 'B'
+  );
+  const pkgBothQuestions = allJuzQuestions.filter(
+    (q) => !['A', 'B'].includes((q.question_package || '').toUpperCase())
+  );
+
+  if (halfJuzOnly) {
+    const poolA = [...pkgAQuestions, ...pkgBothQuestions];
+    return distributeQuestionsBySection(poolA, packageAQuota, shouldShuffle);
+  }
+
+  // Full Juz (Ujian Seleksi & Ujian Akhir Paket B):
+  // Take up to packageAQuota from Paket A and up to packageBQuota from Paket B
+  const selectedA = distributeQuestionsBySection(pkgAQuestions, packageAQuota, shouldShuffle);
+  const selectedB = distributeQuestionsBySection(pkgBQuestions, packageBQuota, shouldShuffle);
+
+  let combined = [...selectedA, ...selectedB];
+  const maxTotal = packageAQuota + packageBQuota;
+
+  if (combined.length < maxTotal && pkgBothQuestions.length > 0) {
+    const remainingNeeded = maxTotal - combined.length;
+    const selectedBoth = distributeQuestionsBySection(pkgBothQuestions, remainingNeeded, shouldShuffle);
+    combined = [...combined, ...selectedBoth];
+  }
+
+  return combined;
+}
+
+/**
  * Get exam title based on juz number
  */
 export function getExamTitle(juzNumber: JuzNumber): string {

@@ -225,6 +225,8 @@ export interface ExamConfiguration {
   randomize_order: boolean;
   show_questions_all: boolean;
   questions_per_attempt?: number;
+  package_a_questions?: number;
+  package_b_questions?: number;
   passing_score: number;
   auto_grade: boolean;
   score_calculation_mode: 'highest' | 'average';
@@ -249,6 +251,8 @@ export interface ExamConfigurationForm {
   randomize_order: boolean;
   show_questions_all: boolean;
   questions_per_attempt?: number;
+  package_a_questions?: number;
+  package_b_questions?: number;
   passing_score: number;
   auto_grade: boolean;
   score_calculation_mode: 'highest' | 'average';

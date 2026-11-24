@@ -1,62 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { selectExamQuestionsByQuota, shuffleArray } from '@/lib/exam-utils';
 
 const supabaseAdmin = createSupabaseAdmin();
-
-// Helper function to shuffle array
-function shuffleArray<T>(array: T[]): T[] {
-  const shuffled = [...array];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  return shuffled;
-}
-
-// Helper: distribute N questions evenly across sections
-function distributeQuestionsBySection(allQuestions: any[], totalNeeded: number): any[] {
-  // Group by section_number
-  const bySection: Record<number, any[]> = {};
-  for (const q of allQuestions) {
-    const sec = q.section_number || 1;
-    if (!bySection[sec]) bySection[sec] = [];
-    bySection[sec].push(q);
-  }
-
-  const sectionKeys = Object.keys(bySection).map(Number).sort();
-  const numSections = sectionKeys.length;
-  if (numSections === 0) return [];
-
-  const basePerSection = Math.floor(totalNeeded / numSections);
-  let remainder = totalNeeded % numSections;
-
-  const selected: any[] = [];
-  const overflow: any[] = [];
-
-  for (const sec of sectionKeys) {
-    const pool = shuffleArray(bySection[sec]);
-    let needed = basePerSection + (remainder > 0 ? 1 : 0);
-    if (remainder > 0) remainder--;
-
-    if (pool.length >= needed) {
-      selected.push(...pool.slice(0, needed));
-      overflow.push(...pool.slice(needed));
-    } else {
-      selected.push(...pool);
-      // deficit will be filled from overflow later
-    }
-  }
-
-  // Fill any deficit from overflow
-  const deficit = totalNeeded - selected.length;
-  if (deficit > 0 && overflow.length > 0) {
-    const extra = shuffleArray(overflow).slice(0, deficit);
-    selected.push(...extra);
-  }
-
-  return shuffleArray(selected);
-}
 
 // GET: Fetch exam questions for user based on their chosen_juz
 // Logic:
@@ -65,7 +12,9 @@ function distributeQuestionsBySection(allQuestions: any[], totalNeeded: number):
 // - Juz 1A or 1B -> Exam Juz 30
 // - Juz 30A or 30B -> No exam (starting target)
 // - Only available during selection dates of active open batch
-// - source=final-exam: uses chosen_juz directly, 100 questions distributed per category
+// - Question quota rules (configurable in Admin exam_configurations):
+//   * Full Juz Exam (Ujian Seleksi & Ujian Akhir Paket B): package_a_questions (50) + package_b_questions (50) = max 100 questions
+//   * Half Juz Final Exam (Ujian Akhir Paket A): package_a_questions (50) questions from Paket A only
 export async function GET(request: NextRequest) {
   try {
     const supabase = createServerClient();
@@ -281,27 +230,13 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Determine which package to fetch based on chosen_juz suffix
-    // "Paket A" is used for Half Juz (e.g., 1A)
-    // "Paket B" is used for Full Juz (e.g., 1B or just 1)
-    const targetPackage = chosenJuz?.toUpperCase().endsWith('A') ? 'A' : 'B';
-
-    // Fetch active questions for the required juz
-    let query = supabaseAdmin
+    // Fetch all active questions for the required juz
+    const { data: questions, error: questionsError } = await supabaseAdmin
       .from('exam_questions')
       .select('*')
       .eq('juz_number', requiredJuzNumber)
-      .eq('is_active', true);
-
-    if (isFinalExam) {
-      // For final exams, fetch the specific package based on registration
-      query = query.in('question_package', [targetPackage, 'Both']);
-    } else {
-      // For selection exams, always test the full juz (Paket B)
-      query = query.in('question_package', ['B', 'Both']);
-    }
-
-    let { data: questions, error: questionsError } = await query
+      .eq('is_active', true)
+      .order('question_package', { ascending: true })
       .order('section_number', { ascending: true })
       .order('question_number', { ascending: true });
 
@@ -320,21 +255,20 @@ export async function GET(request: NextRequest) {
       }, { status: 404 });
     }
 
-    let processedQuestions: any[];
+    // Apply quota rules:
+    // - Ujian Seleksi & Ujian Akhir Paket B (1 Juz penuh): package_a_questions (50) Paket A + package_b_questions (50) Paket B (max 100)
+    // - Ujian Akhir Paket A (1/2 Juz): package_a_questions (50) Paket A only
+    let processedQuestions = selectExamQuestionsByQuota(questions, {
+      chosenJuz,
+      isFinalExam,
+      config
+    });
 
-    if (isFinalExam) {
-      // Final exam: distribute 100 questions evenly across sections/categories
-      const FINAL_EXAM_TOTAL = 100;
-      processedQuestions = distributeQuestionsBySection(questions, FINAL_EXAM_TOTAL);
-    } else {
-      // Selection exam: use existing logic
-      processedQuestions = questions;
-      if (config?.shuffle_questions) {
-        processedQuestions = shuffleArray(questions);
-      }
-      if (config?.questions_per_attempt && config.questions_per_attempt < processedQuestions.length) {
-        processedQuestions = processedQuestions.slice(0, config.questions_per_attempt);
-      }
+    if (processedQuestions.length === 0) {
+      return NextResponse.json({
+        error: 'No questions available',
+        details: `Belum ada soal yang sesuai untuk juz ${requiredJuzNumber}`
+      }, { status: 404 });
     }
 
     // Shuffle options within each question and remove correct answer data to prevent cheating
@@ -376,7 +310,9 @@ export async function GET(request: NextRequest) {
       passingScore: finalPassingScore,
       autoSubmitOnTimeout: true,
       allowReview: false,
-      showResults: true
+      showResults: true,
+      packageAQuestions: config?.package_a_questions ?? 50,
+      packageBQuestions: config?.package_b_questions ?? 50
     } : null;
 
     let existingAttemptId: string | null = registration.exam_attempt_id;
@@ -407,7 +343,9 @@ export async function GET(request: NextRequest) {
         passingScore: config.passing_score,
         autoSubmitOnTimeout: config.auto_submit_on_timeout,
         allowReview: config.allow_review,
-        showResults: config.show_results
+        showResults: config.show_results,
+        packageAQuestions: config.package_a_questions ?? 50,
+        packageBQuestions: config.package_b_questions ?? 50
       } : null)
     });
 

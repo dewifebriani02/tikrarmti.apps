@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { logger } from '@/lib/logger-secure';
-import { getRequiredExamJuz } from '@/lib/exam-utils';
+import { getRequiredExamJuz, selectExamQuestionsByQuota } from '@/lib/exam-utils';
 
 const supabaseAdmin = createSupabaseAdmin();
 
@@ -190,10 +190,10 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Get total questions for this juz
-    const { count, error: countError } = await supabaseAdmin
+    // Compute exact question count for this thalibah based on package A & B quotas
+    const { data: activeQuestions, error: countError } = await supabaseAdmin
       .from('exam_questions')
-      .select('*', { count: 'exact', head: true })
+      .select('id, question_package, section_number')
       .eq('juz_number', juz_number)
       .eq('is_active', true);
 
@@ -202,7 +202,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to load exam questions' }, { status: 500 });
     }
 
-    const totalQuestions = isFinalExam ? Math.min(count || 0, 100) : (count || 0);
+    const sampledForCount = selectExamQuestionsByQuota(activeQuestions || [], {
+      chosenJuz: registration.chosen_juz,
+      isFinalExam,
+      config
+    });
+
+    const totalQuestions = sampledForCount.length;
 
     if (totalQuestions === 0) {
       return NextResponse.json({

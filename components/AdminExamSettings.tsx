@@ -18,10 +18,7 @@ function formatDateTime(dateString: string): string {
 }
 
 // Helper function to convert datetime-local input value to ISO string
-// datetime-local gives us "2025-12-30T19:00" which is in local timezone
-// We need to convert it to ISO string for storage
 function toLocalISOString(dateString: string): string {
-  // Create date object from the input value (which is in local timezone)
   const date = new Date(dateString);
   return date.toISOString();
 }
@@ -30,7 +27,6 @@ function toLocalISOString(dateString: string): string {
 function fromLocalISOString(isoString: string): string {
   if (!isoString) return '';
   const date = new Date(isoString);
-  // Get the local date and time components
   const year = date.getFullYear();
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
   const day = date.getDate().toString().padStart(2, '0');
@@ -78,10 +74,7 @@ export function AdminExamSettings({ onSuccess }: AdminExamSettingsProps) {
   const handleSave = async (formData: ExamConfigurationForm) => {
     setIsSaving(true);
     try {
-      const url = editingConfig
-        ? '/api/exam/configurations'
-        : '/api/exam/configurations';
-
+      const url = '/api/exam/configurations';
       const method = editingConfig ? 'PUT' : 'POST';
       const body = editingConfig
         ? { ...formData, id: editingConfig.id }
@@ -168,7 +161,7 @@ export function AdminExamSettings({ onSuccess }: AdminExamSettingsProps) {
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Exam Configuration</h2>
           <p className="text-sm text-gray-600 mt-1">
-            Pengaturan ujian - durasi, percobaan, penilaian, dll.
+            Pengaturan ujian - durasi, percobaan, kuota Paket A &amp; Paket B, penilaian, dll.
           </p>
         </div>
         <button
@@ -259,16 +252,16 @@ export function AdminExamSettings({ onSuccess }: AdminExamSettingsProps) {
                         value={config.max_attempts ?? 'Unlimited'}
                       />
                       <SettingItem
-                        label="Questions Display"
-                        value={config.show_questions_all ? 'All at once' : 'One by one'}
+                        label="Kuota Paket A"
+                        value={`${config.package_a_questions ?? 50} soal`}
                       />
                       <SettingItem
-                        label="Randomize Options"
-                        value={config.randomize_order ? 'Yes' : 'No'}
+                        label="Kuota Paket B"
+                        value={`${config.package_b_questions ?? 50} soal`}
                       />
                       <SettingItem
-                        label="Auto Grade"
-                        value={config.auto_grade ? 'Yes' : 'No'}
+                        label="Maks. Juz Penuh (A+B)"
+                        value={`${(config.package_a_questions ?? 50) + (config.package_b_questions ?? 50)} soal`}
                       />
                       <SettingItem
                         label="Score Mode"
@@ -278,12 +271,6 @@ export function AdminExamSettings({ onSuccess }: AdminExamSettingsProps) {
                         label="Auto Submit"
                         value={config.auto_submit_on_timeout ? 'Yes' : 'No'}
                       />
-                      {config.questions_per_attempt && (
-                        <SettingItem
-                          label="Questions/Attempt"
-                          value={config.questions_per_attempt.toString()}
-                        />
-                      )}
                       {config.start_time && (
                         <SettingItem
                           label="Start Time"
@@ -437,18 +424,23 @@ function ConfigForm({
   onCancel: () => void;
   isSaving: boolean;
 }) {
+  const initialPkgA = config?.package_a_questions ?? 50;
+  const initialPkgB = config?.package_b_questions ?? 50;
+
   const [formData, setFormData] = useState<ExamConfigurationForm>({
     name: config?.name || '',
     description: config?.description || '',
-    duration_minutes: config?.duration_minutes || 30,
+    duration_minutes: config?.duration_minutes || 300,
     start_time: config?.start_time || '',
     end_time: config?.end_time || '',
-    max_attempts: config?.max_attempts,
-    shuffle_questions: config?.shuffle_questions ?? false,
+    max_attempts: config?.max_attempts ?? 3,
+    shuffle_questions: config?.shuffle_questions ?? true,
     randomize_order: config?.randomize_order ?? false,
     show_questions_all: config?.show_questions_all ?? true,
-    questions_per_attempt: config?.questions_per_attempt,
-    passing_score: config?.passing_score || 70,
+    package_a_questions: initialPkgA,
+    package_b_questions: initialPkgB,
+    questions_per_attempt: initialPkgA + initialPkgB,
+    passing_score: config?.passing_score || 80,
     auto_grade: config?.auto_grade ?? true,
     score_calculation_mode: config?.score_calculation_mode || 'highest',
     allow_review: config?.allow_review ?? false,
@@ -459,7 +451,14 @@ function ConfigForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
+    const pkgA = Number(formData.package_a_questions ?? 50);
+    const pkgB = Number(formData.package_b_questions ?? 50);
+    onSave({
+      ...formData,
+      package_a_questions: pkgA,
+      package_b_questions: pkgB,
+      questions_per_attempt: pkgA + pkgB,
+    });
   };
 
   return (
@@ -576,23 +575,48 @@ function ConfigForm({
 
       {/* Questions */}
       <div className="space-y-4">
-        <h4 className="font-medium text-gray-900">Questions</h4>
+        <h4 className="font-medium text-gray-900">Kuota Paket Soal &amp; Nilai Kelulusan</h4>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Questions per Attempt
+              Kuota Paket A (1/2 Juz Awal)
             </label>
             <input
               type="number"
-              min="1"
-              value={formData.questions_per_attempt ?? ''}
-              onChange={(e) => setFormData({
-                ...formData,
-                questions_per_attempt: e.target.value ? parseInt(e.target.value) : undefined
-              })}
+              min="0"
+              value={formData.package_a_questions ?? 50}
+              onChange={(e) => {
+                const pkgA = e.target.value ? parseInt(e.target.value) : 0;
+                const pkgB = Number(formData.package_b_questions ?? 50);
+                setFormData({
+                  ...formData,
+                  package_a_questions: pkgA,
+                  questions_per_attempt: pkgA + pkgB
+                });
+              }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              placeholder="All questions"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Kuota Paket B (1/2 Juz Akhir)
+            </label>
+            <input
+              type="number"
+              min="0"
+              value={formData.package_b_questions ?? 50}
+              onChange={(e) => {
+                const pkgB = e.target.value ? parseInt(e.target.value) : 0;
+                const pkgA = Number(formData.package_a_questions ?? 50);
+                setFormData({
+                  ...formData,
+                  package_b_questions: pkgB,
+                  questions_per_attempt: pkgA + pkgB
+                });
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
@@ -611,6 +635,12 @@ function ConfigForm({
             />
           </div>
         </div>
+
+        <p className="text-xs text-gray-600">
+          Total maksimal untuk ujian 1 Juz penuh (Ujian Seleksi &amp; Ujian Akhir Paket B):{' '}
+          <strong>{(formData.package_a_questions ?? 50) + (formData.package_b_questions ?? 50)} soal</strong>.
+          Untuk Ujian Akhir setengah juz (Paket A): <strong>{formData.package_a_questions ?? 50} soal Paket A</strong>.
+        </p>
 
         <div className="space-y-3">
           <label className="flex items-center gap-2">

@@ -74,12 +74,9 @@ export async function POST(request: NextRequest) {
       return { ...answer, isCorrect };
     });
 
-    // Calculate score
-    // For final-exam, questions are sampled up to 100 from the bank, so use submitted question count / attempt.total_questions
+    // Calculate score based on the exact questions served to the user in this attempt
     const correctAnswers = gradedAnswers.filter(a => a.isCorrect).length;
-    const totalQuestions = isFinalExam
-      ? (gradedAnswers.length || attempt.total_questions || questions.length)
-      : questions.length;
+    const totalQuestions = gradedAnswers.length || attempt.total_questions || questions.length;
     const score = calculateScore(correctAnswers, totalQuestions);
 
     // Update exam attempt
@@ -236,10 +233,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Calculate result summary by section (for final-exam, scope to sampled questions in this attempt)
+    // Calculate result summary by section (always scoped to the sampled questions in this attempt)
     const sectionResults = new Map<number, { total: number; correct: number; title: string }>();
     const answeredIdsSet = new Set(gradedAnswers.map(a => a.questionId));
-    const questionsForSections = isFinalExam
+    const questionsForSections = answeredIdsSet.size > 0
       ? questions.filter(q => answeredIdsSet.has(q.id))
       : questions;
 
