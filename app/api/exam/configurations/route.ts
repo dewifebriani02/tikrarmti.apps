@@ -76,6 +76,14 @@ export async function POST(request: NextRequest) {
         .eq('is_active', true);
     }
 
+    const packageA = body.package_a_questions !== undefined && body.package_a_questions !== null
+      ? Number(body.package_a_questions)
+      : 50;
+    const packageB = body.package_b_questions !== undefined && body.package_b_questions !== null
+      ? Number(body.package_b_questions)
+      : 50;
+    const totalQuestions = body.questions_per_attempt || (packageA + packageB) || 100;
+
     // Prepare insert data - only include created_by if it exists in users table
     const insertData: any = {
       name: body.name,
@@ -87,7 +95,9 @@ export async function POST(request: NextRequest) {
       shuffle_questions: body.shuffle_questions,
       randomize_order: body.randomize_order,
       show_questions_all: body.show_questions_all,
-      questions_per_attempt: body.questions_per_attempt || null,
+      package_a_questions: packageA,
+      package_b_questions: packageB,
+      questions_per_attempt: totalQuestions,
       passing_score: body.passing_score,
       auto_grade: body.auto_grade,
       score_calculation_mode: body.score_calculation_mode || 'highest',
@@ -179,6 +189,16 @@ export async function PUT(request: NextRequest) {
         .neq('id', id);
     }
 
+    const packageA = body.package_a_questions !== undefined && body.package_a_questions !== null
+      ? Number(body.package_a_questions)
+      : 50;
+    const packageB = body.package_b_questions !== undefined && body.package_b_questions !== null
+      ? Number(body.package_b_questions)
+      : 50;
+    const totalQuestions = (packageA + packageB) > 0
+      ? packageA + packageB
+      : (body.questions_per_attempt || 100);
+
     const { data: configuration, error } = await supabaseAdmin
       .from('exam_configurations')
       .update({
@@ -191,7 +211,9 @@ export async function PUT(request: NextRequest) {
         shuffle_questions: body.shuffle_questions,
         randomize_order: body.randomize_order,
         show_questions_all: body.show_questions_all,
-        questions_per_attempt: body.questions_per_attempt || null,
+        package_a_questions: packageA,
+        package_b_questions: packageB,
+        questions_per_attempt: totalQuestions,
         passing_score: body.passing_score,
         auto_grade: body.auto_grade,
         score_calculation_mode: body.score_calculation_mode || 'highest',

@@ -35,7 +35,13 @@ export async function POST(request: Request) {
     if (authError) return authError;
 
     const payload = await request.json();
-    
+
+    const packageAQuota = Math.max(0, Number(payload.package_a_questions ?? 50));
+    const packageBQuota = Math.max(0, Number(payload.package_b_questions ?? 50));
+    const totalPerAttempt = (packageAQuota + packageBQuota) > 0
+      ? packageAQuota + packageBQuota
+      : Math.max(1, Number(payload.questions_per_attempt ?? 100));
+
     // Deactivate all existing configs first to ensure only one is active
     if (payload.is_active !== false) {
       await supabaseAdmin
@@ -52,7 +58,9 @@ export async function POST(request: Request) {
           max_attempts: payload.max_attempts,
           passing_score: payload.passing_score,
           duration_minutes: payload.duration_minutes,
-          questions_per_attempt: payload.questions_per_attempt,
+          package_a_questions: packageAQuota,
+          package_b_questions: packageBQuota,
+          questions_per_attempt: totalPerAttempt,
           shuffle_questions: payload.shuffle_questions,
           is_active: payload.is_active ?? true,
           updated_at: new Date().toISOString()
@@ -60,7 +68,7 @@ export async function POST(request: Request) {
         .eq('id', payload.id)
         .select()
         .single();
-        
+
       if (error) throw error;
       return NextResponse.json({ success: true, data });
     } else {
@@ -72,13 +80,15 @@ export async function POST(request: Request) {
           max_attempts: payload.max_attempts,
           passing_score: payload.passing_score,
           duration_minutes: payload.duration_minutes,
-          questions_per_attempt: payload.questions_per_attempt,
+          package_a_questions: packageAQuota,
+          package_b_questions: packageBQuota,
+          questions_per_attempt: totalPerAttempt,
           shuffle_questions: payload.shuffle_questions,
           is_active: payload.is_active ?? true
         })
         .select()
         .single();
-        
+
       if (error) throw error;
       return NextResponse.json({ success: true, data });
     }

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { logger } from '@/lib/logger-secure';
-import { getRequiredExamJuz } from '@/lib/exam-utils';
+import { getRequiredExamJuz, selectExamQuestionsByQuota } from '@/lib/exam-utils';
 
 const supabaseAdmin = createSupabaseAdmin();
 
@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
     // Fetch correct answers to calculate score
     const { data: questions, error: questionsError } = await supabaseAdmin
       .from('exam_questions')
-      .select('id, correct_answer, points')
+      .select('id, correct_answer, points, question_package, section_number')
       .eq('juz_number', examJuzNumber)
       .eq('is_active', true);
 
@@ -173,7 +173,7 @@ export async function POST(request: NextRequest) {
       }, { status: 500 });
     }
 
-    // Calculate score
+    // Calculate score based on the exact questions presented to the user
     let correctAnswers = 0;
     let totalPoints = 0;
     let earnedPoints = 0;
@@ -195,6 +195,12 @@ export async function POST(request: NextRequest) {
       };
     });
 
+    const sampledQuotaCount = selectExamQuestionsByQuota(questions, {
+      chosenJuz,
+      isFinalExam: false,
+      config
+    }).length;
+    const attemptTotalQuestions = processedAnswers.length || sampledQuotaCount || questions.length;
     const score = totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 0;
 
     // Create or update selection exam attempt
@@ -226,7 +232,7 @@ export async function POST(request: NextRequest) {
         .from('exam_attempts')
         .update({
           answers: processedAnswers,
-          total_questions: questions.length,
+          total_questions: attemptTotalQuestions,
           correct_answers: correctAnswers,
           score: score,
           status: 'submitted',
@@ -251,7 +257,7 @@ export async function POST(request: NextRequest) {
           registration_id: registration.id,
           juz_number: examJuzNumber,
           answers: processedAnswers,
-          total_questions: questions.length,
+          total_questions: attemptTotalQuestions,
           correct_answers: correctAnswers,
           score: score,
           status: 'submitted',
@@ -317,7 +323,7 @@ export async function POST(request: NextRequest) {
       attemptId,
       score,
       correctAnswers,
-      totalQuestions: questions.length,
+      totalQuestions: attemptTotalQuestions,
       downgradedTo30A
     });
 
@@ -326,7 +332,7 @@ export async function POST(request: NextRequest) {
       attemptId,
       score,
       correctAnswers,
-      totalQuestions: questions.length,
+      totalQuestions: attemptTotalQuestions,
       downgradedTo30A
     });
 
@@ -543,10 +549,17 @@ export async function PUT(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Fetch questions to validate answers
+    // Fetch configuration
+    const { data: config } = await supabaseAdmin
+      .from('exam_configurations')
+      .select('*')
+      .eq('is_active', true)
+      .single();
+
+    // Fetch questions to validate answers and compute quota total
     const { data: questions, error: questionsError } = await supabaseAdmin
       .from('exam_questions')
-      .select('id')
+      .select('id, question_package, section_number')
       .eq('juz_number', examJuzNumber)
       .eq('is_active', true);
 
@@ -555,6 +568,13 @@ export async function PUT(request: NextRequest) {
         error: 'Failed to fetch questions'
       }, { status: 500 });
     }
+
+    const sampledQuotaCount = selectExamQuestionsByQuota(questions, {
+      chosenJuz,
+      isFinalExam: false,
+      config
+    }).length;
+    const draftTotalQuestions = sampledQuotaCount || questions.length;
 
     // Validate answers
     const questionIds = new Set(questions.map(q => q.id));
@@ -603,7 +623,7 @@ export async function PUT(request: NextRequest) {
         .from('exam_attempts')
         .update({
           answers: draftAnswers,
-          total_questions: questions.length,
+          total_questions: draftTotalQuestions,
           updated_at: new Date().toISOString()
         })
         .eq('id', attemptId);
@@ -625,7 +645,7 @@ export async function PUT(request: NextRequest) {
           registration_id: registration.id,
           juz_number: examJuzNumber,
           answers: draftAnswers,
-          total_questions: questions.length,
+          total_questions: draftTotalQuestions,
           correct_answers: 0,
           score: 0,
           status: 'in_progress',
