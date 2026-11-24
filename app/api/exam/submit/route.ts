@@ -137,6 +137,12 @@ export async function POST(request: NextRequest) {
           }
         }
       }
+
+      // Sync score_tulisan to any existing final_exam_registrations for this user
+      await supabaseAdmin
+        .from('final_exam_registrations')
+        .update({ score_tulisan: score })
+        .eq('user_id', user.id);
     }
 
     // Get past submitted attempts count for this user, registration, exam_type, and juz

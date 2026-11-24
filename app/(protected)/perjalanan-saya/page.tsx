@@ -145,6 +145,7 @@ export default function PerjalananSaya() {
   const [pairingData, setPairingData] = useState<PairingData | null>(null);
   const [isLoadingPairing, setIsLoadingPairing] = useState(false);
   const [finalExams, setFinalExams] = useState<any[]>([]);
+  const [finalWrittenAttempt, setFinalWrittenAttempt] = useState<any | null>(null);
   const [isAlumnus, setIsAlumnus] = useState(false);
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
 
@@ -535,9 +536,15 @@ export default function PerjalananSaya() {
 
     const oralExam = finalExams.find(r => r.schedule?.exam_type === 'oral');
     const writtenExam = finalExams.find(r => r.schedule?.exam_type === 'written');
+    const hasCompletedFinalWritten = !!(
+      (finalWrittenAttempt && finalWrittenAttempt.status === 'submitted') ||
+      (writtenExam && writtenExam.status === 'graded') ||
+      (oralExam && oralExam.score_tulisan !== null && oralExam.score_tulisan !== undefined)
+    );
+    const finalWrittenScore = finalWrittenAttempt?.score ?? writtenExam?.score_tulisan ?? oralExam?.score_tulisan;
 
-    // Graduation is done only when both oral and written exams have been graded
-    const isGraduationDone = !!(oralExam?.status === 'graded' && writtenExam?.status === 'graded');
+    // Graduation is done only when both oral and written exams have been completed/graded
+    const isGraduationDone = !!(oralExam?.status === 'graded' && hasCompletedFinalWritten);
 
 
     // Sub-phase detailed logic & data formatting
@@ -717,14 +724,14 @@ export default function PerjalananSaya() {
         desc: batch?.graduation_start_date ? formatDateIndo(batch.graduation_start_date) : 'Syahadah & Sertifikat', 
         icon: <Award className="w-4 h-4" />,
         subPhases: [
-          { name: 'Ujian Tulis', date: formatDateRangeShort(batch?.final_exam_start_date, batch?.final_exam_end_date), done: !!writtenExam, data: writtenExam ? (writtenExam.status === 'graded' ? `Nilai: ${writtenExam.score_tulisan}` : 'Sudah terdaftar') : 'Belum ujian', isPortalAction: isFinalExamStarted || isAdmin, isPortalDisabled: !isFinalExamStarted && !isAdmin, isLocked: !isFinalExamStarted && !isAdmin },
+          { name: 'Ujian Tulis', date: formatDateRangeShort(batch?.final_exam_start_date, batch?.final_exam_end_date), done: !!(hasCompletedFinalWritten || writtenExam), data: hasCompletedFinalWritten ? (finalWrittenScore !== null && finalWrittenScore !== undefined ? `Nilai: ${finalWrittenScore}` : 'Selesai ✓') : (writtenExam ? 'Sudah terdaftar' : 'Belum ujian'), isPortalAction: isFinalExamStarted || isAdmin, isPortalDisabled: !isFinalExamStarted && !isAdmin, isLocked: !isFinalExamStarted && !isAdmin },
           { name: 'Ujian Lisan', date: formatDateRangeShort(batch?.final_exam_start_date, batch?.final_exam_end_date), done: !!oralExam, data: oralExam ? (oralExam.status === 'graded' ? `Nilai: ${oralExam.score_lisan}` : `${formatDateIndo(oralExam.schedule?.exam_date || '')}`) : 'Belum memilih jadwal', isPortalAction: isLearningDone || isAdmin, isPortalDisabled: !isFinalExamStarted },
           { name: 'Penerbitan Syahadah', date: batch?.graduation_start_date ? formatDateShort(batch.graduation_start_date) : '', done: isGraduationDone, data: batch?.graduation_start_date ? formatDateIndo(batch.graduation_start_date) : '-' },
           { name: 'Sertifikat', date: batch?.graduation_start_date ? formatDateShort(batch.graduation_start_date) : '', done: isGraduationDone, data: isGraduationDone ? 'Sudah terbit' : 'Menunggu penerbitan' }
         ]
       },
     ].filter(phase => !(isPraTikrar && phase.id === 5));
-  }, [user, isLoading, registrationStatus, batch, percentage, pairingData, finalExams, isAdmin, hasPassedAkadQuiz, hasAkad, hasAkadFiles, isAkadSubmitted, hasHalaqah, hasPartnerSelection, hasPhase3, hasPartner, isAlumnus, isJuz30, partnerName, daftarUlangData]);
+  }, [user, isLoading, registrationStatus, batch, percentage, pairingData, finalExams, finalWrittenAttempt, isAdmin, hasPassedAkadQuiz, hasAkad, hasAkadFiles, isAkadSubmitted, hasHalaqah, hasPartnerSelection, hasPhase3, hasPartner, isAlumnus, isJuz30, partnerName, daftarUlangData]);
 
   useEffect(() => {
     setIsClient(true);
@@ -944,10 +951,17 @@ export default function PerjalananSaya() {
   const fetchFinalExams = async (currentBatchId: string | null) => {
     if (!currentBatchId) return;
     try {
-      const response = await fetch(`/api/exams/final-exams/registrations?batch_id=${currentBatchId}`, { cache: 'no-store' });
-      const result = await response.json();
+      const [regResponse, attemptResponse] = await Promise.all([
+        fetch(`/api/exams/final-exams/registrations?batch_id=${currentBatchId}`, { cache: 'no-store' }),
+        fetch(`/api/exam/attempts?source=final-exam&batchId=${currentBatchId}`, { cache: 'no-store' })
+      ]);
+      const result = await regResponse.json();
       if (result.success) {
         setFinalExams(Array.isArray(result.data) ? result.data : result.data ? [result.data] : []);
+      }
+      if (attemptResponse.ok) {
+        const attemptResult = await attemptResponse.json();
+        setFinalWrittenAttempt(attemptResult.attempt || null);
       }
     } catch (error) {
       console.error('Error fetching final exams:', error);

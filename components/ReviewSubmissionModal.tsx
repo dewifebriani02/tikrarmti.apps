@@ -83,15 +83,19 @@ export function ReviewSubmissionModal({
     try {
       const batchId = registrationStatus?.registration?.batch_id;
       const batchQuery = batchId ? `&batchId=${encodeURIComponent(batchId)}` : '';
-      // 1. Fetch attempt answers (selection exam)
+      // 1. Fetch attempt answers and attached questions (selection exam)
       const attemptRes = await fetch(`/api/exam/attempts?source=selection${batchQuery}`);
       const attemptData = await attemptRes.json();
-      
-      // 2. Fetch questions to match with answers
-      const questionsRes = await fetch(`/api/exam/questions/for-user?source=selection${batchQuery}`);
-      const questionsData = await questionsRes.json();
-      
-      setQuestions(questionsData.data || []);
+
+      if (Array.isArray(attemptData.questions) && attemptData.questions.length > 0) {
+        setQuestions(attemptData.questions);
+      } else {
+        // 2. Fallback: fetch questions in review mode
+        const questionsRes = await fetch(`/api/exam/questions/for-user?source=selection&review=true${batchQuery}`);
+        const questionsData = await questionsRes.json();
+        setQuestions(questionsData.data || []);
+      }
+
       setData(attemptData.attempt || null);
     } catch (error) {
       console.error('Error fetching written data:', error);
@@ -116,7 +120,10 @@ export function ReviewSubmissionModal({
     );
 
     const answersMap = (data.answers || []).reduce((acc: any, curr: any) => {
-      acc[curr.questionId] = curr.answer;
+      acc[curr.questionId] = {
+        answer: curr.answer,
+        isCorrect: curr.isCorrect
+      };
       return acc;
     }, {});
 
@@ -125,7 +132,9 @@ export function ReviewSubmissionModal({
         <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 flex items-center justify-between mb-6">
           <div>
             <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Ujian Seleksi</p>
-            <p className="text-2xl font-black text-emerald-900">Selesai ✓</p>
+            <p className="text-2xl font-black text-emerald-900">
+              Selesai ✓ {data.score !== undefined && data.score !== null ? `(${data.score}/100)` : ''}
+            </p>
           </div>
           <div className="text-right">
             <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Status</p>
@@ -134,13 +143,21 @@ export function ReviewSubmissionModal({
         </div>
 
         {questions.map((q: any, idx: number) => {
-          const userAnswer = answersMap[q.id];
-          const isCorrect = q.options?.find((o: any) => o.text === userAnswer)?.isCorrect;
+          const answerRecord = answersMap[q.id];
+          const userAnswer = answerRecord?.answer;
+          const isCorrect = answerRecord?.isCorrect;
           
           return (
             <div key={q.id} className="p-5 rounded-3xl border border-gray-100 bg-white shadow-sm hover:shadow-md transition-all">
               <div className="flex items-start gap-4">
-                <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 text-xs font-bold text-gray-500">
+                <div className={cn(
+                  "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold",
+                  isCorrect === true
+                    ? "bg-emerald-100 text-emerald-700"
+                    : isCorrect === false
+                    ? "bg-red-100 text-red-700"
+                    : "bg-gray-100 text-gray-500"
+                )}>
                   {idx + 1}
                 </div>
                 <div className="space-y-4 flex-1">
@@ -154,14 +171,18 @@ export function ReviewSubmissionModal({
                           key={oIdx}
                           className={cn(
                             "p-3 rounded-xl text-xs flex items-center justify-between border transition-all",
-                            isSelected 
-                              ? "bg-emerald-50 border-emerald-200 text-emerald-900 font-bold"
+                            isSelected
+                              ? isCorrect === false
+                                ? "bg-red-50 border-red-200 text-red-900 font-bold"
+                                : "bg-emerald-50 border-emerald-200 text-emerald-900 font-bold"
                               : "bg-gray-50 border-gray-100 text-gray-500 font-medium"
                           )}
                         >
                           <span>{opt.text}</span>
                           {isSelected && (
-                            <CheckCircle className="w-4 h-4 text-emerald-600" />
+                            isCorrect === false
+                              ? <XCircle className="w-4 h-4 text-red-600" />
+                              : <CheckCircle className="w-4 h-4 text-emerald-600" />
                           )}
                         </div>
                       );
@@ -386,7 +407,7 @@ export function ReviewSubmissionModal({
           <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm p-8 space-y-8">
             <div className="text-center">
               <p className="text-2xl font-arabic text-emerald-900 mb-2">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</p>
-              <p className="text-[10px] text-gray-500 italic">"Dengan menyebut nama Allah Yang Maha Pengasih lagi Maha Penyayang"</p>
+              <p className="text-[10px] text-gray-500 italic">&quot;Dengan menyebut nama Allah Yang Maha Pengasih lagi Maha Penyayang&quot;</p>
             </div>
 
             <div className="space-y-6">
@@ -426,7 +447,7 @@ export function ReviewSubmissionModal({
 
             <div className="pt-6 border-t border-gray-100">
               <p className="text-[10px] text-center text-gray-400 italic leading-relaxed">
-                "Dengan mendaftar, Ukhti menyatakan telah membaca, memahami, dan menyetujui seluruh syarat dan ketentuan yang berlaku."
+                &quot;Dengan mendaftar, Ukhti menyatakan telah membaca, memahami, dan menyetujui seluruh syarat dan ketentuan yang berlaku.&quot;
               </p>
             </div>
           </div>

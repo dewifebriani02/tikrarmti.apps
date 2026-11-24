@@ -48,38 +48,5 @@ export async function POST(request: Request) {
 
   if (error) return ApiResponses.databaseError(error);
 
-  // Sync to pendaftaran_tikrar_tahfidz if user_id is present
-  if (data?.user_id) {
-    const lisanVal = data.score_lisan;
-    const tulisanVal = data.score_tulisan;
-
-    // Calculate composite final exam score
-    let finalScore = 0;
-    if (lisanVal !== null && tulisanVal !== null) {
-      finalScore = Math.round((Number(lisanVal) * 0.7) + (Number(tulisanVal) * 0.3));
-    } else if (lisanVal !== null) {
-      finalScore = Number(lisanVal);
-    } else if (tulisanVal !== null) {
-      finalScore = Number(tulisanVal);
-    }
-
-    const pendaftaranUpdate: Record<string, any> = {
-      exam_score: finalScore
-    };
-    if (lisanVal !== null) pendaftaranUpdate.oral_total_score = Number(lisanVal);
-    if (tulisanVal !== null) pendaftaranUpdate.written_quiz_score = Number(tulisanVal);
-
-    let pendaftaranQuery = supabase
-      .from('pendaftaran_tikrar_tahfidz')
-      .update(pendaftaranUpdate)
-      .eq('user_id', data.user_id);
-
-    if (data.schedule?.batch_id) {
-      pendaftaranQuery = pendaftaranQuery.eq('batch_id', data.schedule.batch_id);
-    }
-
-    await pendaftaranQuery;
-  }
-
   return ApiResponses.success(data);
 }

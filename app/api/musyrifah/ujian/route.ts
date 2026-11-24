@@ -1,5 +1,9 @@
 import { createClient } from '@/lib/supabase/server';
+import { createSupabaseAdmin } from '@/lib/supabase';
 import { NextResponse } from 'next/server';
+import { isStaff } from '@/lib/roles';
+
+const supabaseAdmin = createSupabaseAdmin();
 
 export async function GET() {
   try {
@@ -11,7 +15,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Verify user has musyrifah role
+    // Verify user has staff/admin/musyrifah role
     const { data: userData, error: userError } = await supabase
       .from('users')
       .select('roles')
@@ -23,49 +27,46 @@ export async function GET() {
     }
 
     const roles = userData?.roles || [];
-    if (!roles.includes('admin')) {
-      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
+    if (!isStaff(roles)) {
+      return NextResponse.json({ error: 'Forbidden: Staff access required' }, { status: 403 });
     }
 
-
     // Get all ujian results
-    const { data: allResults, error } = await supabase
+    const { data: allResults, error } = await supabaseAdmin
       .from('exam_attempts')
       .select(`
         id,
-        thalibah_id,
+        user_id,
+        registration_id,
         juz_number,
+        exam_type,
         score,
         status,
         submitted_at,
         created_at,
         updated_at,
-        thalibah:users(id, full_name, nama_kunyah, whatsapp, email, confirmed_chosen_juz)
+        thalibah:users(id, full_name, nama_kunyah, whatsapp, email)
       `)
       .order('submitted_at', { ascending: false });
 
     if (error) {
-      // If table doesn't exist, return empty array
       if (error.code === 'PGRST116' || error.message.includes('does not exist')) {
         return NextResponse.json({ success: true, data: [] });
       }
       throw error;
     }
 
-    // Group results by thalibah_id and juz_number
-    // For each thalibah-juz combination, keep only the best attempt (highest score or latest)
-    const resultKey = new Map<string, any>(); // key: "thalibahId_juzNumber"
+    // Group results by user_id and juz_number
+    const resultKey = new Map<string, any>();
 
     allResults?.forEach((attempt: any) => {
-      const key = `${attempt.thalibah_id}_${attempt.juz_number}`;
+      const thalibahId = attempt.user_id;
+      const key = `${thalibahId}_${attempt.juz_number}_${attempt.exam_type || 'selection'}`;
       const existing = resultKey.get(key);
 
       if (!existing) {
-        // First attempt for this thalibah-juz combination
         resultKey.set(key, attempt);
       } else {
-        // Compare with existing attempt
-        // Priority: passed > failed, then by score (higher is better), then by latest date
         const existingScore = existing.score || 0;
         const currentScore = attempt.score || 0;
         const existingStatus = existing.status;
@@ -73,15 +74,12 @@ export async function GET() {
 
         let shouldReplace = false;
 
-        // If current is passed and existing is not passed, replace
-        if (currentStatus === 'passed' && existingStatus !== 'passed') {
+        if (currentStatus === 'submitted' && existingStatus !== 'submitted') {
           shouldReplace = true;
         } else if (currentStatus === existingStatus) {
-          // If same status, use higher score
           if (currentScore > existingScore) {
             shouldReplace = true;
           } else if (currentScore === existingScore) {
-            // If same score, use latest (submitted_at)
             const existingDate = new Date(existing.submitted_at || existing.created_at);
             const currentDate = new Date(attempt.submitted_at || attempt.created_at);
             if (currentDate > existingDate) {
@@ -96,16 +94,16 @@ export async function GET() {
       }
     });
 
-    // Get unique results
     const uniqueResults = Array.from(resultKey.values());
 
-    // Group by thalibah_id for better UI display
+    // Group by user_id for UI display
     const resultsByThalibah = new Map<string, any[]>();
     uniqueResults.forEach((result: any) => {
-      if (!resultsByThalibah.has(result.thalibah_id)) {
-        resultsByThalibah.set(result.thalibah_id, []);
+      const thalibahId = result.user_id;
+      if (!resultsByThalibah.has(thalibahId)) {
+        resultsByThalibah.set(thalibahId, []);
       }
-      const thalibahResults = resultsByThalibah.get(result.thalibah_id);
+      const thalibahResults = resultsByThalibah.get(thalibahId);
       if (thalibahResults) {
         thalibahResults.push(result);
       }
@@ -114,9 +112,9 @@ export async function GET() {
     // Calculate summary for each thalibah
     const thalibahSummaries = new Map();
     resultsByThalibah.forEach((attempts: any[], thalibahId: string) => {
-      const passedAttempts = attempts.filter((a: any) => a.status === 'passed');
+      const passedAttempts = attempts.filter((a: any) => (a.score || 0) >= 80);
       const uniqueJuz = new Set(attempts.map((a: any) => a.juz_number));
-      const firstAttempt = attempts[attempts.length - 1]; // latest first
+      const firstAttempt = attempts[0];
 
       thalibahSummaries.set(thalibahId, {
         total_attempts: attempts.length,
@@ -126,7 +124,6 @@ export async function GET() {
       });
     });
 
-    // Build final response with grouped data
     const groupedData = Array.from(resultsByThalibah.entries()).map(([thalibahId, attempts]) => {
       const summary = thalibahSummaries.get(thalibahId);
       const thalibahInfo = attempts[0]?.thalibah || {};
@@ -138,6 +135,7 @@ export async function GET() {
         attempts: attempts.map((a: any) => ({
           id: a.id,
           juz_number: a.juz_number,
+          exam_type: a.exam_type || 'selection',
           score: a.score,
           status: a.status,
           submitted_at: a.submitted_at,

@@ -51,7 +51,7 @@ function PilihanGandaContent() {
   const searchParams = useSearchParams();
   const examSource = searchParams.get('source') || 'selection';
   const isFinalExam = examSource === 'final-exam';
-  const batchId = searchParams.get('batchId') || '';
+  const batchId = searchParams.get('batchId') || searchParams.get('batch_id') || '';
   const attemptsQuery = `?source=${encodeURIComponent(examSource)}${batchId ? `&batchId=${encodeURIComponent(batchId)}` : ''}`;
   const { user, isLoading: authLoading } = useAuth();
   const [isClient, setIsClient] = useState(false);

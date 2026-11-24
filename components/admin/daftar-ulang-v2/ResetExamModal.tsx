@@ -14,15 +14,19 @@ export function ResetExamModal({
   onClose: () => void;
   onConfirm: (registrationId: string, targetJuz: string, resetStatus: boolean) => Promise<void>;
 }) {
-  const [targetJuz, setTargetJuz] = useState(submission.confirmed_chosen_juz || '');
+  const [targetJuz, setTargetJuz] = useState(
+    submission.confirmed_chosen_juz || submission.registration?.chosen_juz || ''
+  );
   const [resetStatus, setResetStatus] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { juzOptions } = useJuzOptions();
 
   const handleConfirm = async () => {
+    const registrationId = submission.registration?.id || submission.registration_id;
+    if (!registrationId) return;
     setIsSubmitting(true);
     try {
-      await onConfirm(submission.id, targetJuz, resetStatus);
+      await onConfirm(registrationId, targetJuz, resetStatus);
       onClose();
     } catch (error) {
       console.error(error);
@@ -40,7 +44,7 @@ export function ResetExamModal({
               <AlertTriangle className="w-5 h-5 text-amber-600" />
             </div>
             <div>
-              <h3 className="text-lg font-black text-gray-900">Reset Ujian Akhir</h3>
+              <h3 className="text-lg font-black text-gray-900">Reset Ujian Tulis (Seleksi)</h3>
               <p className="text-xs font-medium text-gray-500 mt-0.5">{submission.confirmed_full_name || submission.user?.full_name}</p>
             </div>
           </div>
@@ -66,6 +70,8 @@ export function ResetExamModal({
                 <>
                   <option value="1A">Juz 1A</option>
                   <option value="1B">Juz 1B</option>
+                  <option value="28A">Juz 28A</option>
+                  <option value="28B">Juz 28B</option>
                   <option value="29A">Juz 29A</option>
                   <option value="29B">Juz 29B</option>
                   <option value="30A">Juz 30A</option>
@@ -85,8 +91,8 @@ export function ResetExamModal({
               />
             </div>
             <div className="flex flex-col">
-              <span className="text-sm font-bold text-gray-900">Reset Status Ujian</span>
-              <span className="text-xs text-gray-500 mt-0.5">Ubah status dari &quot;completed&quot; menjadi &quot;not_started&quot; agar user bisa mengulang ujian menggunakan sisa kesempatan.</span>
+              <span className="text-sm font-bold text-gray-900">Reset Status & Riwayat Ujian</span>
+              <span className="text-xs text-gray-500 mt-0.5">Hapus nilai & riwayat percobaan ujian seleksi serta ubah status menjadi &quot;not_started&quot; agar thalibah bisa mengulang ujian.</span>
             </div>
           </label>
         </div>
@@ -100,7 +106,7 @@ export function ResetExamModal({
           </button>
           <button
             onClick={handleConfirm}
-            disabled={!targetJuz || isSubmitting}
+            disabled={!targetJuz || isSubmitting || !(submission.registration?.id || submission.registration_id)}
             className="px-5 py-2.5 text-sm font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-xl transition-colors shadow-md shadow-amber-600/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {isSubmitting ? 'Memproses...' : 'Ya, Reset Ujian'}

@@ -48,7 +48,40 @@ async function findUserRegistration(userId: string, batchId?: string | null) {
   return { registration, error: null };
 }
 
-// POST: Create or update selection exam attempt
+async function attachAttemptQuestions(attempt: any) {
+  if (!attempt || !Array.isArray(attempt.answers) || attempt.answers.length === 0) {
+    return [];
+  }
+  const questionIds = Array.from(
+    new Set(attempt.answers.map((a: any) => a.questionId).filter(Boolean))
+  ) as string[];
+
+  if (questionIds.length === 0) return [];
+
+  const { data: questions } = await supabaseAdmin
+    .from('exam_questions')
+    .select('id, juz_number, juz_code, section_number, section_title, question_number, question_text, question_type, options, points')
+    .in('id', questionIds);
+
+  if (!questions) return [];
+
+  // Sanitize options (remove isCorrect / correct_answer from options payload) and preserve answer order
+  const questionMap = new Map(
+    questions.map((q: any) => [
+      q.id,
+      {
+        ...q,
+        options: Array.isArray(q.options)
+          ? q.options.map((opt: any) => ({ text: opt.text || opt.option_text }))
+          : []
+      }
+    ])
+  );
+
+  return questionIds.map((id) => questionMap.get(id)).filter(Boolean);
+}
+
+// POST: Create or update exam attempt
 export async function POST(request: NextRequest) {
   try {
     const supabase = createServerClient();
@@ -60,10 +93,14 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const batchId = body.batchId || body.batch_id || null;
+    const source = body.source || 'selection';
+    const isFinalExam = source === 'final-exam';
+    const examType = isFinalExam ? 'final-exam' : 'selection';
 
     logger.info('POST /api/exam/attempts', {
       userId: user.id,
       batchId,
+      examType,
       hasAnswers: !!body.answers,
       answersCount: Array.isArray(body.answers) ? body.answers.length : 0
     });
@@ -81,7 +118,7 @@ export async function POST(request: NextRequest) {
     // Get batch to check selection dates and status
     const { data: batch, error: batchError } = await supabaseAdmin
       .from('batches')
-      .select('id, name, status, selection_start_date, selection_end_date')
+      .select('id, name, status, selection_start_date, selection_end_date, min_exam_score, min_final_exam_score')
       .eq('id', registration.batch_id)
       .single();
 
@@ -92,14 +129,6 @@ export async function POST(request: NextRequest) {
         details: 'Batch pendaftaran tidak ditemukan'
       }, { status: 404 });
     }
-
-    logger.info('Batch info', {
-      batchId: batch.id,
-      batchName: batch.name,
-      batchStatus: batch.status,
-      selectionStart: batch.selection_start_date,
-      selectionEnd: batch.selection_end_date
-    });
 
     // Check if batch is open or ongoing
     if (batch.status !== 'open' && batch.status !== 'ongoing') {
@@ -117,11 +146,12 @@ export async function POST(request: NextRequest) {
       .eq('is_active', true)
       .single();
 
-    const passingScore = config?.passing_score || 80;
+    const passingScore = isFinalExam
+      ? getPassingScore(batch, true)
+      : (config?.passing_score || 80);
 
-    // Check if selection exam is already completed and passed
-    logger.info('Exam status check', { examStatus: registration.exam_status });
-    if (registration.exam_status === 'completed') {
+    // Check if exam is already completed and passed
+    if (!isFinalExam && registration.exam_status === 'completed') {
       const { data: attempts } = await supabaseAdmin
         .from('exam_attempts')
         .select('score')
@@ -142,18 +172,19 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Use the shared target-to-exam mapping used by eligibility and start routes.
     const chosenJuz = registration.chosen_juz;
-    const examJuzNumber = getRequiredExamJuz(chosenJuz);
+    const examJuzNumber = isFinalExam
+      ? parseInt(chosenJuz?.match(/\d+/)?.[0] || '0', 10)
+      : getRequiredExamJuz(chosenJuz);
 
-    if (!examJuzNumber && parseInt(chosenJuz?.match(/\d+/)?.[0] || '0') === 30) {
+    if (!isFinalExam && !examJuzNumber && parseInt(chosenJuz?.match(/\d+/)?.[0] || '0') === 30) {
       return NextResponse.json({
         error: 'No exam required for Juz 30',
         details: 'Target Juz 30 tidak memerlukan ujian tertulis'
       }, { status: 400 });
     }
 
-    if (!examJuzNumber) {
+    if (!examJuzNumber || examJuzNumber < 1 || examJuzNumber > 30) {
       return NextResponse.json({
         error: 'Invalid chosen_juz',
         details: `chosen_juz "${chosenJuz}" tidak valid`
@@ -180,7 +211,7 @@ export async function POST(request: NextRequest) {
 
     const processedAnswers = body.answers.map((answer: any) => {
       const question = questions.find((q: any) => q.id === answer.questionId);
-      const isCorrect = question && answer.answer?.trim() === question.correct_answer?.trim();
+      const isCorrect = !!(question && answer.answer?.trim() === question.correct_answer?.trim());
 
       if (isCorrect) {
         correctAnswers++;
@@ -197,24 +228,24 @@ export async function POST(request: NextRequest) {
 
     const sampledQuotaCount = selectExamQuestionsByQuota(questions, {
       chosenJuz,
-      isFinalExam: false,
+      isFinalExam,
       config
     }).length;
     const attemptTotalQuestions = processedAnswers.length || sampledQuotaCount || questions.length;
     const score = totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 0;
 
-    // Create or update selection exam attempt
-    let attemptId = registration.exam_attempt_id;
+    // Create or update exam attempt
+    let attemptId = isFinalExam ? null : registration.exam_attempt_id;
 
-    // Verify if the existing attempt actually exists and belongs to selection exam
+    // Verify if the existing attempt actually exists and belongs to the same examType and is not already submitted
     if (attemptId) {
       const { data: existingAttempt, error: checkError } = await supabaseAdmin
         .from('exam_attempts')
-        .select('id, exam_type')
+        .select('id, exam_type, status')
         .eq('id', attemptId)
         .single();
 
-      if (checkError || !existingAttempt || existingAttempt.exam_type === 'final-exam') {
+      if (checkError || !existingAttempt || existingAttempt.exam_type !== examType || existingAttempt.status === 'submitted') {
         if (checkError || !existingAttempt) {
           logger.warn('Existing exam attempt not found, clearing reference', { attemptId });
           await supabaseAdmin
@@ -227,7 +258,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (attemptId) {
-      // Update existing attempt
+      // Update existing in_progress attempt
       const { error: updateError } = await supabaseAdmin
         .from('exam_attempts')
         .update({
@@ -236,7 +267,8 @@ export async function POST(request: NextRequest) {
           correct_answers: correctAnswers,
           score: score,
           status: 'submitted',
-          exam_type: 'selection',
+          exam_type: examType,
+          submitted_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
         .eq('id', attemptId);
@@ -261,7 +293,8 @@ export async function POST(request: NextRequest) {
           correct_answers: correctAnswers,
           score: score,
           status: 'submitted',
-          exam_type: 'selection'
+          exam_type: examType,
+          submitted_at: new Date().toISOString()
         })
         .select()
         .single();
@@ -278,44 +311,52 @@ export async function POST(request: NextRequest) {
     }
 
     const isPassed = score >= passingScore;
-
-    // Check total attempts to apply downgrade logic if max attempts reached and failed
-    const { data: allAttempts } = await supabaseAdmin
-      .from('exam_attempts')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('registration_id', registration.id)
-      .eq('exam_type', 'selection')
-      .eq('status', 'submitted');
-
-    const attemptsCount = allAttempts?.length || 1;
-    const maxAttempts = config?.max_attempts || 3;
     let downgradedTo30A = false;
-    let newChosenJuz = registration.chosen_juz;
 
-    // Only downgrade if they failed AND they have reached max attempts
-    if (!isPassed && attemptsCount >= maxAttempts) {
-      newChosenJuz = '30A';
-      downgradedTo30A = true;
-    }
+    if (isFinalExam) {
+      // Sync score_tulisan to any existing final_exam_registrations for this user
+      await supabaseAdmin
+        .from('final_exam_registrations')
+        .update({ score_tulisan: score })
+        .eq('user_id', user.id);
+    } else {
+      // Check total attempts to apply downgrade logic if max attempts reached and failed
+      const { data: allAttempts } = await supabaseAdmin
+        .from('exam_attempts')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('registration_id', registration.id)
+        .eq('exam_type', 'selection')
+        .eq('status', 'submitted');
 
-    const newExamStatus = (isPassed || attemptsCount >= maxAttempts) ? 'completed' : 'in_progress';
+      const attemptsCount = allAttempts?.length || 1;
+      const maxAttempts = config?.max_attempts || 3;
+      let newChosenJuz = registration.chosen_juz;
 
-    // Update registration with exam results
-    const { error: updateRegError } = await supabaseAdmin
-      .from('pendaftaran_tikrar_tahfidz')
-      .update({
-        chosen_juz: newChosenJuz,
-        exam_juz_number: examJuzNumber,
-        exam_attempt_id: attemptId,
-        exam_score: score,
-        exam_submitted_at: new Date().toISOString(),
-        exam_status: newExamStatus
-      })
-      .eq('id', registration.id);
+      // Only downgrade if they failed AND they have reached max attempts
+      if (!isPassed && attemptsCount >= maxAttempts) {
+        newChosenJuz = '30A';
+        downgradedTo30A = true;
+      }
 
-    if (updateRegError) {
-      logger.error('Error updating registration', { error: updateRegError });
+      const newExamStatus = (isPassed || attemptsCount >= maxAttempts) ? 'completed' : 'in_progress';
+
+      // Update registration with exam results
+      const { error: updateRegError } = await supabaseAdmin
+        .from('pendaftaran_tikrar_tahfidz')
+        .update({
+          chosen_juz: newChosenJuz,
+          exam_juz_number: examJuzNumber,
+          exam_attempt_id: attemptId,
+          exam_score: score,
+          exam_submitted_at: new Date().toISOString(),
+          exam_status: newExamStatus
+        })
+        .eq('id', registration.id);
+
+      if (updateRegError) {
+        logger.error('Error updating registration', { error: updateRegError });
+      }
     }
 
     logger.info('Exam submitted successfully', {
@@ -396,14 +437,18 @@ export async function GET(request: NextRequest) {
       if (!finalAttempt) {
         return NextResponse.json({
           attempt: null,
+          questions: [],
           examStatus: 'not_started',
           minExamScore,
           message: 'No final exam attempt found'
         });
       }
 
+      const questions = await attachAttemptQuestions(finalAttempt);
+
       return NextResponse.json({
         attempt: finalAttempt,
+        questions,
         examStatus: finalAttempt.status,
         minExamScore
       });
@@ -445,14 +490,18 @@ export async function GET(request: NextRequest) {
     if (!attempt) {
       return NextResponse.json({
         attempt: null,
+        questions: [],
         examStatus: registration.exam_status || 'not_started',
         minExamScore,
         message: 'No exam attempt found'
       });
     }
 
+    const questions = await attachAttemptQuestions(attempt);
+
     return NextResponse.json({
       attempt,
+      questions,
       examStatus: registration.exam_status,
       minExamScore,
       examType

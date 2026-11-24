@@ -24,15 +24,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get user's registration with chosen_juz and batch
-    // IMPORTANT: a user can have more than one registration row (different batches,
-    // re-registrations, etc). We must not just grab the most-recently-created row —
-    // that can silently pick the wrong batch's registration (and therefore the wrong
-    // chosen_juz), which previously caused Juz 30 students to be incorrectly told an
-    // exam was required. Prefer: the batchId passed in the query string, then the
-    // registration with selection_status = 'selected'/'waitlist', then fall back to
-    // the most recent one.
-    const requestedBatchId = request.nextUrl.searchParams.get('batchId');
+    const requestedBatchId = request.nextUrl.searchParams.get('batchId') || request.nextUrl.searchParams.get('batch_id');
+    const isReview = request.nextUrl.searchParams.get('review') === 'true';
 
     let registrationQuery = supabaseAdmin
       .from('pendaftaran_tikrar_tahfidz')
@@ -77,8 +70,8 @@ export async function GET(request: NextRequest) {
     const isFinalExam = source === 'final-exam';
     const examType = isFinalExam ? 'final-exam' : 'selection';
 
-    // For selection mode: check batch open + selection dates (which are aligned with registration dates)
-    if (!isFinalExam) {
+    // For selection mode: check batch open + selection dates (skip date check in review mode)
+    if (!isFinalExam && !isReview) {
       // Check if batch is open or ongoing
       if (batch.status !== 'open' && batch.status !== 'ongoing') {
         return NextResponse.json({
@@ -116,7 +109,7 @@ export async function GET(request: NextRequest) {
           details: `Tanggal daftar ulang belum ditentukan untuk batch ini. Silakan hubungi admin.`
         }, { status: 400 });
       }
-    } else {
+    } else if (isFinalExam && !isReview) {
       // For final-exam mode: verify batch exam window has started or user is staff
       const { data: profile } = await supabaseAdmin
         .from('users')
@@ -207,10 +200,10 @@ export async function GET(request: NextRequest) {
       // Use default config if not found
     }
 
-    // Check if user has reached max attempts for this exam_type
+    // Check if user has reached max attempts for this exam_type (skip in review mode)
     // Only count submitted attempts, not in-progress ones
     const maxAttemptsToCheck = isFinalExam ? 1 : config?.max_attempts;
-    if (maxAttemptsToCheck) {
+    if (!isReview && maxAttemptsToCheck) {
       const { data: existingAttempts, error: attemptsError } = await supabaseAdmin
         .from('exam_attempts')
         .select('id, status')
