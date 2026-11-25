@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
-import { FileUp, Plus, Sparkles, BarChart3, CopyMinus } from 'lucide-react';
+import { FileUp, Plus, Sparkles, BarChart3, CopyMinus, LayoutList, Table as TableIcon } from 'lucide-react';
 import { useAdminExamQuestions } from '@/hooks/useAdminExamQuestions';
 import { QuestionStats } from './exam/QuestionStats';
 import { QuestionFilters } from './exam/QuestionFilters';
 import { QuestionTable } from './exam/QuestionTable';
+import { QuestionPreviewAllList } from './exam/QuestionPreviewAllList';
 import { QuestionModals } from './exam/QuestionModals';
 import { ExamDeduplicateModal } from './admin/exam-deduplicate/ExamDeduplicateModal';
 
@@ -29,6 +30,7 @@ const ITEMS_PER_PAGE = 20;
 
 export function AdminExamQuestions({ onImportClick, onAddManualClick, onSuccess }: AdminExamQuestionsProps) {
   const [showDeduplicateModal, setShowDeduplicateModal] = useState(false);
+  const [viewMode, setViewMode] = useState<'preview_all' | 'table'>('preview_all');
 
   const {
     questions, loading, selectedJuz, setSelectedJuz, selectedSection, setSelectedSection,
@@ -52,12 +54,42 @@ export function AdminExamQuestions({ onImportClick, onAddManualClick, onSuccess 
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-gray-900 tracking-tight">Exam Questions</h2>
+          <h2 className="text-2xl font-black text-gray-900 tracking-tight">Bank Soal Pilihan Ganda (MCQ)</h2>
           <p className="text-sm text-gray-500 font-medium mt-1">
-            Manage multiple-choice exam questions for Juz 28, 29, and 30
+            Preview seluruh soal & kunci jawaban sekaligus atau kelola dalam tampilan tabel
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* View Mode Toggle: Preview Semua Soal vs Tabel Ringkas */}
+          <div className="inline-flex items-center p-1 bg-gray-100 border border-gray-200 rounded-xl mr-1">
+            <button
+              type="button"
+              onClick={() => setViewMode('preview_all')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all ${
+                viewMode === 'preview_all'
+                  ? 'bg-emerald-800 text-white shadow-xs'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+              title="Tampilkan seluruh soal, ayat, opsi pilihan ganda, dan kunci jawaban dalam satu halaman"
+            >
+              <LayoutList className="w-3.5 h-3.5" />
+              <span>Preview Semua Soal ({questions.length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('table')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all ${
+                viewMode === 'table'
+                  ? 'bg-emerald-800 text-white shadow-xs'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+              title="Tampilkan daftar soal dalam bentuk tabel ringkas"
+            >
+              <TableIcon className="w-3.5 h-3.5" />
+              <span>Tabel Ringkas</span>
+            </button>
+          </div>
+
           <button
             onClick={() => setShowDeduplicateModal(true)}
             className="flex items-center gap-2 px-4 py-2.5 bg-amber-600 text-white rounded-xl hover:bg-amber-700 transition-all font-bold text-sm shadow-md shadow-amber-600/10 active:scale-95 duration-200"
@@ -107,7 +139,7 @@ export function AdminExamQuestions({ onImportClick, onAddManualClick, onSuccess 
           setFilterActive(active ? 'active' : 'inactive');
           setSelectedSection(section ?? 'all');
           
-          // Scroll to the table
+          // Scroll to the filters/list
           window.scrollTo({
             top: document.getElementById('filters-section')?.offsetTop || 500,
             behavior: 'smooth'
@@ -136,22 +168,31 @@ export function AdminExamQuestions({ onImportClick, onAddManualClick, onSuccess 
         />
       </div>
 
-      {/* Table */}
-      <QuestionTable
-        questions={questions}
-        paginatedQuestions={paginatedQuestions}
-        startIndex={startIndex}
-        endIndex={endIndex}
-        currentPage={currentPage}
-        totalPages={totalPages}
-        setCurrentPage={setCurrentPage}
-        sortField={sortField}
-        sortOrder={sortOrder}
-        handleSort={handleSort}
-        onPreview={(q) => { setPreviewQuestion(q); setShowPreviewModal(true); }}
-        onEdit={(q) => { setEditingQuestion(q); setShowEditModal(true); }}
-        onDelete={(id) => { setDeletingQuestionId(id); setShowDeleteModal(true); }}
-      />
+      {/* Main Content: Full Preview All vs Paginated Table */}
+      {viewMode === 'preview_all' ? (
+        <QuestionPreviewAllList
+          questions={questions}
+          onPreviewSingle={(q) => { setPreviewQuestion(q); setShowPreviewModal(true); }}
+          onEdit={(q) => { setEditingQuestion(q); setShowEditModal(true); }}
+          onDelete={(id) => { setDeletingQuestionId(id); setShowDeleteModal(true); }}
+        />
+      ) : (
+        <QuestionTable
+          questions={questions}
+          paginatedQuestions={paginatedQuestions}
+          startIndex={startIndex}
+          endIndex={endIndex}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          setCurrentPage={setCurrentPage}
+          sortField={sortField}
+          sortOrder={sortOrder}
+          handleSort={handleSort}
+          onPreview={(q) => { setPreviewQuestion(q); setShowPreviewModal(true); }}
+          onEdit={(q) => { setEditingQuestion(q); setShowEditModal(true); }}
+          onDelete={(id) => { setDeletingQuestionId(id); setShowDeleteModal(true); }}
+        />
+      )}
 
       {/* Modals */}
       <QuestionModals

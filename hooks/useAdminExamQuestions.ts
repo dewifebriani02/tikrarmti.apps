@@ -30,8 +30,8 @@ export function useAdminExamQuestions(onSuccess?: () => void) {
   const [isSaving, setIsSaving] = useState(false);
   const [juzOptions, setJuzOptions] = useState<JuzOption[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortField, setSortField] = useState<'juz_number' | 'section_number' | 'question_number' | 'created_at' | 'updated_at'>('created_at');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [sortField, setSortField] = useState<'juz_number' | 'section_number' | 'question_number' | 'created_at' | 'updated_at'>('juz_number');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [filterType, setFilterType] = useState<'all' | 'multiple_choice' | 'introduction'>('all');
   const [filterActive, setFilterActive] = useState<'all' | 'active' | 'inactive'>('active');
   const [filterPackage, setFilterPackage] = useState<'all' | 'A' | 'B'>('all');
@@ -136,6 +136,19 @@ export function useAdminExamQuestions(onSuccess?: () => void) {
     }
 
     return [...filteredQuestions].sort((a: any, b: any) => {
+      if (sortField === 'juz_number') {
+        if (a.juz_number !== b.juz_number) {
+          return sortOrder === 'asc' ? a.juz_number - b.juz_number : b.juz_number - a.juz_number;
+        }
+        const pkgA = a.question_package || 'A';
+        const pkgB = b.question_package || 'A';
+        if (pkgA !== pkgB) return pkgA.localeCompare(pkgB);
+        if ((a.section_number || 1) !== (b.section_number || 1)) {
+          return (a.section_number || 1) - (b.section_number || 1);
+        }
+        return (a.question_number || 0) - (b.question_number || 0);
+      }
+
       const aVal = a[sortField];
       const bVal = b[sortField];
 
