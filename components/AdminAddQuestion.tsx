@@ -117,7 +117,12 @@ export function AdminAddQuestion({ onClose, onSuccess }: AdminAddQuestionProps) 
       toast.error('Minimal 2 opsi jawaban');
       return;
     }
-    setOptions(options.filter((_, i) => i !== index));
+    const wasCorrect = options[index]?.isCorrect;
+    const next = options.filter((_, i) => i !== index);
+    if (wasCorrect && next.length > 0 && !next.some(o => o.isCorrect)) {
+      next[0] = { ...next[0], isCorrect: true };
+    }
+    setOptions(next);
   };
 
   const handleSave = async () => {

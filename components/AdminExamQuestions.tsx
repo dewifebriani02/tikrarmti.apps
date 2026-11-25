@@ -40,7 +40,7 @@ export function AdminExamQuestions({ onImportClick, onAddManualClick, onSuccess 
     filterActive, setFilterActive, filterPackage, setFilterPackage, showPreviewModal, setShowPreviewModal, previewQuestion,
     setPreviewQuestion, showAnalytics, setShowAnalytics, analytics, analyticsLoading,
     analyticsSummary, loadAnalytics, showAIModal, setShowAIModal, aiGenerating, aiForm,
-    setAiForm, handleDelete, handleUpdate, handleAIGenerate, statistics, handleToggleArchivePackage, loadQuestions
+    setAiForm, handleDelete, handleUpdate, handleQuickUpdateOptions, handleAIGenerate, statistics, handleToggleArchivePackage, loadQuestions
   } = useAdminExamQuestions(onSuccess);
 
   // Pagination calculations
@@ -175,6 +175,7 @@ export function AdminExamQuestions({ onImportClick, onAddManualClick, onSuccess 
           onPreviewSingle={(q) => { setPreviewQuestion(q); setShowPreviewModal(true); }}
           onEdit={(q) => { setEditingQuestion(q); setShowEditModal(true); }}
           onDelete={(id) => { setDeletingQuestionId(id); setShowDeleteModal(true); }}
+          onQuickUpdateOptions={handleQuickUpdateOptions}
         />
       ) : (
         <QuestionTable

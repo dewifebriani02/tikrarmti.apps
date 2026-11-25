@@ -10,7 +10,7 @@ import {
   Sparkles,
   BookOpen,
 } from 'lucide-react';
-import { ExamQuestion } from '@/types/exam';
+import { ExamQuestion, AdminQuestionEditForm } from '@/types/exam';
 import { FormattedQuestionText } from './FormattedQuestionText';
 
 interface QuestionPreviewAllListProps {
@@ -18,6 +18,7 @@ interface QuestionPreviewAllListProps {
   onEdit: (q: ExamQuestion) => void;
   onDelete: (id: string) => void;
   onPreviewSingle: (q: ExamQuestion) => void;
+  onQuickUpdateOptions?: (question: ExamQuestion, newOptions: Array<{ text: string; isCorrect: boolean }>) => Promise<void>;
 }
 
 const SECTION_LABELS: Record<number, string> = {
@@ -72,6 +73,9 @@ function getQuestionIssues(question: ExamQuestion, normalizedOptions: Array<{ te
   if (normalizedOptions.length < 2) {
     issues.push('Pilihan jawaban kurang dari 2 opsi');
   }
+  if (normalizedOptions.length > 4) {
+    issues.push(`Jumlah pilihan jawaban terlalu banyak (${normalizedOptions.length} opsi) — bisa dihapus langsung atau dipangkas jadi 4 opsi`);
+  }
   const correctCount = normalizedOptions.filter((o) => o.isCorrect).length;
   if (correctCount === 0) {
     issues.push('Belum ada kunci jawaban yang ditandai benar');
@@ -110,8 +114,10 @@ export function QuestionPreviewAllList({
   onEdit,
   onDelete,
   onPreviewSingle,
+  onQuickUpdateOptions,
 }: QuestionPreviewAllListProps) {
   const [onlyShowWithIssues, setOnlyShowWithIssues] = useState(false);
+  const [updatingQuestionId, setUpdatingQuestionId] = useState<string | null>(null);
 
   const enrichedQuestions = useMemo(() => {
     return questions.map((q) => {
@@ -135,6 +141,78 @@ export function QuestionPreviewAllList({
     return enrichedQuestions.filter((item) => item.issues.length > 0);
   }, [enrichedQuestions, onlyShowWithIssues]);
 
+  const handleQuickDeleteOption = async (
+    question: ExamQuestion,
+    normalizedOptions: Array<{ text: string; isCorrect: boolean }>,
+    optIdx: number
+  ) => {
+    if (!onQuickUpdateOptions) return;
+    if (normalizedOptions.length <= 2) {
+      alert('Minimal harus tersisa 2 opsi pilihan jawaban.');
+      return;
+    }
+    const targetOpt = normalizedOptions[optIdx];
+    const letter = String.fromCharCode(65 + optIdx);
+    if (targetOpt?.isCorrect) {
+      alert(`Opsi ${letter} adalah Kunci Jawaban saat ini. Pilih opsi lain sebagai kunci jawaban terlebih dahulu sebelum menghapus opsi ini.`);
+      return;
+    }
+
+    try {
+      setUpdatingQuestionId(question.id);
+      const nextOptions = normalizedOptions.filter((_, idx) => idx !== optIdx);
+      await onQuickUpdateOptions(question, nextOptions);
+    } finally {
+      setUpdatingQuestionId(null);
+    }
+  };
+
+  const handleQuickSetCorrect = async (
+    question: ExamQuestion,
+    normalizedOptions: Array<{ text: string; isCorrect: boolean }>,
+    optIdx: number
+  ) => {
+    if (!onQuickUpdateOptions) return;
+    if (normalizedOptions[optIdx]?.isCorrect) return;
+
+    try {
+      setUpdatingQuestionId(question.id);
+      const nextOptions = normalizedOptions.map((opt, idx) => ({
+        ...opt,
+        isCorrect: idx === optIdx,
+      }));
+      await onQuickUpdateOptions(question, nextOptions);
+    } finally {
+      setUpdatingQuestionId(null);
+    }
+  };
+
+  const handleQuickTrimToFour = async (
+    question: ExamQuestion,
+    normalizedOptions: Array<{ text: string; isCorrect: boolean }>
+  ) => {
+    if (!onQuickUpdateOptions || normalizedOptions.length <= 4) return;
+
+    try {
+      setUpdatingQuestionId(question.id);
+      const correctIdx = normalizedOptions.findIndex((o) => o.isCorrect);
+      const kept: Array<{ text: string; isCorrect: boolean }> = [];
+      normalizedOptions.forEach((opt) => {
+        if (opt.isCorrect) {
+          kept.push(opt);
+        } else if (kept.length < (correctIdx > 3 ? 3 : 4)) {
+          kept.push(opt);
+        }
+      });
+      if (correctIdx >= 0 && !kept.some((o) => o.isCorrect)) {
+        kept[kept.length - 1] = normalizedOptions[correctIdx];
+      }
+      await onQuickUpdateOptions(question, kept.slice(0, 4));
+    } finally {
+      setUpdatingQuestionId(null);
+    }
+  };
+
   if (questions.length === 0) {
     return (
       <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center">
@@ -155,7 +233,7 @@ export function QuestionPreviewAllList({
             Menampilkan {displayedQuestions.length} Soal Sekaligus (Tanpa Paginasi)
           </span>
           <span className="font-semibold text-emerald-800">
-            • Kunci jawaban benar otomatis disorot hijau tebal • Klik tombol <strong>Edit Soal</strong> pada kartu mana pun untuk langsung mengoreksi
+            • Klik radio button untuk ganti kunci • Klik ikon sampah di tiap opsi untuk hapus opsi yang kebanyakan
           </span>
         </div>
 
@@ -173,7 +251,7 @@ export function QuestionPreviewAllList({
             <span>
               {onlyShowWithIssues
                 ? `Menampilkan ${totalWithIssues} Soal Perlu Cek (Klik untuk Semua)`
-                : `Ada ${totalWithIssues} Soal Perlu Cek Format`}
+                : `Ada ${totalWithIssues} Soal Perlu Cek / Opsi > 4`}
             </span>
           </button>
         )}
@@ -187,13 +265,14 @@ export function QuestionPreviewAllList({
           const sectionTitle =
             question.section_title || SECTION_LABELS[question.section_number] || `Section ${question.section_number}`;
           const hasLatinInQuestion = /[a-zA-Z]/.test(question.question_text || '');
+          const isUpdatingThis = updatingQuestionId === question.id;
 
           return (
             <div
               key={question.id}
               className={`rounded-2xl border bg-white shadow-sm hover:shadow-md transition-all overflow-hidden ${
                 issues.length > 0 ? 'border-rose-300 ring-1 ring-rose-200' : 'border-gray-200'
-              }`}
+              } ${isUpdatingThis ? 'opacity-60 pointer-events-none' : ''}`}
             >
               {/* Card Header */}
               <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 bg-gray-50/80 border-b border-gray-100">
@@ -210,6 +289,15 @@ export function QuestionPreviewAllList({
                   <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50 text-amber-900 border border-amber-200">
                     Sec {question.section_number}: {sectionTitle}
                   </span>
+                  <span
+                    className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold ${
+                      normalizedOptions.length > 4
+                        ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                        : 'bg-gray-100 text-gray-700'
+                    }`}
+                  >
+                    {normalizedOptions.length} Opsi
+                  </span>
                   {question.is_active === false && (
                     <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-gray-200 text-gray-700">
                       Diarsipkan
@@ -217,8 +305,19 @@ export function QuestionPreviewAllList({
                   )}
                 </div>
 
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[11px] font-mono text-gray-400 mr-2">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {onQuickUpdateOptions && normalizedOptions.length > 4 && (
+                    <button
+                      type="button"
+                      onClick={() => handleQuickTrimToFour(question, normalizedOptions)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 text-xs font-bold transition"
+                      title="Pangkas otomatis menjadi 4 opsi (A-D) dengan tetap mempertahankan Kunci Jawaban"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 text-amber-700" />
+                      <span>Pangkas Jadi 4 Opsi</span>
+                    </button>
+                  )}
+                  <span className="text-[11px] font-mono text-gray-400 mr-1">
                     ID: {question.id.slice(0, 8)}
                   </span>
                   <button
@@ -285,25 +384,40 @@ export function QuestionPreviewAllList({
                   {normalizedOptions.map((opt, optIdx) => {
                     const letter = String.fromCharCode(65 + optIdx);
                     const isArabicOpt = /[\u0600-\u06FF]/.test(opt.text);
+                    const canDeleteOpt = normalizedOptions.length > 2 && !opt.isCorrect;
 
                     return (
                       <div
                         key={optIdx}
-                        className={`p-3.5 rounded-xl border flex items-start gap-3 transition-all ${
+                        className={`p-3.5 rounded-xl border flex items-start gap-2.5 transition-all ${
                           opt.isCorrect
                             ? 'bg-green-50/90 border-green-400 text-green-950 shadow-xs ring-1 ring-green-400/40'
                             : 'bg-gray-50/50 border-gray-200 text-gray-800'
                         }`}
                       >
-                        <span
-                          className={`w-6 h-6 rounded-lg flex items-center justify-center font-black text-xs shrink-0 mt-0.5 ${
-                            opt.isCorrect
-                              ? 'bg-green-600 text-white'
-                              : 'bg-gray-200 text-gray-700'
-                          }`}
+                        <label
+                          className="inline-flex items-center gap-1.5 cursor-pointer select-none shrink-0 mt-0.5"
+                          title={opt.isCorrect ? 'Kunci Jawaban saat ini' : `Jadikan opsi ${letter} sebagai Kunci Jawaban`}
                         >
-                          {letter}
-                        </span>
+                          {onQuickUpdateOptions && (
+                            <input
+                              type="radio"
+                              name={`preview-correct-${question.id}`}
+                              checked={opt.isCorrect}
+                              onChange={() => handleQuickSetCorrect(question, normalizedOptions, optIdx)}
+                              className="w-4 h-4 text-green-600 focus:ring-green-500 cursor-pointer"
+                            />
+                          )}
+                          <span
+                            className={`w-6 h-6 rounded-lg flex items-center justify-center font-black text-xs shrink-0 ${
+                              opt.isCorrect
+                                ? 'bg-green-600 text-white'
+                                : 'bg-gray-200 text-gray-700'
+                            }`}
+                          >
+                            {letter}
+                          </span>
+                        </label>
 
                         <div
                           className={`flex-1 leading-relaxed ${
@@ -321,12 +435,34 @@ export function QuestionPreviewAllList({
                           {opt.text}
                         </div>
 
-                        {opt.isCorrect && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-black bg-green-600 text-white shrink-0 mt-0.5">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>Kunci</span>
-                          </span>
-                        )}
+                        <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
+                          {opt.isCorrect && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-black bg-green-600 text-white">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Kunci</span>
+                            </span>
+                          )}
+
+                          {onQuickUpdateOptions && normalizedOptions.length > 2 && (
+                            <button
+                              type="button"
+                              disabled={!canDeleteOpt}
+                              onClick={() => handleQuickDeleteOption(question, normalizedOptions, optIdx)}
+                              className={`p-1.5 rounded-lg border transition ${
+                                canDeleteOpt
+                                  ? 'text-rose-600 border-rose-200 bg-white hover:bg-rose-50 hover:border-rose-300'
+                                  : 'text-gray-300 border-gray-100 bg-gray-50 cursor-not-allowed'
+                              }`}
+                              title={
+                                opt.isCorrect
+                                  ? 'Pindahkan Kunci Jawaban ke opsi lain terlebih dahulu sebelum menghapus opsi ini'
+                                  : `Hapus opsi ${letter}`
+                              }
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     );
                   })}

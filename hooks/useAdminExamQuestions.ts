@@ -267,6 +267,42 @@ export function useAdminExamQuestions(onSuccess?: () => void) {
     }
   };
 
+  const handleQuickUpdateOptions = async (
+    question: ExamQuestion,
+    newOptions: Array<{ text: string; isCorrect: boolean }>
+  ) => {
+    try {
+      const response = await fetch('/api/exam/questions', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+        body: JSON.stringify({
+          id: question.id,
+          options: newOptions,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        const updatedRow: ExamQuestion | undefined = result.data;
+        if (updatedRow) {
+          setAllQuestions((prev) => prev.map((q) => (q.id === updatedRow.id ? updatedRow : q)));
+          setPreviewQuestion((prev) => (prev && prev.id === updatedRow.id ? updatedRow : prev));
+        } else {
+          await loadQuestions();
+        }
+        toast.success('Opsi & kunci jawaban berhasil diperbarui');
+        if (onSuccess) onSuccess();
+      } else {
+        toast.error(result.error || 'Gagal memperbarui opsi jawaban');
+      }
+    } catch (error) {
+      console.error('Error quick-updating options:', error);
+      toast.error('Gagal memperbarui opsi jawaban');
+    }
+  };
+
   const handleAIGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     setAiGenerating(true);
@@ -416,6 +452,7 @@ export function useAdminExamQuestions(onSuccess?: () => void) {
     setAiForm,
     handleDelete,
     handleUpdate,
+    handleQuickUpdateOptions,
     handleAIGenerate,
     handleToggleArchivePackage,
     statistics,

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Sparkles, Loader2, Eye, BarChart3, AlertCircle } from 'lucide-react';
+import { X, Sparkles, Loader2, Eye, BarChart3, AlertCircle, Plus, Trash2 } from 'lucide-react';
 import { ExamQuestion, AdminQuestionEditForm, JuzNumber } from '@/types/exam';
 
 interface QuestionModalsProps {
@@ -132,8 +132,8 @@ export function QuestionModals({
       {/* Edit Question Modal */}
       {showEditModal && editingQuestion && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+          <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
               <h3 className="text-lg font-semibold text-gray-900">Edit Question</h3>
               <button
                 type="button"
@@ -429,8 +429,59 @@ function EditQuestionForm({ question, juzOptions, onSave, onCancel, isSaving }: 
     });
   };
 
+  const handleAddOption = () => {
+    setFormData(prev => ({
+      ...prev,
+      options: [
+        ...prev.options,
+        { text: '', isCorrect: prev.options.length === 0 },
+      ],
+    }));
+  };
+
+  const handleRemoveOption = (idx: number) => {
+    if (formData.options.length <= 2) {
+      alert('Minimal harus ada 2 opsi pilihan jawaban.');
+      return;
+    }
+    setFormData(prev => {
+      const wasCorrect = prev.options[idx]?.isCorrect;
+      const next = prev.options.filter((_, i) => i !== idx);
+      // If the deleted option was the correct answer, move the correct flag to the first remaining option
+      if (wasCorrect && next.length > 0 && !next.some(o => o.isCorrect)) {
+        next[0] = { ...next[0], isCorrect: true };
+      }
+      return { ...prev, options: next };
+    });
+  };
+
+  const handleTrimToFourOptions = () => {
+    if (formData.options.length <= 4) return;
+    setFormData(prev => {
+      const correctIdx = prev.options.findIndex(o => o.isCorrect);
+      const kept: Array<{ text: string; isCorrect: boolean }> = [];
+      // Always keep the correct option and up to 3 other options in original order
+      prev.options.forEach((opt, idx) => {
+        if (opt.isCorrect) {
+          kept.push(opt);
+        } else if (kept.length < (correctIdx > 3 ? 3 : 4)) {
+          kept.push(opt);
+        }
+      });
+      // Ensure we didn't miss the correct option if it was after index 3
+      if (correctIdx >= 0 && !kept.some(o => o.isCorrect)) {
+        kept[kept.length - 1] = prev.options[correctIdx];
+      }
+      return { ...prev, options: kept.slice(0, 4) };
+    });
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (formData.options.length < 2) {
+      alert('Minimal harus ada 2 opsi pilihan jawaban.');
+      return;
+    }
     if (formData.options.length > 0 && !formData.options.some(o => o.isCorrect)) {
       alert('Pilih salah satu opsi sebagai Kunci Jawaban yang benar.');
       return;
@@ -474,23 +525,51 @@ function EditQuestionForm({ question, juzOptions, onSave, onCancel, isSaving }: 
         <textarea value={formData.question_text} onChange={(e) => setFormData({ ...formData, question_text: e.target.value })} className="w-full px-3 py-2 border rounded-lg" rows={3} required />
       </div>
       <div>
-        <div className="flex items-center justify-between mb-1">
-          <label className="block text-xs font-bold text-gray-700 uppercase">Pilihan Jawaban & Kunci Jawaban</label>
-          <span className="text-xs text-gray-500 italic">Klik radio button untuk memilih kunci jawaban</span>
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+          <div>
+            <label className="block text-xs font-bold text-gray-700 uppercase">
+              Pilihan Jawaban & Kunci Jawaban ({formData.options.length} Opsi)
+            </label>
+            <span className="text-xs text-gray-500 italic">
+              Klik radio button untuk memilih kunci jawaban • Klik ikon tempat sampah untuk menghapus opsi berlebih
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            {formData.options.length > 4 && (
+              <button
+                type="button"
+                onClick={handleTrimToFourOptions}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-amber-100 text-amber-900 hover:bg-amber-200 border border-amber-300 transition"
+                title="Pangkas otomatis menjadi 4 opsi (A-D) dengan tetap mempertahankan Kunci Jawaban"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-amber-700" />
+                <span>Pangkas Jadi 4 Opsi (A–D)</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleAddOption}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Tambah Opsi</span>
+            </button>
+          </div>
         </div>
         <div className="space-y-2.5 mt-2">
           {formData.options.map((opt, i) => {
             const letter = String.fromCharCode(65 + i);
+            const canDelete = formData.options.length > 2;
             return (
               <div
                 key={i}
-                className={`flex items-center gap-3 p-2.5 rounded-lg border transition-all ${
+                className={`flex items-center gap-2.5 p-2.5 rounded-lg border transition-all ${
                   opt.isCorrect
                     ? 'border-green-400 bg-green-50/60 shadow-xs'
                     : 'border-gray-200 bg-white hover:border-gray-300'
                 }`}
               >
-                <label className="flex items-center gap-2 cursor-pointer select-none">
+                <label className="flex items-center gap-2 cursor-pointer select-none shrink-0">
                   <input
                     type="radio"
                     name={`correct-answer-${question.id}`}
@@ -512,13 +591,31 @@ function EditQuestionForm({ question, juzOptions, onSave, onCancel, isSaving }: 
                   onChange={(e) => handleOptionTextChange(i, e.target.value)}
                   className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
                   placeholder={`Teks pilihan ${letter}`}
+                  dir="auto"
                   required
                 />
                 {opt.isCorrect && (
-                  <span className="text-xs font-bold text-green-700 bg-green-200 px-2.5 py-1 rounded-full whitespace-nowrap">
-                    ✓ Kunci Jawaban
+                  <span className="text-xs font-bold text-green-700 bg-green-200 px-2.5 py-1 rounded-full whitespace-nowrap shrink-0">
+                    ✓ Kunci
                   </span>
                 )}
+                <button
+                  type="button"
+                  disabled={!canDelete}
+                  onClick={() => handleRemoveOption(i)}
+                  className={`p-1.5 rounded-lg border transition shrink-0 ${
+                    canDelete
+                      ? 'text-rose-600 border-rose-200 hover:bg-rose-50 hover:border-rose-300'
+                      : 'text-gray-300 border-gray-100 cursor-not-allowed'
+                  }`}
+                  title={
+                    canDelete
+                      ? `Hapus opsi ${letter}`
+                      : 'Minimal 2 opsi jawaban harus tersisa'
+                  }
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
             );
           })}
