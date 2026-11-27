@@ -98,6 +98,11 @@ export interface ActiveThalibahRecipient {
   halaqahId?: string | null;
   halaqahName?: string | null;
   halaqahStatus?: string | null;
+  batchName?: string | null;
+  examOpenDateFormatted?: string | null;
+  examCloseDateFormatted?: string | null;
+  hasCompletedWrittenExam?: boolean;
+  hasSubmittedTestimonial?: boolean;
 }
 
 const COMMON_HEADERS = {

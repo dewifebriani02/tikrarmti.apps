@@ -69,9 +69,10 @@ function PilihanGandaContent() {
   const [examJuzNumber, setExamJuzNumber] = useState<number | null>(null);
   const [isChangingTarget, setIsChangingTarget] = useState(false);
   const [targetChangeNotice, setTargetChangeNotice] = useState<string | null>(null);
-  const newThalibahTargetOptions = examTargetOptions.filter(
-    option => option.part === 'A' && option.juz_number !== 30
-  );
+  const newThalibahTargetOptions = [...examTargetOptions].sort((a, b) => {
+    if (b.juz_number !== a.juz_number) return b.juz_number - a.juz_number;
+    return (a.part || "").localeCompare(b.part || "");
+  });
 
   // New thalibah select a Bagian A memorization target. Paket B belongs to the
   // question bank and is selected separately by the exam API.

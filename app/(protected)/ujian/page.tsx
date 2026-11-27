@@ -77,6 +77,7 @@ export default function UjianPage() {
   const [registrations, setRegistrations] = useState<any[]>([]);
   const [loadingRegistrations, setLoadingRegistrations] = useState(false);
   const [writtenAttempt, setWrittenAttempt] = useState<any>(null);
+  const [writtenSchedule, setWrittenSchedule] = useState<any>(null);
 
   const fetchRegistrations = async () => {
     setLoadingRegistrations(true);
@@ -86,6 +87,21 @@ export default function UjianPage() {
       const result = await response.json();
       if (result.success) {
         setRegistrations(Array.isArray(result.data) ? result.data : result.data ? [result.data] : []);
+      }
+
+      // Fetch active written schedule from final_exam_schedules
+      try {
+        const schedUrl = `/api/exams/final-exams/schedules?type=written${effectiveBatch?.id ? `&batch_id=${effectiveBatch.id}` : ''}`;
+        const schedRes = await fetch(schedUrl);
+        const schedData = await schedRes.json();
+        if (schedData.success && Array.isArray(schedData.data) && schedData.data.length > 0) {
+          setWrittenSchedule(schedData.data[0]);
+        } else {
+          setWrittenSchedule(null);
+        }
+      } catch (err) {
+        console.error('Fetch written schedule error:', err);
+        setWrittenSchedule(null);
       }
 
       // Fetch final-exam written attempt strictly scoped to source=final-exam and effectiveBatch
@@ -117,8 +133,22 @@ export default function UjianPage() {
   const isAdmin = isStaffView;
 
   const now = new Date();
-  const examStartDate = effectiveBatch?.final_exam_start_date ? new Date(effectiveBatch?.final_exam_start_date || '') : null;
-  const examEndDate = effectiveBatch?.final_exam_end_date ? new Date(effectiveBatch.final_exam_end_date) : null;
+  const writtenScheduleStart = writtenSchedule?.exam_date
+    ? new Date(`${String(writtenSchedule.exam_date).slice(0, 10)}T${(writtenSchedule.start_time || '00:00:00').slice(0, 8)}+07:00`)
+    : null;
+  const writtenScheduleEnd = (writtenSchedule?.end_date || writtenSchedule?.exam_date)
+    ? new Date(`${String(writtenSchedule.end_date || writtenSchedule.exam_date).slice(0, 10)}T${(writtenSchedule.end_time || '23:59:59').slice(0, 8)}+07:00`)
+    : null;
+
+  const examStartDate = writtenScheduleStart || (effectiveBatch?.final_exam_start_date ? new Date(effectiveBatch?.final_exam_start_date || '') : null);
+  const examEndDate = writtenScheduleEnd || (effectiveBatch?.final_exam_end_date ? new Date(effectiveBatch.final_exam_end_date) : null);
+
+  const writtenStartDisplay = writtenSchedule?.exam_date
+    ? `${formatDateIndo(String(writtenSchedule.exam_date).slice(0, 10))}${writtenSchedule.start_time ? ` pukul ${writtenSchedule.start_time.slice(0, 5)} WIB` : ''}`
+    : (effectiveBatch?.final_exam_start_date ? formatDateIndo(effectiveBatch.final_exam_start_date) : null);
+  const writtenEndDisplay = (writtenSchedule?.end_date || writtenSchedule?.exam_date)
+    ? `${formatDateIndo(String(writtenSchedule.end_date || writtenSchedule.exam_date).slice(0, 10))}${writtenSchedule.end_time ? ` pukul ${writtenSchedule.end_time.slice(0, 5)} WIB` : ''}`
+    : (effectiveBatch?.final_exam_end_date ? formatDateIndo(effectiveBatch.final_exam_end_date) : null);
 
   // Status jadwal ujian
   const isBeforeExam = !isAdmin && (examStartDate ? now < examStartDate : true);
@@ -452,6 +482,23 @@ export default function UjianPage() {
               )}
             </div>
 
+            {(writtenStartDisplay || writtenEndDisplay) && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                {writtenStartDisplay && (
+                  <div className="bg-blue-50/70 border border-blue-100 rounded-xl px-3 py-2 flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-blue-700">Tanggal Dibuka</span>
+                    <span className="font-bold text-blue-950">{writtenStartDisplay}</span>
+                  </div>
+                )}
+                {writtenEndDisplay && (
+                  <div className="bg-amber-50/70 border border-amber-100 rounded-xl px-3 py-2 flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-800">Tanggal Tutup</span>
+                    <span className="font-bold text-amber-950">{writtenEndDisplay}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className={cn(
               "rounded-xl p-3.5 text-xs space-y-1 border",
               isWrittenCompleted
@@ -479,8 +526,8 @@ export default function UjianPage() {
                   : isExamOpen && !isExamEnded
                   ? "Ujian tulisan dikerjakan langsung melalui sistem Computer Based Test (CBT) pilihan ganda MTI. Pastikan koneksi internet stabil sebelum memulai pengerjaan."
                   : isExamEnded
-                  ? `Waktu pelaksanaan ujian pilihan ganda telah berakhir pada ${effectiveBatch?.final_exam_end_date ? formatDateIndo(effectiveBatch.final_exam_end_date) : 'jadwal yang telah ditentukan'}. Jika memiliki kendala, silakan hubungi Musyrifah atau Mu'allimah pembimbing.`
-                  : `Ujian pilihan ganda akan dibuka pada ${effectiveBatch?.final_exam_start_date ? formatDateIndo(effectiveBatch.final_exam_start_date) : 'jadwal pekan ujian akhir yang ditentukan panitia'}. Silakan persiapkan diri dan muraja'ah materi hafalan Ukhti.`}
+                  ? `Waktu pelaksanaan ujian pilihan ganda telah berakhir pada ${writtenEndDisplay || 'jadwal yang telah ditentukan'}. Jika memiliki kendala, silakan hubungi Musyrifah atau Mu'allimah pembimbing.`
+                  : `Ujian pilihan ganda akan dibuka pada ${writtenStartDisplay || 'jadwal pekan ujian akhir yang ditentukan panitia'}. Silakan persiapkan diri dan muraja'ah materi hafalan Ukhti.`}
               </p>
             </div>
 
@@ -512,14 +559,14 @@ export default function UjianPage() {
                 onClick={() => {
                   if (isExamEnded) {
                     toast.error(
-                      effectiveBatch?.final_exam_end_date
-                        ? `Waktu pelaksanaan ujian telah berakhir pada ${formatDateIndo(effectiveBatch.final_exam_end_date)}.`
+                      writtenEndDisplay
+                        ? `Waktu pelaksanaan ujian telah berakhir pada ${writtenEndDisplay}.`
                         : 'Waktu pelaksanaan ujian pilihan ganda telah berakhir.'
                     );
                   } else {
                     toast.error(
-                      effectiveBatch?.final_exam_start_date
-                        ? `Jadwal ujian belum dibuka. Ujian akan dibuka pada ${formatDateIndo(effectiveBatch.final_exam_start_date)}.`
+                      writtenStartDisplay
+                        ? `Jadwal ujian belum dibuka. Ujian akan dibuka pada ${writtenStartDisplay}.`
                         : 'Jadwal pelaksanaan ujian akhir pilihan ganda belum dibuka oleh panitia.'
                     );
                   }

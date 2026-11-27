@@ -15,6 +15,8 @@ import { buildMurojaahAfternoonReminder } from '@/lib/murojaah';
 import {
   buildH1OralExamMessage,
   buildH1ExaminerOralExamMessage,
+  buildWrittenExamOpenMessage,
+  buildWrittenExamDeadlineMessage,
 } from '@/lib/services/exam-reminder';
 import {
   buildH1PaidClassThalibahMessage,
@@ -40,6 +42,8 @@ const AUTO_KEYS: Array<keyof WhatsAppAutoMessagesConfig> = [
   'reminder_sore_murojaah',
   'reminder_ujian_lisan_thalibah',
   'reminder_ujian_lisan_examiner',
+  'reminder_ujian_tulisan_dibuka',
+  'reminder_ujian_tulisan_deadline',
   'reminder_kelas_berbayar_h1',
   'auto_reply_stop_opt_out',
   'ai_escalation_admin_alert',
@@ -95,6 +99,22 @@ function buildAutoMessageItems(
         ],
       },
     ],
+  });
+
+  const writtenExamOpenPreview = buildWrittenExamOpenMessage({
+    fullName: 'Fulanah binti Fulan',
+    batchName: 'Tikrar Tahfidz MTI Batch 3',
+    targetJuz: '30B',
+    openDateTimeFormatted: 'Sabtu, 28 November 2026 pukul 00:00 WIB',
+    closeDateTimeFormatted: 'Sabtu, 5 Desember 2026 pukul 00:00 WIB',
+  });
+
+  const writtenExamDeadlinePreview = buildWrittenExamDeadlineMessage({
+    fullName: 'Fulanah binti Fulan',
+    batchName: 'Tikrar Tahfidz MTI Batch 3',
+    targetJuz: '30B',
+    openDateTimeFormatted: 'Sabtu, 28 November 2026 pukul 00:00 WIB',
+    closeDateTimeFormatted: 'Sabtu, 5 Desember 2026 pukul 00:00 WIB',
   });
 
   const paidClassPreview =
@@ -190,6 +210,34 @@ function buildAutoMessageItems(
       sourceLabel: 'lib/services/exam-reminder.ts → buildH1ExaminerOralExamMessage',
       enabled: autoConfig.reminder_ujian_lisan_examiner,
       templatePreview: examExaminerPreview,
+    },
+    {
+      key: 'reminder_ujian_tulisan_dibuka',
+      title: 'Notifikasi Pembukaan & Batas Akhir Ujian Tulisan (CBT)',
+      category: 'cron',
+      scheduleLabel: 'Cron Harian • 09:00 WIB (Hari Pembukaan Ujian Tulisan)',
+      recipientLabel: 'Seluruh Thalibah aktif pada batch yang Ujian Akhir Tulisannya dibuka hari ini',
+      description:
+        'Mengirim pemberitahuan pembukaan Ujian Akhir Tulisan (CBT) lengkap dengan tanggal & jam dibuka, batas akhir penutupan ujian, serta tautan /ujian.',
+      disabledBehavior:
+        'Jika dimatikan, cron pukul 09:00 WIB tidak mengirim notifikasi pembukaan ujian tulisan otomatis.',
+      sourceLabel: 'lib/services/exam-reminder.ts → buildWrittenExamOpenMessage',
+      enabled: autoConfig.reminder_ujian_tulisan_dibuka,
+      templatePreview: writtenExamOpenPreview,
+    },
+    {
+      key: 'reminder_ujian_tulisan_deadline',
+      title: 'Pengingat Batas Akhir Pengerjaan Ujian Tulisan (H-1 & Hari Terakhir)',
+      category: 'cron',
+      scheduleLabel: 'Cron Harian • 09:00 WIB (H-1 & Hari Penutupan Ujian Tulisan)',
+      recipientLabel: 'Thalibah aktif yang BELUM menyelesaikan/submit Ujian Akhir Tulisan menjelang penutupan',
+      description:
+        'Mengirim pengingat batas akhir pengerjaan Ujian Akhir Tulisan khusus kepada thalibah yang belum submit ujian sebelum sesi ditutup.',
+      disabledBehavior:
+        'Jika dimatikan, cron pukul 09:00 WIB tidak mengirim pengingat batas akhir ujian tulisan otomatis.',
+      sourceLabel: 'lib/services/exam-reminder.ts → buildWrittenExamDeadlineMessage',
+      enabled: autoConfig.reminder_ujian_tulisan_deadline,
+      templatePreview: writtenExamDeadlinePreview,
     },
     {
       key: 'reminder_kelas_berbayar_h1',

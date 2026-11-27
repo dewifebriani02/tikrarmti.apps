@@ -495,6 +495,7 @@ export default function LengkapiProfilePage() {
                   id="whatsapp"
                   value={formData.whatsapp}
                   onChange={(value) => handleInputChange('whatsapp', value)}
+                  selectedCountry={formData.negara}
                   placeholder="Contoh: 081234567890"
                   error={errors.whatsapp}
                 />
@@ -517,11 +518,13 @@ export default function LengkapiProfilePage() {
                   <SelectValue placeholder="Pilih zona waktu" />
                 </SelectTrigger>
                 <SelectContent>
-                  {zonaWaktuList.map((zona) => (
-                    <SelectItem key={zona.value} value={zona.value}>
-                      {zona.label}
-                    </SelectItem>
-                  ))}
+                  {zonaWaktuList
+                    .filter((zona) => !formData.negara || zona.country === formData.negara)
+                    .map((zona) => (
+                      <SelectItem key={zona.value} value={zona.value}>
+                        {zona.label}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
               {errors.zonaWaktu && (

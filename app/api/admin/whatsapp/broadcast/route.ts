@@ -77,5 +77,8 @@ function personalizeMessage(template: string, thalibah: ActiveThalibahRecipient)
     .replace(/\{kunyah\}/gi, thalibah.namaKunyah || thalibah.fullName || 'Ukhti')
     .replace(/\{juz\}/gi, thalibah.confirmedChosenJuz || '-')
     .replace(/\{halaqah\}/gi, thalibah.halaqahName || 'Halaqah Tikrar')
-    .replace(/\{nomor_induk\}/gi, thalibah.studentIdNumber || '-');
+    .replace(/\{nomor_induk\}/gi, thalibah.studentIdNumber || '-')
+    .replace(/\{batch\}/gi, thalibah.batchName || 'Tikrar Tahfidz MTI Batch 3')
+    .replace(/\{tgl_buka_ujian\}/gi, thalibah.examOpenDateFormatted || 'Sabtu, 28 November 2026 pukul 00:00 WIB')
+    .replace(/\{tgl_tutup_ujian\}/gi, thalibah.examCloseDateFormatted || 'Sabtu, 5 Desember 2026 pukul 00:00 WIB');
 }

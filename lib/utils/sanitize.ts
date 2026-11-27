@@ -1,5 +1,6 @@
 import DOMPurify from 'dompurify';
 import { formatProperName } from '@/lib/utils/proper-name';
+import { countryCodes, getCountryCodeByName } from '@/lib/data/country-codes';
 
 // Configuration for DOMPurify
 const CONFIG = {
@@ -74,7 +75,9 @@ export function sanitizeEmail(input: string | null | undefined): string {
   return sanitized;
 }
 
-import { countryCodes } from '@/lib/data/country-codes';
+const sortedCountryCodes = [...countryCodes].sort(
+  (a, b) => b.dialCode.length - a.dialCode.length
+);
 
 export function sanitizePhone(input: string | null | undefined, countryCode?: string): string {
   if (!input) return '';
@@ -87,9 +90,9 @@ export function sanitizePhone(input: string | null | undefined, countryCode?: st
 
   // If input already starts with + and has a country code, validate it
   if (sanitized.startsWith('+')) {
-    // Try to find a matching country code by checking all possible dial codes
+    // Try to find a matching country code by checking all possible dial codes (longest prefix first)
     let matchingCountry = null;
-    for (const country of countryCodes) {
+    for (const country of sortedCountryCodes) {
       if (sanitized.startsWith(country.dialCode)) {
         matchingCountry = country;
         break;
@@ -102,14 +105,14 @@ export function sanitizePhone(input: string | null | undefined, countryCode?: st
 
     // Check if it matches the selected country
     if (countryCode) {
-      const selectedCountry = countryCodes.find(c => c.code === countryCode || c.name === countryCode);
+      const selectedCountry = getCountryCodeByName(countryCode);
       if (selectedCountry && matchingCountry.dialCode !== selectedCountry.dialCode) {
         throw new Error(`Kode negara (${matchingCountry.dialCode}) tidak cocok dengan negara yang dipilih (${selectedCountry.dialCode})`);
       }
     }
   } else if (countryCode) {
     // If no country code in input but country is selected, add it
-    const country = countryCodes.find(c => c.code === countryCode || c.name === countryCode);
+    const country = getCountryCodeByName(countryCode);
     if (country) {
       sanitized = country.dialCode + sanitized;
     }
@@ -140,7 +143,7 @@ export function validatePhoneNumberFormat(phoneNumber: string, countryCode?: str
 
     // If country code is specified, validate specific format
     if (countryCode) {
-      const country = countryCodes.find(c => c.code === countryCode || c.name === countryCode);
+      const country = getCountryCodeByName(countryCode);
       if (country) {
         // Check if phone number starts with correct country code
         if (!sanitized.startsWith(country.dialCode)) {

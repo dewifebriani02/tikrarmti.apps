@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
     const cleanAlamat = sanitizeAddress(body.alamat);
     const cleanWhatsApp = sanitizePhone(body.whatsapp, body.negara);
     const cleanTelegram = body.telegram ? sanitizePhone(body.telegram, body.negara) : null;
-    const cleanZonaWaktu = sanitizeGeneric(body.zona_waktu, 10);
+    const cleanZonaWaktu = sanitizeGeneric(body.zona_waktu, 20);
 
     // 6. Check if email already exists in PostgreSQL
     const existingEmail = await queryOne(

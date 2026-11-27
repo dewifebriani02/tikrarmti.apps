@@ -23,9 +23,10 @@ interface Schedule {
   batch_id?: string;
   exam_type: string;
   exam_date: string;
+  end_date?: string | null;
   start_time: string;
   end_time: string;
-  examiner_id: string;
+  examiner_id?: string | null;
   max_quota: number;
   current_count: number;
   location_link: string;
@@ -34,7 +35,7 @@ interface Schedule {
 }
 
 export function FinalExamSchedules() {
-  const { batches } = useBatches();
+  const { batches, mutate: mutateBatches } = useBatches();
   const { activeBatch } = useActiveBatch();
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
@@ -51,6 +52,56 @@ export function FinalExamSchedules() {
   const [copyModalOpen, setCopyModalOpen] = useState(false);
   const [copiedText, setCopiedText] = useState('');
   const [hasCopied, setHasCopied] = useState(false);
+
+  const formatDateFull = (dateStr?: string | null) => {
+    if (!dateStr) return '-';
+    try {
+      return new Intl.DateTimeFormat('id-ID', {
+        dateStyle: 'full',
+        timeZone: 'Asia/Jakarta'
+      }).format(new Date(dateStr));
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const extractWibDateAndTime = (isoStr?: string | null, fallbackTime: string = '06:00') => {
+    if (!isoStr) return { date: '', time: fallbackTime };
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) {
+      return { date: String(isoStr).slice(0, 10), time: fallbackTime };
+    }
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Jakarta',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    }).formatToParts(d);
+    const get = (t: string) => parts.find(p => p.type === t)?.value || '';
+    const date = `${get('year')}-${get('month')}-${get('day')}`;
+    const hour = get('hour') === '24' ? '00' : get('hour');
+    const time = `${hour}:${get('minute')}`;
+    return { date, time: time || fallbackTime };
+  };
+
+  const getBatchExamWindow = (batchId?: string | null) => {
+    const b = batches.find(item => item.id === (batchId || selectedBatchId)) as any;
+    if (!b) return null;
+    const start = extractWibDateAndTime(b.final_exam_start_date, '06:00');
+    const end = extractWibDateAndTime(b.final_exam_end_date, '23:59');
+    return {
+      batch: b,
+      exam_date: start.date,
+      end_date: end.date || start.date,
+      start_time: start.time || '06:00',
+      end_time: end.time || '23:59',
+    };
+  };
+
+  const selectedBatchObj = batches.find(b => b.id === selectedBatchId) as any;
 
   const handleCopyAllOralSchedules = async () => {
     const oralSchedules = schedules
@@ -95,17 +146,7 @@ export function FinalExamSchedules() {
       text += `═════════════════════════════\n\n`;
 
       oralSchedules.forEach((schedule, idx) => {
-        let dateFormatted = schedule.exam_date;
-        try {
-          dateFormatted = new Intl.DateTimeFormat('id-ID', {
-            weekday: 'long',
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric',
-            timeZone: 'Asia/Jakarta'
-          }).format(new Date(schedule.exam_date));
-        } catch (e) {}
-
+        const dateFormatted = formatDateFull(schedule.exam_date);
         const examinerName = formatMuallimahName(schedule.examiner?.full_name) || 'Belum Ditentukan';
         const sessionParticipants = regMap[schedule.id] || [];
 
@@ -187,7 +228,7 @@ export function FinalExamSchedules() {
     examiner_id: '',
     max_quota: 5,
     location_link: '',
-    sessions: [{ exam_date: '', start_time: '', end_time: '' }]
+    sessions: [{ exam_date: '', end_date: '', start_time: '', end_time: '' }]
   });
 
   useEffect(() => {
@@ -225,7 +266,6 @@ export function FinalExamSchedules() {
 
   const fetchExaminers = async () => {
     try {
-      // Mengambil daftar muallimah otomatis dari gabungan pendaftaran dan penugasan halaqah
       const response = await fetch(`/api/admin/examiners`, { cache: 'no-store' });
       const result = await response.json();
       
@@ -234,7 +274,6 @@ export function FinalExamSchedules() {
           id: m.id,
           full_name: m.full_name.toLowerCase().includes('ustadzah') ? m.full_name : `Ustadzah ${m.full_name}`
         }));
-        console.log('Fetched muallimah for examiners:', staff.length);
         setExaminers(staff);
       } else {
         setExaminers([]);
@@ -245,16 +284,69 @@ export function FinalExamSchedules() {
     }
   };
 
+  const handleExamTypeChange = (newType: string) => {
+    setFormData(prev => {
+      const batchWin = getBatchExamWindow(prev.batch_id || selectedBatchId);
+      return {
+        ...prev,
+        exam_type: newType,
+        max_quota: newType === 'written' ? (prev.max_quota <= 10 ? 200 : prev.max_quota) : (prev.max_quota > 50 ? 10 : prev.max_quota),
+        sessions: prev.sessions.map(s => ({
+          ...s,
+          exam_date: s.exam_date || (newType === 'written' && batchWin?.exam_date ? batchWin.exam_date : ''),
+          end_date: s.end_date || (newType === 'written' && batchWin?.end_date ? batchWin.end_date : ''),
+          start_time: s.start_time || (newType === 'written' ? (batchWin?.start_time || '06:00') : ''),
+          end_time: s.end_time || (newType === 'written' ? (batchWin?.end_time || '23:59') : ''),
+        }))
+      };
+    });
+  };
+
+  const applyBatchExamDatesToForm = (targetBatchId?: string | null) => {
+    const batchWin = getBatchExamWindow(targetBatchId || formData.batch_id || selectedBatchId);
+    if (!batchWin || !batchWin.exam_date) {
+      toast.error('Batch ini belum memiliki pengaturan Tanggal Mulai/Selesai Ujian Akhir di Manajemen Batch.');
+      return;
+    }
+    setFormData(prev => ({
+      ...prev,
+      sessions: prev.sessions.map(s => ({
+        ...s,
+        exam_date: batchWin.exam_date,
+        end_date: batchWin.end_date || batchWin.exam_date,
+        start_time: batchWin.start_time || '06:00',
+        end_time: batchWin.end_time || '23:59',
+      }))
+    }));
+    toast.success(`Tanggal ujian berhasil disinkronkan dari ${batchWin.batch.name}`);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.examiner_id) {
-      toast.error('Harap pilih penguji (examiner)');
+    const isWritten = formData.exam_type === 'written';
+
+    if (!isWritten && !formData.examiner_id) {
+      toast.error('Harap pilih penguji (examiner) untuk ujian lisan');
       return;
     }
 
-    const hasEmptySession = formData.sessions.some(s => !s.exam_date || !s.start_time || !s.end_time);
+    const hasEmptySession = formData.sessions.some(
+      s => !s.exam_date || (isWritten && !s.end_date) || !s.start_time || !s.end_time
+    );
     if (hasEmptySession) {
-      toast.error('Harap lengkapi tanggal dan jam pada semua sesi ujian');
+      toast.error(
+        isWritten
+          ? 'Harap lengkapi Tanggal Dibuka, Tanggal Tutup Ujian, serta Jam Dibuka & Ditutup'
+          : 'Harap lengkapi tanggal dan jam pada semua sesi ujian'
+      );
+      return;
+    }
+
+    const hasInvalidDateRange = formData.sessions.some(
+      s => s.end_date && s.exam_date && s.end_date < s.exam_date
+    );
+    if (hasInvalidDateRange) {
+      toast.error('Tanggal tutup ujian tidak boleh lebih awal dari tanggal dibuka ujian');
       return;
     }
 
@@ -269,10 +361,11 @@ export function FinalExamSchedules() {
             id: editingId,
             batch_id: formData.batch_id || selectedBatchId,
             exam_type: formData.exam_type,
-            examiner_id: formData.examiner_id,
+            examiner_id: formData.examiner_id === 'NONE' ? null : (formData.examiner_id || null),
             max_quota: formData.max_quota,
             location_link: formData.location_link,
             exam_date: session.exam_date,
+            end_date: session.end_date || session.exam_date,
             start_time: session.start_time,
             end_time: session.end_time
           })
@@ -283,6 +376,7 @@ export function FinalExamSchedules() {
           setShowAddForm(false);
           resetForm();
           fetchSchedules();
+          mutateBatches();
         } else {
           toast.error('Gagal memperbarui jadwal');
         }
@@ -294,10 +388,11 @@ export function FinalExamSchedules() {
             body: JSON.stringify({ 
               batch_id: formData.batch_id || selectedBatchId,
               exam_type: formData.exam_type,
-              examiner_id: formData.examiner_id,
+              examiner_id: formData.examiner_id === 'NONE' ? null : (formData.examiner_id || null),
               max_quota: formData.max_quota,
               location_link: formData.location_link,
               exam_date: session.exam_date,
+              end_date: session.end_date || session.exam_date,
               start_time: session.start_time,
               end_time: session.end_time
             })
@@ -312,6 +407,7 @@ export function FinalExamSchedules() {
           setShowAddForm(false);
           resetForm();
           fetchSchedules();
+          mutateBatches();
         } else {
           toast.error('Beberapa jadwal mungkin gagal ditambahkan');
           fetchSchedules();
@@ -331,7 +427,7 @@ export function FinalExamSchedules() {
       examiner_id: '',
       max_quota: 5,
       location_link: '',
-      sessions: [{ exam_date: '', start_time: '', end_time: '' }]
+      sessions: [{ exam_date: '', end_date: '', start_time: '', end_time: '' }]
     });
     setEditingId(null);
   };
@@ -345,7 +441,8 @@ export function FinalExamSchedules() {
       max_quota: schedule.max_quota,
       location_link: schedule.location_link || '',
       sessions: [{ 
-        exam_date: schedule.exam_date, 
+        exam_date: schedule.exam_date,
+        end_date: schedule.end_date || schedule.exam_date,
         start_time: schedule.start_time, 
         end_time: schedule.end_time 
       }]
@@ -355,9 +452,18 @@ export function FinalExamSchedules() {
   };
 
   const addSession = () => {
+    const isWritten = formData.exam_type === 'written';
     setFormData({
       ...formData,
-      sessions: [...formData.sessions, { exam_date: '', start_time: '', end_time: '' }]
+      sessions: [
+        ...formData.sessions,
+        {
+          exam_date: '',
+          end_date: '',
+          start_time: isWritten ? '06:00' : '',
+          end_time: isWritten ? '23:59' : ''
+        }
+      ]
     });
   };
 
@@ -370,7 +476,12 @@ export function FinalExamSchedules() {
 
   const updateSession = (index: number, field: string, value: string) => {
     const newSessions = [...formData.sessions];
-    newSessions[index] = { ...newSessions[index], [field]: value };
+    const updated = { ...newSessions[index], [field]: value };
+    // Auto-fill end_date if exam_date is picked and end_date is still empty
+    if (field === 'exam_date' && !updated.end_date) {
+      updated.end_date = value;
+    }
+    newSessions[index] = updated;
     setFormData({ ...formData, sessions: newSessions });
   };
 
@@ -387,6 +498,8 @@ export function FinalExamSchedules() {
       toast.error('Gagal menghapus jadwal');
     }
   };
+
+  const isWrittenForm = formData.exam_type === 'written';
 
   return (
     <div className="space-y-6">
@@ -437,6 +550,76 @@ export function FinalExamSchedules() {
         </div>
       </div>
 
+      {/* Info Banner: Sinkronisasi Periode Ujian Akhir dengan Manajemen Batch */}
+      {selectedBatchObj && (
+        <div className="bg-gradient-to-r from-blue-50/90 via-indigo-50/60 to-blue-50/90 border border-blue-200/80 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 bg-blue-600 text-white rounded-xl shadow-sm shrink-0 mt-0.5">
+              <CalendarIcon className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] font-black uppercase tracking-wider bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md border border-blue-200">
+                  Terhubung ke Manajemen Batch
+                </span>
+                <span className="text-xs font-bold text-gray-700">
+                  {selectedBatchObj.name}
+                </span>
+              </div>
+              <p className="text-xs text-gray-800 font-semibold mt-1">
+                Periode Ujian Akhir Batch (Buka – Tutup CBT):{' '}
+                {selectedBatchObj.final_exam_start_date ? (
+                  <span className="font-black text-blue-950">
+                    {formatDateFull(selectedBatchObj.final_exam_start_date)} ({extractWibDateAndTime(selectedBatchObj.final_exam_start_date, '00:01').time} WIB)
+                    {' s.d. '}
+                    {formatDateFull(selectedBatchObj.final_exam_end_date || selectedBatchObj.final_exam_start_date)} ({extractWibDateAndTime(selectedBatchObj.final_exam_end_date, '23:59').time} WIB)
+                  </span>
+                ) : (
+                  <span className="text-amber-700 font-bold">Belum diatur di Batch</span>
+                )}
+              </p>
+              <p className="text-[11px] text-gray-500 mt-0.5">
+                Mengubah Tanggal Dibuka & Tanggal Tutup Ujian Tulisan di sini otomatis memperbarui Periode Ujian Akhir pada Batch (dan sebaliknya).
+              </p>
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const existingWritten = schedules.find(s => s.exam_type === 'written');
+              if (existingWritten) {
+                handleEdit(existingWritten);
+              } else {
+                const win = getBatchExamWindow(selectedBatchId);
+                setEditingId(null);
+                setFormData({
+                  batch_id: selectedBatchId || '',
+                  exam_type: 'written',
+                  examiner_id: 'NONE',
+                  max_quota: 200,
+                  location_link: '',
+                  sessions: [{
+                    exam_date: win?.exam_date || '',
+                    end_date: win?.end_date || win?.exam_date || '',
+                    start_time: win?.start_time || '06:00',
+                    end_time: win?.end_time || '23:59',
+                  }]
+                });
+                setShowAddForm(true);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }
+            }}
+            className="rounded-xl border-blue-300 bg-white hover:bg-blue-50 text-blue-800 font-bold text-xs shrink-0 self-start sm:self-center"
+          >
+            <FileText className="w-3.5 h-3.5 mr-1.5 text-blue-700" />
+            {schedules.some(s => s.exam_type === 'written') ? 'Edit Tanggal Buka/Tutup CBT' : 'Atur Tanggal Buka/Tutup CBT'}
+          </Button>
+        </div>
+      )}
+
       {showAddForm && (
         <Card className="rounded-3xl border border-gray-100 bg-white shadow-xl animate-fadeInDown overflow-hidden">
           <CardHeader className="bg-gray-50/50 border-b border-gray-100 py-5">
@@ -451,7 +634,22 @@ export function FinalExamSchedules() {
                   <Label>Batch Ujian</Label>
                   <Select 
                     value={formData.batch_id} 
-                    onValueChange={(v) => setFormData({...formData, batch_id: v})}
+                    onValueChange={(v) => {
+                      const batchWin = getBatchExamWindow(v);
+                      setFormData(prev => ({
+                        ...prev,
+                        batch_id: v,
+                        sessions: prev.exam_type === 'written' && batchWin?.exam_date
+                          ? prev.sessions.map(s => ({
+                              ...s,
+                              exam_date: batchWin.exam_date,
+                              end_date: batchWin.end_date || batchWin.exam_date,
+                              start_time: batchWin.start_time || s.start_time || '06:00',
+                              end_time: batchWin.end_time || s.end_time || '23:59',
+                            }))
+                          : prev.sessions
+                      }));
+                    }}
                     required
                   >
                     <SelectTrigger className="rounded-xl border-gray-200">
@@ -466,35 +664,40 @@ export function FinalExamSchedules() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Penguji (Examiner)</Label>
-                  <Select 
-                    value={formData.examiner_id} 
-                    onValueChange={(v) => setFormData({...formData, examiner_id: v})}
-                    required
-                  >
-                    <SelectTrigger className={`rounded-xl border-gray-200 ${!formData.examiner_id ? "text-gray-500" : ""}`}>
-                      <SelectValue placeholder="Pilih Penguji" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {examiners.map(examiner => (
-                        <SelectItem key={examiner.id} value={examiner.id}>{formatMuallimahName(examiner.full_name)}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
                   <Label>Jenis Ujian</Label>
                   <Select 
                     value={formData.exam_type} 
-                    onValueChange={(v) => setFormData({...formData, exam_type: v})}
+                    onValueChange={handleExamTypeChange}
                   >
                     <SelectTrigger className="rounded-xl border-gray-200">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="oral">Ujian Lisan (Oral)</SelectItem>
-                      <SelectItem value="written">Ujian Tulisan (Written)</SelectItem>
+                      <SelectItem value="written">Ujian Tulisan (Written / Pilihan Ganda)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>
+                    Penguji (Examiner){' '}
+                    {isWrittenForm && <span className="text-xs font-normal text-gray-400">(Opsional untuk Ujian Tulisan)</span>}
+                  </Label>
+                  <Select 
+                    value={formData.examiner_id} 
+                    onValueChange={(v) => setFormData({...formData, examiner_id: v})}
+                  >
+                    <SelectTrigger className={`rounded-xl border-gray-200 ${!formData.examiner_id ? "text-gray-500" : ""}`}>
+                      <SelectValue placeholder={isWrittenForm ? "Semua / Sistem CBT (Tanpa Penguji Spesifik)" : "Pilih Penguji"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {isWrittenForm && (
+                        <SelectItem value="NONE">Sistem CBT Otomatis (Tanpa Penguji)</SelectItem>
+                      )}
+                      {examiners.map(examiner => (
+                        <SelectItem key={examiner.id} value={examiner.id}>{formatMuallimahName(examiner.full_name)}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -505,15 +708,15 @@ export function FinalExamSchedules() {
                     type="number" 
                     className="rounded-xl border-gray-200" 
                     value={formData.max_quota}
-                    onChange={(e) => setFormData({...formData, max_quota: parseInt(e.target.value)})}
+                    onChange={(e) => setFormData({...formData, max_quota: parseInt(e.target.value) || 0})}
                     required
                   />
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-2 md:col-span-2">
                   <Label>Link Zoom / Lokasi (Opsional)</Label>
                   <Input 
-                    placeholder="https://zoom.us/j/..." 
+                    placeholder={isWrittenForm ? "Kosongkan jika dikerjakan langsung di Portal CBT /ujian" : "https://zoom.us/j/..."} 
                     className="rounded-xl border-gray-200" 
                     value={formData.location_link}
                     onChange={(e) => setFormData({...formData, location_link: e.target.value})}
@@ -522,15 +725,36 @@ export function FinalExamSchedules() {
               </div>
 
               <div className="border-t border-gray-100 pt-6">
-                <div className="flex justify-between items-center mb-4">
-                  <Label className="text-base font-bold">Sesi Ujian</Label>
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-4">
+                  <div>
+                    <Label className="text-base font-bold">
+                      {isWrittenForm ? 'Rentang Waktu & Sesi Ujian Tulisan (Tanggal Dibuka & Tanggal Tutup)' : 'Sesi Ujian Lisan'}
+                    </Label>
+                    {isWrittenForm && (
+                      <p className="text-xs text-blue-700 mt-0.5">
+                        💡 Terhubung otomatis dengan <strong>Periode Ujian Akhir Batch</strong> (`final_exam_start_date` & `final_exam_end_date`). Menyimpan tanggal dibuka & tutup di bawah otomatis meng-update tanggal ujian akhir pada Batch dan membuka/menutup CBT di Portal Thalibah.
+                      </p>
+                    )}
+                  </div>
+                  {isWrittenForm && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => applyBatchExamDatesToForm(formData.batch_id || selectedBatchId)}
+                      className="rounded-xl border-blue-200 bg-blue-50/70 hover:bg-blue-100 text-blue-800 font-bold text-xs self-start sm:self-auto"
+                    >
+                      <CalendarIcon className="w-3.5 h-3.5 mr-1.5" />
+                      Isi Otomatis dari Tanggal Batch
+                    </Button>
+                  )}
                   {!editingId && (
                     <Button 
                       type="button" 
                       variant="outline" 
                       size="sm"
                       onClick={addSession}
-                      className="rounded-xl"
+                      className="rounded-xl self-start sm:self-auto"
                     >
                       <Plus className="w-4 h-4 mr-2" />
                       Tambah Sesi
@@ -540,46 +764,126 @@ export function FinalExamSchedules() {
 
                 <div className="space-y-4">
                   {formData.sessions.map((session, index) => (
-                    <div key={index} className="flex flex-col sm:flex-row items-end gap-4 p-4 rounded-xl bg-gray-50 border border-gray-100">
-                      <div className="flex-1 space-y-2 w-full">
-                        <Label>Tanggal</Label>
-                        <Input 
-                          type="date" 
-                          className="rounded-xl bg-white" 
-                          value={session.exam_date}
-                          onChange={(e) => updateSession(index, 'exam_date', e.target.value)}
-                          required
-                        />
-                      </div>
-                      <div className="flex-1 space-y-2 w-full">
-                        <Label>Waktu Mulai</Label>
-                        <Input 
-                          type="time" 
-                          className="rounded-xl bg-white" 
-                          value={session.start_time}
-                          onChange={(e) => updateSession(index, 'start_time', e.target.value)}
-                          required
-                        />
-                      </div>
-                      <div className="flex-1 space-y-2 w-full">
-                        <Label>Waktu Selesai</Label>
-                        <Input 
-                          type="time" 
-                          className="rounded-xl bg-white" 
-                          value={session.end_time}
-                          onChange={(e) => updateSession(index, 'end_time', e.target.value)}
-                          required
-                        />
-                      </div>
-                      {formData.sessions.length > 1 && (
-                        <Button 
-                          type="button" 
-                          variant="ghost" 
-                          onClick={() => removeSession(index)}
-                          className="text-red-500 hover:text-red-700 hover:bg-red-50 rounded-xl"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </Button>
+                    <div
+                      key={index}
+                      className={cn(
+                        "p-4 rounded-2xl border",
+                        isWrittenForm
+                          ? "bg-blue-50/40 border-blue-100"
+                          : "bg-gray-50 border-gray-100"
+                      )}
+                    >
+                      {isWrittenForm ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                          <div className="space-y-2">
+                            <Label className="text-xs font-bold text-blue-950">Tanggal Dibuka Ujian *</Label>
+                            <Input 
+                              type="date" 
+                              className="rounded-xl bg-white border-blue-200" 
+                              value={session.exam_date}
+                              onChange={(e) => updateSession(index, 'exam_date', e.target.value)}
+                              required
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs font-bold text-blue-950">Jam Dibuka (WIB) *</Label>
+                            <Input 
+                              type="time" 
+                              className="rounded-xl bg-white border-blue-200" 
+                              value={session.start_time}
+                              onChange={(e) => updateSession(index, 'start_time', e.target.value)}
+                              required
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs font-bold text-rose-900">Tanggal Tutup Ujian *</Label>
+                            <Input 
+                              type="date" 
+                              min={session.exam_date || undefined}
+                              className="rounded-xl bg-white border-rose-200" 
+                              value={session.end_date}
+                              onChange={(e) => updateSession(index, 'end_date', e.target.value)}
+                              required
+                            />
+                          </div>
+                          <div className="flex items-end gap-2">
+                            <div className="flex-1 space-y-2">
+                              <Label className="text-xs font-bold text-rose-900">Jam Ditutup (WIB) *</Label>
+                              <Input 
+                                type="time" 
+                                className="rounded-xl bg-white border-rose-200" 
+                                value={session.end_time}
+                                onChange={(e) => updateSession(index, 'end_time', e.target.value)}
+                                required
+                              />
+                            </div>
+                            {formData.sessions.length > 1 && (
+                              <Button 
+                                type="button" 
+                                variant="ghost" 
+                                onClick={() => removeSession(index)}
+                                className="text-red-500 hover:text-red-700 hover:bg-red-50 rounded-xl"
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                          <div className="space-y-2">
+                            <Label>Tanggal Mulai Sesi *</Label>
+                            <Input 
+                              type="date" 
+                              className="rounded-xl bg-white" 
+                              value={session.exam_date}
+                              onChange={(e) => updateSession(index, 'exam_date', e.target.value)}
+                              required
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Tanggal Akhir Sesi (Opsional)</Label>
+                            <Input 
+                              type="date" 
+                              min={session.exam_date || undefined}
+                              className="rounded-xl bg-white" 
+                              value={session.end_date || session.exam_date}
+                              onChange={(e) => updateSession(index, 'end_date', e.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Waktu Mulai (WIB) *</Label>
+                            <Input 
+                              type="time" 
+                              className="rounded-xl bg-white" 
+                              value={session.start_time}
+                              onChange={(e) => updateSession(index, 'start_time', e.target.value)}
+                              required
+                            />
+                          </div>
+                          <div className="flex items-end gap-2">
+                            <div className="flex-1 space-y-2">
+                              <Label>Waktu Selesai (WIB) *</Label>
+                              <Input 
+                                type="time" 
+                                className="rounded-xl bg-white" 
+                                value={session.end_time}
+                                onChange={(e) => updateSession(index, 'end_time', e.target.value)}
+                                required
+                              />
+                            </div>
+                            {formData.sessions.length > 1 && (
+                              <Button 
+                                type="button" 
+                                variant="ghost" 
+                                onClick={() => removeSession(index)}
+                                className="text-red-500 hover:text-red-700 hover:bg-red-50 rounded-xl"
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
                       )}
                     </div>
                   ))}
@@ -612,6 +916,8 @@ export function FinalExamSchedules() {
             const max = schedule.max_quota;
             const isFull = current >= max;
             const isAlmostFull = !isFull && (current >= max * 0.7 || max - current <= 2);
+            const hasMultiDayRange = Boolean(schedule.end_date && schedule.end_date !== schedule.exam_date);
+            const isWrittenSchedule = schedule.exam_type === 'written';
 
             let cardBgBorderClass = "";
             let quotaTextClass = "";
@@ -652,7 +958,7 @@ export function FinalExamSchedules() {
                         ? "bg-amber-100/60 text-amber-800 border-amber-200/50" 
                         : "bg-blue-100/60 text-blue-800 border-blue-200/50"
                     )}>
-                      {schedule.exam_type === 'oral' ? 'Lisan' : 'Tulis'}
+                      {schedule.exam_type === 'oral' ? 'Lisan' : 'Tulisan'}
                     </div>
 
                     {isFull ? (
@@ -697,17 +1003,40 @@ export function FinalExamSchedules() {
               </div>
 
               <div className="space-y-3">
-                <h3 className="text-base font-black text-gray-900 tracking-tight leading-snug">
-                  {new Intl.DateTimeFormat('id-ID', { dateStyle: 'full', timeZone: 'Asia/Jakarta' }).format(new Date(schedule.exam_date))}
-                </h3>
+                {isWrittenSchedule || hasMultiDayRange ? (
+                  <div className="space-y-1.5 bg-white/80 rounded-xl p-3 border border-gray-100">
+                    <div>
+                      <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700 block">
+                        Dibuka Ujian:
+                      </span>
+                      <p className="text-xs font-black text-gray-900">
+                        {formatDateFull(schedule.exam_date)} • {schedule.start_time?.slice(0, 5)} WIB
+                      </p>
+                    </div>
+                    <div className="pt-1 border-t border-gray-100">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-rose-700 block">
+                        Ditutup Ujian:
+                      </span>
+                      <p className="text-xs font-black text-gray-900">
+                        {formatDateFull(schedule.end_date || schedule.exam_date)} • {schedule.end_time?.slice(0, 5)} WIB
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <h3 className="text-base font-black text-gray-900 tracking-tight leading-snug">
+                    {formatDateFull(schedule.exam_date)}
+                  </h3>
+                )}
                 
                 <div className="space-y-2 text-xs font-semibold text-gray-600">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-5 h-5 rounded-md bg-white border border-gray-100 flex items-center justify-center text-gray-400">
-                      <Clock className="w-3.5 h-3.5" />
+                  {!isWrittenSchedule && !hasMultiDayRange && (
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-5 h-5 rounded-md bg-white border border-gray-100 flex items-center justify-center text-gray-400">
+                        <Clock className="w-3.5 h-3.5" />
+                      </div>
+                      <span>{schedule.start_time} - {schedule.end_time} WIB</span>
                     </div>
-                    <span>{schedule.start_time} - {schedule.end_time} WIB</span>
-                  </div>
+                  )}
                   <div className="flex items-center gap-2.5">
                     <div className="w-5 h-5 rounded-md bg-white border border-gray-100 flex items-center justify-center text-gray-400">
                       <Users className="w-3.5 h-3.5" />
@@ -718,7 +1047,16 @@ export function FinalExamSchedules() {
                     <div className="w-5 h-5 rounded-md bg-white border border-gray-100 flex items-center justify-center text-gray-400">
                       <GraduationCap className="w-3.5 h-3.5" />
                     </div>
-                    <span>Penguji: <span className="text-gray-950 font-bold">{formatMuallimahName(schedule.examiner?.full_name) || '-'}</span></span>
+                    <span>
+                      Penguji:{' '}
+                      <span className="text-gray-950 font-bold">
+                        {schedule.examiner?.full_name
+                          ? formatMuallimahName(schedule.examiner.full_name)
+                          : isWrittenSchedule
+                          ? 'Sistem CBT Otomatis'
+                          : '-'}
+                      </span>
+                    </span>
                   </div>
                   {schedule.location_link && (
                     <div className="flex items-center gap-2.5 min-w-0">
@@ -732,6 +1070,27 @@ export function FinalExamSchedules() {
                         className="text-blue-600 hover:underline truncate"
                       >
                         {schedule.location_link}
+                      </a>
+                    </div>
+                  )}
+                  {isWrittenSchedule && (
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className="pt-2.5 mt-2 border-t border-blue-100 flex flex-col gap-1.5"
+                    >
+                      <a
+                        href={`/admin/whatsapp?tab=broadcast&batchId=${encodeURIComponent(schedule.batch_id || selectedBatchId || '')}&tmpl=pembukaan_ujian_tulisan&filter=all`}
+                        className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold bg-emerald-700 hover:bg-emerald-800 text-white transition-all shadow-xs"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        Kirim Notifikasi Pembukaan Ujian (WA)
+                      </a>
+                      <a
+                        href={`/admin/whatsapp?tab=broadcast&batchId=${encodeURIComponent(schedule.batch_id || selectedBatchId || '')}&tmpl=batas_akhir_ujian_tulisan&filter=missing_written_exam`}
+                        className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 transition-all"
+                      >
+                        <Clock className="w-3.5 h-3.5" />
+                        Pengingat Batas Akhir (Belum Ujian)
                       </a>
                     </div>
                   )}
@@ -770,13 +1129,15 @@ export function FinalExamSchedules() {
                     Daftar Pendaftar Ujian
                   </DialogTitle>
                   <DialogDescription className="text-white/95 font-medium leading-relaxed">
-                    {viewingParticipantsSchedule.exam_type === 'oral' ? 'Ujian Lisan' : 'Ujian Tulisan'} • {new Intl.DateTimeFormat('id-ID', { dateStyle: 'full', timeZone: 'Asia/Jakarta' }).format(new Date(viewingParticipantsSchedule.exam_date))}
+                    {viewingParticipantsSchedule.exam_type === 'oral' ? 'Ujian Lisan' : 'Ujian Tulisan'} •{' '}
+                    {viewingParticipantsSchedule.end_date && viewingParticipantsSchedule.end_date !== viewingParticipantsSchedule.exam_date
+                      ? `${formatDateFull(viewingParticipantsSchedule.exam_date)} s.d. ${formatDateFull(viewingParticipantsSchedule.end_date)}`
+                      : formatDateFull(viewingParticipantsSchedule.exam_date)}
                     <div className="text-xs text-white/80 mt-1 font-bold">
-                      Waktu: {viewingParticipantsSchedule.start_time} - {viewingParticipantsSchedule.end_time} WIB | Penguji: {formatMuallimahName(viewingParticipantsSchedule.examiner?.full_name) || '-'}
+                      Waktu: {viewingParticipantsSchedule.start_time} - {viewingParticipantsSchedule.end_time} WIB | Penguji: {formatMuallimahName(viewingParticipantsSchedule.examiner?.full_name) || (viewingParticipantsSchedule.exam_type === 'written' ? 'Sistem CBT Otomatis' : '-')}
                     </div>
                   </DialogDescription>
                 </div>
-                {/* Background decorative details */}
                 <div className="absolute top-0 right-0 -mr-12 -mt-12 w-36 h-36 bg-white/10 rounded-full blur-2xl" />
                 <div className="absolute bottom-0 left-0 -ml-12 -mb-12 w-36 h-36 bg-black/10 rounded-full blur-2xl" />
               </DialogHeader>

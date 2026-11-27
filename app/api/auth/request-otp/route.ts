@@ -17,7 +17,6 @@ const GENERIC_RESPONSE = {
 
 /**
  * Step 1 of password reset: generate an OTP server-side and email it.
- * The response never reveals whether the email is registered.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -39,7 +38,13 @@ export async function POST(request: NextRequest) {
     );
     if (users.length === 0) {
       logger.info('OTP requested for unknown email', { email: maskedEmail });
-      return NextResponse.json(GENERIC_RESPONSE);
+      return NextResponse.json(
+        {
+          error: `Email (${normalizedEmail}) belum terdaftar di sistem MTI. Silakan daftar akun baru terlebih dahulu.`,
+          code: 'EMAIL_NOT_REGISTERED',
+        },
+        { status: 404 }
+      );
     }
 
     // Per-email cooldown and hourly/daily caps, counted over ALL issued codes
@@ -59,7 +64,10 @@ export async function POST(request: NextRequest) {
       Number(usage?.last_day) >= MAX_CODES_PER_DAY
     ) {
       logger.info('OTP request throttled for email', { email: maskedEmail });
-      return NextResponse.json(GENERIC_RESPONSE);
+      return NextResponse.json(
+        { error: 'Kode reset password baru saja dikirim. Silakan tunggu 1 menit sebelum meminta kode baru.' },
+        { status: 429 }
+      );
     }
 
     const code = randomInt(0, 1_000_000).toString().padStart(6, '0');

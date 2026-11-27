@@ -59,8 +59,33 @@ export interface ExaminerReminderCandidate {
   reminderSentAt?: string | null;
 }
 
+export interface WrittenExamReminderCandidate {
+  userId: string;
+  fullName: string;
+  whatsapp: string;
+  batchId: string;
+  batchName: string;
+  targetJuz: string;
+  scheduleId: string;
+  openDate: string;
+  closeDate: string;
+  openTime: string;
+  closeTime: string;
+  openDateTimeFormatted: string;
+  closeDateTimeFormatted: string;
+  hasCompletedWrittenExam: boolean;
+}
+
 export interface SendH1ExamRemindersOptions {
   targetDate?: string; // YYYY-MM-DD (Defaults to tomorrow in Asia/Jakarta)
+  dryRun?: boolean;
+  force?: boolean;
+}
+
+export interface SendWrittenExamRemindersOptions {
+  mode: 'open' | 'deadline';
+  targetDate?: string; // YYYY-MM-DD (Defaults to today in Asia/Jakarta)
+  batchId?: string;
   dryRun?: boolean;
   force?: boolean;
 }
@@ -103,6 +128,45 @@ export interface SendH1ExaminerRemindersResult {
     messageId?: string;
     error?: string;
   }[];
+}
+
+export interface SendWrittenExamRemindersResult {
+  success: boolean;
+  mode: 'open' | 'deadline';
+  targetDate: string;
+  dryRun: boolean;
+  totalCandidates: number;
+  sentCount: number;
+  failedCount: number;
+  skippedCount: number;
+  stoppedEarly?: boolean;
+  stopReason?: string | null;
+  results: {
+    userId: string;
+    fullName: string;
+    whatsapp: string;
+    success: boolean;
+    messageId?: string;
+    error?: string;
+  }[];
+}
+
+/**
+ * Returns today's date string in YYYY-MM-DD based on Asia/Jakarta timezone (WIB)
+ */
+export function getTodayWibDateString(): string {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jakarta',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const parts = formatter.formatToParts(now);
+  const year = parts.find(p => p.type === 'year')?.value || '2026';
+  const month = parts.find(p => p.type === 'month')?.value || '01';
+  const day = parts.find(p => p.type === 'day')?.value || '01';
+  return `${year}-${month}-${day}`;
 }
 
 /**
@@ -153,6 +217,93 @@ export function formatTimeRange(start: string, end: string): string {
   const s = (start || '').slice(0, 5);
   const e = (end || '').slice(0, 5);
   return `${s} – ${e} WIB`;
+}
+
+/**
+ * Builds the official MTI WhatsApp Notification for Written Final Exam Opening & Deadline
+ */
+export function buildWrittenExamOpenMessage(recipient: {
+  fullName: string;
+  batchName?: string;
+  targetJuz?: string;
+  openDateTimeFormatted: string;
+  closeDateTimeFormatted: string;
+}): string {
+  const batchDisplay = recipient.batchName || 'Tikrar Tahfidz MTI Batch 3';
+  const cleanJuz = (recipient.targetJuz || '30').trim();
+  const targetJuzDisplay = cleanJuz.toLowerCase().startsWith('juz')
+    ? cleanJuz
+    : `Juz ${cleanJuz}`;
+
+  return `Assalamu'alaikum Warahmatullahi Wabarakatuh.
+
+Ykh. Ukhti *${recipient.fullName}*,
+
+Baarakallahu fiik. Kami menginformasikan bahwa *Ujian Akhir Tulisan (CBT Pilihan Ganda)* pada program *${batchDisplay}* (${targetJuzDisplay}) telah resmi *DIBUKA*:
+
+📌 *JADWAL & BATAS AKHIR UJIAN TULISAN:*
+• *Dibuka Mulai:* ${recipient.openDateTimeFormatted}
+• *Batas Akhir Pengerjaan (Tutup):* ${recipient.closeDateTimeFormatted}
+• *Jumlah Soal & Durasi:* 50 Soal Pilihan Ganda (Maks. 60 Menit)
+
+🔗 *Akses Portal Ujian Akhir CBT:*
+https://markaztikrar.id/ujian
+
+📌 *PETUNJUK PENGERJAAN UJIAN TULISAN:*
+1. Ujian tulisan wajib dikerjakan secara mandiri dan *closed-book* (tanpa membuka mushaf).
+2. Pastikan koneksi internet stabil sebelum menekan tombol *Mulai Ujian*.
+3. Harap menyelesaikan dan mengirim (*submit*) jawaban sebelum batas akhir penutupan ujian di atas.
+
+*(Mohon tidak membalas pesan ini karena dikirim secara otomatis oleh sistem).*
+
+Semoga Allah Ta'ala senantiasa memberikan kemudahan, ketenangan, dan keberkahan bagi Ukhti dalam menyelesaikan Ujian Akhir. Aamiin.
+
+Jazakillahu khairan.
+Wassalamu'alaikum Warahmatullahi Wabarakatuh.
+━━━━━━━━━━━━━━
+Tim Akademik Markaz Tikrar Indonesia
+🌐 https://markaztikrar.id`;
+}
+
+/**
+ * Builds the official MTI WhatsApp Reminder for Written Final Exam Deadline (for thalibah who haven't submitted yet)
+ */
+export function buildWrittenExamDeadlineMessage(recipient: {
+  fullName: string;
+  batchName?: string;
+  targetJuz?: string;
+  openDateTimeFormatted?: string;
+  closeDateTimeFormatted: string;
+}): string {
+  const batchDisplay = recipient.batchName || 'Tikrar Tahfidz MTI Batch 3';
+  const cleanJuz = (recipient.targetJuz || '30').trim();
+  const targetJuzDisplay = cleanJuz.toLowerCase().startsWith('juz')
+    ? cleanJuz
+    : `Juz ${cleanJuz}`;
+
+  return `Assalamu'alaikum Warahmatullahi Wabarakatuh.
+
+Ykh. Ukhti *${recipient.fullName}*,
+
+Semoga Ukhti senantiasa dalam lindungan dan kemudahan dari Allah Ta'ala.
+
+Kami dari Tim Akademik Markaz Tikrar Indonesia mengingatkan bahwa berdasarkan data sistem, Ukhti tercatat *belum menyelesaikan Ujian Akhir Tulisan (CBT)* untuk program *${batchDisplay}* (${targetJuzDisplay}).
+
+⏰ *BATAS AKHIR PENGERJAAN UJIAN TULISAN:*
+• *Ditutup pada:* *${recipient.closeDateTimeFormatted}*
+• *Tautan Ujian CBT:* 🔗 https://markaztikrar.id/ujian
+
+Mohon segera meluangkan waktu untuk mengerjakan dan mengirim (*submit*) Ujian Akhir Tulisan sebelum sesi ujian ditutup otomatis oleh sistem.
+
+*(Mohon tidak membalas pesan ini karena dikirim secara otomatis oleh sistem).*
+
+Semoga Allah Ta'ala memudahkan dan memberkahi ujian Ukhti. Aamiin.
+
+Jazakillahu khairan.
+Wassalamu'alaikum Warahmatullahi Wabarakatuh.
+━━━━━━━━━━━━━━
+Tim Akademik Markaz Tikrar Indonesia
+🌐 https://markaztikrar.id`;
 }
 
 /**
@@ -269,6 +420,12 @@ export async function ensureReminderColumnExists(): Promise<void> {
 
       ALTER TABLE public.final_exam_schedules 
       ADD COLUMN IF NOT EXISTS reminder_examiner_sent_at timestamp with time zone;
+
+      ALTER TABLE public.final_exam_schedules 
+      ADD COLUMN IF NOT EXISTS reminder_written_open_sent_at timestamp with time zone;
+
+      ALTER TABLE public.final_exam_schedules 
+      ADD COLUMN IF NOT EXISTS reminder_written_deadline_sent_at timestamp with time zone;
     `);
   } catch (err) {
     console.warn('[ExamReminder] Column check error (table might not exist yet):', err);
@@ -480,6 +637,340 @@ export async function getH1ExaminerCandidates(targetDate: string): Promise<Exami
   }
 
   return result;
+}
+
+/**
+ * Retrieves candidates for Written Final Exam notifications (mode: 'open' or 'deadline')
+ */
+export async function getWrittenExamReminderCandidates(options: {
+  mode: 'open' | 'deadline';
+  targetDate?: string;
+  batchId?: string;
+  force?: boolean;
+}): Promise<WrittenExamReminderCandidate[]> {
+  await ensureReminderColumnExists();
+
+  const today = options.targetDate || getTodayWibDateString();
+  const tomorrow = getTomorrowWibDateString();
+
+  // Find active written schedules matching the date criteria (unless batchId + force is passed)
+  const scheduleParams: any[] = [];
+  let whereSql = `s.exam_type = 'written' AND s.status = 'active'`;
+
+  if (options.batchId) {
+    scheduleParams.push(options.batchId);
+    whereSql += ` AND s.batch_id = $${scheduleParams.length}`;
+  } else if (options.mode === 'open') {
+    scheduleParams.push(today);
+    whereSql += ` AND s.exam_date::text = $${scheduleParams.length}`;
+    if (!options.force) {
+      whereSql += ` AND s.reminder_written_open_sent_at IS NULL`;
+    }
+  } else {
+    // mode === 'deadline': triggers on H-1 or Final Day (today or tomorrow equals end_date)
+    scheduleParams.push(today, tomorrow);
+    whereSql += ` AND COALESCE(s.end_date, s.exam_date)::text IN ($${scheduleParams.length - 1}, $${scheduleParams.length})`;
+    if (!options.force) {
+      whereSql += ` AND (s.reminder_written_deadline_sent_at IS NULL OR s.reminder_written_deadline_sent_at::date < CURRENT_DATE)`;
+    }
+  }
+
+  const { rows: writtenSchedules } = await query(
+    `SELECT
+       s.id AS schedule_id,
+       s.batch_id,
+       b.name AS batch_name,
+       s.exam_date::text AS open_date,
+       COALESCE(s.end_date, s.exam_date)::text AS close_date,
+       COALESCE(s.start_time::text, '00:00:00') AS open_time,
+       COALESCE(s.end_time::text, '23:59:00') AS close_time
+     FROM final_exam_schedules s
+     JOIN batches b ON b.id = s.batch_id
+     WHERE ${whereSql}
+     ORDER BY s.updated_at DESC`,
+    scheduleParams
+  );
+
+  if (writtenSchedules.length === 0) {
+    return [];
+  }
+
+  const candidates: WrittenExamReminderCandidate[] = [];
+
+  for (const sched of writtenSchedules) {
+    const openDateFmt = `${formatIndonesianDate(sched.open_date)} pukul ${sched.open_time.slice(0, 5)} WIB`;
+    const closeDateFmt = `${formatIndonesianDate(sched.close_date)} pukul ${sched.close_time.slice(0, 5)} WIB`;
+
+    const { rows: students } = await query(
+      `SELECT
+         vat.user_id,
+         vat.full_name,
+         vat.whatsapp,
+         COALESCE(vat.confirmed_chosen_juz, '30') AS target_juz,
+         EXISTS (
+           SELECT 1
+           FROM exam_attempts ea
+           JOIN pendaftaran_tikrar_tahfidz ptt ON ptt.id = ea.registration_id
+           WHERE ea.user_id = vat.user_id
+             AND ptt.batch_id = vat.batch_id
+             AND ea.exam_type = 'final-exam'
+             AND ea.status IN ('submitted', 'graded')
+         ) AS has_completed_written
+       FROM v_active_thalibah vat
+       WHERE vat.batch_id = $1
+         AND vat.whatsapp IS NOT NULL
+         AND TRIM(vat.whatsapp) != ''
+       ORDER BY vat.full_name ASC`,
+      [sched.batch_id]
+    );
+
+    for (const st of students) {
+      const hasCompleted = Boolean(st.has_completed_written);
+      if (options.mode === 'deadline' && hasCompleted) {
+        continue;
+      }
+      candidates.push({
+        userId: st.user_id,
+        fullName: st.full_name,
+        whatsapp: st.whatsapp,
+        batchId: sched.batch_id,
+        batchName: sched.batch_name,
+        targetJuz: st.target_juz,
+        scheduleId: sched.schedule_id,
+        openDate: sched.open_date,
+        closeDate: sched.close_date,
+        openTime: sched.open_time,
+        closeTime: sched.close_time,
+        openDateTimeFormatted: openDateFmt,
+        closeDateTimeFormatted: closeDateFmt,
+        hasCompletedWrittenExam: hasCompleted,
+      });
+    }
+  }
+
+  return candidates;
+}
+
+/**
+ * Main service to process and send Written Final Exam Open / Deadline notifications via WhatsApp
+ */
+export async function sendWrittenExamReminders(
+  options: SendWrittenExamRemindersOptions
+): Promise<SendWrittenExamRemindersResult> {
+  const targetDate = options.targetDate || getTodayWibDateString();
+  const dryRun = Boolean(options.dryRun);
+  const force = Boolean(options.force);
+  const mode = options.mode;
+
+  if (!dryRun) {
+    const { config: autoConfig } = await getWhatsAppAutoMessagesConfig();
+    if (mode === 'open' && !autoConfig.reminder_ujian_tulisan_dibuka) {
+      return {
+        success: true,
+        mode,
+        targetDate,
+        dryRun,
+        totalCandidates: 0,
+        sentCount: 0,
+        failedCount: 0,
+        skippedCount: 0,
+        stoppedEarly: true,
+        stopReason: 'Notifikasi Pembukaan Ujian Tulisan sedang dinonaktifkan oleh Admin di /admin/whatsapp',
+        results: [],
+      };
+    }
+    if (mode === 'deadline' && !autoConfig.reminder_ujian_tulisan_deadline) {
+      return {
+        success: true,
+        mode,
+        targetDate,
+        dryRun,
+        totalCandidates: 0,
+        sentCount: 0,
+        failedCount: 0,
+        skippedCount: 0,
+        stoppedEarly: true,
+        stopReason: 'Pengingat Batas Akhir Ujian Tulisan sedang dinonaktifkan oleh Admin di /admin/whatsapp',
+        results: [],
+      };
+    }
+  }
+
+  const candidates = await getWrittenExamReminderCandidates({
+    mode,
+    targetDate,
+    batchId: options.batchId,
+    force,
+  });
+
+  const results: SendWrittenExamRemindersResult['results'] = [];
+  let sentCount = 0;
+  let failedCount = 0;
+  let skippedCount = 0;
+  let stoppedEarly = false;
+  let stopReason: string | null = null;
+  let consecutiveGatewayErrors = 0;
+
+  if (!dryRun && candidates.length > 0) {
+    const waStatus = await whatsappService.getStatus();
+    if (!waStatus.configured || !waStatus.watzap?.isConnected) {
+      stoppedEarly = true;
+      stopReason = !waStatus.configured
+        ? 'WatZap belum dikonfigurasi'
+        : 'Instance WhatsApp sedang offline/terputus — notifikasi ujian tulisan dibatalkan';
+      return {
+        success: true,
+        mode,
+        targetDate,
+        dryRun,
+        totalCandidates: candidates.length,
+        sentCount: 0,
+        failedCount: 0,
+        skippedCount: candidates.length,
+        stoppedEarly,
+        stopReason,
+        results: [],
+      };
+    }
+  }
+
+  const touchedScheduleIds = new Set<string>();
+  let processedCount = 0;
+
+  for (let i = 0; i < candidates.length; i++) {
+    const item = candidates[i];
+    processedCount++;
+
+    const formattedPhone = normalizePhoneNumber(item.whatsapp);
+    if (!formattedPhone) {
+      skippedCount++;
+      results.push({
+        userId: item.userId,
+        fullName: item.fullName,
+        whatsapp: item.whatsapp,
+        success: false,
+        error: 'Nomor WhatsApp tidak valid atau kosong',
+      });
+      continue;
+    }
+
+    const messageText =
+      mode === 'open'
+        ? buildWrittenExamOpenMessage({
+            fullName: item.fullName,
+            batchName: item.batchName,
+            targetJuz: item.targetJuz,
+            openDateTimeFormatted: item.openDateTimeFormatted,
+            closeDateTimeFormatted: item.closeDateTimeFormatted,
+          })
+        : buildWrittenExamDeadlineMessage({
+            fullName: item.fullName,
+            batchName: item.batchName,
+            targetJuz: item.targetJuz,
+            openDateTimeFormatted: item.openDateTimeFormatted,
+            closeDateTimeFormatted: item.closeDateTimeFormatted,
+          });
+
+    if (dryRun) {
+      sentCount++;
+      results.push({
+        userId: item.userId,
+        fullName: item.fullName,
+        whatsapp: formattedPhone,
+        success: true,
+        messageId: `dry_run_${mode}_${item.userId}`,
+      });
+      continue;
+    }
+
+    try {
+      const sendRes = await whatsappService.sendTextMessage(formattedPhone, messageText, {
+        sourceTag: mode === 'open' ? 'cron_ujian_tulisan_open' : 'cron_ujian_tulisan_deadline',
+        recipientName: item.fullName,
+      });
+      if (sendRes.success) {
+        sentCount++;
+        consecutiveGatewayErrors = 0;
+        touchedScheduleIds.add(item.scheduleId);
+        results.push({
+          userId: item.userId,
+          fullName: item.fullName,
+          whatsapp: formattedPhone,
+          success: true,
+          messageId: sendRes.messageId,
+        });
+      } else {
+        failedCount++;
+        results.push({
+          userId: item.userId,
+          fullName: item.fullName,
+          whatsapp: formattedPhone,
+          success: false,
+          error: sendRes.error || 'Gagal mengirim WhatsApp',
+        });
+
+        const errClass = classifyWhatsAppError(sendRes.error, {
+          rateLimited: sendRes.rateLimited,
+          fatalInstanceError: sendRes.fatalInstanceError,
+        });
+        if (errClass.shouldStopBatch) {
+          stoppedEarly = true;
+          stopReason = sendRes.error || 'Notifikasi ujian tulisan dihentikan karena rate-limit / instance error';
+          break;
+        }
+        if (sendRes.provider !== 'none') {
+          consecutiveGatewayErrors++;
+          if (consecutiveGatewayErrors >= 3) {
+            stoppedEarly = true;
+            stopReason = `Notifikasi ujian tulisan dihentikan setelah ${consecutiveGatewayErrors} kegagalan berturut-turut`;
+            break;
+          }
+        }
+      }
+    } catch (err: any) {
+      failedCount++;
+      results.push({
+        userId: item.userId,
+        fullName: item.fullName,
+        whatsapp: formattedPhone,
+        success: false,
+        error: err.message,
+      });
+      consecutiveGatewayErrors++;
+      if (consecutiveGatewayErrors >= 3) {
+        stoppedEarly = true;
+        stopReason = `Notifikasi ujian tulisan dihentikan setelah ${consecutiveGatewayErrors} exception berturut-turut`;
+        break;
+      }
+    }
+
+    await waitBetweenWhatsAppMessages(i, candidates.length);
+  }
+
+  if (!dryRun && touchedScheduleIds.size > 0 && !stoppedEarly) {
+    const col =
+      mode === 'open' ? 'reminder_written_open_sent_at' : 'reminder_written_deadline_sent_at';
+    await query(
+      `UPDATE final_exam_schedules SET ${col} = NOW(), updated_at = NOW() WHERE id = ANY($1::uuid[])`,
+      [Array.from(touchedScheduleIds)]
+    );
+  }
+
+  const unreachedCount = Math.max(0, candidates.length - processedCount);
+
+  return {
+    success: true,
+    mode,
+    targetDate,
+    dryRun,
+    totalCandidates: candidates.length,
+    sentCount,
+    failedCount,
+    skippedCount: skippedCount + unreachedCount,
+    stoppedEarly,
+    stopReason,
+    results,
+  };
 }
 
 /**

@@ -6,6 +6,8 @@ export interface WhatsAppAutoMessagesConfig {
   reminder_sore_murojaah: boolean;
   reminder_ujian_lisan_thalibah: boolean;
   reminder_ujian_lisan_examiner: boolean;
+  reminder_ujian_tulisan_dibuka: boolean;
+  reminder_ujian_tulisan_deadline: boolean;
   reminder_kelas_berbayar_h1: boolean;
   auto_reply_stop_opt_out: boolean;
   ai_escalation_admin_alert: boolean;
@@ -19,6 +21,8 @@ export const DEFAULT_WHATSAPP_AUTO_MESSAGES_CONFIG: WhatsAppAutoMessagesConfig =
   reminder_sore_murojaah: false,
   reminder_ujian_lisan_thalibah: true,
   reminder_ujian_lisan_examiner: true,
+  reminder_ujian_tulisan_dibuka: true,
+  reminder_ujian_tulisan_deadline: true,
   reminder_kelas_berbayar_h1: true,
   auto_reply_stop_opt_out: true,
   ai_escalation_admin_alert: true,
@@ -32,6 +36,8 @@ export const FAIL_CLOSED_WHATSAPP_AUTO_MESSAGES_CONFIG: WhatsAppAutoMessagesConf
   reminder_sore_murojaah: false,
   reminder_ujian_lisan_thalibah: false,
   reminder_ujian_lisan_examiner: false,
+  reminder_ujian_tulisan_dibuka: false,
+  reminder_ujian_tulisan_deadline: false,
   reminder_kelas_berbayar_h1: false,
   auto_reply_stop_opt_out: false,
   ai_escalation_admin_alert: false,
@@ -62,6 +68,8 @@ async function loadWhatsAppAutoMessagesRow(): Promise<{
       reminder_sore_murojaah: v.reminder_sore_murojaah === true,
       reminder_ujian_lisan_thalibah: v.reminder_ujian_lisan_thalibah !== false,
       reminder_ujian_lisan_examiner: v.reminder_ujian_lisan_examiner !== false,
+      reminder_ujian_tulisan_dibuka: v.reminder_ujian_tulisan_dibuka !== false,
+      reminder_ujian_tulisan_deadline: v.reminder_ujian_tulisan_deadline !== false,
       reminder_kelas_berbayar_h1: v.reminder_kelas_berbayar_h1 !== false,
       auto_reply_stop_opt_out: v.auto_reply_stop_opt_out !== false,
       ai_escalation_admin_alert: v.ai_escalation_admin_alert !== false,
@@ -107,6 +115,14 @@ export async function updateWhatsAppAutoMessagesConfig(
       patch.reminder_ujian_lisan_examiner !== undefined
         ? Boolean(patch.reminder_ujian_lisan_examiner)
         : current.reminder_ujian_lisan_examiner,
+    reminder_ujian_tulisan_dibuka:
+      patch.reminder_ujian_tulisan_dibuka !== undefined
+        ? Boolean(patch.reminder_ujian_tulisan_dibuka)
+        : current.reminder_ujian_tulisan_dibuka,
+    reminder_ujian_tulisan_deadline:
+      patch.reminder_ujian_tulisan_deadline !== undefined
+        ? Boolean(patch.reminder_ujian_tulisan_deadline)
+        : current.reminder_ujian_tulisan_deadline,
     reminder_kelas_berbayar_h1:
       patch.reminder_kelas_berbayar_h1 !== undefined
         ? Boolean(patch.reminder_kelas_berbayar_h1)

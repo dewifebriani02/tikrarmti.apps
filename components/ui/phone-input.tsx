@@ -20,6 +20,10 @@ interface PhoneInputProps {
   disabled?: boolean;
 }
 
+const sortedCountryCodes = [...countryCodes].sort(
+  (a, b) => b.dialCode.length - a.dialCode.length
+);
+
 export function PhoneInput({
   value,
   onChange,
@@ -53,6 +57,12 @@ export function PhoneInput({
         if (onCountryChange) {
           onCountryChange(countryData.code);
         }
+        if (phoneNumber) {
+          const fullNumber = `${countryData.dialCode}${phoneNumber}`;
+          if (fullNumber !== value) {
+            onChange(fullNumber);
+          }
+        }
       }
     }
   }, [selectedCountry, onCountryChange, isMounted]);
@@ -62,8 +72,8 @@ export function PhoneInput({
     if (!isMounted) return;
 
     if (value) {
-      // Extract country code if present
-      const countryData = countryCodes.find(cc => value.startsWith(cc.dialCode));
+      // Extract country code if present (longest dialCode prefix first)
+      const countryData = sortedCountryCodes.find(cc => value.startsWith(cc.dialCode));
       if (countryData) {
         setCountry(countryData);
         setPhoneNumber(value.substring(countryData.dialCode.length));

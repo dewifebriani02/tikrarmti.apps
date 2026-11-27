@@ -3,14 +3,17 @@ import { createHash, timingSafeEqual } from 'crypto';
 import {
   sendH1ExamReminders,
   sendH1ExaminerReminders,
+  sendWrittenExamReminders,
   getTomorrowWibDateString,
+  getTodayWibDateString,
   getH1ExamCandidates,
   getH1ExaminerCandidates,
+  getWrittenExamReminderCandidates,
 } from '@/lib/services/exam-reminder';
 import { getAuthorizationContext } from '@/lib/rbac';
 
 // =========================================================================
-// CRON ROUTE: Auto Reminder H-1 Ujian Lisan via WhatsApp (Thalibah & Ustadzah)
+// CRON ROUTE: Auto Reminder Ujian Akhir (Lisan H-1 & Tulisan Pembukaan/Deadline)
 // Schedulable via crontab VPS / Vercel Cron or manual admin trigger.
 // Auth: `Authorization: Bearer <CRON_SECRET>` or `?secret=` or Admin Session
 // =========================================================================
@@ -58,23 +61,29 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const targetDateParam = searchParams.get('target_date') || undefined;
+    const batchIdParam = searchParams.get('batch_id') || undefined;
     const dryRun = searchParams.get('dry_run') === 'true';
     const force = searchParams.get('force') === 'true';
     const viewCandidatesOnly = searchParams.get('view') === 'candidates';
-    const targetType = (searchParams.get('type') || 'all').toLowerCase(); // 'all' | 'thalibah' | 'examiner'
+    // 'all' | 'thalibah' | 'examiner' | 'written' | 'written_open' | 'written_deadline'
+    const targetType = (searchParams.get('type') || 'all').toLowerCase();
 
     const targetDate = targetDateParam || getTomorrowWibDateString();
+    const todayDate = targetDateParam || getTodayWibDateString();
 
     // If caller just wants to inspect candidate lists without executing
     if (viewCandidatesOnly) {
-      const [candidates, examinerCandidates] = await Promise.all([
+      const [candidates, examinerCandidates, writtenOpenCandidates, writtenDeadlineCandidates] = await Promise.all([
         getH1ExamCandidates(targetDate),
         getH1ExaminerCandidates(targetDate),
+        getWrittenExamReminderCandidates({ mode: 'open', targetDate: todayDate, batchId: batchIdParam, force }),
+        getWrittenExamReminderCandidates({ mode: 'deadline', targetDate: todayDate, batchId: batchIdParam, force }),
       ]);
 
       return NextResponse.json({
         success: true,
         target_date: targetDate,
+        today_date: todayDate,
         thalibah: {
           total: candidates.length,
           already_sent_count: candidates.filter(c => c.alreadySent).length,
@@ -87,6 +96,14 @@ export async function GET(request: Request) {
           pending_count: examinerCandidates.filter(e => !e.alreadySent).length,
           candidates: examinerCandidates,
         },
+        written_open: {
+          total: writtenOpenCandidates.length,
+          candidates: writtenOpenCandidates,
+        },
+        written_deadline: {
+          total: writtenDeadlineCandidates.length,
+          candidates: writtenDeadlineCandidates,
+        },
         // Backward compatibility properties
         total_candidates: candidates.length,
         already_sent_count: candidates.filter(c => c.alreadySent).length,
@@ -95,10 +112,12 @@ export async function GET(request: Request) {
       });
     }
 
-    console.log(`[CRON Exam Reminder] Processing H-1 oral exam reminder for target_date=${targetDate}, targetType=${targetType}, dryRun=${dryRun}, force=${force}`);
+    console.log(`[CRON Exam Reminder] Processing exam reminders for target_date=${targetDate}, today=${todayDate}, targetType=${targetType}, dryRun=${dryRun}, force=${force}`);
 
     let thalibahResult: any = null;
     let examinerResult: any = null;
+    let writtenOpenResult: any = null;
+    let writtenDeadlineResult: any = null;
 
     if (targetType === 'all' || targetType === 'thalibah') {
       thalibahResult = await sendH1ExamReminders({
@@ -116,9 +135,41 @@ export async function GET(request: Request) {
       });
     }
 
-    const totalSent = (thalibahResult?.sentCount || 0) + (examinerResult?.sentCount || 0);
-    const totalFailed = (thalibahResult?.failedCount || 0) + (examinerResult?.failedCount || 0);
-    const totalSkipped = (thalibahResult?.skippedCount || 0) + (examinerResult?.skippedCount || 0);
+    if (targetType === 'all' || targetType === 'written' || targetType === 'written_open') {
+      writtenOpenResult = await sendWrittenExamReminders({
+        mode: 'open',
+        targetDate: todayDate,
+        batchId: batchIdParam,
+        dryRun,
+        force,
+      });
+    }
+
+    if (targetType === 'all' || targetType === 'written' || targetType === 'written_deadline') {
+      writtenDeadlineResult = await sendWrittenExamReminders({
+        mode: 'deadline',
+        targetDate: todayDate,
+        batchId: batchIdParam,
+        dryRun,
+        force,
+      });
+    }
+
+    const totalSent =
+      (thalibahResult?.sentCount || 0) +
+      (examinerResult?.sentCount || 0) +
+      (writtenOpenResult?.sentCount || 0) +
+      (writtenDeadlineResult?.sentCount || 0);
+    const totalFailed =
+      (thalibahResult?.failedCount || 0) +
+      (examinerResult?.failedCount || 0) +
+      (writtenOpenResult?.failedCount || 0) +
+      (writtenDeadlineResult?.failedCount || 0);
+    const totalSkipped =
+      (thalibahResult?.skippedCount || 0) +
+      (examinerResult?.skippedCount || 0) +
+      (writtenOpenResult?.skippedCount || 0) +
+      (writtenDeadlineResult?.skippedCount || 0);
 
     console.log(`[CRON Exam Reminder] Complete. Target=${targetDate}, TotalSent=${totalSent}, TotalFailed=${totalFailed}`);
 
@@ -127,6 +178,7 @@ export async function GET(request: Request) {
       timestamp: new Date().toISOString(),
       summary: {
         target_date: targetDate,
+        today_date: todayDate,
         dry_run: dryRun,
         target_type: targetType,
         total_sent: totalSent,
@@ -148,6 +200,22 @@ export async function GET(request: Request) {
           stopped_early: Boolean(examinerResult.stoppedEarly),
           stop_reason: examinerResult.stopReason || null,
         } : null,
+        written_open: writtenOpenResult ? {
+          total: writtenOpenResult.totalCandidates,
+          sent: writtenOpenResult.sentCount,
+          failed: writtenOpenResult.failedCount,
+          skipped: writtenOpenResult.skippedCount,
+          stopped_early: Boolean(writtenOpenResult.stoppedEarly),
+          stop_reason: writtenOpenResult.stopReason || null,
+        } : null,
+        written_deadline: writtenDeadlineResult ? {
+          total: writtenDeadlineResult.totalCandidates,
+          sent: writtenDeadlineResult.sentCount,
+          failed: writtenDeadlineResult.failedCount,
+          skipped: writtenDeadlineResult.skippedCount,
+          stopped_early: Boolean(writtenDeadlineResult.stoppedEarly),
+          stop_reason: writtenDeadlineResult.stopReason || null,
+        } : null,
         // Backward compatibility
         total_candidates: thalibahResult?.totalCandidates || 0,
         sent_count: totalSent,
@@ -157,6 +225,8 @@ export async function GET(request: Request) {
       results: {
         thalibah: thalibahResult?.results || [],
         examiners: examinerResult?.results || [],
+        written_open: writtenOpenResult?.results || [],
+        written_deadline: writtenDeadlineResult?.results || [],
       },
     });
   } catch (error: any) {

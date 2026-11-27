@@ -77,6 +77,8 @@ interface BatchInfo {
   id: string;
   name: string;
   active_count: number | string;
+  exam_open_label?: string;
+  exam_close_label?: string;
 }
 
 interface AdminContact {
@@ -106,6 +108,11 @@ interface ActiveThalibah {
   submissionStatus: string;
   halaqahId?: string | null;
   halaqahName?: string | null;
+  batchName?: string | null;
+  examOpenDateFormatted?: string | null;
+  examCloseDateFormatted?: string | null;
+  hasCompletedWrittenExam?: boolean;
+  hasSubmittedTestimonial?: boolean;
 }
 
 const INDIVIDUAL_TEMPLATES = [
@@ -140,6 +147,24 @@ const INDIVIDUAL_TEMPLATES = [
       `Assalamu'alaikum Warahmatullahi Wabarakatuh.\n\nYkh. Ukhti *${name || 'Thalibah'}*,\n\nSemoga hafalan dan ikhtiar interaksi Al-Qur'an Ukhti senantiasa diberkahi oleh Allah Ta'ala.\n\nBagi Ukhti yang memilih metode muroja'ah mandiri menggunakan aplikasi Tarteel AI di Markaz Tikrar Indonesia (MTI), kami mengundang Ukhti untuk bergabung ke grup resmi Tarteel MTI melalui tautan berikut:\n\n🔗 *Link Gabung Grup Tarteel MTI:*\nhttps://t.zip/g/NV0qqSXfVSBkeaYC?ref=umCHUGFKdP\n\n📌 *Manfaat bergabung di grup Tarteel MTI:*\n• Mengikuti leaderboard dan tantangan tilawah harian sesama thalibah MTI\n• Memantau keaktifan dan durasi interaksi tilawah/muroja'ah secara otomatis\n• Mempermudah verifikasi dan evaluasi berkala oleh Tim Musyrifah\n\nPastikan aplikasi Tarteel sudah terpasang di smartphone Ukhti sebelum mengklik tautan di atas.\n\n*(Pesan otomatis dari Sistem Markaz Tikrar Indonesia).*\n\nJazakillahu khairan.\nWassalamu'alaikum Warahmatullahi Wabarakatuh.\n━━━━━━━━━━━━━━\nTim Akademik Markaz Tikrar Indonesia\n🌐 https://markaztikrar.id`,
   },
   {
+    id: 'pembukaan_ujian_tulisan',
+    label: 'Notifikasi Pembukaan & Batas Akhir Ujian Tulisan',
+    body: (name: string) =>
+      `Assalamu'alaikum Warahmatullahi Wabarakatuh.\n\nYkh. Ukhti *${name || 'Thalibah'}*,\n\nBaarakallahu fiik. Kami menginformasikan bahwa *Ujian Akhir Tulisan (CBT Pilihan Ganda)* pada program *Tikrar Tahfidz MTI Batch 3* telah resmi *DIBUKA*:\n\n📌 *JADWAL & BATAS AKHIR UJIAN TULISAN:*\n• *Dibuka Mulai:* Sabtu, 28 November 2026 pukul 00:00 WIB\n• *Batas Akhir Pengerjaan (Tutup):* Sabtu, 5 Desember 2026 pukul 00:00 WIB\n• *Jumlah Soal & Durasi:* 50 Soal Pilihan Ganda (Maks. 60 Menit)\n\n🔗 *Akses Portal Ujian Akhir CBT:*\nhttps://markaztikrar.id/ujian\n\n📌 *PETUNJUK PENGERJAAN UJIAN TULISAN:*\n1. Ujian tulisan wajib dikerjakan secara mandiri dan *closed-book* (tanpa membuka mushaf).\n2. Pastikan koneksi internet stabil sebelum menekan tombol *Mulai Ujian*.\n3. Harap menyelesaikan dan mengirim (*submit*) jawaban sebelum batas akhir penutupan ujian di atas.\n\n*(Mohon tidak membalas pesan ini karena dikirim secara otomatis oleh sistem).*\n\nSemoga Allah Ta'ala senantiasa memberikan kemudahan, ketenangan, dan keberkahan bagi Ukhti dalam menyelesaikan Ujian Akhir. Aamiin.\n\nJazakillahu khairan.\nWassalamu'alaikum Warahmatullahi Wabarakatuh.\n━━━━━━━━━━━━━━\nTim Akademik Markaz Tikrar Indonesia\n🌐 https://markaztikrar.id`,
+  },
+  {
+    id: 'batas_akhir_ujian_tulisan',
+    label: 'Pengingat Batas Akhir Ujian Tulisan (Belum Ujian)',
+    body: (name: string) =>
+      `Assalamu'alaikum Warahmatullahi Wabarakatuh.\n\nYkh. Ukhti *${name || 'Thalibah'}*,\n\nSemoga Ukhti senantiasa dalam lindungan dan kemudahan dari Allah Ta'ala.\n\nKami dari Tim Akademik Markaz Tikrar Indonesia mengingatkan bahwa berdasarkan data sistem, Ukhti tercatat *belum menyelesaikan Ujian Akhir Tulisan (CBT)* untuk program *Tikrar Tahfidz MTI Batch 3*.\n\n⏰ *BATAS AKHIR PENGERJAAN UJIAN TULISAN:*\n• *Ditutup pada:* *Sabtu, 5 Desember 2026 pukul 00:00 WIB*\n• *Tautan Ujian CBT:* 🔗 https://markaztikrar.id/ujian\n\nMohon segera meluangkan waktu untuk mengerjakan dan mengirim (*submit*) Ujian Akhir Tulisan sebelum sesi ujian ditutup otomatis oleh sistem.\n\n*(Mohon tidak membalas pesan ini karena dikirim secara otomatis oleh sistem).*\n\nSemoga Allah Ta'ala memudahkan dan memberkahi ujian Ukhti. Aamiin.\n\nJazakillahu khairan.\nWassalamu'alaikum Warahmatullahi Wabarakatuh.\n━━━━━━━━━━━━━━\nTim Akademik Markaz Tikrar Indonesia\n🌐 https://markaztikrar.id`,
+  },
+  {
+    id: 'reminder_testimoni_batch4',
+    label: 'Pengingat Testimoni (Maks. Tgl 30 bagi Pendaftar Batch 4)',
+    body: (name: string) =>
+      `Assalamu'alaikum Warahmatullahi Wabarakatuh.\n\nYkh. Ukhti *${name || 'Thalibah'}*,\n\nSemoga hafalan dan muroja'ah Al-Qur'an Ukhti senantiasa diberkahi dan dimudahkan oleh Allah Ta'ala.\n\nKami dari Tim Administrasi & Akademik Markaz Tikrar Indonesia menginformasikan bahwa berdasarkan data sistem, Ukhti tercatat *belum mengirimkan testimoni* pembelajaran di MTI.\n\n📌 *BATAS AKHIR PENGISIAN TESTIMONI:*\n• Bagi Ukhti yang ingin mendaftar / melanjutkan ke *Tikrar Tahfidz MTI Batch 4*, pengisian testimoni wajib diselesaikan *paling lambat tanggal 30 November 2026*.\n• Testimoni dapat diisi langsung melalui menu *Perjalanan Saya* pada tautan berikut:\n\n🔗 *Tautan Pengisian Testimoni:*\nhttps://markaztikrar.id/perjalanan-saya\n\n*(Mohon tidak membalas pesan ini karena dikirim secara otomatis oleh sistem).*\n\nJazakillahu khairan atas partisipasi, kesan, dan masukan berharga dari Ukhti untuk kemajuan Markaz Tikrar Indonesia.\nWassalamu'alaikum Warahmatullahi Wabarakatuh.\n━━━━━━━━━━━━━━\nTim Administrasi & Akademik Markaz Tikrar Indonesia\n🌐 https://markaztikrar.id`,
+  },
+  {
     id: 'reminder_sore_murojaah_40x',
     label: 'Pengingat Sore Murojaah 40x (Target 2 Putaran)',
     body: (name: string) =>
@@ -148,6 +173,94 @@ const INDIVIDUAL_TEMPLATES = [
 ];
 
 const BROADCAST_TEMPLATES = [
+  {
+    id: 'pembukaan_ujian_tulisan',
+    label: 'Notifikasi Pembukaan & Batas Akhir Ujian Tulisan (CBT)',
+    defaultFilter: 'all' as const,
+    body: `Assalamu'alaikum Warahmatullahi Wabarakatuh.
+
+Ykh. Ukhti *{nama}*,
+
+Baarakallahu fiik. Kami menginformasikan bahwa *Ujian Akhir Tulisan (CBT Pilihan Ganda)* pada program *{batch}* (Juz *{juz}*) telah resmi *DIBUKA*:
+
+📌 *JADWAL & BATAS AKHIR UJIAN TULISAN:*
+• *Dibuka Mulai:* {tgl_buka_ujian}
+• *Batas Akhir Pengerjaan (Tutup):* {tgl_tutup_ujian}
+• *Jumlah Soal & Durasi:* 50 Soal Pilihan Ganda (Maks. 60 Menit)
+
+🔗 *Akses Portal Ujian Akhir CBT:*
+https://markaztikrar.id/ujian
+
+📌 *PETUNJUK PENGERJAAN UJIAN TULISAN:*
+1. Ujian tulisan wajib dikerjakan secara mandiri dan *closed-book* (tanpa membuka mushaf).
+2. Pastikan koneksi internet stabil sebelum menekan tombol *Mulai Ujian*.
+3. Harap menyelesaikan dan mengirim (*submit*) jawaban sebelum batas akhir penutupan ujian di atas.
+
+*(Mohon tidak membalas pesan ini karena dikirim secara otomatis oleh sistem).*
+
+Semoga Allah Ta'ala senantiasa memberikan kemudahan, ketenangan, dan keberkahan bagi Ukhti dalam menyelesaikan Ujian Akhir. Aamiin.
+
+Jazakillahu khairan.
+Wassalamu'alaikum Warahmatullahi Wabarakatuh.
+━━━━━━━━━━━━━━
+Tim Akademik Markaz Tikrar Indonesia
+🌐 https://markaztikrar.id`,
+  },
+  {
+    id: 'batas_akhir_ujian_tulisan',
+    label: 'Pengingat Batas Akhir Ujian Tulisan (Belum Ujian)',
+    defaultFilter: 'missing_written_exam' as const,
+    body: `Assalamu'alaikum Warahmatullahi Wabarakatuh.
+
+Ykh. Ukhti *{nama}*,
+
+Semoga Ukhti senantiasa dalam lindungan dan kemudahan dari Allah Ta'ala.
+
+Kami dari Tim Akademik Markaz Tikrar Indonesia mengingatkan bahwa berdasarkan data sistem, Ukhti tercatat *belum menyelesaikan Ujian Akhir Tulisan (CBT)* untuk program *{batch}* (Juz *{juz}*).
+
+⏰ *BATAS AKHIR PENGERJAAN UJIAN TULISAN:*
+• *Ditutup pada:* *{tgl_tutup_ujian}*
+• *Tautan Ujian CBT:* 🔗 https://markaztikrar.id/ujian
+
+Mohon segera meluangkan waktu untuk mengerjakan dan mengirim (*submit*) Ujian Akhir Tulisan sebelum sesi ujian ditutup otomatis oleh sistem.
+
+*(Mohon tidak membalas pesan ini karena dikirim secara otomatis oleh sistem).*
+
+Semoga Allah Ta'ala memudahkan dan memberkahi ujian Ukhti. Aamiin.
+
+Jazakillahu khairan.
+Wassalamu'alaikum Warahmatullahi Wabarakatuh.
+━━━━━━━━━━━━━━
+Tim Akademik Markaz Tikrar Indonesia
+🌐 https://markaztikrar.id`,
+  },
+  {
+    id: 'reminder_testimoni_batch4',
+    label: 'Pengingat Testimoni (Maks. Tgl 30 bagi Pendaftar Batch 4)',
+    defaultFilter: 'missing_testimonial' as const,
+    body: `Assalamu'alaikum Warahmatullahi Wabarakatuh.
+
+Ykh. Ukhti *{nama}*,
+
+Semoga hafalan dan muroja'ah Juz *{juz}* Ukhti senantiasa diberkahi dan dimudahkan oleh Allah Ta'ala.
+
+Kami dari Tim Administrasi & Akademik Markaz Tikrar Indonesia menginformasikan bahwa berdasarkan data sistem, Ukhti tercatat *belum mengirimkan testimoni* pembelajaran pada program *{batch}*.
+
+📌 *BATAS AKHIR PENGISIAN TESTIMONI:*
+• Bagi Ukhti yang ingin mendaftar / melanjutkan ke *Tikrar Tahfidz MTI Batch 4*, pengisian testimoni wajib diselesaikan *paling lambat tanggal 30 November 2026*.
+• Testimoni dapat diisi langsung melalui menu *Perjalanan Saya* pada tautan berikut:
+
+🔗 *Tautan Pengisian Testimoni:*
+https://markaztikrar.id/perjalanan-saya
+
+*(Mohon tidak membalas pesan ini karena dikirim secara otomatis oleh sistem).*
+
+Jazakillahu khairan atas partisipasi, kesan, dan masukan berharga dari Ukhti untuk kemajuan Markaz Tikrar Indonesia.
+Wassalamu'alaikum Warahmatullahi Wabarakatuh.
+━━━━━━━━━━━━━━
+Tim Administrasi & Akademik Markaz Tikrar Indonesia
+🌐 https://markaztikrar.id`,
+  },
   {
     id: 'klarifikasi_pekan_murojaah',
     label: 'Klarifikasi Jurnal Pekan Murajaah vs 40x',
@@ -718,10 +831,16 @@ export default function AdminWhatsAppPage() {
   // Broadcast state
   const [batches, setBatches] = useState<BatchInfo[]>([]);
   const [selectedBatchId, setSelectedBatchId] = useState<string>('');
+  const [recipientFilter, setRecipientFilter] = useState<'all' | 'missing_written_exam' | 'missing_testimonial'>('all');
+  const [filterCounts, setFilterCounts] = useState<{ all: number; missing_written_exam: number; missing_testimonial: number }>({
+    all: 0,
+    missing_written_exam: 0,
+    missing_testimonial: 0,
+  });
   const [recipients, setRecipients] = useState<ActiveThalibah[]>([]);
   const [isLoadingRecipients, setIsLoadingRecipients] = useState(false);
   const [broadcastTemplate, setBroadcastTemplate] = useState(BROADCAST_TEMPLATES[0].body);
-  const [selectedBroadcastTmpl, setSelectedBroadcastTmpl] = useState('klarifikasi_pekan_murojaah');
+  const [selectedBroadcastTmpl, setSelectedBroadcastTmpl] = useState('pembukaan_ujian_tulisan');
 
   // Broadcast Runner state
   const [isBroadcasting, setIsBroadcasting] = useState(false);
@@ -950,26 +1069,41 @@ export default function AdminWhatsAppPage() {
   };
 
   // Fetch batches & recipients from v_active_thalibah
-  const fetchRecipients = async (batchId?: string) => {
+  const fetchRecipients = async (
+    batchId?: string,
+    filterOverride?: 'all' | 'missing_written_exam' | 'missing_testimonial'
+  ) => {
     setIsLoadingRecipients(true);
     try {
-      const url = batchId 
-        ? `/api/admin/whatsapp/recipients?batchId=${encodeURIComponent(batchId)}`
-        : '/api/admin/whatsapp/recipients';
+      const activeFilter = filterOverride || recipientFilter || 'all';
+      const qs = new URLSearchParams();
+      if (batchId) qs.set('batchId', batchId);
+      if (activeFilter) qs.set('filter', activeFilter);
+      const url = `/api/admin/whatsapp/recipients${qs.toString() ? `?${qs.toString()}` : ''}`;
       const res = await fetch(url);
       const json = await res.json();
       if (json.success && json.data) {
         if (json.data.batches && json.data.batches.length > 0) {
           setBatches(json.data.batches);
           if (!batchId && !selectedBatchId) {
-            // Default to batch with highest active count or Batch 3
+            const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+            const urlBatchId = urlParams?.get('batchId');
+            const matchedUrlBatch = urlBatchId
+              ? json.data.batches.find((b: BatchInfo) => b.id === urlBatchId)
+              : null;
             const b3 = json.data.batches.find((b: BatchInfo) => b.name.includes('Batch 3'));
-            const initialBatchId = b3 ? b3.id : json.data.batches[0].id;
+            const initialBatchId = matchedUrlBatch
+              ? matchedUrlBatch.id
+              : b3
+              ? b3.id
+              : json.data.batches[0].id;
             setSelectedBatchId(initialBatchId);
-            // Fetch for this initial batch
-            fetchRecipients(initialBatchId);
+            fetchRecipients(initialBatchId, activeFilter);
             return;
           }
+        }
+        if (json.data.filterCounts) {
+          setFilterCounts(json.data.filterCounts);
         }
         setRecipients(json.data.recipients || []);
         if (Array.isArray(json.data.admins)) {
@@ -984,9 +1118,36 @@ export default function AdminWhatsAppPage() {
   };
 
   useEffect(() => {
+    let initFilter: 'all' | 'missing_written_exam' | 'missing_testimonial' = 'all';
+    let initBatchId: string | undefined = undefined;
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const f = params.get('filter');
+      if (f === 'missing_written_exam' || f === 'missing_testimonial' || f === 'all') {
+        initFilter = f;
+        setRecipientFilter(f);
+      }
+      const tmplId = params.get('tmpl');
+      if (tmplId) {
+        const matchedTmpl = BROADCAST_TEMPLATES.find((t) => t.id === tmplId);
+        if (matchedTmpl) {
+          setSelectedBroadcastTmpl(matchedTmpl.id);
+          setBroadcastTemplate(matchedTmpl.body);
+          if (!f && (matchedTmpl as any).defaultFilter) {
+            initFilter = (matchedTmpl as any).defaultFilter;
+            setRecipientFilter(initFilter);
+          }
+        }
+      }
+      const bId = params.get('batchId');
+      if (bId) {
+        initBatchId = bId;
+        setSelectedBatchId(bId);
+      }
+    }
     fetchStatus();
     fetchLicenses();
-    fetchRecipients();
+    fetchRecipients(initBatchId, initFilter);
     fetchWhatsappGroups(false);
     try {
       const saved = localStorage.getItem('mti_wa_logs');
@@ -1026,7 +1187,12 @@ export default function AdminWhatsAppPage() {
 
   const handleBatchChange = (batchId: string) => {
     setSelectedBatchId(batchId);
-    fetchRecipients(batchId);
+    fetchRecipients(batchId, recipientFilter);
+  };
+
+  const handleRecipientFilterChange = (nextFilter: 'all' | 'missing_written_exam' | 'missing_testimonial') => {
+    setRecipientFilter(nextFilter);
+    fetchRecipients(selectedBatchId, nextFilter);
   };
 
   const handleTemplateChange = (templateId: string) => {
@@ -1039,9 +1205,13 @@ export default function AdminWhatsAppPage() {
 
   const handleBroadcastTmplChange = (tmplId: string) => {
     setSelectedBroadcastTmpl(tmplId);
-    const tmpl = BROADCAST_TEMPLATES.find(t => t.id === tmplId);
+    const tmpl = BROADCAST_TEMPLATES.find(t => t.id === tmplId) as any;
     if (tmpl) {
       setBroadcastTemplate(tmpl.body);
+      if (tmpl.defaultFilter && tmpl.defaultFilter !== recipientFilter) {
+        setRecipientFilter(tmpl.defaultFilter);
+        fetchRecipients(selectedBatchId, tmpl.defaultFilter);
+      }
     }
   };
 
@@ -1323,12 +1493,24 @@ export default function AdminWhatsAppPage() {
   };
 
   // Preview teks terpersonalisasi untuk thalibah pertama
-  const sampleThalibah = recipients[0] || { fullName: 'Fulanah binti Fulan', namaKunyah: 'Ummu Fulan', confirmedChosenJuz: '30', halaqahName: 'Halaqah 01' };
+  const selectedBatchMeta = batches.find((b) => b.id === selectedBatchId);
+  const sampleThalibah = recipients[0] || {
+    fullName: 'Fulanah binti Fulan',
+    namaKunyah: 'Ummu Fulan',
+    confirmedChosenJuz: '30B',
+    halaqahName: 'Halaqah 01',
+    batchName: selectedBatchMeta?.name || 'Tikrar Tahfidz MTI Batch 3',
+    examOpenDateFormatted: selectedBatchMeta?.exam_open_label || 'Sabtu, 28 November 2026 pukul 00:00 WIB',
+    examCloseDateFormatted: selectedBatchMeta?.exam_close_label || 'Sabtu, 5 Desember 2026 pukul 00:00 WIB',
+  };
   const personalizedPreview = broadcastTemplate
     .replace(/\{nama\}/gi, sampleThalibah.fullName)
     .replace(/\{kunyah\}/gi, sampleThalibah.namaKunyah || sampleThalibah.fullName)
     .replace(/\{juz\}/gi, sampleThalibah.confirmedChosenJuz || '-')
-    .replace(/\{halaqah\}/gi, sampleThalibah.halaqahName || 'Halaqah Tikrar');
+    .replace(/\{halaqah\}/gi, sampleThalibah.halaqahName || 'Halaqah Tikrar')
+    .replace(/\{batch\}/gi, sampleThalibah.batchName || selectedBatchMeta?.name || 'Tikrar Tahfidz MTI Batch 3')
+    .replace(/\{tgl_buka_ujian\}/gi, sampleThalibah.examOpenDateFormatted || selectedBatchMeta?.exam_open_label || 'Sabtu, 28 November 2026 pukul 00:00 WIB')
+    .replace(/\{tgl_tutup_ujian\}/gi, sampleThalibah.examCloseDateFormatted || selectedBatchMeta?.exam_close_label || 'Sabtu, 5 Desember 2026 pukul 00:00 WIB');
 
   return (
     <div className="min-h-screen bg-gray-50/50 pb-20">
@@ -1826,6 +2008,60 @@ export default function AdminWhatsAppPage() {
                     </div>
                   </div>
 
+                  {/* Target Audience Filter Selector */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center justify-between">
+                      <span>Filter Target Penerima *</span>
+                      <span className="text-[11px] text-gray-500 font-normal">
+                        Menampilkan {recipients.length} dari {filterCounts.all} thalibah aktif
+                      </span>
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => handleRecipientFilterChange('all')}
+                        className={`p-3 rounded-2xl border text-left transition-all ${
+                          recipientFilter === 'all'
+                            ? 'border-emerald-500 bg-emerald-50 text-emerald-950 font-bold ring-1 ring-emerald-500'
+                            : 'border-gray-200 hover:bg-gray-50 text-gray-700'
+                        }`}
+                      >
+                        <div className="text-xs font-bold">Semua Thalibah Aktif</div>
+                        <div className="text-[11px] text-emerald-700 font-semibold mt-0.5">
+                          {filterCounts.all} Thalibah
+                        </div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRecipientFilterChange('missing_written_exam')}
+                        className={`p-3 rounded-2xl border text-left transition-all ${
+                          recipientFilter === 'missing_written_exam'
+                            ? 'border-blue-500 bg-blue-50 text-blue-950 font-bold ring-1 ring-blue-500'
+                            : 'border-gray-200 hover:bg-gray-50 text-gray-700'
+                        }`}
+                      >
+                        <div className="text-xs font-bold">Belum Ujian Tulisan</div>
+                        <div className="text-[11px] text-blue-700 font-semibold mt-0.5">
+                          {filterCounts.missing_written_exam} Thalibah Belum CBT
+                        </div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRecipientFilterChange('missing_testimonial')}
+                        className={`p-3 rounded-2xl border text-left transition-all ${
+                          recipientFilter === 'missing_testimonial'
+                            ? 'border-amber-500 bg-amber-50 text-amber-950 font-bold ring-1 ring-amber-500'
+                            : 'border-gray-200 hover:bg-gray-50 text-gray-700'
+                        }`}
+                      >
+                        <div className="text-xs font-bold">Belum Kirim Testimoni</div>
+                        <div className="text-[11px] text-amber-800 font-semibold mt-0.5">
+                          {filterCounts.missing_testimonial} Thalibah Belum Isi
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+
                   {/* Template Broadcast Selector */}
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">
@@ -1859,6 +2095,9 @@ export default function AdminWhatsAppPage() {
                       <span className="bg-white/80 px-2 py-0.5 rounded border border-amber-200">{"{kunyah}"} = Nama Kunyah</span>
                       <span className="bg-white/80 px-2 py-0.5 rounded border border-amber-200">{"{juz}"} = Juz Pilihan</span>
                       <span className="bg-white/80 px-2 py-0.5 rounded border border-amber-200">{"{halaqah}"} = Nama Halaqah</span>
+                      <span className="bg-white/80 px-2 py-0.5 rounded border border-amber-200">{"{batch}"} = Nama Batch</span>
+                      <span className="bg-white/80 px-2 py-0.5 rounded border border-amber-200">{"{tgl_buka_ujian}"} = Tgl & Jam Buka Ujian Tulisan</span>
+                      <span className="bg-white/80 px-2 py-0.5 rounded border border-amber-200">{"{tgl_tutup_ujian}"} = Batas Akhir Ujian Tulisan</span>
                     </div>
                   </div>
 

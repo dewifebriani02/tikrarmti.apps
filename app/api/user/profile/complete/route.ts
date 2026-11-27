@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
         alamat: sanitizeAddress(validatedData.alamat),
         whatsapp: sanitizePhone(validatedData.whatsapp, validatedData.negara),
         telegram: validatedData.telegram ? sanitizePhone(validatedData.telegram, validatedData.negara) : null,
-        zona_waktu: sanitizeGeneric(validatedData.zona_waktu, 10),
+        zona_waktu: sanitizeGeneric(validatedData.zona_waktu, 20),
         tanggal_lahir: validatedData.tanggal_lahir,
         tempat_lahir: validatedData.tempat_lahir,
         jenis_kelamin: validatedData.jenis_kelamin,

@@ -6,8 +6,55 @@ import { auditBatchOperation, getClientIp, getUserAgent, logAudit } from '@/lib/
 import { adminRateLimit } from '@/lib/rate-limiter';
 import { revalidatePath } from 'next/cache';
 import { calculateBatchStatus, syncBatchLifecycle } from '@/lib/batchLifecycle';
+import { query } from '@/lib/db';
 
 const supabaseAdmin = createSupabaseAdmin();
+
+async function syncWrittenScheduleFromBatch(
+  batchId?: string | null,
+  finalExamStartDate?: string | null,
+  finalExamEndDate?: string | null
+) {
+  if (!batchId || !finalExamStartDate) return;
+  try {
+    const extractWibDateAndTime = (isoStr: string, defaultTime: string) => {
+      const d = new Date(isoStr);
+      if (isNaN(d.getTime())) {
+        return { date: isoStr.slice(0, 10), time: defaultTime };
+      }
+      const wibMs = d.getTime() + 7 * 60 * 60 * 1000;
+      const wibIso = new Date(wibMs).toISOString();
+      return {
+        date: wibIso.slice(0, 10),
+        time: wibIso.slice(11, 16),
+      };
+    };
+
+    const startParts = extractWibDateAndTime(finalExamStartDate, '00:01');
+    const endParts = finalExamEndDate
+      ? extractWibDateAndTime(finalExamEndDate, '23:59')
+      : { date: startParts.date, time: '23:59' };
+
+    const { rows: existingWritten } = await query(
+      `SELECT id FROM final_exam_schedules WHERE batch_id = $1 AND exam_type = 'written' ORDER BY created_at DESC LIMIT 1`,
+      [batchId]
+    );
+
+    if (existingWritten.length > 0) {
+      await query(
+        `UPDATE final_exam_schedules
+         SET exam_date = $1::date,
+             end_date = $2::date,
+             start_time = $3::time,
+             end_time = $4::time
+         WHERE id = $5`,
+        [startParts.date, endParts.date, startParts.time, endParts.time, existingWritten[0].id]
+      );
+    }
+  } catch (err) {
+    console.warn('[Admin Batches API] Failed to sync written schedule from batch dates:', err);
+  }
+}
 
 export async function GET(request: Request) {
   try {
@@ -218,7 +265,14 @@ export async function POST(request: Request) {
       return ApiResponses.databaseError(insertError);
     }
 
-    // 6. Audit operation
+    // 6. Sync written final_exam_schedules if present
+    await syncWrittenScheduleFromBatch(
+      result?.id,
+      batchData.final_exam_start_date,
+      batchData.final_exam_end_date
+    );
+
+    // 7. Audit operation
     await auditBatchOperation(
       context.userId,
       body.id ? 'UPDATE' : 'CREATE',

@@ -220,7 +220,10 @@ export async function loginWithEmailPassword(email: string, plainPassword: strin
   );
 
   if (!user) {
-    return { success: false, error: 'Email atau password salah. Silakan periksa kembali.' };
+    return {
+      success: false,
+      error: `Email (${cleanEmail}) belum terdaftar di sistem MTI. Silakan klik "Daftar sebagai anggota baru" di bawah untuk membuat akun terlebih dahulu.`,
+    };
   }
 
   if (user.is_blacklisted) {
@@ -237,7 +240,7 @@ export async function loginWithEmailPassword(email: string, plainPassword: strin
 
   const isMatch = await verifyPassword(plainPassword, user.password_hash);
   if (!isMatch) {
-    return { success: false, error: 'Email atau password salah. Silakan periksa kembali.' };
+    return { success: false, error: 'Password salah. Silakan periksa kembali atau klik "Lupa password?".' };
   }
 
   return { success: true, user };

@@ -1283,13 +1283,52 @@ export default function ThalibahBatch2Page() {
                 <SelectValue placeholder={juzLoading ? "Memuat pilihan juz..." : "Pilih juz"} />
               </SelectTrigger>
               <SelectContent>
-                {juzOptions.map((juz) => (
+                {[...juzOptions]
+                  .sort((a, b) => {
+                    if (b.juz_number !== a.juz_number) return b.juz_number - a.juz_number
+                    return (a.part || '').localeCompare(b.part || '')
+                  })
+                  .map((juz) => (
                     <SelectItem key={juz.id} value={juz.code}>
                       {juz.name}
                     </SelectItem>
                   ))}
               </SelectContent>
             </Select>
+
+            {/* Pilihan Cepat Tombol Juz agar 30A / 30B & juz lain langsung terlihat di semua perangkat */}
+            {!juzLoading && juzOptions.length > 0 && (
+              <div className="pt-1.5 space-y-1.5">
+                <p className="text-xs font-medium text-gray-500">
+                  Klik tombol di bawah untuk memilih cepat:
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {[...juzOptions]
+                    .sort((a, b) => {
+                      if (b.juz_number !== a.juz_number) return b.juz_number - a.juz_number
+                      return (a.part || '').localeCompare(b.part || '')
+                    })
+                    .map((juz) => {
+                      const isSelected = formData.chosen_juz === juz.code
+                      return (
+                        <button
+                          key={`quick-${juz.id}`}
+                          type="button"
+                          onClick={() => handleInputChange('chosen_juz', juz.code)}
+                          className={cn(
+                            "px-3 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer",
+                            isSelected
+                              ? "bg-green-700 text-white border-green-700 shadow-sm"
+                              : "bg-white text-gray-700 border-gray-200 hover:border-green-400 hover:bg-green-50"
+                          )}
+                        >
+                          Juz {juz.code}
+                        </button>
+                      )
+                    })}
+                </div>
+              </div>
+            )}
             {errors.chosen_juz && (
               <p className="text-red-500 text-sm font-medium">{errors.chosen_juz}</p>
             )}

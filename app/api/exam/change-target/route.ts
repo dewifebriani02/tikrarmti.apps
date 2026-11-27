@@ -76,19 +76,15 @@ export async function POST(request: NextRequest) {
     }
 
     if (targetJuz) {
+      const normalizedTarget = targetJuz.trim().toUpperCase();
       const { data: targetOption, error: targetError } = await supabaseAdmin
         .from('juz_options')
-        .select('code')
-        .eq('code', targetJuz)
+        .select('code, juz_number, part')
+        .eq('code', normalizedTarget)
         .eq('is_active', true)
         .maybeSingle();
 
-      if (
-        targetError ||
-        !targetOption ||
-        !targetJuz.toUpperCase().endsWith('A') ||
-        parseInt(targetJuz, 10) === 30
-      ) {
+      if (targetError || !targetOption) {
         return NextResponse.json({ error: 'Pilihan juz tidak tersedia' }, { status: 400 });
       }
 
@@ -99,16 +95,26 @@ export async function POST(request: NextRequest) {
         .eq('is_active', true);
 
       if (!mappingError && batchMappings && batchMappings.length > 0 &&
-          !batchMappings.some(mapping => mapping.juz_code === targetJuz)) {
+          !batchMappings.some(mapping => mapping.juz_code === normalizedTarget)) {
         return NextResponse.json({ error: 'Pilihan juz tidak dibuka untuk batch ini' }, { status: 400 });
       }
 
-      // User just wants to change their target juz before exam
+      const requiredExamJuz = getRequiredExamJuz(normalizedTarget);
+      const isNoExamTarget = !requiredExamJuz;
+
+      // User wants to change their target juz before exam
       const { error: updateError } = await supabaseAdmin
         .from('pendaftaran_tikrar_tahfidz')
         .update({
-          chosen_juz: targetJuz,
+          chosen_juz: normalizedTarget,
           exam_attempt_id: null,
+          ...(isNoExamTarget
+            ? {
+                exam_status: 'completed',
+                exam_juz_number: null,
+                exam_score: 0,
+              }
+            : {}),
         })
         .eq('id', registration.id);
 
@@ -119,7 +125,7 @@ export async function POST(request: NextRequest) {
 
       const { error: syncSubmissionError } = await supabaseAdmin
         .from('daftar_ulang_submissions')
-        .update({ confirmed_chosen_juz: targetJuz })
+        .update({ confirmed_chosen_juz: normalizedTarget })
         .eq('registration_id', registration.id);
 
       if (syncSubmissionError) {
@@ -131,8 +137,8 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         message: 'Target juz updated successfully',
-        newJuz: targetJuz,
-        examJuz: getRequiredExamJuz(targetJuz)
+        newJuz: normalizedTarget,
+        examJuz: requiredExamJuz
       });
     }
 

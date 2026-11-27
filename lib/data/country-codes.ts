@@ -31,18 +31,39 @@ export const countryCodes: CountryCode[] = [
   { code: 'CN', name: 'China', dialCode: '+86', flag: '🇨🇳' },
   { code: 'JP', name: 'Japan', dialCode: '+81', flag: '🇯🇵' },
   { code: 'KR', name: 'South Korea', dialCode: '+82', flag: '🇰🇷' },
+  { code: 'TW', name: 'Taiwan', dialCode: '+886', flag: '🇹🇼' },
+  { code: 'HK', name: 'Hong Kong', dialCode: '+852', flag: '🇭🇰' },
 
-  // Timur Tengah
+  // Timur Tengah & Afrika Utara
   { code: 'SA', name: 'Saudi Arabia', dialCode: '+966', flag: '🇸🇦' },
   { code: 'AE', name: 'UAE', dialCode: '+971', flag: '🇦🇪' },
   { code: 'QA', name: 'Qatar', dialCode: '+974', flag: '🇶🇦' },
+  { code: 'KW', name: 'Kuwait', dialCode: '+965', flag: '🇰🇼' },
+  { code: 'BH', name: 'Bahrain', dialCode: '+973', flag: '🇧🇭' },
+  { code: 'OM', name: 'Oman', dialCode: '+968', flag: '🇴🇲' },
+  { code: 'JO', name: 'Jordan', dialCode: '+962', flag: '🇯🇴' },
+  { code: 'YE', name: 'Yemen', dialCode: '+967', flag: '🇾🇪' },
   { code: 'EG', name: 'Egypt', dialCode: '+20', flag: '🇪🇬' },
+  { code: 'MA', name: 'Morocco', dialCode: '+212', flag: '🇲🇦' },
   { code: 'TR', name: 'Turkey', dialCode: '+90', flag: '🇹🇷' },
 
   // Eropa
+  { code: 'SE', name: 'Sweden', dialCode: '+46', flag: '🇸🇪' },
+  { code: 'NO', name: 'Norway', dialCode: '+47', flag: '🇳🇴' },
+  { code: 'DK', name: 'Denmark', dialCode: '+45', flag: '🇩🇰' },
+  { code: 'FI', name: 'Finland', dialCode: '+358', flag: '🇫🇮' },
   { code: 'GB', name: 'United Kingdom', dialCode: '+44', flag: '🇬🇧' },
   { code: 'DE', name: 'Germany', dialCode: '+49', flag: '🇩🇪' },
   { code: 'NL', name: 'Netherlands', dialCode: '+31', flag: '🇳🇱' },
+  { code: 'FR', name: 'France', dialCode: '+33', flag: '🇫🇷' },
+  { code: 'BE', name: 'Belgium', dialCode: '+32', flag: '🇧🇪' },
+  { code: 'CH', name: 'Switzerland', dialCode: '+41', flag: '🇨🇭' },
+  { code: 'AT', name: 'Austria', dialCode: '+43', flag: '🇦🇹' },
+  { code: 'IT', name: 'Italy', dialCode: '+39', flag: '🇮🇹' },
+  { code: 'ES', name: 'Spain', dialCode: '+34', flag: '🇪🇸' },
+  { code: 'IE', name: 'Ireland', dialCode: '+353', flag: '🇮🇪' },
+  { code: 'PL', name: 'Poland', dialCode: '+48', flag: '🇵🇱' },
+  { code: 'RU', name: 'Russia', dialCode: '+7', flag: '🇷🇺' },
 
   // Oseania
   { code: 'AU', name: 'Australia', dialCode: '+61', flag: '🇦🇺' },
@@ -54,7 +75,16 @@ export const countryCodes: CountryCode[] = [
 ];
 
 export const getCountryCodeByName = (countryName: string): CountryCode | undefined => {
-  return countryCodes.find(country => country.name === countryName);
+  const normalized = countryName?.trim().toLowerCase();
+  if (!normalized) return undefined;
+  if (normalized === 'swedia' || normalized === 'sweden') {
+    return countryCodes.find(c => c.code === 'SE');
+  }
+  return countryCodes.find(
+    country =>
+      country.name.toLowerCase() === normalized ||
+      country.code.toLowerCase() === normalized
+  );
 };
 
 export const getCountryCodeByDial = (dialCode: string): CountryCode | undefined => {
