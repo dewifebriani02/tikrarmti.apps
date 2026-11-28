@@ -29,6 +29,46 @@ export const viewport: Viewport = {
   colorScheme: 'light',
 }
 
+const pwaSelfHealScript = `
+(function() {
+  try {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(regs) {
+        for (var i = 0; i < regs.length; i++) {
+          regs[i].unregister();
+        }
+      }).catch(function() {});
+    }
+    window.addEventListener('error', function(event) {
+      var target = event.target || event.srcElement;
+      var isScriptOrCss = target && (target.tagName === 'SCRIPT' || target.tagName === 'LINK');
+      var src = (target && (target.src || target.href)) || '';
+      if (isScriptOrCss && src.indexOf('/_next/static/') !== -1) {
+        var key = 'mti_early_chunk_reload';
+        var last = parseInt(sessionStorage.getItem(key) || '0', 10);
+        var now = Date.now();
+        if (!last || now - last > 15000) {
+          sessionStorage.setItem(key, String(now));
+          if ('caches' in window) {
+            caches.keys().then(function(names) {
+              return Promise.all(names.map(function(n) { return caches.delete(n); }));
+            }).finally(function() {
+              var url = new URL(window.location.href);
+              url.searchParams.set('_v', String(now));
+              window.location.replace(url.toString());
+            });
+          } else {
+            var url = new URL(window.location.href);
+            url.searchParams.set('_v', String(now));
+            window.location.replace(url.toString());
+          }
+        }
+      }
+    }, true);
+  } catch (e) {}
+})();
+`;
+
 export default function RootLayout({
   children,
 }: {
@@ -36,6 +76,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="id" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: pwaSelfHealScript }} />
+      </head>
       <body className="antialiased" suppressHydrationWarning>
         <ErrorBoundary>
           <ErrorHandlers>

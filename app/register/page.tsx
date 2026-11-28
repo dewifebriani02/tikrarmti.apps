@@ -19,8 +19,8 @@ import { Card } from "@/components/ui/card";
 import { Crown, Heart, ArrowRight, HelpCircle } from "lucide-react";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { validatePhoneNumberFormat } from "@/lib/utils/sanitize";
-import { negaraList, provinsiList, zonaWaktuList } from "@/lib/data/registration-data";
-import { countryCodes } from "@/lib/data/country-codes";
+import { negaraList, provinsiList, zonaWaktuList, isTimezoneMatchForCountry } from "@/lib/data/registration-data";
+import { countryCodes, getCountryCodeByName } from "@/lib/data/country-codes";
 
 function RegisterPageContent() {
   const router = useRouter();
@@ -161,7 +161,7 @@ function RegisterPageContent() {
     if (!formData.whatsapp.trim()) {
       newErrors.whatsapp = 'WhatsApp harus diisi';
     } else if (!validatePhoneNumberFormat(formData.whatsapp, formData.negara)) {
-      const countryCode = countryCodes.find(c => c.name === formData.negara)?.dialCode || '+XX';
+      const countryCode = getCountryCodeByName(formData.negara)?.dialCode || '+XX';
       newErrors.whatsapp = `Format WhatsApp tidak valid. Format: ${formData.negara} ${countryCode} [nomor telepon]`;
     }
 
@@ -479,7 +479,8 @@ function RegisterPageContent() {
                       <SelectItem key={negara} value={negara}>
                         {negara}
                       </SelectItem>
-                    ))}\n                  </SelectContent>
+                    ))}
+                  </SelectContent>
                 </Select>
                 {errors.negara && <p className="text-red-500 text-sm mt-1">{errors.negara}</p>}
               </div>
@@ -600,7 +601,7 @@ function RegisterPageContent() {
                   </SelectTrigger>
                   <SelectContent>
                     {zonaWaktuList
-                      .filter(zona => zona.country === formData.negara || !formData.negara)
+                      .filter(zona => isTimezoneMatchForCountry(zona.country, formData.negara))
                       .map((zona) => (
                         <SelectItem key={zona.value} value={zona.value}>
                           {zona.label}

@@ -418,11 +418,16 @@ export default async function Home({
                     Pondasi & Pemula
                   </Badge>
                 </div>
-                <h3 className="text-2xl font-black text-gray-900 mb-2">
+                <h3 className="text-2xl font-black text-gray-900 mb-1.5">
                   1. Program Pra-Tikrar MTI
                 </h3>
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">(Nuroniyah)</span>
+                  <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">(Iqra Firdaus)</span>
+                  <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">(Metode Asy Syafi&apos;i)</span>
+                </div>
                 <p className="text-sm text-gray-600 mb-4 leading-relaxed">
-                  Bimbingan dasar makharijul huruf, sifatul huruf, dan perbaikan bacaan (tahsin asasi) sebelum thalibah memasuki ziyadah hafalan intensif.
+                  Bimbingan dasar makharijul huruf, sifatul huruf, dan perbaikan bacaan (tahsin asasi melalui kelas <strong>Nuroniyah</strong>, <strong>Iqra Firdaus</strong>, dan <strong>Metode Asy Syafi&apos;i</strong>) sebelum thalibah memasuki ziyadah hafalan intensif.
                 </p>
                 <ul className="space-y-2 text-xs sm:text-sm text-gray-700 mb-6">
                   <li className="flex items-start gap-2">

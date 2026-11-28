@@ -21,6 +21,7 @@ import {
 } from '@/lib/reminder-generator';
 import { toPng } from 'html-to-image';
 import { JadwalPoster } from './JadwalPoster';
+import { extractPraTikrarProgramDetail } from '@/lib/pra-tikrar';
 import { TerimaKasihPoster } from './TerimaKasihPoster';
 
 
@@ -411,14 +412,21 @@ export default function AdminJadwalHarianTab() {
         <button
           type="button"
           onClick={() => setProgramTab('pra_tikrar')}
-          className={`flex min-h-[46px] sm:min-h-[72px] items-center justify-center gap-2 sm:gap-3 rounded-lg sm:rounded-xl px-2 sm:px-5 py-2 sm:py-4 text-xs sm:text-base font-bold transition-all ${
+          className={`flex min-h-[46px] sm:min-h-[72px] flex-col items-center justify-center gap-0.5 sm:gap-1 rounded-lg sm:rounded-xl px-2 sm:px-5 py-2 sm:py-3 text-xs sm:text-base font-bold transition-all ${
             programTab === 'pra_tikrar'
               ? 'bg-fuchsia-700 text-white shadow-md sm:shadow-lg shadow-fuchsia-700/20'
               : 'bg-gray-50 text-gray-600 hover:bg-fuchsia-50 hover:text-fuchsia-700'
           }`}
         >
-          <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
-          <span>Pra Tikrar Tahfidz</span>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
+            <span>Pra Tikrar Tahfidz</span>
+          </div>
+          <span className={`text-[9px] sm:text-[11px] font-medium leading-tight ${
+            programTab === 'pra_tikrar' ? 'text-fuchsia-100' : 'text-gray-500'
+          }`}>
+            (Nuroniyah) (Iqra Firdaus) (Metode Asy Syafi&apos;i)
+          </span>
         </button>
       </div>
 
@@ -700,11 +708,18 @@ export default function AdminJadwalHarianTab() {
                         <div className="flex flex-wrap items-center gap-1.5">
                           <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
                             halaqah.class_type === 'pra_tahfidz' 
-                              ? 'bg-emerald-100 text-emerald-700' 
+                              ? 'bg-fuchsia-100 text-fuchsia-800' 
                               : 'bg-green-100 text-green-700'
                           }`}>
-                            {halaqah.class_type === 'pra_tahfidz' ? 'PRA TIKRAR' : 'TIKRAR TAHFIDZ'}
+                            {halaqah.class_type === 'pra_tahfidz'
+                              ? `PRA TIKRAR${extractPraTikrarProgramDetail(halaqah) ? ` (${extractPraTikrarProgramDetail(halaqah)})` : ''}`
+                              : 'TIKRAR TAHFIDZ'}
                           </span>
+                          {halaqah.class_type === 'pra_tahfidz' && !extractPraTikrarProgramDetail(halaqah) && (
+                            <span className="px-2 py-0.5 text-[10px] font-semibold bg-purple-50 text-purple-700 rounded-full border border-purple-200">
+                              (Nuroniyah) (Iqra Firdaus) (Metode Asy Syafi&apos;i)
+                            </span>
+                          )}
                           {isLibur && (
                             <span className="px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider rounded-full bg-red-600 text-white shadow-sm flex items-center gap-1 animate-pulse">
                               <AlertCircle className="w-3 h-3" /> LIBUR PEKAN INI
@@ -883,10 +898,12 @@ export default function AdminJadwalHarianTab() {
                       )}
                       <span className={`px-2 py-0.5 text-[9px] font-bold rounded-full ${
                         halaqah.class_type === 'pra_tahfidz' 
-                          ? 'bg-emerald-100 text-emerald-700' 
+                          ? 'bg-fuchsia-100 text-fuchsia-800' 
                           : 'bg-green-100 text-green-700'
                       }`}>
-                        {halaqah.class_type === 'pra_tahfidz' ? 'PRA TIKRAR' : 'TIKRAR'}
+                        {halaqah.class_type === 'pra_tahfidz'
+                          ? `PRA TIKRAR${extractPraTikrarProgramDetail(halaqah) ? ` (${extractPraTikrarProgramDetail(halaqah)})` : ''}`
+                          : 'TIKRAR'}
                       </span>
                     </div>
                   </div>

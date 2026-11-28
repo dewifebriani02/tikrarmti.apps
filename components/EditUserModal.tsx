@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { X, Loader2, Key } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { negaraList, provinsiList, zonaWaktuList } from '@/lib/data/registration-data'
+import { negaraList, provinsiList, zonaWaktuList, isTimezoneMatchForCountry } from '@/lib/data/registration-data'
 
 interface User {
   id?: string
@@ -372,7 +372,7 @@ export function EditUserModal({ isOpen, onClose, onSubmit, user }: EditUserModal
                   >
                     <option value="">Pilih zona waktu</option>
                     {zonaWaktuList
-                      .filter(zona => zona.country === formData.negara || !formData.negara)
+                      .filter(zona => isTimezoneMatchForCountry(zona.country, formData.negara))
                       .map((zona) => (
                         <option key={zona.value} value={zona.value}>{zona.label}</option>
                       ))}

@@ -26,7 +26,7 @@ export const negaraList = [
   "Sweden",
   "Norway",
   "Denmark",
-  "Finland",
+  "Finlandia",
   "United Kingdom",
   "Germany",
   "Netherlands",
@@ -108,7 +108,7 @@ export const zonaWaktuList = [
   { value: "GMT+1_SE", label: "GMT+1 - Swedia (CET / GMT+2 CEST)", country: "Sweden" },
   { value: "GMT+1_NO", label: "GMT+1 - Norwegia", country: "Norway" },
   { value: "GMT+1_DK", label: "GMT+1 - Denmark", country: "Denmark" },
-  { value: "GMT+2_FI", label: "GMT+2 - Finlandia", country: "Finland" },
+  { value: "GMT+2_FI", label: "GMT+2 - Finlandia (EET / GMT+3 EEST)", country: "Finlandia" },
   { value: "GMT+0", label: "GMT+0 - Inggris", country: "United Kingdom" },
   { value: "GMT+1_DE", label: "GMT+1 - Jerman", country: "Germany" },
   { value: "GMT+1_NL", label: "GMT+1 - Belanda", country: "Netherlands" },
@@ -135,3 +135,13 @@ export const zonaWaktuList = [
   { value: "GMT+8_AU", label: "GMT+8 - Australia (Western)", country: "Australia" },
   { value: "GMT+12", label: "GMT+12 - Selandia Baru", country: "New Zealand" }
 ];
+
+export const isTimezoneMatchForCountry = (zonaCountry: string, selectedCountry?: string | null): boolean => {
+  if (!selectedCountry) return true;
+  const a = zonaCountry.trim().toLowerCase();
+  const b = selectedCountry.trim().toLowerCase();
+  if (a === b) return true;
+  if ((a === 'finlandia' || a === 'finland') && (b === 'finlandia' || b === 'finland')) return true;
+  if ((a === 'swedia' || a === 'sweden') && (b === 'swedia' || b === 'sweden')) return true;
+  return false;
+};

@@ -2,6 +2,7 @@
 
 import { forwardRef } from 'react';
 import { formatTimeShort, HalaqahForReminder } from '@/lib/reminder-generator';
+import { extractPraTikrarProgramDetail } from '@/lib/pra-tikrar';
 
 interface JadwalPosterProps {
   halaqahs: HalaqahForReminder[];
@@ -32,7 +33,10 @@ const POSTER_STYLES = {
 };
 
 function classLabel(halaqah: HalaqahForReminder, variant: 'tikrar' | 'pra_tikrar') {
-  if (variant === 'pra_tikrar') return 'Pra Tikrar Umum';
+  if (variant === 'pra_tikrar') {
+    const detail = extractPraTikrarProgramDetail(halaqah);
+    return detail ? `Pra Tikrar (${detail})` : 'Pra Tikrar Umum';
+  }
   return halaqah.preferred_juz ? `Tikrar Juz ${halaqah.preferred_juz}` : 'Tikrar Tahfidz';
 }
 

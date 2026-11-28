@@ -1,6 +1,9 @@
+import { extractPraTikrarProgramDetail } from './pra-tikrar';
+
 export interface HalaqahForReminder {
   id?: string;
   name: string;
+  description?: string;
   day_of_week?: number;
   start_time?: string;
   end_time?: string;
@@ -95,9 +98,12 @@ export function toTitleCase(str: string): string {
   return str.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
 }
 
-export function getClassTypeLabel(classType?: string): string {
+export function getClassTypeLabel(classType?: string, halaqah?: HalaqahForReminder): string {
   if (classType === 'tikrar_tahfidz') return 'TIKRAR';
-  if (classType === 'pra_tahfidz') return 'PRA TIKRAR UMUM';
+  if (classType === 'pra_tahfidz') {
+    const detail = extractPraTikrarProgramDetail(halaqah);
+    return detail ? `PRA TIKRAR (${detail.toUpperCase()})` : 'PRA TIKRAR UMUM';
+  }
   if (classType === 'tikrar_berbayar') return 'TIKRAR BERBAYAR';
   return (classType || '').toUpperCase().replace(/_/g, ' ');
 }
@@ -115,7 +121,10 @@ export function getZoomEmoji(zoomName?: string): string {
 export function generateHalaqahReminder(halaqah: HalaqahForReminder, date: Date = new Date()): string {
   const juz = halaqah.preferred_juz || '';
   const isPraTahfidz = halaqah.class_type === 'pra_tahfidz';
-  const title = isPraTahfidz ? `🌟  𝐏𝐑𝐀 𝐓𝐈𝐊𝐑𝐀𝐑  🌟` : `🌟  𝐓𝐈𝐊𝐑𝐀𝐑  *JUZ ${juz}* 🌟`;
+  const praDetail = isPraTahfidz ? extractPraTikrarProgramDetail(halaqah) : null;
+  const title = isPraTahfidz
+    ? `🌟  𝐏𝐑𝐀 𝐓𝐈𝐊𝐑𝐀𝐑${praDetail ? ` *(${praDetail})*` : ''}  🌟`
+    : `🌟  𝐓𝐈𝐊𝐑𝐀𝐑  *JUZ ${juz}* 🌟`;
   
   const muallimah_name = toTitleCase(halaqah.muallimah?.nama_kunyah || halaqah.muallimah?.full_name || '');
   const day_name = getDayName(halaqah.day_of_week) || new Intl.DateTimeFormat('id-ID', { weekday: 'long', timeZone: 'Asia/Jakarta' }).format(date);
@@ -128,7 +137,7 @@ export function generateHalaqahReminder(halaqah: HalaqahForReminder, date: Date 
   const zoom_url = halaqah.zoom_link || '';
   const meeting_id = halaqah.zoom_meeting_id || '';
   const passcode = halaqah.zoom_passcode || '';
-  const class_type_label = getClassTypeLabel(halaqah.class_type);
+  const class_type_label = getClassTypeLabel(halaqah.class_type, halaqah);
 
   const students = halaqah.students || [];
   const maxStudents = halaqah.max_students || 20; // Default fallback
@@ -226,8 +235,9 @@ export function generateDailyReminder(batchName: string, halaqahs: HalaqahForRem
 
   const scheduleStr = sortedHalaqahs.map(h => {
     const isPraTikrar = h.class_type === 'pra_tahfidz';
+    const praDetail = isPraTikrar ? extractPraTikrarProgramDetail(h) : null;
     const classLabel = isPraTikrar
-      ? '𝗞𝗘𝗟𝗔𝗦 𝗣𝗥𝗔 𝗧𝗜𝗞𝗥𝗔𝗥 𝗨𝗠𝗨𝗠'
+      ? `𝗞𝗘𝗟𝗔𝗦 𝗣𝗥𝗔 𝗧𝗜𝗞𝗥𝗔𝗥 𝗨𝗠𝗨𝗠${praDetail ? ` (${praDetail})` : ''}`
       : `𝗞𝗘𝗟𝗔𝗦 𝗧𝗜𝗞𝗥𝗔𝗥${h.preferred_juz ? ` 𝗝𝗨𝗭 ${h.preferred_juz}` : ''}`;
     const coordinatorLabel = isPraTikrar ? 'Musyrifah' : 'Roisah';
 
@@ -294,7 +304,10 @@ export function generateLaporanKelas(halaqah: HalaqahForReminder, date: Date = n
   }).join('\n');
 
   const isPraTikrar = halaqah.class_type === 'pra_tahfidz';
-  const classLabel = isPraTikrar ? 'PRA TIKRAR UMUM MTI' : `TIKRAR MTI Juz ${juz}`;
+  const praDetail = isPraTikrar ? extractPraTikrarProgramDetail(halaqah) : null;
+  const classLabel = isPraTikrar
+    ? `PRA TIKRAR UMUM MTI${praDetail ? ` (${praDetail})` : ''}`
+    : `TIKRAR MTI Juz ${juz}`;
 
   let mentorLine = `🏅Raisah : ${coordinatorName ? coordinatorName : '........................'}`;
   if (halaqah.mentors && halaqah.mentors.length > 0) {
@@ -335,7 +348,10 @@ Dan juga kepada seluruh thallibah, _jazaakunallah khayran_ atas kehadirannya, se
 export function generateMuallimahReminder(halaqah: HalaqahForReminder, date: Date = new Date()): string {
   const isPraTahfidz = halaqah.class_type === 'pra_tahfidz';
   const juz = halaqah.preferred_juz || '';
-  const classLabel = isPraTahfidz ? 'Pra Tikrar Umum' : `Tikrar Tahfidz Juz ${juz}`;
+  const praDetail = isPraTahfidz ? extractPraTikrarProgramDetail(halaqah) : null;
+  const classLabel = isPraTahfidz
+    ? `Pra Tikrar Umum${praDetail ? ` (${praDetail})` : ''}`
+    : `Tikrar Tahfidz Juz ${juz}`;
   const dayName = getDayName(halaqah.day_of_week) || new Intl.DateTimeFormat('id-ID', { weekday: 'long', timeZone: 'Asia/Jakarta' }).format(date);
   const tanggalMasehi = getMasehiDate(date);
   const time = formatTimeShort(halaqah.start_time);

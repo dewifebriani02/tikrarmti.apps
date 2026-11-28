@@ -40,6 +40,7 @@ import { EditHalaqahModal } from '@/components/EditHalaqahModal';
 import { AssignThalibahModal } from '@/components/AssignThalibahModal';
 import { ManualCreateHalaqahModal } from '@/components/ManualCreateHalaqahModal';
 import { formatSchedule, formatClassType } from '@/lib/format-utils';
+import { extractPraTikrarProgramDetail } from '@/lib/pra-tikrar';
 import { updateHalaqah, deleteHalaqah } from '@/lib/admin/halaqah-client';
 import { createClient } from '@/lib/supabase/client';
 import { HalaqahStats, HalaqahStatsData } from '@/components/admin/halaqah/HalaqahStats';
@@ -1284,7 +1285,10 @@ export function HalaqahManagementTab() {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             } whitespace-nowrap py-3 px-3 sm:py-4 sm:px-4 border-b-2 font-bold text-xs sm:text-sm transition-colors`}
           >
-            Pra Tikrar
+            <span>Pra Tikrar</span>
+            <span className="hidden lg:inline ml-1 text-[11px] font-medium text-fuchsia-700">
+              (Nuroniyah) (Iqra Firdaus) (Metode Asy Syafi&apos;i)
+            </span>
           </button>
           <button
             onClick={() => setActiveTab('tikrar_berbayar')}
@@ -1673,9 +1677,18 @@ export function HalaqahManagementTab() {
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <p className="text-sm text-gray-900">
-                            {formatClassType(halaqah.class_type || halaqah.program?.class_type)}
-                          </p>
+                          <div className="space-y-1">
+                            <p className="text-sm text-gray-900">
+                              {formatClassType(halaqah.class_type || halaqah.program?.class_type)}
+                            </p>
+                            {(halaqah.class_type === 'pra_tahfidz' || halaqah.program?.class_type === 'pra_tahfidz') && (
+                              <span className="inline-block px-2 py-0.5 text-[10px] font-bold bg-fuchsia-50 text-fuchsia-800 border border-fuchsia-200 rounded-full">
+                                {extractPraTikrarProgramDetail(halaqah)
+                                  ? `(${extractPraTikrarProgramDetail(halaqah)})`
+                                  : "(Nuroniyah) (Iqra Firdaus) (Metode Asy Syafi'i)"}
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-6 py-4">
                           <p className="text-sm text-gray-900">

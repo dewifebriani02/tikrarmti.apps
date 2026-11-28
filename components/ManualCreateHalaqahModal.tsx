@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { X, Loader2, Users, Calendar, Clock, MapPin, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { formatMuallimahName } from '@/lib/roles';
+import { PRA_TIKRAR_PROGRAM_DETAILS } from '@/lib/pra-tikrar';
 
 interface Batch {
   id: string;
@@ -107,6 +108,19 @@ export function ManualCreateHalaqahModal({ onClose, onSuccess, batchId }: Manual
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleApplyPraProgramDetail = (badge: string) => {
+    setFormData(prev => {
+      let currentName = prev.name.trim();
+      for (const item of PRA_TIKRAR_PROGRAM_DETAILS) {
+        currentName = currentName.replace(item.badge, '').trim();
+      }
+      const nextName = currentName
+        ? `${currentName} ${badge}`.trim()
+        : `Pra-Tikrar ${badge}`;
+      return { ...prev, name: nextName };
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -246,7 +260,7 @@ export function ManualCreateHalaqahModal({ onClose, onSuccess, batchId }: Manual
                   }}
                   className="text-green-600 focus:ring-green-500"
                 />
-                <span className="text-sm">Pra Tikrar</span>
+                <span className="text-sm">Pra Tikrar (Nuroniyah / Iqra Firdaus / Metode Asy Syafi&apos;i)</span>
               </label>
               <label className="flex items-center gap-2">
                 <input
@@ -353,11 +367,37 @@ export function ManualCreateHalaqahModal({ onClose, onSuccess, batchId }: Manual
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="Contoh: Halaqah Juz 1 - Grup A"
+              placeholder={selectedClassType === 'pra_tahfidz' ? 'Contoh: Pra-Tikrar (Nuroniyah) | Ustadzah Fulanah' : 'Contoh: Halaqah Juz 1 - Grup A'}
               disabled={loading}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-900 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
               required
             />
+            {selectedClassType === 'pra_tahfidz' && (
+              <div className="mt-2 p-2.5 bg-fuchsia-50/70 border border-fuchsia-200 rounded-lg">
+                <p className="text-xs font-semibold text-fuchsia-900 mb-1.5">
+                  Pilih Detail Program Pra Tikrar (Klik untuk menyematkan):
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {PRA_TIKRAR_PROGRAM_DETAILS.map((item) => {
+                    const isActive = formData.name.includes(item.badge);
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => handleApplyPraProgramDetail(item.badge)}
+                        className={`px-2.5 py-1 text-xs font-bold rounded-full border transition-all ${
+                          isActive
+                            ? 'bg-fuchsia-700 text-white border-fuchsia-700 shadow-xs'
+                            : 'bg-white text-fuchsia-800 border-fuchsia-300 hover:bg-fuchsia-100'
+                        }`}
+                      >
+                        {item.badge}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Description */}

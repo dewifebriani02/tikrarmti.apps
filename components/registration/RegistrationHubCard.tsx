@@ -344,8 +344,13 @@ export function RegistrationHubCard({
                       <h3 className="text-base sm:text-lg font-bold text-gray-900 group-hover:text-fuchsia-800 transition-colors">
                         Thalibah Pra-Tikrar
                       </h3>
+                      <div className="flex flex-wrap gap-1 mt-1.5 mb-1">
+                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-fuchsia-50 text-fuchsia-800 border border-fuchsia-200">(Nuroniyah)</span>
+                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-fuchsia-50 text-fuchsia-800 border border-fuchsia-200">(Iqra Firdaus)</span>
+                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-fuchsia-50 text-fuchsia-800 border border-fuchsia-200">(Metode Asy Syafi&apos;i)</span>
+                      </div>
                       <p className="text-xs sm:text-sm text-gray-600 mt-1 leading-relaxed">
-                        Perbaikan bacaan dasar Al-Qur&apos;an (Tahsin) &amp; pembekalan makhraj huruf sebelum melanjutkan ke program hafalan.
+                        Perbaikan bacaan dasar Al-Qur&apos;an (Tahsin: Nuroniyah, Iqra Firdaus, Metode Asy Syafi&apos;i) &amp; pembekalan makhraj huruf sebelum melanjutkan ke program hafalan.
                       </p>
                     </div>
 

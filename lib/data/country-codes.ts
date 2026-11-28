@@ -51,7 +51,7 @@ export const countryCodes: CountryCode[] = [
   { code: 'SE', name: 'Sweden', dialCode: '+46', flag: '🇸🇪' },
   { code: 'NO', name: 'Norway', dialCode: '+47', flag: '🇳🇴' },
   { code: 'DK', name: 'Denmark', dialCode: '+45', flag: '🇩🇰' },
-  { code: 'FI', name: 'Finland', dialCode: '+358', flag: '🇫🇮' },
+  { code: 'FI', name: 'Finlandia', dialCode: '+358', flag: '🇫🇮' },
   { code: 'GB', name: 'United Kingdom', dialCode: '+44', flag: '🇬🇧' },
   { code: 'DE', name: 'Germany', dialCode: '+49', flag: '🇩🇪' },
   { code: 'NL', name: 'Netherlands', dialCode: '+31', flag: '🇳🇱' },
@@ -74,11 +74,65 @@ export const countryCodes: CountryCode[] = [
   { code: 'CA', name: 'Canada', dialCode: '+1', flag: '🇨🇦' },
 ];
 
+const COUNTRY_NAME_ALIASES: Record<string, string> = {
+  finlandia: 'FI',
+  finland: 'FI',
+  swedia: 'SE',
+  sweden: 'SE',
+  norwegia: 'NO',
+  norway: 'NO',
+  jerman: 'DE',
+  germany: 'DE',
+  belanda: 'NL',
+  netherlands: 'NL',
+  prancis: 'FR',
+  france: 'FR',
+  belgia: 'BE',
+  belgium: 'BE',
+  swiss: 'CH',
+  switzerland: 'CH',
+  italia: 'IT',
+  italy: 'IT',
+  spanyol: 'ES',
+  spain: 'ES',
+  irlandia: 'IE',
+  ireland: 'IE',
+  polandia: 'PL',
+  poland: 'PL',
+  rusia: 'RU',
+  russia: 'RU',
+  inggris: 'GB',
+  'united kingdom': 'GB',
+  'arab saudi': 'SA',
+  'saudi arabia': 'SA',
+  mesir: 'EG',
+  egypt: 'EG',
+  maroko: 'MA',
+  morocco: 'MA',
+  turki: 'TR',
+  turkey: 'TR',
+  yordania: 'JO',
+  jordan: 'JO',
+  yaman: 'YE',
+  yemen: 'YE',
+  jepang: 'JP',
+  japan: 'JP',
+  'korea selatan': 'KR',
+  'south korea': 'KR',
+  'selandia baru': 'NZ',
+  'new zealand': 'NZ',
+  'amerika serikat': 'US',
+  'united states': 'US',
+  kanada: 'CA',
+  canada: 'CA',
+};
+
 export const getCountryCodeByName = (countryName: string): CountryCode | undefined => {
   const normalized = countryName?.trim().toLowerCase();
   if (!normalized) return undefined;
-  if (normalized === 'swedia' || normalized === 'sweden') {
-    return countryCodes.find(c => c.code === 'SE');
+  const aliasCode = COUNTRY_NAME_ALIASES[normalized];
+  if (aliasCode) {
+    return countryCodes.find(c => c.code === aliasCode);
   }
   return countryCodes.find(
     country =>

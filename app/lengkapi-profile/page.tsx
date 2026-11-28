@@ -18,7 +18,7 @@ import { Card } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { PhoneInput } from '@/components/ui/phone-input'
 import { validatePhoneNumberFormat } from '@/lib/utils/sanitize'
-import { negaraList, provinsiList, zonaWaktuList } from '@/lib/data/registration-data'
+import { negaraList, provinsiList, zonaWaktuList, isTimezoneMatchForCountry } from '@/lib/data/registration-data'
 import { AlertCircle, CheckCircle, Loader2 } from 'lucide-react'
 
 const API_FIELD_TO_FORM_FIELD: Record<string, string> = {
@@ -519,7 +519,7 @@ export default function LengkapiProfilePage() {
                 </SelectTrigger>
                 <SelectContent>
                   {zonaWaktuList
-                    .filter((zona) => !formData.negara || zona.country === formData.negara)
+                    .filter((zona) => isTimezoneMatchForCountry(zona.country, formData.negara))
                     .map((zona) => (
                       <SelectItem key={zona.value} value={zona.value}>
                         {zona.label}

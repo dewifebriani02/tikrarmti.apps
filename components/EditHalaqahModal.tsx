@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { X, Loader2, Save, Search, UserMinus, UserPlus, Shield } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { updateHalaqah, searchUsersForAsisten, assignAsisten, removeAsisten } from '@/lib/admin/halaqah-client';
+import { PRA_TIKRAR_PROGRAM_DETAILS } from '@/lib/pra-tikrar';
 
 interface Halaqah {
   id: string;
@@ -42,6 +43,7 @@ interface Halaqah {
 interface Program {
   id: string;
   name: string;
+  class_type?: string;
 }
 
 interface EditHalaqahModalProps {
@@ -81,6 +83,32 @@ export function EditHalaqahModal({ halaqah, onClose, onSuccess }: EditHalaqahMod
     libur_date: halaqah.libur_date || '',
     status: halaqah.status,
   });
+
+  const selectedProgramObj = programs.find(p => p.id === formData.program_id);
+  const isPraTikrarHalaqah =
+    halaqah.program?.class_type === 'pra_tahfidz' ||
+    selectedProgramObj?.class_type === 'pra_tahfidz' ||
+    formData.name.toLowerCase().includes('pra-tikrar') ||
+    formData.name.toLowerCase().includes('pra tikrar');
+
+  const handleApplyPraProgramDetail = (badge: string) => {
+    setFormData(prev => {
+      let currentName = prev.name.trim();
+      const alreadyHas = currentName.includes(badge);
+      for (const item of PRA_TIKRAR_PROGRAM_DETAILS) {
+        currentName = currentName.replace(item.badge, '').replace(/\s{2,}/g, ' ').trim();
+      }
+      if (alreadyHas) {
+        return { ...prev, name: currentName };
+      }
+      // If name starts with "Pra-Tikrar |", insert badge right after "Pra-Tikrar"
+      if (/^pra[-\s]?tikrar\s*\|/i.test(currentName)) {
+        const updated = currentName.replace(/^(pra[-\s]?tikrar)\s*\|/i, `$1 ${badge} |`);
+        return { ...prev, name: updated };
+      }
+      return { ...prev, name: `${currentName} ${badge}`.trim() };
+    });
+  };
 
   useEffect(() => {
     loadDependencies();
@@ -255,6 +283,32 @@ export function EditHalaqahModal({ halaqah, onClose, onSuccess }: EditHalaqahMod
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-900"
                 disabled={saving}
               />
+              {isPraTikrarHalaqah && (
+                <div className="mt-2 p-2.5 bg-fuchsia-50/70 border border-fuchsia-200 rounded-lg">
+                  <p className="text-xs font-semibold text-fuchsia-900 mb-1.5">
+                    Pilih Detail Program Pra Tikrar (Klik untuk menyematkan / melepas):
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {PRA_TIKRAR_PROGRAM_DETAILS.map((item) => {
+                      const isActive = formData.name.includes(item.badge);
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => handleApplyPraProgramDetail(item.badge)}
+                          className={`px-2.5 py-1 text-xs font-bold rounded-full border transition-all ${
+                            isActive
+                              ? 'bg-fuchsia-700 text-white border-fuchsia-700 shadow-xs'
+                              : 'bg-white text-fuchsia-800 border-fuchsia-300 hover:bg-fuchsia-100'
+                          }`}
+                        >
+                          {item.badge}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="p-3 bg-red-50 border border-red-100 rounded-lg">
